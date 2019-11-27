@@ -3,6 +3,12 @@ name = "voracious_radix_sort"
 version = "0.1.0"
 authors = ["Axelle Piot <axelle.piot@fretlink.com>"]
 edition = "2018"
+description = "Very fast radix sort for all Rust primitive types (except Array)"
+license = "MIT"
+documentation = "https://github.com/fretlink/voracious_sort"
+repository = "https://github.com/fretlink/voracious_sort"
+keywords = ["sort", "sorts", "algorithms", "sorting", "algorithm", "radix", "radix sort", "voracious", "american flag sort", "ska sort", "lsd sort", "msd sort", "lsd", "msd", "diversion", "diverting", "types", "type", "primitive", "primitive type", "primitive types", "string", "bool", "str", "char", "signed", "unsigned", "integer", "integers", "float", "f32", "f64", "tuple", "struct", "benchmark", "research", "operational research", "R&D"]
+categories = ["sort", "sorts", "algorithms", "sorting", "algorithm", "radix", "radix sort", "research", "R&D"]
 
 [dev-dependencies]
 afsort = "0.3.1"

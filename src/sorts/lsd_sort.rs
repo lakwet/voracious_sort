@@ -94,6 +94,24 @@ pub fn lsd_radixsort_aux<T>(
     }
 }
 
+/// # LSD sort
+///
+/// An implementation of the
+/// [LSD sort](https://en.wikipedia.org/wiki/Radix_sort)
+/// algorithm.
+///
+/// Implementation has been deeply optimized:
+/// - Small preliminary check to skip prefix zero bits.
+/// - Use ping pong copy.
+/// - Use vectorization.
+/// - Compute histograms in one pass.
+/// - Check the number of non-empty buckets, if only one bucket is non-empty,
+/// then skip the `copy_by_histogram`.
+///
+/// The Verge sort pre-processing heuristic is also added.
+///
+/// The LSD sort is an out of place unstable radix sort. The core algorithm is
+/// stable, but fallback is unstable.
 pub fn lsd_radixsort<T>(arr: &mut [T], radix: usize)
 where
     T: Radixable + Copy + PartialOrd,

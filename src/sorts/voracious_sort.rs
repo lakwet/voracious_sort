@@ -104,6 +104,26 @@ fn voracious_sort_aux<T: Radixable + Copy + PartialOrd>(
     }
 }
 
+/// # Voracious sort
+///
+/// It is an improvement of the
+/// [Ska sort](https://probablydance.com/2016/12/27/i-wrote-a-faster-sorting-algorithm/)
+/// algorithm.
+///
+/// Insertion sort has been replaced by the PDQ sort as a fallback for very
+/// small input.
+///
+/// We added a second fallback for array smaller or equal to 30_000 elements.
+/// For this purpose, we implemented the MSD sort which is the fastest algorithm
+/// from this crate for "small" input.
+///
+/// Other heuristics have been added.
+///
+/// The Verge sort pre-processing heuristic is also added.
+///
+/// The Voracious sort is an in place unstable radix sort. For array smaller than
+/// 30_000 elements it fallbacks to MSD sort which is out of place, but since the
+/// threshold is a constant, this algorithm is in place.
 pub fn voracious_sort<T>(arr: &mut [T], radix: usize)
 where
     T: Radixable + Copy + PartialOrd,

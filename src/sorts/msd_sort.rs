@@ -103,6 +103,23 @@ where
     msd_radixsort_rec(arr, params);
 }
 
+/// # MSD sort
+///
+/// An implementation of the
+/// [MSD sort](https://en.wikipedia.org/wiki/Radix_sort)
+/// algorithm.
+///
+/// Implementation has been deeply optimized:
+/// - Small preliminary check to skip prefix zero bits.
+/// - Use vectorization.
+///
+/// We choose to use an out of place implementation to have a fast radix sort
+/// for small input. This sort is used as a fallback for other radix sort from
+/// this crate.
+///
+/// The Verge sort pre-processing heuristic is also added.
+///
+/// The MSD sort is an out of place unstable radix sort.
 pub fn msd_radixsort<T>(arr: &mut [T], radix: usize)
 where
     T: Radixable + Copy + PartialOrd,

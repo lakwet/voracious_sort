@@ -110,6 +110,13 @@ fn ska_sort_rec<T: Radixable + Copy + PartialOrd>(arr: &mut [T], p: Params) {
     }
 }
 
+/// # Ska sort
+///
+/// An implementation of the
+/// [Ska sort](https://probablydance.com/2016/12/27/i-wrote-a-faster-sorting-algorithm/)
+/// algorithm.
+///
+/// The Ska sort is an in place unstable radix sort.
 pub fn ska_sort<T: Radixable + Copy + PartialOrd>(arr: &mut [T], radix: usize) {
     if arr.len() <= 64 {
         insertion_sort(arr);

@@ -59,6 +59,15 @@ where
     }
 }
 
+/// # American flag sort
+///
+/// An implementation of the famous
+/// [American flag sort](https://en.wikipedia.org/wiki/American_flag_sort)
+/// algorithm.
+///
+/// This algorithm is used as a fallback in the Ska sort.
+///
+/// The American flag sort is an in place unstable radix sort.
 pub fn american_flag_sort<T>(arr: &mut [T], radix: usize)
 where
     T: Radixable + Copy + PartialOrd,

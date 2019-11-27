@@ -3,6 +3,11 @@ use super::utils::{swap, Params};
 
 const TRY_THRESHOLD: u8 = 32;
 
+/// # Insertion sort
+///
+/// An implementation of the
+/// [Insertion sort](https://en.wikipedia.org/wiki/Insertion_sort)
+/// algorithm.
 pub fn insertion_sort<T: PartialOrd>(arr: &mut [T]) {
     for i in 1..arr.len() {
         if arr[i - 1] > arr[i] {

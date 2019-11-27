@@ -62,6 +62,8 @@ where
 
         (mask, shift)
     }
+    // If counting sort is used, this method must be implemented and the
+    // transformation from the type to the key must be bijective.
     #[inline] // default implementation, might be override
     fn to_generic(&self, _value: usize) -> Self {
         *self

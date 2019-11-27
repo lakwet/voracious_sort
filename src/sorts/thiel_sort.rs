@@ -162,6 +162,21 @@ where
     }
 }
 
+/// # Thiel sort
+///
+/// An implementation of the
+/// [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort)
+/// algorithm. (Same author as the DFR sort)
+///
+/// We haven't managed to reproduce the Fast radix sort performance. Maybe
+/// the generic implementation prevent us from reaching the same runtimes as
+/// the original algorithm which has a dedicated implementation for integers.
+///
+/// The Verge sort pre-processing heuristic is also added.
+///
+/// The Thiel sort is an out of place unstable radix sort. The original sort
+/// is stable, but because the fallback has been replaced by an unstable sort,
+/// the entire algorithm is then unstable.
 pub fn thiel_radixsort<T>(arr: &mut [T], radix: usize)
 where
     T: Radixable + Copy + PartialOrd,

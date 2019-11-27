@@ -158,6 +158,24 @@ where
     dlsd_radixsort_body(arr, params, rbd, diversion);
 }
 
+/// # DLSD sort: Diverting LSD sort
+///
+/// A simpler version of the
+/// [DFR sort](https://github.com/ramou/dfr)
+/// algorithm.
+///
+/// Several changes have been made. Diversion is different, and only one out of
+/// the three ideas from the DFR sort is implemented. So it is less dependent on
+/// the uniformly distributed input hypothesis. Moreover a variable radix is added.
+///
+/// The core idea of this algorithm is, actually, an heuristic. An estimation
+/// of the number of required passes is computed, and then diversion occurs.
+/// Which is unusual for a LSD sort algorithm.
+///
+/// The Verge sort pre-processing heuristic is also added.
+///
+/// The DLSD sort is an out of place unstable radix sort. The core algorithm
+/// is stable but fallback and diversion are unstable.
 pub fn dlsd_radixsort<T>(arr: &mut [T], radix: usize)
 where
     T: Radixable + Copy + PartialOrd,

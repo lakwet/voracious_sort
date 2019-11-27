@@ -70,6 +70,22 @@ where
     string_radixsort_rec(arr, &mut buffer, 0, params);
 }
 
+/// # MSD sort
+///
+/// An implementation of the
+/// [MSD sort](https://en.wikipedia.org/wiki/Radix_sort)
+/// algorithm.
+///
+/// We use is sort for string.
+///
+/// Implementation has been deeply optimized:
+/// - Small preliminary check to skip prefix zero bits.
+/// - Use only one buffer array, this buffer is split for each recursive call.
+/// - Use vectorization.
+///
+/// The Verge sort pre-processing heuristic is also added.
+///
+/// The MSD sort is an out of place unstable radix sort.
 pub fn msd_string_radixsort<T: Radixable + Copy + PartialOrd>(
     arr: &mut [T],
     max_level: usize,
