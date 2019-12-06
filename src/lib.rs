@@ -7,8 +7,7 @@ mod sorts;
 pub mod tests;
 mod types;
 
-pub use types::utils::offset_from_bits;
-pub use types::{RadixSort, Radixable, RadixableForContainer};
+pub use types::{RadixSort, Radixable};
 
 pub use sorts::american_flag_sort::american_flag_sort;
 pub use sorts::boolean_sort::boolean_sort;

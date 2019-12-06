@@ -1,4 +1,4 @@
-use super::super::{RadixSort, Radixable, RadixableForContainer};
+use super::super::{RadixSort, Radixable};
 
 use super::super::sorts::american_flag_sort::american_flag_sort;
 use super::super::sorts::boolean_sort::boolean_sort;
@@ -35,9 +35,7 @@ fn helper_sort_aux<T>(
     runs: usize,
     array_size: usize,
 ) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>,
-    T: Copy + PartialOrd + std::fmt::Debug,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd + std::fmt::Debug,
 {
     for _ in 0..runs {
         let mut array = generator(array_size);
@@ -54,9 +52,7 @@ fn helper_sort<T>(
     runs: usize,
     array_size: usize,
 ) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>,
-    T: Copy + PartialOrd + std::fmt::Debug,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd + std::fmt::Debug,
 {
     generators.iter().for_each(|(generator, gen_name)| {
         println!("generator name: {}", gen_name);
@@ -242,7 +238,8 @@ fn test_sort_msd_string_sort_string() {
             .collect::<Vec<&str>>();
         let mut check = array.to_vec();
 
-        msd_string_radixsort(&mut array);
+        let max_level = array.iter().map(|item| item.len()).max().unwrap();
+        msd_string_radixsort(&mut array, max_level);
 
         check.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         assert_eq!(check, array);

@@ -1,20 +1,17 @@
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::american_flag_sort::serial_radixsort_rec;
 use super::comparative_sort::insertion_sort;
 use super::utils::{get_histogram, prefix_sums, swap, Params};
 
 const UNROLL_SIZE: usize = 4;
 
-pub fn ska_swap<T>(
+pub fn ska_swap<T: Radixable + Copy>(
     arr: &mut [T],
     heads: &mut Vec<usize>,
     tails: &[usize],
-    mask: <[T] as RadixableForContainer>::KeyType,
+    mask: <T as Radixable>::KeyType,
     shift: usize,
-) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType> + Copy,
-    [T]: RadixableForContainer,
-{
+) {
     let mut buckets_size = Vec::new();
     for i in 0..heads.len() {
         buckets_size.push((i, tails[i] - heads[i]))
@@ -37,19 +34,19 @@ pub fn ska_swap<T>(
 
                     unsafe {
                         let tb0 =
-                            arr.get_unchecked(origin).get_key(mask, shift);
+                            arr.get_unchecked(origin).extract(mask, shift);
                         let dest_index_0 = heads[tb0];
                         heads[tb0] += 1;
                         let tb1 =
-                            arr.get_unchecked(origin + 1).get_key(mask, shift);
+                            arr.get_unchecked(origin + 1).extract(mask, shift);
                         let dest_index_1 = heads[tb1];
                         heads[tb1] += 1;
                         let tb2 =
-                            arr.get_unchecked(origin + 2).get_key(mask, shift);
+                            arr.get_unchecked(origin + 2).extract(mask, shift);
                         let dest_index_2 = heads[tb2];
                         heads[tb2] += 1;
                         let tb3 =
-                            arr.get_unchecked(origin + 3).get_key(mask, shift);
+                            arr.get_unchecked(origin + 3).extract(mask, shift);
                         let dest_index_3 = heads[tb3];
                         heads[tb3] += 1;
 
@@ -65,7 +62,7 @@ pub fn ska_swap<T>(
                 for i in 0..remainder {
                     unsafe {
                         let bucket =
-                            arr.get_unchecked(new_off + i).get_key(mask, shift);
+                            arr.get_unchecked(new_off + i).extract(mask, shift);
                         swap(arr, new_off + i, heads[bucket]);
                         heads[bucket] += 1;
                     }
@@ -82,13 +79,7 @@ pub fn ska_swap<T>(
     }
 }
 
-fn ska_sort_rec<T>(arr: &mut [T], p: Params)
-where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
-{
+fn ska_sort_rec<T: Radixable + Copy + PartialOrd>(arr: &mut [T], p: Params) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;
@@ -98,7 +89,8 @@ where
         return;
     }
 
-    let (mask, shift) = arr.get_mask_and_shift(&p);
+    let dummy = arr[0];
+    let (mask, shift) = dummy.get_mask_and_shift(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, tails) = prefix_sums(&histogram);
 
@@ -118,20 +110,15 @@ where
     }
 }
 
-pub fn ska_sort<T>(arr: &mut [T], radix: usize)
-where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
-{
+pub fn ska_sort<T: Radixable + Copy + PartialOrd>(arr: &mut [T], radix: usize) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;
     }
 
-    let (offset, _) = (0, 0); //arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let dummy = arr[0];
+    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(offset, radix);
     let params = Params::new(0, radix, offset, max_level);
 
     ska_sort_rec(arr, params);

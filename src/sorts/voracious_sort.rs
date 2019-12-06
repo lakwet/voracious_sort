@@ -2,22 +2,17 @@ use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::{
     explore_simple_forward, verge_sort_preprocessing, Orientation,
 };
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::counting_sort::counting_sort;
 use super::msd_sort::msd_radixsort_rec;
 use super::ska_sort::ska_swap;
 use super::utils::{get_histogram, prefix_sums, Params};
 
-pub fn voracious_sort_rec<T>(
+pub fn voracious_sort_rec<T: Radixable + Copy + PartialOrd>(
     arr: &mut [T],
     p: Params,
     zipf_heuristic_count: usize,
-) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
-{
+) {
     // Small optimization, use PDQ sort (sort implemented in Std Rust Unstable)
     // instead of insertion sort for small size array.
     if arr.len() <= 128 {
@@ -36,7 +31,8 @@ pub fn voracious_sort_rec<T>(
         return;
     }
 
-    let (mask, shift) = arr.get_mask_and_shift(&p);
+    let dummy = arr[0];
+    let (mask, shift) = dummy.get_mask_and_shift(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, tails) = prefix_sums(&histogram);
 
@@ -76,25 +72,21 @@ pub fn voracious_sort_rec<T>(
     }
 }
 
-fn voracious_sort_aux<T>(
+fn voracious_sort_aux<T: Radixable + Copy + PartialOrd>(
     arr: &mut [T],
     radix: usize,
     heuristic: bool,
     min_cs2: usize,
-) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
-{
+) {
     let size = arr.len();
     if size <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
-    let (offset, _) = arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let dummy = arr[0];
+    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(offset, radix);
     let params = Params::new(0, radix, offset, max_level);
 
     if heuristic {
@@ -114,10 +106,7 @@ fn voracious_sort_aux<T>(
 
 pub fn voracious_sort<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -132,10 +121,7 @@ where
 
 pub fn voracious_sort_heu<T>(arr: &mut [T], radix: usize, min_cs2: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

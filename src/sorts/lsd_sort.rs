@@ -1,6 +1,6 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::counting_sort::counting_sort;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
@@ -10,10 +10,7 @@ use super::utils::{
 
 pub fn lsd_radixsort_body<T>(arr: &mut [T], p: Params)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -21,6 +18,7 @@ where
     }
 
     let size = arr.len();
+    let dummy = arr[0];
     let mut buffer: Vec<T> = vec![arr[0]; size];
     let mut index = 0;
 
@@ -37,7 +35,7 @@ where
 
         let (mut source, mut destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
-        let (mask, shift) = source.get_mask_and_shift(&p.new_level(level));
+        let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
         let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
         copy_by_histogram(
@@ -71,18 +69,16 @@ pub fn lsd_radixsort_aux<T>(
     heuristic: bool,
     min_cs2: usize,
 ) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
-    let (offset, _) = arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let dummy = arr[0];
+    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(offset, radix);
     let params = Params::new(0, radix, offset, max_level);
 
     if heuristic {
@@ -100,10 +96,7 @@ pub fn lsd_radixsort_aux<T>(
 
 pub fn lsd_radixsort<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -118,10 +111,7 @@ where
 
 pub fn lsd_radixsort_heu<T>(arr: &mut [T], radix: usize, min_cs2: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

@@ -1,6 +1,6 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::utils::{get_histogram, prefix_sums, Params};
 
 const UNROLL_SIZE: usize = 4;
@@ -11,13 +11,10 @@ pub fn copy_by_histogram<T>(
     source: &mut [T],
     destination: &mut [T],
     heads: &mut Vec<usize>,
-    mask: <[T] as RadixableForContainer>::KeyType,
+    mask: <T as Radixable>::KeyType,
     shift: usize,
 ) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
     let quotient = size / UNROLL_SIZE;
     let remainder = size % UNROLL_SIZE;
@@ -25,10 +22,10 @@ pub fn copy_by_histogram<T>(
     for q in 0..quotient {
         let i = q * UNROLL_SIZE;
         unsafe {
-            let b0 = source.get_unchecked(i).get_key(mask, shift);
-            let b1 = source.get_unchecked(i + 1).get_key(mask, shift);
-            let b2 = source.get_unchecked(i + 2).get_key(mask, shift);
-            let b3 = source.get_unchecked(i + 3).get_key(mask, shift);
+            let b0 = source.get_unchecked(i).extract(mask, shift);
+            let b1 = source.get_unchecked(i + 1).extract(mask, shift);
+            let b2 = source.get_unchecked(i + 2).extract(mask, shift);
+            let b3 = source.get_unchecked(i + 3).extract(mask, shift);
 
             let d0 = heads[b0];
             heads[b0] += 1;
@@ -51,7 +48,7 @@ pub fn copy_by_histogram<T>(
 
     for r in 0..remainder {
         let i = quotient * UNROLL_SIZE + r;
-        let target_bucket = source[i].get_key(mask, shift);
+        let target_bucket = source[i].extract(mask, shift);
         destination[heads[target_bucket]] = source[i];
         heads[target_bucket] += 1;
     }
@@ -59,17 +56,15 @@ pub fn copy_by_histogram<T>(
 
 pub fn msd_radixsort_rec<T>(arr: &mut [T], p: Params)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
-    let (mask, shift) = arr.get_mask_and_shift(&p);
+    let dummy = arr[0];
+    let (mask, shift) = dummy.get_mask_and_shift(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, _) = prefix_sums(&histogram);
 
@@ -93,18 +88,16 @@ where
 
 fn msd_radixsort_aux<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
-    let (offset, _) = arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let dummy = arr[0];
+    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(offset, radix);
     let params = Params::new(0, radix, offset, max_level);
 
     msd_radixsort_rec(arr, params);
@@ -112,10 +105,7 @@ where
 
 pub fn msd_radixsort<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

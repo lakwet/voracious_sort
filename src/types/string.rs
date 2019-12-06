@@ -1,12 +1,12 @@
 use super::super::sorts::msd_string_sort::msd_string_radixsort;
 use super::super::sorts::utils::Params;
-use super::{RadixSort, Radixable, RadixableForContainer};
+use super::Radixable;
 
 impl Radixable for &str {
     type KeyType = u8;
 
-    #[inline]
-    fn get_key(&self, _mask: u8, shift: usize) -> usize {
+    #[inline] // overrided function
+    fn extract(&self, _mask: u8, shift: usize) -> usize {
         if shift >= self.len() {
             0 as usize
         } else {
@@ -14,58 +14,47 @@ impl Radixable for &str {
         }
     }
     #[inline]
-    fn mask_for_high_bits(
-        &self,
-        _default_mask: u8,
-        _radix: usize,
-        _offset: usize,
-        _max_level: usize,
-    ) -> u8 {
-        0xFF // dummy
-    }
-}
-
-impl<'a> RadixableForContainer for [&'a str] {
-    type T = &'a str;
-    type KeyType = u8;
-
-    #[inline]
-    fn compute_offset(&self, _radix: usize) -> (usize, usize) {
-        (0, 0) // dummy
+    fn into_key_type(&self) -> u8 {
+        0 // dummy value
     }
     #[inline]
-    fn element_bit_size(&self) -> usize {
-        self.len()
+    fn type_size(&self) -> usize {
+        8
     }
-    #[inline]
-    fn into_key_type(&self, v: &'a str) -> u8 {
-        v.as_bytes()[0]
+    #[inline(always)]
+    fn usize_to_keytype(&self, item: usize) -> u8 {
+        item as u8
     }
-    #[inline]
-    fn from_key_type(&self, v: u8) -> usize {
-        v as usize
+    #[inline(always)]
+    fn keytype_to_usize(&self, item: u8) -> usize {
+        item as usize
     }
-    #[inline]
-    fn usize_into_key_type(&self, v: usize) -> u8 {
-        v as u8
-    }
-    // overrided function
-    #[inline]
-    fn compute_max_level(&self, _offset: usize, _radix: usize) -> usize {
-        self.iter().map(|s| s.len()).max().unwrap()
-    }
-    // overrided function
-    #[inline]
-    fn get_mask_and_shift(&self, p: &Params) -> (Self::KeyType, usize) {
+    #[inline] // overrided function
+    fn get_mask_and_shift(&self, p: &Params) -> (u8, usize) {
         (0, p.level)
     }
-}
-
-impl RadixSort for [&str] {
-    fn voracious_sort(&mut self) {
-        msd_string_radixsort(self);
+    #[inline] // overrided function
+    fn compute_offset(
+        &self,
+        _arr: &mut [&str],
+        _radix: usize,
+    ) -> (usize, usize) {
+        (0, 0)
     }
-    fn dlsd_sort(&mut self) {
-        msd_string_radixsort(self);
+    #[inline]
+    fn default_key(&self) -> Self::KeyType {
+        0
+    }
+    #[inline]
+    fn one(&self) -> Self::KeyType {
+        1
+    }
+    fn voracious_sort(&self, arr: &mut [&str]) {
+        let max_level = arr.iter().map(|item| item.len()).max().unwrap();
+        msd_string_radixsort(arr, max_level);
+    }
+    fn dlsd_sort(&self, arr: &mut [&str]) {
+        let max_level = arr.iter().map(|item| item.len()).max().unwrap();
+        msd_string_radixsort(arr, max_level);
     }
 }

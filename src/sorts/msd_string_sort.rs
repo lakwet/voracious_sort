@@ -1,22 +1,17 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{copy_nonoverlapping, get_histogram, prefix_sums, Params};
 
 const THRESHOLD: usize = 128;
 
-fn string_radixsort_rec<T>(
+fn string_radixsort_rec<T: Radixable + Copy + PartialOrd>(
     arr: &mut [T],
     buffer: &mut [T],
     index: usize,
     p: Params,
-) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
-{
+) {
     if arr.len() <= THRESHOLD {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         if index == 1 {
@@ -25,7 +20,8 @@ fn string_radixsort_rec<T>(
         return;
     }
 
-    let (mask, shift) = arr.get_mask_and_shift(&p);
+    let dummy = arr[0];
+    let (mask, shift) = dummy.get_mask_and_shift(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, _) = prefix_sums(&histogram);
 
@@ -56,40 +52,36 @@ fn string_radixsort_rec<T>(
     }
 }
 
-fn string_radixsort_aux<T>(arr: &mut [T], radix: usize)
+fn string_radixsort_aux<T>(arr: &mut [T], radix: usize, max_level: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= THRESHOLD {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
+    let dummy = arr[0];
     let mut buffer: Vec<T> = vec![arr[0]; arr.len()];
 
-    let (offset, _) = arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let (offset, _) = dummy.compute_offset(arr, radix);
     let params = Params::new(0, radix, offset, max_level);
 
     string_radixsort_rec(arr, &mut buffer, 0, params);
 }
 
-pub fn msd_string_radixsort<T>(arr: &mut [T])
-where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
-{
+pub fn msd_string_radixsort<T: Radixable + Copy + PartialOrd>(
+    arr: &mut [T],
+    max_level: usize,
+) {
     if arr.len() <= THRESHOLD {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
     let mut separators =
-        verge_sort_preprocessing(arr, 8, &string_radixsort_aux);
+        verge_sort_preprocessing(arr, 8, &|arr: &mut [T], radix: usize| {
+            string_radixsort_aux(arr, radix, max_level);
+        });
     k_way_merge(arr, &mut separators);
 }

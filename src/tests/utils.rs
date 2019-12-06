@@ -2,7 +2,7 @@ use super::super::sorts::utils::{
     get_full_histogram_except_for_last_level, get_histogram,
     get_partial_histograms_fast, only_one_bucket_filled, prefix_sums, Params,
 };
-use super::super::RadixableForContainer;
+use super::super::Radixable;
 
 #[test]
 fn test_utils_get_histogram() {
@@ -11,7 +11,7 @@ fn test_utils_get_histogram() {
     ];
     let mut arr = v.as_mut_slice();
     let p = Params::new(0, 2, 62, 1); // level, radix, offset, max_level
-    let (mask, shift) = arr.get_mask_and_shift(&p);
+    let (mask, shift) = arr[0].get_mask_and_shift(&p);
     let h = get_histogram(&mut arr, &p, mask, shift);
 
     let check = vec![5, 9, 4, 4];

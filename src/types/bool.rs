@@ -1,11 +1,23 @@
 use super::super::sorts::boolean_sort::boolean_sort;
-use super::super::types::{RadixSort, Radixable, RadixableForContainer};
+use super::super::types::Radixable;
 
 impl Radixable for bool {
     type KeyType = u8;
 
+    #[inline] // overrided function
+    fn extract(&self, _mask: u8, _shift: usize) -> usize {
+        if *self {
+            1
+        } else {
+            0
+        }
+    }
+    #[inline] // overrided function
+    fn to_generic(&self, value: usize) -> bool {
+        value == 1
+    }
     #[inline]
-    fn get_key(&self, _mask: u8, _shift: usize) -> usize {
+    fn into_key_type(&self) -> u8 {
         if *self {
             1
         } else {
@@ -13,71 +25,29 @@ impl Radixable for bool {
         }
     }
     #[inline]
-    fn to_generic(&self, value: usize) -> Self {
-        match value {
-            1 => true,
-            _ => false,
-        }
-    }
-    #[inline]
-    fn mask_for_high_bits(
-        &self,
-        default_mask: u8,
-        radix: usize,
-        offset: usize,
-        max_level: usize,
-    ) -> u8 {
-        let bits = 8;
-        let mut mask = 0;
-        if radix * max_level > bits - offset {
-            for level in 0..max_level {
-                mask |= default_mask << (radix * level);
-            }
-        } else {
-            for level in 0..max_level {
-                mask |= default_mask
-                    << (bits - offset - radix * (max_level - level));
-            }
-        }
-        mask
-    }
-}
-
-impl RadixableForContainer for [bool] {
-    type T = bool;
-    type KeyType = u8;
-
-    #[inline]
-    fn compute_offset(&self, _radix: usize) -> (usize, usize) {
-        (0, 0)
-    }
-    #[inline]
-    fn element_bit_size(&self) -> usize {
+    fn type_size(&self) -> usize {
         1
     }
-    #[inline]
-    fn into_key_type(&self, v: bool) -> u8 {
-        if v {
-            1
-        } else {
-            0
-        }
+    #[inline(always)]
+    fn usize_to_keytype(&self, item: usize) -> u8 {
+        item as u8
+    }
+    #[inline(always)]
+    fn keytype_to_usize(&self, item: u8) -> usize {
+        item as usize
     }
     #[inline]
-    fn from_key_type(&self, v: u8) -> usize {
-        v as usize
+    fn default_key(&self) -> Self::KeyType {
+        0
     }
     #[inline]
-    fn usize_into_key_type(&self, v: usize) -> u8 {
-        v as u8
+    fn one(&self) -> Self::KeyType {
+        1
     }
-}
-
-impl RadixSort for [bool] {
-    fn voracious_sort(&mut self) {
-        boolean_sort(self);
+    fn voracious_sort(&self, arr: &mut [bool]) {
+        boolean_sort(arr);
     }
-    fn dlsd_sort(&mut self) {
-        boolean_sort(self);
+    fn dlsd_sort(&self, arr: &mut [bool]) {
+        boolean_sort(arr);
     }
 }

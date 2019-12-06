@@ -1,4 +1,4 @@
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::utils::{swap, Params};
 
 const TRY_THRESHOLD: u8 = 32;
@@ -29,16 +29,11 @@ fn insertion_sort_start_at<T: PartialOrd>(arr: &mut [T], start: usize) {
 
 fn find_end_of_bucket<T>(arr: &mut [T], start: usize, p: &Params) -> usize
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     let dummy = arr[0];
-    let default_mask = arr.get_default_mask(p);
-    let mask =
-        dummy.mask_for_high_bits(default_mask, p.radix, p.offset, p.max_level);
-    let high_bits = arr.into_key_type(arr[start]) & mask;
+    let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);
+    let high_bits = arr[start].into_key_type() & mask;
 
     let mut jump = 32;
     let mut i = start;
@@ -48,14 +43,14 @@ where
         j = arr.len() - 1;
     }
 
-    while high_bits == (arr.into_key_type(arr[j]) & mask) {
+    while high_bits == (arr[j].into_key_type() & mask) {
         jump *= 2;
         i = j;
         j += jump;
         if j >= arr.len() {
             j = arr.len() - 1;
 
-            if high_bits == arr.into_key_type(arr[j]) & mask {
+            if high_bits == arr[j].into_key_type() & mask {
                 return j + 1;
             }
         }
@@ -63,7 +58,7 @@ where
 
     loop {
         let mid = (i + j) / 2;
-        let t_high_bits = arr.into_key_type(arr[mid]) & mask;
+        let t_high_bits = arr[mid].into_key_type() & mask;
         if high_bits == t_high_bits {
             if j == i + 1 {
                 return j;
@@ -77,34 +72,29 @@ where
 
 fn find_start_of_bucket<T>(arr: &mut [T], start: usize, p: &Params) -> usize
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     let dummy = arr[0];
-    let default_mask = arr.get_default_mask(p);
-    let mask =
-        dummy.mask_for_high_bits(default_mask, p.radix, p.offset, p.max_level);
-    let high_bits = arr.into_key_type(arr[start]) & mask;
+    let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);
+    let high_bits = arr[start].into_key_type() & mask;
 
     let mut jump = 32;
     let mut i = start;
 
     let mut j = if jump > start { 0 } else { start - jump };
 
-    while high_bits == (arr.into_key_type(arr[j]) & mask) {
+    while high_bits == (arr[j].into_key_type() & mask) {
         jump *= 2;
         i = j;
         j = if jump > j { 0 } else { j - jump };
-        if j == 0 && high_bits == arr.into_key_type(arr[j]) & mask {
+        if j == 0 && high_bits == arr[j].into_key_type() & mask {
             return 0;
         }
     }
 
     loop {
         let mid = (i + j) / 2;
-        let t_high_bits = arr.into_key_type(arr[mid]) & mask;
+        let t_high_bits = arr[mid].into_key_type() & mask;
 
         if high_bits == t_high_bits {
             i = mid;
@@ -119,24 +109,19 @@ where
 
 pub fn insertion_sort_try<T>(arr: &mut [T], p: &Params) -> Vec<(usize, usize)>
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     let dummy = arr[0];
-    let default_mask = arr.get_default_mask(p);
-    let mask =
-        dummy.mask_for_high_bits(default_mask, p.radix, p.offset, p.max_level);
+    let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);
 
     let mut unsorted_parts = Vec::new();
 
     let mut i = 1;
-    let mut high_bits = arr.into_key_type(arr[0]) & mask;
+    let mut high_bits = arr[0].into_key_type() & mask;
     let mut misplaced_count = 0;
     loop {
         if arr[i - 1] > arr[i] {
-            let current_high_bits = arr.into_key_type(arr[i]) & mask;
+            let current_high_bits = arr[i].into_key_type() & mask;
             if current_high_bits == high_bits {
                 misplaced_count += 1;
             } else {

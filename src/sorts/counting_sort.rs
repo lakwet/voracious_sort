@@ -1,25 +1,23 @@
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::utils::Params;
 
 fn counting_sort_aux<T>(arr: &mut [T], p: Params)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
+    let dummy = arr[0];
     let mut histogram = vec![0; p.radix_range];
-    let mask = arr.get_default_mask(&p);
+    let mask = dummy.default_mask(p.radix);
 
     let quotient = arr.len() / 4;
     let remainder = arr.len() % 4;
     for q in 0..quotient {
         unsafe {
             let i = q * 4;
-            let bucket0 = arr.get_unchecked(i).get_key(mask, 0);
-            let bucket1 = arr.get_unchecked(i + 1).get_key(mask, 0);
-            let bucket2 = arr.get_unchecked(i + 2).get_key(mask, 0);
-            let bucket3 = arr.get_unchecked(i + 3).get_key(mask, 0);
+            let bucket0 = arr.get_unchecked(i).extract(mask, 0);
+            let bucket1 = arr.get_unchecked(i + 1).extract(mask, 0);
+            let bucket2 = arr.get_unchecked(i + 2).extract(mask, 0);
+            let bucket3 = arr.get_unchecked(i + 3).extract(mask, 0);
             histogram[bucket0] += 1;
             histogram[bucket1] += 1;
             histogram[bucket2] += 1;
@@ -29,7 +27,7 @@ where
     let offset = quotient * 4;
     for i in 0..remainder {
         unsafe {
-            let bucket = arr.get_unchecked(offset + i).get_key(mask, 0);
+            let bucket = arr.get_unchecked(offset + i).extract(mask, 0);
             histogram[bucket] += 1;
         }
     }
@@ -60,11 +58,12 @@ where
 
 pub fn counting_sort<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
+    if arr.len() < 2 {
+        return;
+    }
+
     let offset = 0;
     let level = 0;
     let max_level = 1;

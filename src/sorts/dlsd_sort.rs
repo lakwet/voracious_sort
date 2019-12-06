@@ -1,6 +1,6 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::comparative_sort::insertion_sort_try;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
@@ -43,17 +43,12 @@ fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
     }
 }
 
-pub fn dlsd_radixsort_body<T>(
+pub fn dlsd_radixsort_body<T: Radixable + Copy + PartialOrd>(
     arr: &mut [T],
     p: Params,
     rbd: usize, // runs before diversion
     diversion: bool,
-) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
-{
+) {
     let size = arr.len();
 
     if size <= 128 {
@@ -61,6 +56,7 @@ pub fn dlsd_radixsort_body<T>(
         return;
     }
 
+    let dummy = arr[0];
     let mut index = 0;
 
     let mut buffer: Vec<T> = vec![arr[0]; size];
@@ -84,9 +80,9 @@ pub fn dlsd_radixsort_body<T>(
         let (mut source, mut destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
         let (mask, shift) = if diversion {
-            source.get_mask_and_shift_for_partial(&p.new_level(level))
+            dummy.get_mask_and_shift_for_partial(&p.new_level(level))
         } else {
-            source.get_mask_and_shift(&p.new_level(level))
+            dummy.get_mask_and_shift(&p.new_level(level))
         };
         let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
@@ -115,14 +111,14 @@ pub fn dlsd_radixsort_body<T>(
         copy_nonoverlapping(t2, t1, size);
     }
 
-    if diversion && t1.element_bit_size() - p.offset >= p.radix * p.max_level {
+    if diversion && dummy.type_size() - p.offset >= p.radix * p.max_level {
         let unsorted_parts = insertion_sort_try(&mut t1, &p);
 
         let new_level = 0;
         let std_radix = 8;
         let new_raw_offset = p.offset + p.max_level * p.radix;
-        let new_max_level = t1.compute_max_level(new_raw_offset, std_radix);
-        let new_offset = t1.element_bit_size() - new_max_level * std_radix;
+        let new_max_level = dummy.compute_max_level(new_raw_offset, std_radix);
+        let new_offset = dummy.type_size() - new_max_level * std_radix;
         let new_params =
             Params::new(new_level, std_radix, new_offset, new_max_level);
 
@@ -134,21 +130,20 @@ pub fn dlsd_radixsort_body<T>(
 
 pub fn dlsd_radixsort_aux<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
-    let (sugg_radix, required_bytes) = get_best_radix_size_and_runs(arr.len());
-    let (_, sugg_raw_offset) = arr.compute_offset(sugg_radix);
+    let dummy = arr[0];
 
-    let (offset, _) = arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let (sugg_radix, required_bytes) = get_best_radix_size_and_runs(arr.len());
+    let (_, sugg_raw_offset) = dummy.compute_offset(arr, sugg_radix);
+
+    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(offset, radix);
 
     let (params, diversion, rbd) = if required_bytes < max_level {
         (
@@ -165,10 +160,7 @@ where
 
 pub fn dlsd_radixsort<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

@@ -1,4 +1,4 @@
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 
 #[derive(PartialEq, Debug)]
 pub enum Orientation {
@@ -406,7 +406,6 @@ fn handle_asc_then_desc<T>(
 ) -> (usize, usize)
 where
     T: Radixable + Copy + PartialOrd,
-    [T]: RadixableForContainer,
 {
     //     bp2 bp1  position  fp1 fp2
     //        /¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯\
@@ -455,7 +454,6 @@ fn handle_desc_then_asc<T>(
 ) -> (usize, usize)
 where
     T: Radixable + Copy + PartialOrd,
-    [T]: RadixableForContainer,
 {
     //     bp2 bp1   position   fp1 fp2
     //      \  |        |        |  /
@@ -530,7 +528,6 @@ fn handle_part<T>(
 ) -> (usize, usize)
 where
     T: Radixable + Copy + PartialOrd,
-    [T]: RadixableForContainer,
 {
     match get_growth_pattern(b_pattern, f_pattern) {
         GrowthPattern::AscThenDesc => handle_asc_then_desc(
@@ -605,7 +602,6 @@ pub fn verge_sort_preprocessing<T>(
 ) -> Vec<usize>
 where
     T: Radixable + Copy + PartialOrd,
-    [T]: RadixableForContainer,
 {
     let size = arr.len();
     let big_enough = compute_big_enough_run(size);

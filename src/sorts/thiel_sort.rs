@@ -1,6 +1,6 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::{Radixable, RadixableForContainer};
+use super::super::Radixable;
 use super::lsd_sort::lsd_radixsort_body;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
@@ -10,10 +10,7 @@ use super::utils::{
 
 pub fn thiel_radixsort_body<T>(arr: &mut [T], p: Params)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -21,6 +18,7 @@ where
     }
 
     let size = arr.len();
+    let dummy = arr[0];
     let histograms = get_full_histogram_except_for_last_level(arr, &p);
 
     let estimated_size = ((size >> p.radix) + size % p.radix + 1) as usize;
@@ -44,12 +42,11 @@ where
     estimated_tails.push(p.radix_range * estimated_size);
     estimated_tails.remove(0);
 
-    let (mask, shift) =
-        source.get_mask_and_shift(&p.new_level(p.max_level - 1));
+    let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(p.max_level - 1));
     let mut overflow_index = 0;
 
     for i in 0..size {
-        let target_bucket = source[i].get_key(mask, shift);
+        let target_bucket = source[i].extract(mask, shift);
         first_histogram[target_bucket] += 1;
         // if the bucket buffer is not full, put the element in the buffer
         if estimated_heads[target_bucket] < estimated_size {
@@ -72,7 +69,7 @@ where
     if overflow_index > 0 {
         overflow_buckets = vec![destination[0]; overflow_index];
         for item in source.iter().take(overflow_index) {
-            let target_bucket = item.get_key(mask, shift);
+            let target_bucket = item.extract(mask, shift);
             overflow_buckets[overflow_heads[target_bucket]] = *item;
             overflow_heads[target_bucket] += 1;
         }
@@ -80,7 +77,7 @@ where
 
     // perform second pass while taking into account overflow_buckets
     let level = p.max_level - 2;
-    let (mask, shift) = source.get_mask_and_shift(&p.new_level(level));
+    let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
     let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
     for prev_bucket in 0..p.radix_range {
@@ -89,7 +86,7 @@ where
             .take(overflow_tails[prev_bucket])
             .skip(overflow_heads_copy[prev_bucket])
         {
-            let target_bucket = item.get_key(mask, shift);
+            let target_bucket = item.extract(mask, shift);
             source[heads[target_bucket]] = *item;
             heads[target_bucket] += 1;
         }
@@ -98,7 +95,7 @@ where
             .take(estimated_heads[prev_bucket])
             .skip(prev_bucket * estimated_size)
         {
-            let target_bucket = item.get_key(mask, shift);
+            let target_bucket = item.extract(mask, shift);
             source[heads[target_bucket]] = *item;
             heads[target_bucket] += 1;
         }
@@ -116,7 +113,7 @@ where
 
         let (mut source, mut destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
-        let (mask, shift) = source.get_mask_and_shift(&p.new_level(level));
+        let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
         let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
         copy_by_histogram(
@@ -146,18 +143,16 @@ where
 
 fn thiel_radixsort_aux<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
-    let (offset, _) = arr.compute_offset(radix);
-    let max_level = arr.compute_max_level(offset, radix);
+    let dummy = arr[0];
+    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(offset, radix);
     let params = Params::new(0, radix, offset, max_level);
 
     if params.max_level < 2 {
@@ -169,10 +164,7 @@ where
 
 pub fn thiel_radixsort<T>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>
-        + Copy
-        + PartialOrd,
-    [T]: RadixableForContainer<T = T>,
+    T: Radixable + Copy + PartialOrd,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

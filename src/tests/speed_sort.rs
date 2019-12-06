@@ -7,7 +7,7 @@ use afsort::AFSortable;
 #[allow(unused_imports)]
 use rdxsort::*;
 
-use super::super::{RadixSort, Radixable, RadixableForContainer};
+use super::super::{RadixSort, Radixable};
 
 #[allow(unused_imports)]
 use super::super::sorts::american_flag_sort::american_flag_sort;
@@ -23,8 +23,6 @@ use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
 #[allow(unused_imports)]
 use super::super::sorts::msd_sort::msd_radixsort;
-#[allow(unused_imports)]
-use super::super::sorts::msd_string_sort::msd_string_radixsort;
 #[allow(unused_imports)]
 use super::super::sorts::ska_sort::ska_sort;
 #[allow(unused_imports)]
@@ -79,10 +77,7 @@ fn helper_sort_aux<T>(
     size: usize,
     generator: &dyn Fn(usize) -> Vec<T>,
 ) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>,
-    T: Copy + PartialOrd + std::fmt::Debug,
-    [T]: RadixableForContainer<T = T>,
-    [T]: RadixSort,
+    T: Radixable + Copy + PartialOrd + std::fmt::Debug,
     // T: rdxsort::RdxSortTemplate,
     // [T]: rdxsort::RdxSort,
     // T: afsort::DigitAt,
@@ -127,10 +122,7 @@ fn helper_sort<T>(
     test_name: &str,
     generators: Vec<(&dyn Fn(usize) -> Vec<T>, &'static str)>,
 ) where
-    T: Radixable<KeyType = <[T] as RadixableForContainer>::KeyType>,
-    T: Copy + PartialOrd + std::fmt::Debug,
-    [T]: RadixableForContainer<T = T>,
-    [T]: RadixSort,
+    T: Radixable + Copy + PartialOrd + std::fmt::Debug,
     // T: rdxsort::RdxSortTemplate,
     // [T]: rdxsort::RdxSort,
     // T: afsort::DigitAt,
@@ -163,7 +155,6 @@ fn helper_sort<T>(
         "Raw DLSD",
         "LSD",
         "MSD",
-        "MSD split",
         "Ska Sort",
         "American",
         "Thiel",
@@ -192,7 +183,6 @@ fn helper_sort<T>(
             // helper_sort_aux(&|arr: &mut [T]| dlsd_radixsort(arr, 8),runs,*size,generator);
             // helper_sort_aux(&|arr: &mut [T]| lsd_radixsort(arr, 8),runs,*size,generator);
             // helper_sort_aux(&|arr: &mut [T]| msd_radixsort(arr, 8), runs, *size, generator);
-            // helper_sort_aux(&|arr: &mut [T]| msd_string_radixsort(arr), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| ska_sort(arr, 8), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| american_flag_sort(arr, 8), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| thiel_radixsort(arr, 8), runs, *size, generator);
