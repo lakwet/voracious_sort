@@ -207,6 +207,10 @@ pub fn helper_random_array_almost_desc_f32(size: usize) -> Vec<f32> {
 
 // Ascending sawtooth
 pub fn helper_random_array_asc_sawtooth_f32(size: usize) -> Vec<f32> {
+    if size == 0 {
+        return Vec::new();
+    }
+
     let mut array: Vec<f32> = Vec::with_capacity(size);
     let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f32;
 
@@ -219,6 +223,10 @@ pub fn helper_random_array_asc_sawtooth_f32(size: usize) -> Vec<f32> {
 
 // Descending sawtooth
 pub fn helper_random_array_desc_sawtooth_f32(size: usize) -> Vec<f32> {
+    if size == 0 {
+        return Vec::new();
+    }
+
     let mut array: Vec<f32> = Vec::with_capacity(size);
     let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f32;
 
@@ -253,7 +261,9 @@ pub fn helper_random_array_push_front_f32(size: usize) -> Vec<f32> {
     for i in 0..size {
         array.push(i as f32);
     }
-    array[size - 1] = 0.0;
+    if size > 0 {
+        array[size - 1] = 0.0;
+    }
 
     array
 }
@@ -264,7 +274,9 @@ pub fn helper_random_array_push_middle_f32(size: usize) -> Vec<f32> {
     for i in 0..size {
         array.push(i as f32);
     }
-    array[size - 1] = (size / 2) as f32;
+    if size > 0 {
+        array[size - 1] = (size / 2) as f32;
+    }
 
     array
 }
