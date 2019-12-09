@@ -50,11 +50,13 @@ impl Radixable for &str {
         1
     }
     fn voracious_sort(&self, arr: &mut [&str]) {
-        let max_level = arr.iter().map(|item| item.len()).max().unwrap();
-        msd_string_radixsort(arr, max_level);
+        if let Some(max_level) = arr.iter().map(|item| item.len()).max() {
+            msd_string_radixsort(arr, max_level);
+        }
     }
     fn dlsd_sort(&self, arr: &mut [&str]) {
-        let max_level = arr.iter().map(|item| item.len()).max().unwrap();
-        msd_string_radixsort(arr, max_level);
+        if let Some(max_level) = arr.iter().map(|item| item.len()).max() {
+            msd_string_radixsort(arr, max_level);
+        }
     }
 }

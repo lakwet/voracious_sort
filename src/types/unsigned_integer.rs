@@ -2,6 +2,7 @@ use super::super::sorts::counting_sort::counting_sort;
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::{lsd_radixsort, lsd_radixsort_heu};
 use super::super::sorts::msd_sort::msd_radixsort;
+use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::sorts::voracious_sort::voracious_sort_heu;
 use super::Radixable;
 
@@ -39,6 +40,40 @@ impl Radixable for u8 {
     #[inline]
     fn one(&self) -> Self::KeyType {
         1
+    }
+    fn get_full_histograms(
+        &self,
+        arr: &mut [u8],
+        p: &Params,
+    ) -> Vec<Vec<usize>> {
+        let mut histograms = get_empty_histograms(p, p.max_level);
+        let default_mask = self.default_mask(p.radix);
+
+        let quotient = arr.len() / 4;
+        let remainder = arr.len() % 4;
+        let offset = quotient * 4;
+
+        for q in 0..quotient {
+            unsafe {
+                let i = q * 4;
+                let v0 = arr.get_unchecked(i);
+                let v1 = arr.get_unchecked(i + 1);
+                let v2 = arr.get_unchecked(i + 2);
+                let v3 = arr.get_unchecked(i + 3);
+                histograms[0][(v0 & default_mask) as usize] += 1;
+                histograms[0][(v1 & default_mask) as usize] += 1;
+                histograms[0][(v2 & default_mask) as usize] += 1;
+                histograms[0][(v3 & default_mask) as usize] += 1;
+            }
+        }
+        for i in 0..remainder {
+            unsafe {
+                let v = arr.get_unchecked(offset + i);
+                histograms[0][(v & default_mask) as usize] += 1;
+            }
+        }
+
+        histograms
     }
     fn voracious_sort(&self, arr: &mut [u8]) {
         if arr.len() <= 500 {
@@ -90,6 +125,73 @@ impl Radixable for u16 {
     #[inline]
     fn one(&self) -> Self::KeyType {
         1
+    }
+    fn get_full_histograms(
+        &self,
+        arr: &mut [u16],
+        p: &Params,
+    ) -> Vec<Vec<usize>> {
+        let mut histograms = get_empty_histograms(p, p.max_level);
+        let default_mask = self.default_mask(p.radix);
+        let shift = p.radix as u16;
+
+        let quotient = arr.len() / 4;
+        let remainder = arr.len() % 4;
+        let offset = quotient * 4;
+
+        if p.max_level == 1 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let v0 = arr.get_unchecked(i);
+                    let v1 = arr.get_unchecked(i + 1);
+                    let v2 = arr.get_unchecked(i + 2);
+                    let v3 = arr.get_unchecked(i + 3);
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let v = arr.get_unchecked(offset + i);
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 2 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        }
+
+        histograms
     }
     fn voracious_sort(&self, arr: &mut [u16]) {
         if arr.len() <= 200 {
@@ -144,6 +246,163 @@ impl Radixable for u32 {
     fn one(&self) -> Self::KeyType {
         1
     }
+    fn get_full_histograms(
+        &self,
+        arr: &mut [u32],
+        p: &Params,
+    ) -> Vec<Vec<usize>> {
+        let mut histograms = get_empty_histograms(p, p.max_level);
+        let default_mask = self.default_mask(p.radix);
+        let shift = p.radix as u32;
+
+        let quotient = arr.len() / 4;
+        let remainder = arr.len() % 4;
+        let offset = quotient * 4;
+
+        if p.max_level == 1 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let v0 = arr.get_unchecked(i);
+                    let v1 = arr.get_unchecked(i + 1);
+                    let v2 = arr.get_unchecked(i + 2);
+                    let v3 = arr.get_unchecked(i + 3);
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let v = arr.get_unchecked(offset + i);
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 2 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 3 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 4 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[3][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        }
+
+        histograms
+    }
     fn voracious_sort(&self, arr: &mut [u32]) {
         lsd_radixsort_heu(arr, 8, 200_000);
     }
@@ -186,6 +445,463 @@ impl Radixable for u64 {
     #[inline]
     fn one(&self) -> Self::KeyType {
         1
+    }
+    fn get_full_histograms(
+        &self,
+        arr: &mut [u64],
+        p: &Params,
+    ) -> Vec<Vec<usize>> {
+        let mut histograms = get_empty_histograms(p, p.max_level);
+        let default_mask = self.default_mask(p.radix);
+        let shift = p.radix as u64;
+
+        let quotient = arr.len() / 4;
+        let remainder = arr.len() % 4;
+        let offset = quotient * 4;
+
+        if p.max_level == 1 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let v0 = arr.get_unchecked(i);
+                    let v1 = arr.get_unchecked(i + 1);
+                    let v2 = arr.get_unchecked(i + 2);
+                    let v3 = arr.get_unchecked(i + 3);
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let v = arr.get_unchecked(offset + i);
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 2 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 3 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 4 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[3][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 5 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[4][(v0 & default_mask) as usize] += 1;
+                    histograms[4][(v1 & default_mask) as usize] += 1;
+                    histograms[4][(v2 & default_mask) as usize] += 1;
+                    histograms[4][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[4][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[3][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 6 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[5][(v0 & default_mask) as usize] += 1;
+                    histograms[5][(v1 & default_mask) as usize] += 1;
+                    histograms[5][(v2 & default_mask) as usize] += 1;
+                    histograms[5][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[4][(v0 & default_mask) as usize] += 1;
+                    histograms[4][(v1 & default_mask) as usize] += 1;
+                    histograms[4][(v2 & default_mask) as usize] += 1;
+                    histograms[4][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[5][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[4][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[3][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 7 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[6][(v0 & default_mask) as usize] += 1;
+                    histograms[6][(v1 & default_mask) as usize] += 1;
+                    histograms[6][(v2 & default_mask) as usize] += 1;
+                    histograms[6][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[5][(v0 & default_mask) as usize] += 1;
+                    histograms[5][(v1 & default_mask) as usize] += 1;
+                    histograms[5][(v2 & default_mask) as usize] += 1;
+                    histograms[5][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[4][(v0 & default_mask) as usize] += 1;
+                    histograms[4][(v1 & default_mask) as usize] += 1;
+                    histograms[4][(v2 & default_mask) as usize] += 1;
+                    histograms[4][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[6][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[5][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[4][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[3][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        } else if p.max_level == 8 {
+            for q in 0..quotient {
+                unsafe {
+                    let i = q * 4;
+                    let mut v0 = *arr.get_unchecked(i);
+                    let mut v1 = *arr.get_unchecked(i + 1);
+                    let mut v2 = *arr.get_unchecked(i + 2);
+                    let mut v3 = *arr.get_unchecked(i + 3);
+                    histograms[7][(v0 & default_mask) as usize] += 1;
+                    histograms[7][(v1 & default_mask) as usize] += 1;
+                    histograms[7][(v2 & default_mask) as usize] += 1;
+                    histograms[7][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[6][(v0 & default_mask) as usize] += 1;
+                    histograms[6][(v1 & default_mask) as usize] += 1;
+                    histograms[6][(v2 & default_mask) as usize] += 1;
+                    histograms[6][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[5][(v0 & default_mask) as usize] += 1;
+                    histograms[5][(v1 & default_mask) as usize] += 1;
+                    histograms[5][(v2 & default_mask) as usize] += 1;
+                    histograms[5][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[4][(v0 & default_mask) as usize] += 1;
+                    histograms[4][(v1 & default_mask) as usize] += 1;
+                    histograms[4][(v2 & default_mask) as usize] += 1;
+                    histograms[4][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[2][(v0 & default_mask) as usize] += 1;
+                    histograms[2][(v1 & default_mask) as usize] += 1;
+                    histograms[2][(v2 & default_mask) as usize] += 1;
+                    histograms[2][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[1][(v0 & default_mask) as usize] += 1;
+                    histograms[1][(v1 & default_mask) as usize] += 1;
+                    histograms[1][(v2 & default_mask) as usize] += 1;
+                    histograms[1][(v3 & default_mask) as usize] += 1;
+                    v0 >>= shift;
+                    v1 >>= shift;
+                    v2 >>= shift;
+                    v3 >>= shift;
+                    histograms[0][(v0 & default_mask) as usize] += 1;
+                    histograms[0][(v1 & default_mask) as usize] += 1;
+                    histograms[0][(v2 & default_mask) as usize] += 1;
+                    histograms[0][(v3 & default_mask) as usize] += 1;
+                }
+            }
+            for i in 0..remainder {
+                unsafe {
+                    let mut v = *arr.get_unchecked(offset + i);
+                    histograms[7][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[6][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[5][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[4][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[3][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[2][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[1][(v & default_mask) as usize] += 1;
+                    v >>= shift;
+                    histograms[0][(v & default_mask) as usize] += 1;
+                }
+            }
+        }
+
+        histograms
     }
     fn voracious_sort(&self, arr: &mut [u64]) {
         if arr.len() <= 200 {

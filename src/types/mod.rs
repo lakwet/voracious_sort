@@ -9,7 +9,9 @@ mod unsigned_integer;
 
 use std::ops::{BitAnd, BitOrAssign, Shl, Shr};
 
-use super::sorts::utils::{compute_max_level, compute_offset, Params};
+use super::sorts::utils::{
+    compute_max_level, compute_offset, get_full_histograms_fast, Params,
+};
 
 pub trait Radixable<T = Self>: Sized + Copy
 where
@@ -25,7 +27,11 @@ where
         + Ord
         + std::fmt::Display;
 
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize;
+    #[inline] // default implementation, might be override
+    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+        let s = self.usize_to_keytype(shift);
+        self.keytype_to_usize((self.into_key_type() & mask) >> s)
+    }
     fn into_key_type(&self) -> Self::KeyType;
     fn type_size(&self) -> usize;
     fn usize_to_keytype(&self, item: usize) -> Self::KeyType;
@@ -72,6 +78,10 @@ where
     fn compute_offset(&self, arr: &mut [T], radix: usize) -> (usize, usize) {
         compute_offset(arr, radix)
     }
+    #[inline]
+    fn get_max_key(&self, arr: &mut [T]) -> T::KeyType {
+        arr.iter().map(|item| item.into_key_type()).max().unwrap()
+    }
     #[inline] // default implementation, might be override
     fn compute_max_level(&self, offset: usize, radix: usize) -> usize {
         compute_max_level(self.type_size(), offset, radix)
@@ -102,6 +112,13 @@ where
         }
         mask
     }
+    fn get_full_histograms(
+        &self,
+        arr: &mut [T],
+        p: &Params,
+    ) -> Vec<Vec<usize>> {
+        get_full_histograms_fast(arr, p)
+    }
     fn voracious_sort(&self, arr: &mut [T]) -> ();
     fn dlsd_sort(&self, arr: &mut [T]) -> ();
 }
@@ -124,7 +141,7 @@ where
     fn dlsd_sort(&mut self) {
         if !self.is_empty() {
             let dummy = self[0];
-            dummy.voracious_sort(self);
+            dummy.dlsd_sort(self);
         }
     }
 }

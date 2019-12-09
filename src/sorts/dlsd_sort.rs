@@ -3,9 +3,10 @@ use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::Radixable;
 use super::comparative_sort::insertion_sort_try;
 use super::msd_sort::copy_by_histogram;
+use super::utils::offset_from_bits;
 use super::utils::{
-    copy_nonoverlapping, get_full_histograms_fast, get_partial_histograms_fast,
-    only_one_bucket_filled, prefix_sums, Params,
+    copy_nonoverlapping, get_partial_histograms_fast, only_one_bucket_filled,
+    prefix_sums, Params,
 };
 use super::voracious_sort::voracious_sort_rec;
 
@@ -64,7 +65,7 @@ pub fn dlsd_radixsort_body<T: Radixable + Copy + PartialOrd>(
     let histograms = if diversion {
         get_partial_histograms_fast(arr, &p, rbd)
     } else {
-        get_full_histograms_fast(arr, &p)
+        dummy.get_full_histograms(arr, &p)
     };
 
     let mut t1 = arr;
@@ -140,9 +141,15 @@ where
     let dummy = arr[0];
 
     let (sugg_radix, required_bytes) = get_best_radix_size_and_runs(arr.len());
-    let (_, sugg_raw_offset) = dummy.compute_offset(arr, sugg_radix);
 
-    let (offset, _) = dummy.compute_offset(arr, radix);
+    let max_key = dummy.get_max_key(arr);
+    let bits = dummy.type_size();
+    let zero = dummy.default_key();
+    let one = dummy.one();
+
+    let (_, sugg_raw_offset) =
+        offset_from_bits(arr, max_key, sugg_radix, bits, zero, one);
+    let (offset, _) = offset_from_bits(arr, max_key, radix, bits, zero, one);
     let max_level = dummy.compute_max_level(offset, radix);
 
     let (params, diversion, rbd) = if required_bytes < max_level {

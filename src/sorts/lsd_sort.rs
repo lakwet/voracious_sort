@@ -4,8 +4,7 @@ use super::super::Radixable;
 use super::counting_sort::counting_sort;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
-    copy_nonoverlapping, get_full_histograms_fast, only_one_bucket_filled,
-    prefix_sums, Params,
+    copy_nonoverlapping, only_one_bucket_filled, prefix_sums, Params,
 };
 
 pub fn lsd_radixsort_body<T>(arr: &mut [T], p: Params)
@@ -22,7 +21,7 @@ where
     let mut buffer: Vec<T> = vec![arr[0]; size];
     let mut index = 0;
 
-    let histograms = get_full_histograms_fast(arr, &p);
+    let histograms = dummy.get_full_histograms(arr, &p);
 
     let mut t1 = arr;
     let t2 = &mut buffer;
