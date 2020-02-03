@@ -1,0 +1,15 @@
+iterations
+small: (250 => 30 000): 500 
+medium: (50 000 => 900 000): 50
+big: (1 000 000 => 10 000 000): 10
+very big: (50 000 000 => 1 000 000 000): 3
+
+tests performed on:
+Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz
+Cache L1d :                             128 KiB
+Cache L1i :                             128 KiB
+Cache L2 :                              1 MiB
+Cache L3 :                              6 MiB
+40GB RAM DDR4 2400MHz
+
+December 2019
