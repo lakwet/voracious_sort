@@ -108,9 +108,14 @@ each elements. For a detail example, I let the reader read the Wikipedia page on
 <sup>[1]</sup>: If a radix of 8 is choosen, level 1 is the first 8 bits, level
 2 is the next 8 following bits, and so on until there is no more bit to handle.
 
-## Performances analysis
+## Performances
 
-Coming soon !
+See raw benchmarck results in the results folder:
+
+For each sort, 3 columns:
+- 1st column: time
+- 2nd column: standard deviation (if more than 1 iteration)
+- 3rd column: time per item
 
 ## For developers and researchers
 
@@ -128,11 +133,6 @@ a variable radix (see [article](https://users.encs.concordia.ca/~sthiel/DS/SEA20
 - All sorts fallback on the
 [PDQ sort](https://github.com/stjepang/pdqsort)
 (Rust Unstable sort) for very small inputs.
-
-- For now, both Voracious sort and DLSD sort have generic code. But I notice
-that dedicated implementation per type is faster (~10-15%). For maintainability
-reason, this Crate has an as generic code as possible. For research article,
-dedicated implementation per type is be used.
 
 ## References
 

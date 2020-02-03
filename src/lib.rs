@@ -179,8 +179,9 @@
 //!     // This function is mandatory.
 //!     // You have to fill the number of bit of the key.
 //!     // For example, std::char::MAX == 0x10ffff, which is 21 bits.
-//!     // Despite the keytype is be u32 for char, we do fill 21 in this
+//!     // Despite the keytype is u32 for char, we do fill 21 in this
 //!     // function.
+//!     // But in this exemple, the key lengh is 32 bits.
 //!     #[inline]
 //!     fn type_size(&self) -> usize {
 //!         32
@@ -407,11 +408,6 @@
 //! - All sorts fallback on the
 //! [PDQ sort](https://github.com/stjepang/pdqsort)
 //! (Rust Unstable sort) for very small inputs.
-//!
-//! - For now, both Voracious sort and DLSD sort have generic code. But I notice
-//! that dedicated implementation per type is faster (~10-15%). For maintainability
-//! reason, this Crate has an as generic code as possible. For research article,
-//! dedicated implementation per type is be used.
 //!
 //! ## Futur work
 //!
