@@ -21,7 +21,9 @@ where
     let mut buffer: Vec<T> = vec![arr[0]; size];
     let mut index = 0;
 
+    // let start = Instant::now();
     let histograms = dummy.get_full_histograms(arr, &p);
+    // println!("time for histograms {}ns", start.elapsed().as_nanos() as u64);
 
     let mut t1 = arr;
     let t2 = &mut buffer;

@@ -8,6 +8,7 @@ use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
 use super::super::sorts::msd_sort::msd_radixsort;
 use super::super::sorts::msd_string_sort::msd_string_radixsort;
+// use super::super::sorts::regions_sort::regions_sort;
 use super::super::sorts::ska_sort::ska_sort;
 use super::super::sorts::thiel_sort::thiel_radixsort;
 use super::super::sorts::voracious_sort::voracious_sort;
@@ -262,6 +263,34 @@ fn test_sort_raw_dlsd_sort_u64() {
     helper_sort(&|a| dlsd_radixsort(a, 8), generators_u64(), 1, 1);
     helper_sort(&|a| dlsd_radixsort(a, 8), generators_u64(), 2, 500_000);
 }
+
+// #[test]
+// fn test_sort_regions_sort_u8() {
+//     helper_sort(&|a| regions_sort(a, 8), generators_u8(), 1, 0);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u8(), 1, 1);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u8(), 2, 500_000);
+// }
+
+// #[test]
+// fn test_sort_regions_sort_u16() {
+//     helper_sort(&|a| regions_sort(a, 8), generators_u16(), 1, 0);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u16(), 1, 1);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u16(), 2, 500_000);
+// }
+
+// #[test]
+// fn test_sort_regions_sort_u32() {
+//     helper_sort(&|a| regions_sort(a, 8), generators_u32(), 1, 0);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u32(), 1, 1);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u32(), 2, 500_000);
+// }
+
+// #[test]
+// fn test_sort_regions_sort_u64() {
+//     helper_sort(&|a| regions_sort(a, 8), generators_u64(), 1, 0);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u64(), 1, 1);
+//     helper_sort(&|a| regions_sort(a, 8), generators_u64(), 2, 500_000);
+// }
 
 #[test]
 fn test_sort_msd_string_sort_string() {

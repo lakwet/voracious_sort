@@ -30,41 +30,37 @@ pub fn ska_swap<T: Radixable + Copy>(
                 let remainder = span % UNROLL_SIZE;
 
                 for q in 0..quotient {
-                    let origin = offset + q * UNROLL_SIZE;
+                    let o = offset + q * UNROLL_SIZE;
 
                     unsafe {
-                        let tb0 =
-                            arr.get_unchecked(origin).extract(mask, shift);
+                        let tb0 = arr.get_unchecked(o).extract(mask, shift);
+                        let tb1 = arr.get_unchecked(o + 1).extract(mask, shift);
+                        let tb2 = arr.get_unchecked(o + 2).extract(mask, shift);
+                        let tb3 = arr.get_unchecked(o + 3).extract(mask, shift);
+
                         let dest_index_0 = heads[tb0];
                         heads[tb0] += 1;
-                        let tb1 =
-                            arr.get_unchecked(origin + 1).extract(mask, shift);
                         let dest_index_1 = heads[tb1];
                         heads[tb1] += 1;
-                        let tb2 =
-                            arr.get_unchecked(origin + 2).extract(mask, shift);
                         let dest_index_2 = heads[tb2];
                         heads[tb2] += 1;
-                        let tb3 =
-                            arr.get_unchecked(origin + 3).extract(mask, shift);
                         let dest_index_3 = heads[tb3];
                         heads[tb3] += 1;
 
-                        swap(arr, origin, dest_index_0);
-                        swap(arr, origin + 1, dest_index_1);
-                        swap(arr, origin + 2, dest_index_2);
-                        swap(arr, origin + 3, dest_index_3);
+                        swap(arr, o, dest_index_0);
+                        swap(arr, o + 1, dest_index_1);
+                        swap(arr, o + 2, dest_index_2);
+                        swap(arr, o + 3, dest_index_3);
                     }
                 }
 
-                let new_off = offset + UNROLL_SIZE * quotient;
+                let n_o = offset + UNROLL_SIZE * quotient;
 
                 for i in 0..remainder {
                     unsafe {
-                        let bucket =
-                            arr.get_unchecked(new_off + i).extract(mask, shift);
-                        swap(arr, new_off + i, heads[bucket]);
-                        heads[bucket] += 1;
+                        let b = arr.get_unchecked(n_o + i).extract(mask, shift);
+                        swap(arr, n_o + i, heads[b]);
+                        heads[b] += 1;
                     }
                 }
             } else {

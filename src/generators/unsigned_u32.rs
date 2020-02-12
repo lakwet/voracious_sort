@@ -268,7 +268,7 @@ pub fn helper_random_array_normale_10_u32(size: usize) -> Vec<u32> {
     let mut array: Vec<u32> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u32);
+        array.push(v.abs() as u32);
     }
     array
 }
@@ -280,7 +280,7 @@ pub fn helper_random_array_normale_20_u32(size: usize) -> Vec<u32> {
     let mut array: Vec<u32> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u32);
+        array.push(v.abs() as u32);
     }
     array
 }
@@ -292,43 +292,7 @@ pub fn helper_random_array_normale_30_u32(size: usize) -> Vec<u32> {
     let mut array: Vec<u32> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u32);
-    }
-    array
-}
-
-// Normale(0, 2^40)
-pub fn helper_random_array_normale_40_u32(size: usize) -> Vec<u32> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1_000_000_000_000.0);
-    let mut array: Vec<u32> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v as u32);
-    }
-    array
-}
-
-// Normale(0, 2^51)
-pub fn helper_random_array_normale_51_u32(size: usize) -> Vec<u32> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 2_000_000_000_000_000.0);
-    let mut array: Vec<u32> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v as u32);
-    }
-    array
-}
-
-// Normale(0, 2^63)
-pub fn helper_random_array_normale_63_u32(size: usize) -> Vec<u32> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 4_000_000_000_000_000_000.0);
-    let mut array: Vec<u32> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v as u32);
+        array.push(v.abs() as u32);
     }
     array
 }
@@ -338,27 +302,24 @@ pub fn generators_u32(
     vec![
         (&helper_random_array_uniform_u32, "-- Unif       :"),
         (&helper_random_array_uniform_10_9_u32, "-- Unif 10^9  :"),
-        (&helper_random_array_small_size1_u32, "-- Small1     :"),
-        (&helper_random_array_small_size2_u32, "-- Small2     :"),
-        (&helper_random_array_small_size3_u32, "-- Small3     :"),
-        (&helper_random_array_ascending_u32, "-- Asc        :"),
-        (&helper_random_array_descending_u32, "-- Desc       :"),
-        (&helper_random_array_allequals_u32, "-- Equal      :"),
-        (&helper_random_array_alternating16_u32, "-- Alt16      :"),
-        (&helper_random_array_zipf_u32, "-- Zipf       :"),
-        (&helper_random_array_almost_asc_u32, "-- Almost Asc :"),
-        (&helper_random_array_almost_desc_u32, "-- Almost Desc:"),
-        (&helper_random_array_asc_sawtooth_u32, "-- Asc Saw    :"),
-        (&helper_random_array_desc_sawtooth_u32, "-- Desc Saw   :"),
-        (&helper_random_array_sqrt_u32, "-- Sqrt       :"),
-        (&helper_random_array_pipe_organ_u32, "-- Pipe Organ :"),
-        (&helper_random_array_push_front_u32, "-- Front      :"),
-        (&helper_random_array_push_middle_u32, "-- Middle     :"),
+        // (&helper_random_array_small_size1_u32, "-- Small1     :"),
+        // (&helper_random_array_small_size2_u32, "-- Small2     :"),
+        // (&helper_random_array_small_size3_u32, "-- Small3     :"),
+        // (&helper_random_array_ascending_u32, "-- Asc        :"),
+        // (&helper_random_array_descending_u32, "-- Desc       :"),
+        // (&helper_random_array_allequals_u32, "-- Equal      :"),
+        // (&helper_random_array_alternating16_u32, "-- Alt16      :"),
+        // (&helper_random_array_zipf_u32, "-- Zipf       :"),
+        // (&helper_random_array_almost_asc_u32, "-- Almost Asc :"),
+        // (&helper_random_array_almost_desc_u32, "-- Almost Desc:"),
+        // (&helper_random_array_asc_sawtooth_u32, "-- Asc Saw    :"),
+        // (&helper_random_array_desc_sawtooth_u32, "-- Desc Saw   :"),
+        // (&helper_random_array_sqrt_u32, "-- Sqrt       :"),
+        // (&helper_random_array_pipe_organ_u32, "-- Pipe Organ :"),
+        // (&helper_random_array_push_front_u32, "-- Front      :"),
+        // (&helper_random_array_push_middle_u32, "-- Middle     :"),
         (&helper_random_array_normale_10_u32, "-- Normale 10 :"),
         (&helper_random_array_normale_20_u32, "-- Normale 20 :"),
         (&helper_random_array_normale_30_u32, "-- Normale 30 :"),
-        (&helper_random_array_normale_40_u32, "-- Normale 40 :"),
-        (&helper_random_array_normale_51_u32, "-- Normale 51 :"),
-        (&helper_random_array_normale_63_u32, "-- Normale 63 :"),
     ]
 }

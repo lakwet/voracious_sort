@@ -29,13 +29,10 @@ pub fn copy_by_histogram<T>(
 
             let d0 = heads[b0];
             heads[b0] += 1;
-
             let d1 = heads[b1];
             heads[b1] += 1;
-
             let d2 = heads[b2];
             heads[b2] += 1;
-
             let d3 = heads[b3];
             heads[b3] += 1;
 

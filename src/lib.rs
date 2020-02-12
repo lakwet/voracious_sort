@@ -419,6 +419,8 @@
 //! - Replace the MSD sort for string by a Burstsort or Spreadsort implementation
 //! or something else.
 
+extern crate rayon;
+
 pub mod algo;
 #[cfg(test)]
 pub mod generators;
@@ -434,9 +436,11 @@ pub use sorts::boolean_sort::boolean_sort;
 pub use sorts::comparative_sort::insertion_sort;
 pub use sorts::counting_sort::counting_sort;
 pub use sorts::dlsd_sort::dlsd_radixsort;
+pub use sorts::lsd_mt_sort::lsd_mt_radixsort;
 pub use sorts::lsd_sort::lsd_radixsort;
 pub use sorts::msd_sort::msd_radixsort;
 pub use sorts::msd_string_sort::msd_string_radixsort;
+pub use sorts::regions_sort::regions_sort;
 pub use sorts::ska_sort::ska_sort;
 pub use sorts::thiel_sort::thiel_radixsort;
 pub use sorts::voracious_sort::voracious_sort;

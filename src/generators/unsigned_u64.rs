@@ -403,7 +403,7 @@ pub fn helper_random_array_normale_10_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u64);
+        array.push(v.abs() as u64);
     }
     array
 }
@@ -415,7 +415,7 @@ pub fn helper_random_array_normale_20_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u64);
+        array.push(v.abs() as u64);
     }
     array
 }
@@ -427,7 +427,7 @@ pub fn helper_random_array_normale_30_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u64);
+        array.push(v.abs() as u64);
     }
     array
 }
@@ -439,7 +439,7 @@ pub fn helper_random_array_normale_40_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u64);
+        array.push(v.abs() as u64);
     }
     array
 }
@@ -451,7 +451,7 @@ pub fn helper_random_array_normale_51_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u64);
+        array.push(v.abs() as u64);
     }
     array
 }
@@ -463,7 +463,7 @@ pub fn helper_random_array_normale_63_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
     for _ in 0..size {
         let v: f64 = normal.sample(&mut rng);
-        array.push(v as u64);
+        array.push(v.abs() as u64);
     }
     array
 }
@@ -473,32 +473,32 @@ pub fn generators_u64(
     vec![
         (&helper_random_array_uniform_u64, "-- Unif       :"),
         (&helper_random_array_uniform_10_9_u64, "-- Unif 10^9  :"),
-        (&helper_random_array_small_size1_u64, "-- Small 1    :"),
-        (&helper_random_array_small_size2_u64, "-- Small 2    :"),
-        (&helper_random_array_small_size3_u64, "-- Small 3    :"),
-        (&helper_random_array_small_size4_u64, "-- Small 4    :"),
-        (&helper_random_array_small_size5_u64, "-- Small 5    :"),
-        (&helper_random_array_small_size6_u64, "-- Small 6    :"),
-        (&helper_random_array_small_size7_u64, "-- Small 7    :"),
-        (&helper_random_array_ascending_u64, "-- Asc        :"),
-        (&helper_random_array_asc1pm_u64, "-- Asc1pm     :"),
-        (&helper_random_array_asc1pct_u64, "-- Asc1pct    :"),
-        (&helper_random_array_asc10pct_u64, "-- Asc10pct   :"),
-        (&helper_random_array_descending_u64, "-- Desc       :"),
-        (&helper_random_array_desc1pm_u64, "-- Desc1pm    :"),
-        (&helper_random_array_desc1pct_u64, "-- Desc1pct   :"),
-        (&helper_random_array_desc10pct_u64, "-- Desc10pct  :"),
-        (&helper_random_array_allequals_u64, "-- Equal      :"),
-        (&helper_random_array_alternating16_u64, "-- Alt16      :"),
-        (&helper_random_array_zipf_u64, "-- Zipf       :"),
-        (&helper_random_array_almost_asc_u64, "-- Almost Asc :"),
-        (&helper_random_array_almost_desc_u64, "-- Almost Desc:"),
-        (&helper_random_array_asc_sawtooth_u64, "-- Asc Saw    :"),
-        (&helper_random_array_desc_sawtooth_u64, "-- Desc Saw   :"),
-        (&helper_random_array_sqrt_u64, "-- Sqrt       :"),
-        (&helper_random_array_pipe_organ_u64, "-- Pipe Organ :"),
-        (&helper_random_array_push_front_u64, "-- Front      :"),
-        (&helper_random_array_push_middle_u64, "-- Middle     :"),
+        // (&helper_random_array_small_size1_u64, "-- Small 1    :"),
+        // (&helper_random_array_small_size2_u64, "-- Small 2    :"),
+        // (&helper_random_array_small_size3_u64, "-- Small 3    :"),
+        // (&helper_random_array_small_size4_u64, "-- Small 4    :"),
+        // (&helper_random_array_small_size5_u64, "-- Small 5    :"),
+        // (&helper_random_array_small_size6_u64, "-- Small 6    :"),
+        // (&helper_random_array_small_size7_u64, "-- Small 7    :"),
+        // (&helper_random_array_ascending_u64, "-- Asc        :"),
+        // (&helper_random_array_asc1pm_u64, "-- Asc1pm     :"),
+        // (&helper_random_array_asc1pct_u64, "-- Asc1pct    :"),
+        // (&helper_random_array_asc10pct_u64, "-- Asc10pct   :"),
+        // (&helper_random_array_descending_u64, "-- Desc       :"),
+        // (&helper_random_array_desc1pm_u64, "-- Desc1pm    :"),
+        // (&helper_random_array_desc1pct_u64, "-- Desc1pct   :"),
+        // (&helper_random_array_desc10pct_u64, "-- Desc10pct  :"),
+        // (&helper_random_array_allequals_u64, "-- Equal      :"),
+        // (&helper_random_array_alternating16_u64, "-- Alt16      :"),
+        // (&helper_random_array_zipf_u64, "-- Zipf       :"),
+        // (&helper_random_array_almost_asc_u64, "-- Almost Asc :"),
+        // (&helper_random_array_almost_desc_u64, "-- Almost Desc:"),
+        // (&helper_random_array_asc_sawtooth_u64, "-- Asc Saw    :"),
+        // (&helper_random_array_desc_sawtooth_u64, "-- Desc Saw   :"),
+        // (&helper_random_array_sqrt_u64, "-- Sqrt       :"),
+        // (&helper_random_array_pipe_organ_u64, "-- Pipe Organ :"),
+        // (&helper_random_array_push_front_u64, "-- Front      :"),
+        // (&helper_random_array_push_middle_u64, "-- Middle     :"),
         (&helper_random_array_normale_10_u64, "-- Normale 10 :"),
         (&helper_random_array_normale_20_u64, "-- Normale 20 :"),
         (&helper_random_array_normale_30_u64, "-- Normale 30 :"),

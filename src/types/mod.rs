@@ -13,7 +13,7 @@ use super::sorts::utils::{
     compute_max_level, compute_offset, get_full_histograms_fast, Params,
 };
 
-pub trait Radixable<T = Self>: Sized + Copy
+pub trait Radixable<T = Self>: Sized + Copy + PartialOrd + Send
 where
     T: Radixable,
 {
@@ -25,6 +25,8 @@ where
         + PartialEq
         + PartialOrd
         + Ord
+        + Send
+        + Sync
         + std::fmt::Display;
 
     #[inline] // default implementation, might be override

@@ -1,3 +1,5 @@
+use std::sync::mpsc::channel;
+
 use super::super::types::Radixable;
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -36,6 +38,15 @@ pub fn swap<T>(a: &mut [T], i: usize, j: usize) {
         let pa: *mut T = a.get_unchecked_mut(i);
         let pb: *mut T = a.get_unchecked_mut(j);
         std::ptr::swap_nonoverlapping(pa, pb, 1);
+    }
+}
+
+#[inline]
+pub fn swap_range<T>(a: &mut [T], len: usize, i: usize, j: usize) {
+    unsafe {
+        let pa: *mut T = a.get_unchecked_mut(i);
+        let pb: *mut T = a.get_unchecked_mut(j);
+        std::ptr::swap_nonoverlapping(pa, pb, len);
     }
 }
 
@@ -83,6 +94,26 @@ pub fn only_one_bucket_filled(histogram: &[usize]) -> bool {
     }
 
     true
+}
+
+pub fn split_into_chunks<T>(arr: &mut [T], thread_n: usize) -> Vec<&mut [T]>
+where
+    T: Radixable + Copy + PartialOrd,
+{
+    let part_size = arr.len() / thread_n;
+
+    let mut parts = Vec::new();
+    let mut rest = arr;
+    for _ in 0..(thread_n - 1) {
+        let (fst, snd) = rest.split_at_mut(part_size);
+        rest = snd;
+        parts.push(fst);
+    }
+    if rest.len() > 0 {
+        parts.push(rest);
+    }
+
+    parts
 }
 
 pub fn offset_from_bits<T>(
@@ -146,6 +177,18 @@ pub fn compute_max_level(bits: usize, offset: usize, radix: usize) -> usize {
     }
 }
 
+pub fn aggregate_histograms(histograms: &Vec<Vec<usize>>) -> Vec<usize> {
+    let mut global_histogram = vec![0; histograms[0].len()];
+
+    histograms.iter().for_each(|histogram| {
+        histogram.iter().enumerate().for_each(|(i, v)| {
+            global_histogram[i] += v;
+        });
+    });
+
+    global_histogram
+}
+
 pub fn get_empty_histograms(p: &Params, partial: usize) -> Vec<Vec<usize>> {
     let mut histograms = Vec::new();
 
@@ -191,6 +234,36 @@ pub fn get_histogram<T: Radixable>(
     }
 
     histogram
+}
+
+pub fn get_histogram_mt<T: Radixable>(
+    arr: &mut [T],
+    p: &Params,
+    mask: <T as Radixable>::KeyType,
+    shift: usize,
+    pool: &rayon::ThreadPool,
+    thread_n: usize,
+) -> Vec<usize> {
+    let parts = split_into_chunks(arr, thread_n);
+    let mut histograms: Vec<Vec<usize>> = Vec::new();
+    let mut receivers = Vec::new();
+
+    pool.scope(|s| {
+        for part in parts.into_iter() {
+            let (sender, receiver) = channel();
+            receivers.push(receiver);
+            s.spawn(move|_| {
+                let h = get_histogram(part, p, mask, shift);
+                sender.send(h).unwrap();
+            });
+        }
+    });
+
+    for receiver in receivers.iter() {
+        histograms.push(receiver.recv().unwrap());
+    }
+
+    aggregate_histograms(&histograms)
 }
 
 pub fn _get_full_histogram<T>(arr: &mut [T], p: &Params) -> Vec<Vec<usize>>
