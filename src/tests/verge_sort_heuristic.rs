@@ -36,6 +36,9 @@ fn test_verge_sort_heuristic_explore_forward_asc() {
 
     let mut arr = vec![5, 1, 2, 3, 4, 5];
     assert_eq!(explore_forward_asc(&mut arr, 5), 6);
+
+    let mut arr = vec![9, 9, 8, 8, 7, 7, 6, 6, 6, 5, 4, 3];
+    assert_eq!(explore_forward_desc(&mut arr, 0), 12);
 }
 
 #[test]
@@ -54,6 +57,9 @@ fn test_verge_sort_heuristic_explore_backward_asc() {
 
     let mut arr = vec![5, 1, 2, 3, 4, 5];
     assert_eq!(explore_backward_asc(&mut arr, 0, 0), 0);
+
+    let mut arr = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 10];
+    assert_eq!(explore_backward_asc(&mut arr, 11, 0), 0);
 }
 
 #[test]
@@ -72,6 +78,9 @@ fn test_verge_sort_heuristic_explore_forward_desc() {
 
     let mut arr = vec![5, 1, 2, 3, 4, 5];
     assert_eq!(explore_forward_desc(&mut arr, 5), 6);
+
+    let mut arr = vec![9, 9, 8, 8, 7, 7, 6, 6, 6, 5, 4, 3];
+    assert_eq!(explore_forward_desc(&mut arr, 0), 12);
 }
 
 #[test]
@@ -90,6 +99,9 @@ fn test_verge_sort_heuristic_explore_backward_desc() {
 
     let mut arr = vec![5, 1, 2, 3, 4, 5];
     assert_eq!(explore_backward_desc(&mut arr, 0, 0), 0);
+
+    let mut arr = vec![9, 9, 8, 8, 7, 7, 6, 6, 6, 5, 4, 3];
+    assert_eq!(explore_backward_desc(&mut arr, 11, 0), 0);
 }
 
 #[test]
@@ -111,6 +123,9 @@ fn test_verge_sort_heuristic_explore_backward_plateau() {
 
     let mut arr = vec![5, 1, 2, 3, 4, 5];
     assert_eq!(explore_backward_plateau(&mut arr, 0, 0), 0);
+
+    let mut arr = vec![5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+    assert_eq!(explore_backward_plateau(&mut arr, 9, 0), 0);
 }
 
 #[test]
@@ -132,6 +147,9 @@ fn test_verge_sort_heuristic_explore_forward_plateau() {
 
     let mut arr = vec![5, 1, 2, 3, 4, 5];
     assert_eq!(explore_forward_plateau(&mut arr, 5), 6);
+
+    let mut arr = vec![5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5];
+    assert_eq!(explore_forward_plateau(&mut arr, 5), 12);
 }
 
 #[test]

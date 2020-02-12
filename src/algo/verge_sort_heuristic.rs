@@ -47,19 +47,59 @@ pub fn compute_big_enough_run(size: usize) -> usize {
 }
 
 #[inline]
-fn explore_forward<T: PartialOrd>(
-    arr: &mut [T],
-    start: usize,
-    cmp: &dyn Fn(&T, &T) -> bool,
-) -> usize {
+pub fn explore_forward_asc<T>(arr: &mut [T], start: usize) -> usize
+where
+    T: PartialOrd,
+{
     if start == arr.len() - 1 {
         return arr.len();
     }
 
     let mut i = start;
 
+    let quantity = arr.len() - i;
+    let quotient = quantity / 4;
+
+    if quotient > 10 {
+        for q in 0..(quotient - 1) {
+            let j = start + q * 4;
+            unsafe {
+                let a0 = arr.get_unchecked(j);
+                let a1 = arr.get_unchecked(j + 1);
+                let a2 = arr.get_unchecked(j + 2);
+                let a3 = arr.get_unchecked(j + 3);
+                let a4 = arr.get_unchecked(j + 4);
+
+                // using a function as a parameter for the compare
+                // drastically impact performance
+                let b0 = a0 <= a1;
+                let b1 = a1 <= a2 && b0;
+                let b2 = a2 <= a3 && b1;
+                let b3 = a3 <= a4 && b2;
+
+                if b3 {
+                    // nothing
+                } else if b2 {
+                    return j + 4;
+                } else if b1 {
+                    return j + 3;
+                } else if b0 {
+                    return j + 2;
+                } else {
+                    return j + 1;
+                }
+            }
+        }
+    }
+
+    i = if quotient > 10 {
+        start + ((quotient - 1) * 4) - 1
+    } else {
+        i
+    };
+
     while i < arr.len() - 1 {
-        if cmp(&arr[i], &arr[i + 1]) {
+        if arr[i] <= arr[i + 1] {
             i += 1;
         } else {
             return i + 1;
@@ -70,43 +110,64 @@ fn explore_forward<T: PartialOrd>(
 }
 
 #[inline]
-pub fn explore_forward_asc<T>(arr: &mut [T], start: usize) -> usize
-where
-    T: PartialOrd,
-{
-    explore_forward(arr, start, &|a: &T, b: &T| *a <= *b)
-}
-
-#[inline]
 pub fn explore_forward_desc<T>(arr: &mut [T], start: usize) -> usize
 where
     T: PartialOrd,
 {
-    explore_forward(arr, start, &|a: &T, b: &T| *a >= *b)
-}
+    if start == arr.len() - 1 {
+        return arr.len();
+    }
 
-#[inline]
-fn explore_backward<T: PartialOrd>(
-    arr: &mut [T],
-    start: usize,
-    min_boundary: usize,
-    cmp: &dyn Fn(&T, &T) -> bool,
-) -> usize {
     let mut i = start;
 
-    while i > 0 {
-        if cmp(&arr[i - 1], &arr[i]) {
-            i -= 1;
-        } else {
-            break;
+    let quantity = arr.len() - i;
+    let quotient = quantity / 4;
+
+    if quotient > 10 {
+        for q in 0..(quotient - 1) {
+            let j = start + q * 4;
+            unsafe {
+                let a0 = arr.get_unchecked(j);
+                let a1 = arr.get_unchecked(j + 1);
+                let a2 = arr.get_unchecked(j + 2);
+                let a3 = arr.get_unchecked(j + 3);
+                let a4 = arr.get_unchecked(j + 4);
+
+                let b0 = a0 >= a1;
+                let b1 = a1 >= a2 && b0;
+                let b2 = a2 >= a3 && b1;
+                let b3 = a3 >= a4 && b2;
+
+                if b3 {
+                    // nothing
+                } else if b2 {
+                    return j + 4;
+                } else if b1 {
+                    return j + 3;
+                } else if b0 {
+                    return j + 2;
+                } else {
+                    return j + 1;
+                }
+            }
         }
     }
 
-    if i < min_boundary {
-        min_boundary
+    i = if quotient > 10 {
+        start + ((quotient - 1) * 4) - 1
     } else {
         i
+    };
+
+    while i < arr.len() - 1 {
+        if arr[i] >= arr[i + 1] {
+            i += 1;
+        } else {
+            return i + 1;
+        }
     }
+
+    i + 1
 }
 
 #[inline]
@@ -115,7 +176,56 @@ pub fn explore_backward_asc<T: PartialOrd>(
     start: usize,
     min_boundary: usize,
 ) -> usize {
-    explore_backward(arr, start, min_boundary, &|a: &T, b: &T| *a <= *b)
+    let mut i = start;
+
+    let quantity = i - min_boundary;
+    let quotient = quantity / 4;
+
+    if quotient > 10 {
+        for q in 0..(quotient - 1) {
+            let j = start - q * 4;
+            unsafe {
+                let a0 = arr.get_unchecked(j);
+                let a1 = arr.get_unchecked(j - 1);
+                let a2 = arr.get_unchecked(j - 2);
+                let a3 = arr.get_unchecked(j - 3);
+                let a4 = arr.get_unchecked(j - 4);
+
+                let b0 = a1 <= a0;
+                let b1 = a2 <= a1 && b0;
+                let b2 = a3 <= a2 && b1;
+                let b3 = a4 <= a3 && b2;
+
+                if b3 {
+                    // nothing
+                } else if b2 {
+                    return j - 3;
+                } else if b1 {
+                    return j - 2;
+                } else if b0 {
+                    return j - 1;
+                } else {
+                    return j;
+                }
+            }
+        }
+    }
+
+    i = if quotient > 10 {
+        start - ((quotient - 1) * 4) + 1
+    } else {
+        i
+    };
+
+    while i > min_boundary {
+        if arr[i - 1] <= arr[i] {
+            i -= 1;
+        } else {
+            break;
+        }
+    }
+
+    i
 }
 
 #[inline]
@@ -124,7 +234,56 @@ pub fn explore_backward_desc<T: PartialOrd>(
     start: usize,
     min_boundary: usize,
 ) -> usize {
-    explore_backward(arr, start, min_boundary, &|a: &T, b: &T| *a >= *b)
+    let mut i = start;
+
+    let quantity = i - min_boundary;
+    let quotient = quantity / 4;
+
+    if quotient > 10 {
+        for q in 0..(quotient - 1) {
+            let j = start - q * 4;
+            unsafe {
+                let a0 = arr.get_unchecked(j);
+                let a1 = arr.get_unchecked(j - 1);
+                let a2 = arr.get_unchecked(j - 2);
+                let a3 = arr.get_unchecked(j - 3);
+                let a4 = arr.get_unchecked(j - 4);
+
+                let b0 = a1 >= a0;
+                let b1 = a2 >= a1 && b0;
+                let b2 = a3 >= a2 && b1;
+                let b3 = a4 >= a3 && b2;
+
+                if b3 {
+                    // nothing
+                } else if b2 {
+                    return j - 3;
+                } else if b1 {
+                    return j - 2;
+                } else if b0 {
+                    return j - 1;
+                } else {
+                    return j;
+                }
+            }
+        }
+    }
+
+    i = if quotient > 10 {
+        start - ((quotient - 1) * 4) + 1
+    } else {
+        i
+    };
+
+    while i > min_boundary {
+        if arr[i - 1] >= arr[i] {
+            i -= 1;
+        } else {
+            break;
+        }
+    }
+
+    i
 }
 
 #[inline]
@@ -135,7 +294,46 @@ pub fn explore_backward_plateau<T: PartialOrd>(
 ) -> usize {
     let mut i = start;
 
-    while i > 0 {
+    let quantity = start - min_boundary;
+    let quotient = quantity / 4;
+
+    if quotient > 10 {
+        for q in 0..(quotient - 1) {
+            let j = start - q * 4;
+            unsafe {
+                let a0 = arr.get_unchecked(j);
+                let a1 = arr.get_unchecked(j - 1);
+                let a2 = arr.get_unchecked(j - 2);
+                let a3 = arr.get_unchecked(j - 3);
+                let a4 = arr.get_unchecked(j - 4);
+
+                let b0 = a0 == a1;
+                let b1 = a1 == a2 && b0;
+                let b2 = a2 == a3 && b1;
+                let b3 = a3 == a4 && b2;
+
+                if b3 {
+                    // nothing
+                } else if b2 {
+                    return j - 3;
+                } else if b1 {
+                    return j - 2;
+                } else if b0 {
+                    return j - 1;
+                } else {
+                    return j;
+                }
+            }
+        }
+    }
+
+    i = if quotient > 10 {
+        start - ((quotient - 1) * 4) + 1
+    } else {
+        i
+    };
+
+    while i > min_boundary {
         if arr[i - 1] == arr[i] {
             i -= 1;
         } else {
@@ -143,11 +341,7 @@ pub fn explore_backward_plateau<T: PartialOrd>(
         }
     }
 
-    if i < min_boundary {
-        min_boundary
-    } else {
-        i
-    }
+    i
 }
 
 #[inline]
@@ -160,6 +354,45 @@ pub fn explore_forward_plateau<T: PartialOrd>(
     }
 
     let mut i = start;
+
+    let quantity = arr.len() - i;
+    let quotient = quantity / 4;
+
+    if quotient > 10 {
+        for q in 0..(quotient - 1) {
+            let j = start + q * 4;
+            unsafe {
+                let a0 = arr.get_unchecked(j);
+                let a1 = arr.get_unchecked(j + 1);
+                let a2 = arr.get_unchecked(j + 2);
+                let a3 = arr.get_unchecked(j + 3);
+                let a4 = arr.get_unchecked(j + 4);
+
+                let b0 = a0 == a1;
+                let b1 = a1 == a2 && b0;
+                let b2 = a2 == a3 && b1;
+                let b3 = a3 == a4 && b2;
+
+                if b3 {
+                    // nothing
+                } else if b2 {
+                    return j + 4;
+                } else if b1 {
+                    return j + 3;
+                } else if b0 {
+                    return j + 2;
+                } else {
+                    return j + 1;
+                }
+            }
+        }
+    }
+
+    i = if quotient > 10 {
+        start + ((quotient - 1) * 4) - 1
+    } else {
+        i
+    };
 
     while i < arr.len() - 1 {
         if arr[i] == arr[i + 1] {
