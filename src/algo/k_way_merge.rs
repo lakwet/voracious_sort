@@ -7,6 +7,10 @@ fn forward_merge2<T: Copy + Clone + PartialOrd>(
     middle: usize,
     end: usize,
 ) {
+    if start < middle && middle < end && arr[middle - 1] <= arr[middle] {
+        return;
+    }
+
     copy_nonoverlapping(&mut arr[start..], copy, middle - start);
 
     let mut i = 0;
@@ -43,6 +47,10 @@ fn backward_merge2<T: Copy + Clone + PartialOrd>(
     middle: usize,
     end: usize,
 ) {
+    if start < middle && middle < end  && arr[middle - 1] <= arr[middle] {
+        return;
+    }
+
     copy_nonoverlapping(&mut arr[middle..], copy, end - middle);
 
     let mut i: isize = (end - middle - 1) as isize;
