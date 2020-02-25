@@ -135,13 +135,14 @@ fn helper_sort<T>(
     // T: afsort::DigitAt,
     T: Ord,
 {
-    let runs = 1;
-    let thread_n = 4;
+    let runs = 3;
+    let thread_n = 63;
 
     let sizes: Vec<usize> = vec![
         // 250, 500, 750, 1000, 1500, 2000, 2500, 5000, 7500, 10000,
         // 12000, 14000, 16000, 18000, 20000, 25000, 30000,
         500,
+        50_000,
         // 50_000,60_000,70_000,80_000,90_000,
         100_000,
         // 200_000,300_000,400_000,500_000,600_000,700_000,800_000,900_000,
@@ -153,7 +154,8 @@ fn helper_sort<T>(
         10_000_000,
         50_000_000,
         100_000_000,
-        // 200_000_000,300_000_000,400_000_000,500_000_000,
+        // 200_000_000,300_000_000,400_000_000,
+        500_000_000,
         // 600_000_000,700_000_000,800_000_000,800_000_000,900_000_000,
         1_000_000_000,
     ];
@@ -170,7 +172,7 @@ fn helper_sort<T>(
         // "Ska Sort",
         // "American",
         // "Thiel",
-        "Raw Voracious sort",
+        // "Raw Voracious sort",
         // "LSD MT",
         // "Regions sort 4000",
         // "Regions sort 6000",
@@ -180,7 +182,7 @@ fn helper_sort<T>(
         // "Regions sort 64000",
         // "Regions sort 128000",
         // "Regions sort 256000",
-        "Regions sort 512000",
+        // "Regions sort 512000",
         "Regions sort 1000000",
         // "Regions sort test 1000000",
         // "AF sort (lib)",
@@ -213,7 +215,7 @@ fn helper_sort<T>(
             // helper_sort_aux(&|arr: &mut [T]| ska_sort(arr, 8), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| american_flag_sort(arr, 8), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| thiel_radixsort(arr, 8), runs, *size, generator);
-            helper_sort_aux(&|arr: &mut [T]| voracious_sort(arr, 8), runs, *size, generator);
+            // helper_sort_aux(&|arr: &mut [T]| voracious_sort(arr, 8), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| lsd_mt_radixsort(arr, 8, thread_n),runs,*size,generator);
             // helper_sort_aux(&|arr: &mut [T]| regions_sort(arr, 8, 4000), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| regions_sort(arr, 8, 6000), runs, *size, generator);

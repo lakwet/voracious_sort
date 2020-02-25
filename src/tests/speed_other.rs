@@ -217,9 +217,9 @@ fn speed_other_regions_graph_processing() {
             let start = Instant::now();
             for country in sorted_countries.iter() {
                 let swaps = regions_graph.two_cycle(*country);
-                perform_swaps(&mut arr, swaps);
+                // perform_swaps(&mut arr, swaps);
                 let swaps = regions_graph.two_path(*country);
-                perform_swaps(&mut arr, swaps);
+                // perform_swaps(&mut arr, swaps);
             }
             let t1 = start.elapsed().as_nanos() as u64;
             println!(

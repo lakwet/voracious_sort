@@ -312,22 +312,20 @@ where
 pub fn perform_swaps<T: Radixable>(
     arr: &mut [T],
     swaps: Vec<(usize, usize, usize)>,
+    offset: usize,
 ) {
     for (len, i1, i2) in swaps.iter() {
-        swap_range(arr, *len, *i1, *i2);
+        swap_range(arr, *len, *i1 - offset, *i2 - offset);
     }
 }
 
-fn regions_sort_rec<T>(
+fn regions_sort_rec<T: Radixable + Copy + PartialOrd>(
     arr: &mut [T],
     p: Params,
     block_size: usize,
     pool: &rayon::ThreadPool,
     thread_n: usize,
-)
-where
-    T: Radixable + Copy + PartialOrd,
-{
+) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
@@ -343,35 +341,28 @@ where
     // Graph Construction Phase
     let mut regions_graph = RegionsGraph::new(p.radix_range);
     let global_histogram = regions_graph.build_regions_graph(&histograms);
-    let sorted_countries = sort_countries(&global_histogram);
+
+    // let sorted_countries = sort_countries(&global_histogram);
+    let (p_sums, _, _) = prefix_sums(&global_histogram);
 
     // Global Sorting Phase
-    for country in sorted_countries.iter() {
-        let swaps = regions_graph.two_cycle(*country);
-        perform_swaps(arr, swaps);
-        let swaps = regions_graph.two_path(*country);
-        perform_swaps(arr, swaps);
-    }
-
-    // call regions radix sort on each non empty (or non single element) bucket
+    let mut rest = arr;
+    let mut offset = 0;
     pool.scope(|s| {
-        let (p_sums, _, _) = prefix_sums(&global_histogram);
-        let mut rest = arr;
-        let mut parts = Vec::new();
-        for i in 0..(p.radix_range) {
-            let bucket_end = p_sums[i + 1] - p_sums[i];
-            let (fst, snd) = rest.split_at_mut(bucket_end);
-            parts.push(fst);
+        for country in 0..p.radix_range {
+            let swaps = regions_graph.two_cycle(country);
+            perform_swaps(rest, swaps, offset);
+            let swaps = regions_graph.two_path(country);
+            perform_swaps(rest, swaps, offset);
+            let (part, snd) = rest.split_at_mut(p_sums[country + 1] - p_sums[country]);
             rest = snd;
-        }
-        if p.level < p.max_level - 1 {
-            for part in parts.into_iter() {
-                if part.len() > 1 {
+            offset += p_sums[country + 1] - p_sums[country];
+
+            if p.level < p.max_level - 1 && part.len() > 1 {
+                s.spawn(move|_| {
                     let p2 = p.new_level(p.level + 1);
-                    s.spawn(move|_| {
-                        regions_sort_rec(part, p2, block_size, pool, thread_n);
-                    });
-                }
+                    regions_sort_rec(part, p2, block_size, pool, thread_n);
+                });
             }
         }
     });
@@ -387,15 +378,19 @@ where
         return;
     }
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(thread_n)
-        .build()
-        .unwrap();
-
     let dummy = arr[0];
     let (offset, _) = dummy.compute_offset(arr, radix);
     let max_level = dummy.compute_max_level(offset, radix);
     let params = Params::new(0, radix, offset, max_level);
 
-    regions_sort_rec(arr, params, block_size, &pool, thread_n);
+    if size <= 20_000 {
+        msd_radixsort_rec(arr, params);
+    } else {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(thread_n)
+            .build()
+            .unwrap();
+
+        regions_sort_rec(arr, params, block_size, &pool, thread_n);
+    }
 }
