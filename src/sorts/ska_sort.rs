@@ -1,7 +1,7 @@
 use super::super::Radixable;
 use super::american_flag_sort::serial_radixsort_rec;
 use super::comparative_sort::insertion_sort;
-use super::utils::{get_histogram, prefix_sums, swap, Params};
+use super::utils::{get_histogram, prefix_sums, Params};
 
 const UNROLL_SIZE: usize = 4;
 
@@ -47,10 +47,10 @@ pub fn ska_swap<T: Radixable + Copy>(
                         let dest_index_3 = heads[tb3];
                         heads[tb3] += 1;
 
-                        swap(arr, o, dest_index_0);
-                        swap(arr, o + 1, dest_index_1);
-                        swap(arr, o + 2, dest_index_2);
-                        swap(arr, o + 3, dest_index_3);
+                        arr.swap(o, dest_index_0);
+                        arr.swap(o + 1, dest_index_1);
+                        arr.swap(o + 2, dest_index_2);
+                        arr.swap(o + 3, dest_index_3);
                     }
                 }
 
@@ -59,7 +59,7 @@ pub fn ska_swap<T: Radixable + Copy>(
                 for i in 0..remainder {
                     unsafe {
                         let b = arr.get_unchecked(n_o + i).extract(mask, shift);
-                        swap(arr, n_o + i, heads[b]);
+                        arr.swap(n_o + i, heads[b]);
                         heads[b] += 1;
                     }
                 }
@@ -86,7 +86,7 @@ fn ska_sort_rec<T: Radixable + Copy + PartialOrd>(arr: &mut [T], p: Params) {
     }
 
     let dummy = arr[0];
-    let (mask, shift) = dummy.get_mask_and_shift(&p);
+    let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, tails) = prefix_sums(&histogram);
 

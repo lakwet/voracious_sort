@@ -9,10 +9,14 @@ use super::super::*;
 use super::super::algo::k_way_merge::{k_way_merge, k_way_merge_mt};
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::utils::{
-    get_histogram, get_histogram_mt, Params,
+    get_histogram, get_histogram_mt,
+    Params, perform_swaps_mt, perform_swaps,
+    swap_range, swap_range_mt,
 };
 
+// use super::super::sorts::comparative_sort::insertion_sort;
 use super::super::sorts::regions_sort::*;
+// use super::super::sorts::sorter_network::*;
 
 use super::super::generators::unsigned_u32::*;
 use super::super::generators::unsigned_u64::*;
@@ -80,19 +84,20 @@ fn speed_other_k_way_merge() {
 #[test]
 fn speed_other_get_histogram_mt() {
     let sizes = vec![
-        1_000,
-        10_000,
         100_000,
-        180_000, 200_000, 220_000,
-        250_000, 750_000,
+        140_000,
+        160_000,
+        180_000,
+        200_000,
+        500_000,
         1_000_000,
-        10_000_000,
+
         100_000_000,
     ];
 
     let radix = 8;
-    let threads_n = vec![2, 3, 4];
-    let parts_n = vec![2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+    let threads_n = vec![1, 2, 3, 4];
+    let parts_n = vec![1, 2, 4, 10, 50, 100];
 
     println!("**Compare get_histogram vs get_histogram_mt**");
     for part_n in parts_n.iter() {
@@ -229,6 +234,100 @@ fn speed_other_regions_graph_processing() {
                 t1,
                 t1 as f64 / *size as f64,
             );
+        }
+    }
+}
+
+// #[test]
+// fn speed_other_sorter_network_vs_rust_uns() {
+//     let runs = 1000;
+
+//     for i in 2..65 {
+//         print!("size: {},", i);
+
+//         let mut t1 = 0;
+//         for _ in 0..runs {
+//             let mut arr = helper_random_array_uniform_u64(i);
+//             let start = Instant::now();
+//             sorter_network(&mut arr);
+//             t1 += start.elapsed().as_nanos() as u64;
+//         }
+//         print!("\t Sorter: {}ns", t1 / runs);
+
+//         let mut t1 = 0;
+//         for _ in 0..runs {
+//             let mut arr = helper_random_array_uniform_u64(i);
+//             let start = Instant::now();
+//             insertion_sort(&mut arr);
+//             t1 += start.elapsed().as_nanos() as u64;
+//         }
+//         print!("\t insertion sort: {}ns", t1 / runs);
+
+//         let mut t1 = 0;
+//         for _ in 0..runs {
+//             let mut arr = helper_random_array_uniform_u64(i);
+//             let start = Instant::now();
+//             arr.sort_unstable();
+//             t1 += start.elapsed().as_nanos() as u64;
+//         }
+//         println!("\t rust uns: {}ns", t1 / runs);
+
+//     }
+// }
+
+#[test]
+fn speed_other_swap_range() {
+    let array_size = 20_000_000;
+    let mid = array_size / 2;
+    let sizes = [100, 500, 1000, 4000, 10000, 100000, 1_000_000];
+    for size in sizes.iter() {
+        let mut arr = helper_random_array_uniform_u64(array_size);
+        let mut copy = arr.to_vec();
+
+        print!("Swap size: {}", *size);
+        let start = Instant::now();
+        swap_range(&mut arr, *size, 0, mid);
+        print!("\t Time for swap range {}ns", start.elapsed().as_nanos() as u64);
+
+        let start = Instant::now();
+        swap_range_mt(&mut copy, *size, 0, mid);
+        print!("\t Time for swap range mt {}ns", start.elapsed().as_nanos() as u64);
+
+        println!();
+    }
+}
+
+#[test]
+fn speed_other_perform_swaps() {
+    let array_size = 100_000_000;
+    let mid = array_size / 2;
+    let nb_swaps = [4, 10, 20, 30, 40, 100, 200, 1000, 2000, 10000, 20000];
+    let sizes = [100, 500, 1000];
+    for nb_swap in nb_swaps.iter() {
+        println!("Number of swap: {}", *nb_swap);
+        for size in sizes.iter() {
+            let mut arr = helper_random_array_uniform_u64(array_size);
+            let mut copy = arr.to_vec();
+
+            let v = vec![0; *nb_swap];
+            let swaps: Vec<(usize, usize, usize)> = v
+            .iter()
+            .enumerate()
+            .map(|(nb, _)| {
+                (*size, *size * nb, *size * nb + mid)
+            })
+            .collect();
+            print!("Swap size: {}", *size);
+            let swaps_copy = swaps.to_vec();
+            let start = Instant::now();
+            perform_swaps(&mut arr, swaps, 0);
+            print!("\t Time for perform swaps {}ns", start.elapsed().as_nanos() as u64);
+
+            let start = Instant::now();
+            perform_swaps_mt(&mut copy, swaps_copy, 0);
+            print!("\t Time for perform swaps mt {}ns", start.elapsed().as_nanos() as u64);
+
+            println!();
         }
     }
 }

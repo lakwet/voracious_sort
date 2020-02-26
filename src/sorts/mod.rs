@@ -9,6 +9,7 @@ pub mod msd_sort;
 pub mod msd_string_sort;
 pub mod regions_sort;
 pub mod ska_sort;
+pub mod sorter_network;
 pub mod thiel_sort;
 pub mod utils;
 pub mod voracious_sort;

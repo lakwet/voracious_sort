@@ -1,5 +1,5 @@
 use super::super::Radixable;
-use super::utils::{swap, Params};
+use super::utils::Params;
 
 const TRY_THRESHOLD: u8 = 32;
 
@@ -13,7 +13,7 @@ pub fn insertion_sort<T: PartialOrd>(arr: &mut [T]) {
         if arr[i - 1] > arr[i] {
             let mut j = i;
             while j > 0 && arr[j - 1] > arr[j] {
-                swap(arr, j - 1, j);
+                arr.swap(j - 1, j);
                 j -= 1;
             }
         }
@@ -25,7 +25,7 @@ fn insertion_sort_start_at<T: PartialOrd>(arr: &mut [T], start: usize) {
         if arr[i - 1] > arr[i] {
             let mut j = i;
             while j > 0 && arr[j - 1] > arr[j] {
-                swap(arr, j - 1, j);
+                arr.swap(j - 1, j);
                 j -= 1;
             }
         }
@@ -136,7 +136,7 @@ where
 
             let mut j = i;
             while j > 0 && arr[j - 1] > arr[j] {
-                swap(arr, j - 1, j);
+                arr.swap(j - 1, j);
                 j -= 1;
             }
 

@@ -53,6 +53,40 @@ pub fn generators_u8bool(
 }
 
 // Uniform
+pub fn helper_random_array_uniform_usizef64(size: usize) -> Vec<(usize, f64)> {
+    let mut rng = thread_rng();
+    let mut array: Vec<(usize, f64)> = Vec::with_capacity(size);
+    for _ in 0..size {
+        let v1: usize = rng.gen();
+        let v2: f64 = rng.gen();
+        array.push((v1, v2));
+    }
+    array
+}
+
+pub fn generators_usizef64(
+) -> Vec<(&'static dyn Fn(usize) -> Vec<(usize, f64)>, &'static str)> {
+    vec![(&helper_random_array_uniform_usizef64, "-- Unif       :")]
+}
+
+// Uniform
+pub fn helper_random_array_uniform_usizef32(size: usize) -> Vec<(usize, f32)> {
+    let mut rng = thread_rng();
+    let mut array: Vec<(usize, f32)> = Vec::with_capacity(size);
+    for _ in 0..size {
+        let v1: usize = rng.gen();
+        let v2: f32 = rng.gen();
+        array.push((v1, v2));
+    }
+    array
+}
+
+pub fn generators_usizef32(
+) -> Vec<(&'static dyn Fn(usize) -> Vec<(usize, f32)>, &'static str)> {
+    vec![(&helper_random_array_uniform_usizef32, "-- Unif       :")]
+}
+
+// Uniform
 pub fn helper_random_array_uniform_boolu8(size: usize) -> Vec<(bool, u8)> {
     let mut rng = thread_rng();
     let mut array: Vec<(bool, u8)> = Vec::with_capacity(size);

@@ -5,7 +5,7 @@ use super::lsd_sort::lsd_radixsort_body;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
     copy_nonoverlapping, get_full_histogram_except_for_last_level,
-    only_one_bucket_filled, prefix_sums, swap, Params,
+    only_one_bucket_filled, prefix_sums, Params,
 };
 
 pub fn thiel_radixsort_body<T>(arr: &mut [T], p: Params)
@@ -28,7 +28,7 @@ where
     let t2 = &mut buffer;
     let t2 = t2.as_mut_slice();
 
-    let mut source = t1;
+    let source = t1;
     let destination = t2;
 
     /*** first pass with estimated buckets size ***/
@@ -54,7 +54,7 @@ where
             estimated_heads[target_bucket] += 1;
         } else {
             // otherwise use the source input array
-            swap(&mut source, i, overflow_index);
+            source.swap(i, overflow_index);
             overflow_histogram[target_bucket] += 1;
             overflow_index += 1;
         }

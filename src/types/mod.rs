@@ -13,7 +13,7 @@ use super::sorts::utils::{
     compute_max_level, compute_offset, get_full_histograms_fast, Params,
 };
 
-pub trait Radixable<T = Self>: Sized + Copy + PartialOrd + Send
+pub trait Radixable<T = Self>: Sized + Copy + PartialOrd + Send + Sync
 where
     T: Radixable,
 {
@@ -55,14 +55,14 @@ where
         (mask, shift)
     }
     #[inline] // default implementation, might be override
-    fn get_mask_and_shift_for_partial(
+    fn get_mask_and_shift_from_left(
         &self,
         p: &Params,
     ) -> (Self::KeyType, usize) {
         let mask = self.default_mask(p.radix);
         let bits = self.type_size();
-        let shift = if p.radix * p.max_level > bits - p.offset {
-            p.radix * (p.max_level - 1 - p.level)
+        let shift = if bits < p.offset + p.radix * (p.level + 1) {
+            0
         } else {
             bits - p.offset - p.radix * (p.level + 1)
         };

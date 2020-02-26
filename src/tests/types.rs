@@ -80,11 +80,11 @@ fn test_types_compute_max_level() {
 }
 
 #[test]
-fn test_types_get_mask_and_shift_for_partial() {
+fn test_types_get_mask_and_shift_from_left() {
     let p = Params::new(1, 7, 3, 2); // level, radix, offset, max_level
     let arr: Vec<u32> = vec![10];
     let dummy = arr[0];
-    let (mask, shift) = dummy.get_mask_and_shift_for_partial(&p);
+    let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
 
     assert_eq!(mask, 0b0000_0000_0011_1111_1000_0000_0000_0000u32);
     assert_eq!(shift, 15);

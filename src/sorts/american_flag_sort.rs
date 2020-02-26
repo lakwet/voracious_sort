@@ -1,6 +1,6 @@
 use super::super::Radixable;
 use super::comparative_sort::insertion_sort;
-use super::utils::{get_histogram, prefix_sums, swap, Params};
+use super::utils::{get_histogram, prefix_sums, Params};
 
 fn serial_swap<T>(
     arr: &mut [T],
@@ -18,7 +18,7 @@ fn serial_swap<T>(
                 let mut bucket =
                     arr.get_unchecked(heads[i]).extract(mask, shift);
                 while bucket != i {
-                    swap(arr, heads[i], heads[bucket]);
+                    arr.swap(heads[i], heads[bucket]);
                     heads[bucket] += 1;
                     bucket = arr.get_unchecked(heads[i]).extract(mask, shift);
                 }
@@ -39,7 +39,7 @@ where
 
     let dummy = arr[0];
 
-    let (mask, shift) = dummy.get_mask_and_shift(&p);
+    let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, tails) = prefix_sums(&histogram);
 

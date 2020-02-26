@@ -32,7 +32,7 @@ pub fn voracious_sort_rec<T: Radixable + Copy + PartialOrd>(
     }
 
     let dummy = arr[0];
-    let (mask, shift) = dummy.get_mask_and_shift(&p);
+    let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, tails) = prefix_sums(&histogram);
 

@@ -13,7 +13,7 @@ use super::voracious_sort::voracious_sort_rec;
 const EFST: f64 = 0.1; // Estimated Final Size Threshold
 const NRT: f64 = 0.35; // Next Radix Threshold
 
-fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
+pub fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
     let mut results = Vec::new();
 
     for r in 7..10 {
@@ -81,7 +81,7 @@ pub fn dlsd_radixsort_body<T: Radixable + Copy + PartialOrd>(
         let (mut source, mut destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
         let (mask, shift) = if diversion {
-            dummy.get_mask_and_shift_for_partial(&p.new_level(level))
+            dummy.get_mask_and_shift_from_left(&p.new_level(level))
         } else {
             dummy.get_mask_and_shift(&p.new_level(level))
         };
@@ -151,13 +151,16 @@ where
         offset_from_bits(arr, max_key, sugg_radix, bits, zero, one);
     let (offset, _) = offset_from_bits(arr, max_key, radix, bits, zero, one);
     let max_level = dummy.compute_max_level(offset, radix);
+    let sugg_max_level = dummy.compute_max_level(sugg_raw_offset, sugg_radix);
 
-    let (params, diversion, rbd) = if required_bytes < max_level {
+    let (params, diversion, rbd) = if required_bytes < sugg_max_level {
         (
             Params::new(0, sugg_radix, sugg_raw_offset, required_bytes),
             true,
             required_bytes,
         )
+    } else if sugg_radix > radix {
+        (Params::new(0, sugg_radix, sugg_raw_offset, sugg_max_level), false, sugg_max_level)
     } else {
         (Params::new(0, radix, offset, max_level), false, max_level)
     };

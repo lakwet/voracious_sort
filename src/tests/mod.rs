@@ -6,6 +6,7 @@ mod chi2;
 mod comparative_sort;
 mod merge_algo;
 mod regions_graph;
+mod sorter_network;
 mod sorts;
 mod speed_other;
 mod speed_sort;

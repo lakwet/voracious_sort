@@ -1,6 +1,6 @@
 use rayon;
 
-use super::super::sorts::utils::{copy_nonoverlapping, swap};
+use super::super::sorts::utils::{copy_nonoverlapping};
 
 fn forward_merge2<T: Copy + Clone + PartialOrd>(
     arr: &mut [T],
@@ -35,7 +35,7 @@ fn forward_merge2<T: Copy + Clone + PartialOrd>(
             arr[position] = copy[i];
             i += 1;
         } else {
-            swap(arr, position, j);
+            arr.swap(position, j);
             j += 1;
         }
         position += 1;
@@ -74,7 +74,7 @@ fn backward_merge2<T: Copy + Clone + PartialOrd>(
             arr[position] = copy[i as usize];
             i -= 1;
         } else {
-            swap(arr, position, j as usize);
+            arr.swap(position, j as usize);
             j -= 1;
         }
         position -= 1;
@@ -219,6 +219,45 @@ pub fn k_way_merge_mt<T: Copy + Clone + PartialOrd + Send>(
         .build()
         .unwrap();
 
+    while separators.len() > 2 {
+        kway_merge_mt_helper(&pool, arr, buffer, separators);
+    }
+}
+
+pub fn k_way_merge_mt_with_buffer<T: Copy + Clone + PartialOrd + Send>(
+    arr: &mut [T],
+    separators: &mut Vec<usize>,
+    thread_n: usize,
+) {
+    if separators.len() <= 2 {
+        return;
+    }
+
+    if separators.len() == 3 {
+        let min_length =
+            if separators[1] - separators[0] <= separators[2] - separators[1] {
+                separators[1] - separators[0]
+            } else {
+                separators[2] - separators[1]
+            };
+
+        merge2(
+            arr,
+            &mut vec![arr[0]; min_length],
+            separators[0],
+            separators[1],
+            separators[2],
+        );
+        return;
+    }
+
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(thread_n)
+        .build()
+        .unwrap();
+
+    let mut buffer: Vec<T> = arr.to_vec();
+    let buffer = buffer.as_mut_slice();
     while separators.len() > 2 {
         kway_merge_mt_helper(&pool, arr, buffer, separators);
     }
