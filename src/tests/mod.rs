@@ -1,10 +1,6 @@
-extern crate afsort;
 extern crate rand;
-extern crate rdxsort;
 
-mod chi2;
 mod comparative_sort;
-mod merge_algo;
 mod regions_graph;
 mod sorter_network;
 mod sorts;

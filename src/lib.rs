@@ -427,9 +427,12 @@ pub mod generators;
 mod sorts;
 #[cfg(test)]
 pub mod tests;
-mod types;
+pub mod traits;
+pub mod types;
 
-pub use types::{RadixSort, Radixable};
+pub use traits::radix_key::RadixKey;
+pub use traits::radixsort::RadixSort;
+pub use traits::radixable::Radixable;
 
 pub use sorts::american_flag_sort::american_flag_sort;
 pub use sorts::boolean_sort::boolean_sort;
@@ -439,7 +442,6 @@ pub use sorts::dlsd_sort::dlsd_radixsort;
 pub use sorts::lsd_mt_sort::lsd_mt_radixsort;
 pub use sorts::lsd_sort::lsd_radixsort;
 pub use sorts::msd_sort::msd_radixsort;
-pub use sorts::msd_string_sort::msd_string_radixsort;
 pub use sorts::regions_sort::regions_sort;
 pub use sorts::ska_sort::ska_sort;
 pub use sorts::thiel_sort::thiel_radixsort;

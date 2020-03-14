@@ -1,14 +1,16 @@
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort_heu;
 use super::super::sorts::utils::{get_empty_histograms, Params};
-use super::Radixable;
+use super::super::{Radixable};
 
-impl Radixable for char {
-    type KeyType = u32;
+impl Radixable<char> for char {
+    type Key = char;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
-        ((self.into_key_type() & mask) >> shift) as usize
+    fn key(&self) -> char { *self }
+    #[inline]
+    fn extract(&self, mask: u32, shift: usize) -> usize {
+        ((*self as u32 & mask) >> shift) as usize
     }
     #[inline] // overrided function
     fn to_generic(&self, v: usize) -> char {
@@ -17,26 +19,6 @@ impl Radixable for char {
     #[inline]
     fn into_key_type(&self) -> u32 {
         *self as u32
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        21
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u32 {
-        item as u32
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u32) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,

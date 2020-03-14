@@ -1,7 +1,7 @@
 use rayon;
 
 use super::super::algo::k_way_merge::k_way_merge_mt;
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::msd_sort::copy_by_histogram;
 // use super::lsd_sort::lsd_radixsort_body;
 use super::utils::{
@@ -9,9 +9,10 @@ use super::utils::{
     split_into_chunks,
 };
 
-pub fn lsd_radixsort_body<T>(arr: &mut [T], buffer: &mut [T], p: Params)
+pub fn lsd_radixsort_body<T, K>(arr: &mut [T], buffer: &mut [T], p: Params)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -66,10 +67,11 @@ where
     }
 }
 
-fn lsd_radixsort_aux<T>(arr: &mut [T], buffer: &mut Vec<T>, radix: usize, thread_n: usize)
+fn lsd_radixsort_aux<T, K>(arr: &mut [T], buffer: &mut Vec<T>, radix: usize, thread_n: usize)
 -> Vec<usize>
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let mut parts = split_into_chunks(arr, thread_n);
     let mut buffer_parts = split_into_chunks(buffer, thread_n);
@@ -102,9 +104,10 @@ where
     separators
 }
 
-pub fn lsd_mt_radixsort<T>(arr: &mut [T], radix: usize, thread_n: usize)
+pub fn lsd_mt_radixsort<T, K>(arr: &mut [T], radix: usize, thread_n: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

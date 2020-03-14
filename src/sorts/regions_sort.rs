@@ -3,7 +3,7 @@ use rayon;
 use std::sync::mpsc::channel;
 use std::time::Instant;
 
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::algo::k_way_merge::k_way_merge_mt_with_buffer;
 use super::comparative_sort::insertion_sort_try;
@@ -345,7 +345,7 @@ impl PartialEq for RegionsGraph {
 
 impl Eq for RegionsGraph {}
 
-pub fn local_sorting<T>(
+pub fn local_sorting<T, K>(
     arr: &mut [T],
     p: &Params,
     block_size: usize,
@@ -353,7 +353,8 @@ pub fn local_sorting<T>(
     _thread_n: usize,
 ) -> Vec<Vec<usize>>
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
@@ -394,7 +395,7 @@ where
     histograms
 }
 
-fn regions_sort_rec<T: Radixable + Copy + PartialOrd>(
+fn regions_sort_rec<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: Params,
     block_size: usize,
@@ -485,9 +486,10 @@ fn regions_sort_rec<T: Radixable + Copy + PartialOrd>(
     }
 }
 
-pub fn regions_sort<T>(arr: &mut [T], radix: usize, block_size: usize, thread_n: usize)
+pub fn regions_sort<T, K>(arr: &mut [T], radix: usize, block_size: usize, thread_n: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     let size = arr.len();
     if size <= 128 {

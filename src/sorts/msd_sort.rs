@@ -1,19 +1,23 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::utils::{get_histogram, prefix_sums, Params};
 
 const UNROLL_SIZE: usize = 4;
 
 #[inline]
-pub fn copy_by_histogram<T: Radixable>(
+pub fn copy_by_histogram<T, K>(
     size: usize,
     source: &mut [T],
     destination: &mut [T],
     heads: &mut Vec<usize>,
-    mask: <T as Radixable>::KeyType,
+    mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
-) {
+)
+where
+    T: Radixable<K>,
+    K: RadixKey,
+{
     let quotient = size / UNROLL_SIZE;
     let remainder = size % UNROLL_SIZE;
 
@@ -49,7 +53,7 @@ pub fn copy_by_histogram<T: Radixable>(
     }
 }
 
-pub fn msd_radixsort_rec<T: Radixable>(arr: &mut [T], p: Params) {
+pub fn msd_radixsort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
@@ -78,7 +82,7 @@ pub fn msd_radixsort_rec<T: Radixable>(arr: &mut [T], p: Params) {
     }
 }
 
-fn msd_radixsort_aux<T: Radixable>(arr: &mut [T], radix: usize) {
+fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
@@ -109,7 +113,7 @@ fn msd_radixsort_aux<T: Radixable>(arr: &mut [T], radix: usize) {
 /// The Verge sort pre-processing heuristic is also added.
 ///
 /// The MSD sort is an out of place unstable radix sort.
-pub fn msd_radixsort<T: Radixable>(arr: &mut [T], radix: usize) {
+pub fn msd_radixsort<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;

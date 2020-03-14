@@ -2,13 +2,15 @@ use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::sorts::voracious_sort::voracious_sort;
-use super::Radixable;
+use super::super::{Radixable};
 
-impl Radixable for f32 {
-    type KeyType = u32;
+impl Radixable<f32> for f32 {
+    type Key = f32;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> f32 { *self }
+    #[inline]
+    fn extract(&self, mask: u32, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline]
@@ -23,26 +25,6 @@ impl Radixable for f32 {
                 casted ^ submask
             }
         }
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        32
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u32 {
-        item as u32
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u32) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,
@@ -217,11 +199,13 @@ impl Radixable for f32 {
     }
 }
 
-impl Radixable for f64 {
-    type KeyType = u64;
+impl Radixable<f64> for f64 {
+    type Key = f64;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> f64 { *self }
+    #[inline]
+    fn extract(&self, mask: u64, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline]
@@ -236,26 +220,6 @@ impl Radixable for f64 {
                 casted ^ submask
             }
         }
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        64
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u64 {
-        item as u64
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u64) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,

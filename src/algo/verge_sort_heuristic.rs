@@ -1,4 +1,4 @@
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 
 #[derive(PartialEq, Debug)]
 pub enum Orientation {
@@ -625,7 +625,7 @@ pub fn explore_around<T: PartialOrd>(
 }
 
 #[inline]
-fn handle_asc_then_desc<T>(
+fn handle_asc_then_desc<T, K>(
     arr: &mut [T],
     bp2: usize,
     bp1: usize,
@@ -638,7 +638,8 @@ fn handle_asc_then_desc<T>(
     fallback_sort: &dyn Fn(&mut [T], usize) -> (),
 ) -> (usize, usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     //     bp2 bp1  position  fp1 fp2
     //        /¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯\
@@ -673,7 +674,7 @@ where
 }
 
 #[inline]
-fn handle_desc_then_asc<T>(
+fn handle_desc_then_asc<T, K>(
     arr: &mut [T],
     bp2: usize,
     bp1: usize,
@@ -686,7 +687,8 @@ fn handle_desc_then_asc<T>(
     fallback_sort: &dyn Fn(&mut [T], usize) -> (),
 ) -> (usize, usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     //     bp2 bp1   position   fp1 fp2
     //      \  |        |        |  /
@@ -745,7 +747,7 @@ where
 }
 
 #[inline]
-fn handle_part<T>(
+fn handle_part<T, K>(
     arr: &mut [T],
     b_pattern: BackwardGrowth,
     f_pattern: ForwardGrowth,
@@ -760,7 +762,8 @@ fn handle_part<T>(
     fallback_sort: &dyn Fn(&mut [T], usize) -> (),
 ) -> (usize, usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     match get_growth_pattern(b_pattern, f_pattern) {
         GrowthPattern::AscThenDesc => handle_asc_then_desc(
@@ -828,13 +831,14 @@ where
     }
 }
 
-pub fn verge_sort_preprocessing<T>(
+pub fn verge_sort_preprocessing<T, K>(
     arr: &mut [T],
     radix: usize,
     fallback_sort: &dyn Fn(&mut [T], usize) -> (),
 ) -> Vec<usize>
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let size = arr.len();
     let big_enough = compute_big_enough_run(size);

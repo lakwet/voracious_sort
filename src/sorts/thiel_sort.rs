@@ -1,6 +1,6 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::lsd_sort::lsd_radixsort_body;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
@@ -8,9 +8,10 @@ use super::utils::{
     only_one_bucket_filled, prefix_sums, Params,
 };
 
-pub fn thiel_radixsort_body<T>(arr: &mut [T], p: Params)
+pub fn thiel_radixsort_body<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -141,9 +142,10 @@ where
     }
 }
 
-fn thiel_radixsort_aux<T>(arr: &mut [T], radix: usize)
+fn thiel_radixsort_aux<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -177,9 +179,10 @@ where
 /// The Thiel sort is an out of place unstable radix sort. The original sort
 /// is stable, but because the fallback has been replaced by an unstable sort,
 /// the entire algorithm is then unstable.
-pub fn thiel_radixsort<T>(arr: &mut [T], radix: usize)
+pub fn thiel_radixsort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

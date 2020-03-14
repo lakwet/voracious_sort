@@ -4,13 +4,15 @@ use super::super::sorts::lsd_sort::{lsd_radixsort, lsd_radixsort_heu};
 use super::super::sorts::msd_sort::msd_radixsort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::sorts::voracious_sort::voracious_sort_heu;
-use super::Radixable;
+use super::super::{Radixable};
 
-impl Radixable for i8 {
-    type KeyType = u8;
+impl Radixable<i8> for i8 {
+    type Key = i8;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> i8 { *self }
+    #[inline]
+    fn extract(&self, mask: u8, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline] // overrided function
@@ -20,26 +22,6 @@ impl Radixable for i8 {
     #[inline]
     fn into_key_type(&self) -> u8 {
         *self as u8 ^ 0x80
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        8
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u8 {
-        item as u8
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u8) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,
@@ -91,11 +73,13 @@ impl Radixable for i8 {
     }
 }
 
-impl Radixable for i16 {
-    type KeyType = u16;
+impl Radixable<i16> for i16 {
+    type Key = i16;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> i16 { *self }
+    #[inline]
+    fn extract(&self, mask: u16, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline] // overrided function
@@ -105,26 +89,6 @@ impl Radixable for i16 {
     #[inline]
     fn into_key_type(&self) -> u16 {
         *self as u16 ^ 0x8000
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        16
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u16 {
-        item as u16
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u16) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,
@@ -211,11 +175,13 @@ impl Radixable for i16 {
     }
 }
 
-impl Radixable for i32 {
-    type KeyType = u32;
+impl Radixable<i32> for i32 {
+    type Key = i32;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> i32 { *self }
+    #[inline]
+    fn extract(&self, mask: u32, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline] // overrided function
@@ -225,26 +191,6 @@ impl Radixable for i32 {
     #[inline]
     fn into_key_type(&self) -> u32 {
         *self as u32 ^ 0x8000_0000
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        32
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u32 {
-        item as u32
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u32) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,
@@ -411,11 +357,13 @@ impl Radixable for i32 {
     }
 }
 
-impl Radixable for i64 {
-    type KeyType = u64;
+impl Radixable<i64> for i64 {
+    type Key = i64;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> i64 { *self }
+    #[inline]
+    fn extract(&self, mask: u64, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline] // overrided function
@@ -425,26 +373,6 @@ impl Radixable for i64 {
     #[inline]
     fn into_key_type(&self) -> u64 {
         *self as u64 ^ 0x8000_0000_0000_0000
-    }
-    #[inline]
-    fn type_size(&self) -> usize {
-        64
-    }
-    #[inline(always)]
-    fn usize_to_keytype(&self, item: usize) -> u64 {
-        item as u64
-    }
-    #[inline(always)]
-    fn keytype_to_usize(&self, item: u64) -> usize {
-        item as usize
-    }
-    #[inline]
-    fn default_key(&self) -> Self::KeyType {
-        0
-    }
-    #[inline]
-    fn one(&self) -> Self::KeyType {
-        1
     }
     fn get_full_histograms(
         &self,
@@ -923,11 +851,13 @@ impl Radixable for i64 {
     }
 }
 
-impl Radixable for i128 {
-    type KeyType = u128;
+impl Radixable<i128> for i128 {
+    type Key = i128;
 
     #[inline]
-    fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
+    fn key(&self) -> i128 { *self }
+    #[inline]
+    fn extract(&self, mask: u128, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline] // overrided function
@@ -951,11 +881,11 @@ impl Radixable for i128 {
         item as usize
     }
     #[inline]
-    fn default_key(&self) -> Self::KeyType {
+    fn default_key(&self) -> u128 {
         0
     }
     #[inline]
-    fn one(&self) -> Self::KeyType {
+    fn one(&self) -> u128 {
         1
     }
     fn voracious_sort(&self, arr: &mut [i128]) {

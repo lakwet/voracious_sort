@@ -3,7 +3,7 @@ use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::{lsd_radixsort, lsd_radixsort_heu};
 use super::super::sorts::msd_sort::msd_radixsort;
 use super::super::sorts::voracious_sort::{voracious_sort, voracious_sort_heu};
-use super::Radixable;
+use super::super::{RadixKey, Radixable};
 
 impl Radixable for (bool, bool) {
     type KeyType = u8;

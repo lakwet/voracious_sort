@@ -2,13 +2,13 @@ use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::{
     explore_simple_forward, verge_sort_preprocessing, Orientation,
 };
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::counting_sort::counting_sort;
 use super::msd_sort::msd_radixsort_rec;
 use super::ska_sort::ska_swap;
 use super::utils::{get_histogram, prefix_sums, Params};
 
-pub fn voracious_sort_rec<T: Radixable + Copy + PartialOrd>(
+pub fn voracious_sort_rec<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: Params,
     zipf_heuristic_count: usize,
@@ -72,7 +72,7 @@ pub fn voracious_sort_rec<T: Radixable + Copy + PartialOrd>(
     }
 }
 
-fn voracious_sort_aux<T: Radixable + Copy + PartialOrd>(
+fn voracious_sort_aux<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     radix: usize,
     heuristic: bool,
@@ -124,9 +124,10 @@ fn voracious_sort_aux<T: Radixable + Copy + PartialOrd>(
 /// The Voracious sort is an in place unstable radix sort. For array smaller than
 /// 30_000 elements it fallbacks to MSD sort which is out of place, but since the
 /// threshold is a constant, this algorithm is in place.
-pub fn voracious_sort<T>(arr: &mut [T], radix: usize)
+pub fn voracious_sort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -139,9 +140,10 @@ where
     k_way_merge(arr, &mut separators);
 }
 
-pub fn voracious_sort_heu<T>(arr: &mut [T], radix: usize, min_cs2: usize)
+pub fn voracious_sort_heu<T, K>(arr: &mut [T], radix: usize, min_cs2: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

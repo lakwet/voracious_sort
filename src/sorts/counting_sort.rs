@@ -1,9 +1,10 @@
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::utils::Params;
 
-fn counting_sort_aux<T>(arr: &mut [T], p: Params)
+fn counting_sort_aux<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mut histogram = vec![0; p.radix_range];
@@ -65,9 +66,10 @@ where
 /// Counting sort is very fast for inputs with a small bit representation.
 ///
 /// This Counting sort has been a bit customized since it takes a radix input.
-pub fn counting_sort<T>(arr: &mut [T], radix: usize)
+pub fn counting_sort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() < 2 {
         return;

@@ -1,15 +1,15 @@
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::american_flag_sort::serial_radixsort_rec;
 use super::comparative_sort::insertion_sort;
 use super::utils::{get_histogram, prefix_sums, Params};
 
 const UNROLL_SIZE: usize = 4;
 
-pub fn ska_swap<T: Radixable + Copy>(
+pub fn ska_swap<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     heads: &mut Vec<usize>,
     tails: &[usize],
-    mask: <T as Radixable>::KeyType,
+    mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
 ) {
     let mut buckets_size = Vec::new();
@@ -75,7 +75,7 @@ pub fn ska_swap<T: Radixable + Copy>(
     }
 }
 
-fn ska_sort_rec<T: Radixable + Copy + PartialOrd>(arr: &mut [T], p: Params) {
+fn ska_sort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;
@@ -113,7 +113,7 @@ fn ska_sort_rec<T: Radixable + Copy + PartialOrd>(arr: &mut [T], p: Params) {
 /// algorithm.
 ///
 /// The Ska sort is an in place unstable radix sort.
-pub fn ska_sort<T: Radixable + Copy + PartialOrd>(arr: &mut [T], radix: usize) {
+pub fn ska_sort<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;

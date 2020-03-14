@@ -1,6 +1,6 @@
 use rand::{thread_rng, Rng};
 
-use super::super::types::custom::{Custom, MyStruct, StructWithF64};
+use super::super::types::custom::{Custom, MyStruct, StructWithF64, Craftf32};
 
 // Uniform
 pub fn helper_random_array_uniform_custom(size: usize) -> Vec<Custom> {
@@ -55,6 +55,28 @@ pub fn generators_structwithf64(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<StructWithF64>, &'static str)> {
     vec![(
         &helper_random_array_uniform_structwithf64,
+        "-- Unif       :",
+    )]
+}
+
+// Uniform
+pub fn helper_random_array_uniform_craftf32(
+    size: usize,
+) -> Vec<Craftf32> {
+    let mut rng = thread_rng();
+    let mut array: Vec<Craftf32> = Vec::with_capacity(size);
+    for _ in 0..size {
+        let key: usize = rng.gen();
+        let value: f32 = rng.gen();
+        array.push(Craftf32 { key, value });
+    }
+    array
+}
+
+pub fn generators_craftf32(
+) -> Vec<(&'static dyn Fn(usize) -> Vec<Craftf32>, &'static str)> {
+    vec![(
+        &helper_random_array_uniform_craftf32,
         "-- Unif       :",
     )]
 }

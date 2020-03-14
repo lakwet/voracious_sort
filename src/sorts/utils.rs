@@ -2,7 +2,7 @@ use rayon::prelude::*;
 
 use std::sync::mpsc::channel;
 
-use super::super::types::Radixable;
+use super::super::{RadixKey, Radixable};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Params {
@@ -48,7 +48,7 @@ unsafe impl<T: ?Sized> Send for SafePtr<T> {}
 unsafe impl<T: ?Sized> Sync for SafePtr<T> {}
 
 #[inline]
-pub fn swap_range_mt<T: Radixable>(arr: &mut [T], len: usize, i: usize, j: usize) {
+pub fn swap_range_mt<T: Radixable<K>, K: RadixKey>(arr: &mut [T], len: usize, i: usize, j: usize) {
     let ptr = SafePtr(arr.as_mut_ptr());
 
     let indices = vec![0; len];
@@ -64,7 +64,7 @@ pub fn swap_range_mt<T: Radixable>(arr: &mut [T], len: usize, i: usize, j: usize
         });
 }
 
-pub fn perform_swaps<T: Radixable>(
+pub fn perform_swaps<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     swaps: Vec<(usize, usize, usize)>,
     offset: usize,
@@ -74,7 +74,7 @@ pub fn perform_swaps<T: Radixable>(
     }
 }
 
-pub fn perform_swaps_mt<T: Radixable>(
+pub fn perform_swaps_mt<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     swaps: Vec<(usize, usize, usize)>,
     offset: usize,
@@ -137,9 +137,10 @@ pub fn only_one_bucket_filled(histogram: &[usize]) -> bool {
     true
 }
 
-pub fn split_into_chunks<T>(arr: &mut [T], chunk_n: usize) -> Vec<&mut [T]>
+pub fn split_into_chunks<T, K>(arr: &mut [T], chunk_n: usize) -> Vec<&mut [T]>
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let part_size = arr.len() / chunk_n;
 
@@ -157,16 +158,17 @@ where
     parts
 }
 
-pub fn offset_from_bits<T>(
+pub fn offset_from_bits<T, K>(
     _arr: &mut [T],
-    biggest: <T as Radixable>::KeyType,
+    biggest: <<T as Radixable<K>>::Key as RadixKey>::Key,
     radix: usize,
     bits: usize,
-    zero: <T as Radixable>::KeyType,
-    one: <T as Radixable>::KeyType,
+    zero: <<T as Radixable<K>>::Key as RadixKey>::Key,
+    one: <<T as Radixable<K>>::Key as RadixKey>::Key,
 ) -> (usize, usize)
 where
-    T: Radixable,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     let mut count = 0;
     let mut buf = biggest;
@@ -192,7 +194,7 @@ where
     (offset, bits - count)
 }
 
-pub fn compute_offset<T: Radixable + Copy>(
+pub fn compute_offset<T: Radixable<K> + Copy, K: RadixKey>(
     arr: &mut [T],
     radix: usize,
 ) -> (usize, usize) {
@@ -241,10 +243,10 @@ pub fn get_empty_histograms(p: &Params, partial: usize) -> Vec<Vec<usize>> {
     histograms
 }
 
-pub fn get_histogram<T: Radixable>(
+pub fn get_histogram<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: &Params,
-    mask: <T as Radixable>::KeyType,
+    mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
 ) -> Vec<usize> {
     let mut histogram = vec![0; p.radix_range];
@@ -277,10 +279,10 @@ pub fn get_histogram<T: Radixable>(
     histogram
 }
 
-pub fn get_histogram_mt<T: Radixable>(
+pub fn get_histogram_mt<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: &Params,
-    mask: <T as Radixable>::KeyType,
+    mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
     pool: &rayon::ThreadPool,
     chunk_n: usize,
@@ -307,9 +309,10 @@ pub fn get_histogram_mt<T: Radixable>(
     aggregate_histograms(&histograms)
 }
 
-pub fn _get_full_histogram<T>(arr: &mut [T], p: &Params) -> Vec<Vec<usize>>
+pub fn _get_full_histogram<T, K>(arr: &mut [T], p: &Params) -> Vec<Vec<usize>>
 where
-    T: Radixable,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mut histograms = Vec::new();
@@ -327,12 +330,13 @@ where
     histograms
 }
 
-pub fn get_full_histogram_except_for_last_level<T>(
+pub fn get_full_histogram_except_for_last_level<T, K>(
     arr: &mut [T],
     p: &Params,
 ) -> Vec<Vec<usize>>
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mut histograms = Vec::new();
@@ -350,7 +354,7 @@ where
     histograms
 }
 
-pub fn get_next_two_histograms<T: Radixable>(
+pub fn get_next_two_histograms<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: &Params,
 ) -> Vec<Vec<usize>> {
@@ -404,7 +408,7 @@ pub fn get_next_two_histograms<T: Radixable>(
     histograms
 }
 
-pub fn get_partial_histograms_fast<T: Radixable>(
+pub fn get_partial_histograms_fast<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: &Params,
     partial: usize,
@@ -490,9 +494,10 @@ pub fn get_partial_histograms_fast<T: Radixable>(
     histograms
 }
 
-pub fn get_full_histograms_fast<T>(arr: &mut [T], p: &Params) -> Vec<Vec<usize>>
+pub fn get_full_histograms_fast<T, K>(arr: &mut [T], p: &Params) -> Vec<Vec<usize>>
 where
-    T: Radixable,
+    T: Radixable<K>,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mut histograms = get_empty_histograms(p, p.max_level);

@@ -1,15 +1,16 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::counting_sort::counting_sort;
 use super::msd_sort::copy_by_histogram;
 use super::utils::{
     copy_nonoverlapping, only_one_bucket_filled, prefix_sums, Params,
 };
 
-pub fn lsd_radixsort_body<T>(arr: &mut [T], p: Params)
+pub fn lsd_radixsort_body<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -64,13 +65,14 @@ where
     }
 }
 
-pub fn lsd_radixsort_aux<T>(
+pub fn lsd_radixsort_aux<T, K>(
     arr: &mut [T],
     radix: usize,
     heuristic: bool,
     min_cs2: usize,
 ) where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -113,9 +115,10 @@ pub fn lsd_radixsort_aux<T>(
 ///
 /// The LSD sort is an out of place unstable radix sort. The core algorithm is
 /// stable, but fallback is unstable.
-pub fn lsd_radixsort<T>(arr: &mut [T], radix: usize)
+pub fn lsd_radixsort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -128,9 +131,10 @@ where
     k_way_merge(arr, &mut separators);
 }
 
-pub fn lsd_radixsort_heu<T>(arr: &mut [T], radix: usize, min_cs2: usize)
+pub fn lsd_radixsort_heu<T, K>(arr: &mut [T], radix: usize, min_cs2: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

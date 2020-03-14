@@ -1,16 +1,17 @@
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::comparative_sort::insertion_sort;
 use super::utils::{get_histogram, prefix_sums, Params};
 
-fn serial_swap<T>(
+fn serial_swap<T, K>(
     arr: &mut [T],
     heads: &mut Vec<usize>,
     tails: &[usize],
     p: &Params,
-    mask: <T as Radixable>::KeyType,
+    mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
 ) where
-    T: Radixable + Copy,
+    T: Radixable<K> + Copy,
+    K: RadixKey,
 {
     for i in 0..(p.radix_range) - 1 {
         while heads[i] < tails[i] {
@@ -28,9 +29,10 @@ fn serial_swap<T>(
     }
 }
 
-pub fn serial_radixsort_rec<T>(arr: &mut [T], p: Params)
+pub fn serial_radixsort_rec<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 64 {
         insertion_sort(arr);
@@ -68,9 +70,10 @@ where
 /// This algorithm is used as a fallback in the Ska sort.
 ///
 /// The American flag sort is an in place unstable radix sort.
-pub fn american_flag_sort<T>(arr: &mut [T], radix: usize)
+pub fn american_flag_sort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 64 {
         insertion_sort(arr);

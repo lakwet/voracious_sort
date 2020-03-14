@@ -1,4 +1,4 @@
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::utils::Params;
 
 const TRY_THRESHOLD: u8 = 32;
@@ -32,9 +32,10 @@ fn insertion_sort_start_at<T: PartialOrd>(arr: &mut [T], start: usize) {
     }
 }
 
-fn find_end_of_bucket<T>(arr: &mut [T], start: usize, p: &Params) -> usize
+fn find_end_of_bucket<T, K>(arr: &mut [T], start: usize, p: &Params) -> usize
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);
@@ -75,9 +76,10 @@ where
     }
 }
 
-fn find_start_of_bucket<T>(arr: &mut [T], start: usize, p: &Params) -> usize
+fn find_start_of_bucket<T, K>(arr: &mut [T], start: usize, p: &Params) -> usize
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);
@@ -112,9 +114,10 @@ where
     }
 }
 
-pub fn insertion_sort_try<T>(arr: &mut [T], p: &Params) -> Vec<(usize, usize)>
+pub fn insertion_sort_try<T, K>(arr: &mut [T], p: &Params) -> Vec<(usize, usize)>
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     let dummy = arr[0];
     let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);

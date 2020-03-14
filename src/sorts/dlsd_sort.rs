@@ -1,6 +1,6 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
-use super::super::Radixable;
+use super::super::{RadixKey, Radixable};
 use super::comparative_sort::insertion_sort_try;
 use super::msd_sort::copy_by_histogram;
 use super::utils::offset_from_bits;
@@ -44,7 +44,7 @@ pub fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
     }
 }
 
-pub fn dlsd_radixsort_body<T: Radixable + Copy + PartialOrd>(
+pub fn dlsd_radixsort_body<T: Radixable<K> + Copy + PartialOrd, K: RadixKey>(
     arr: &mut [T],
     p: Params,
     rbd: usize, // runs before diversion
@@ -129,9 +129,10 @@ pub fn dlsd_radixsort_body<T: Radixable + Copy + PartialOrd>(
     }
 }
 
-pub fn dlsd_radixsort_aux<T>(arr: &mut [T], radix: usize)
+pub fn dlsd_radixsort_aux<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -186,9 +187,10 @@ where
 ///
 /// The DLSD sort is an out of place unstable radix sort. The core algorithm
 /// is stable but fallback and diversion are unstable.
-pub fn dlsd_radixsort<T>(arr: &mut [T], radix: usize)
+pub fn dlsd_radixsort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable + Copy + PartialOrd,
+    T: Radixable<K> + Copy + PartialOrd,
+    K: RadixKey,
 {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

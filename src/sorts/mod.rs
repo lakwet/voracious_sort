@@ -6,7 +6,6 @@ pub mod dlsd_sort;
 pub mod lsd_mt_sort;
 pub mod lsd_sort;
 pub mod msd_sort;
-pub mod msd_string_sort;
 pub mod regions_sort;
 pub mod ska_sort;
 pub mod sorter_network;
