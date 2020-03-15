@@ -10,7 +10,7 @@ fn serial_swap<T, K>(
     mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
 ) where
-    T: Radixable<K> + Copy,
+    T: Radixable<K>,
     K: RadixKey,
 {
     for i in 0..(p.radix_range) - 1 {
@@ -31,7 +31,7 @@ fn serial_swap<T, K>(
 
 pub fn serial_radixsort_rec<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 64 {
@@ -72,7 +72,7 @@ where
 /// The American flag sort is an in place unstable radix sort.
 pub fn american_flag_sort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 64 {
@@ -84,6 +84,11 @@ where
 
     let (offset, _) = dummy.compute_offset(arr, radix);
     let max_level = dummy.compute_max_level(offset, radix);
+
+    if max_level == 0 {
+        return;
+    }
+
     let params = Params::new(0, radix, offset, max_level);
 
     serial_radixsort_rec(arr, params);

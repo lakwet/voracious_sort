@@ -1,6 +1,6 @@
 # Voracious sort
 
-Welcome on our GitHub dear visitor.
+Dear visitor, welcome on our GitHub.
 
 ## Introduction
 
@@ -13,9 +13,11 @@ a multithread radix sort.
 This crate should be easy to use and the sort should be able to sort almost
 "everything". Radix sort is criticized because people think it can only sort
 unsigned integers. This project proves this wrong, **Voracious sort can sort all
-Rust primitive types** (except Array for now) **and custom struct**. **It is way
+Rust primitive types** (except String, Tuple and Array for now) **and custom struct**. **It is way
 faster than Rust standard sort and Rust unstable sort** on most of the types and
 data distribution.
+
+Because of Rust Orphan Rule, we chose not to support tuple sorting. You can use Struct instead.
 
 You will find here:
 - Version
@@ -26,14 +28,14 @@ You will find here:
 - **Performance** analysis,
 - For developers and researchers
 - **References** we used for this project,
-- Futur work,
+- Future work,
 
 ## Version
 
 Last version tested/used:
-- Rustc: 1.38.0 stable
-- Rustfmt: 1.4.4 stable
-- Cargo: 1.38.0 stable
+- Rustc: 1.41.1 stable
+- Rustfmt: 1.4.11 stable
+- Cargo: 1.41.0 stable
 - Clippy: 0.0.212
 
 ## License
@@ -54,16 +56,12 @@ You can also think about it like someone very voracious of radish...
 ## Documentation: How to use it ?
 
 Since it is alreay explained in the crate documentation, we just provide the link:
-- [Voracious sort Rust Doc](./blob/master/src/lib.rs) <!-- TODO: replace this link by the real link -->
+- [Voracious sort Rust Doc](https://docs.rs/voracious_radix_sort/)
 
 And we assume that you know how to code in Rust...
 
 Other implementation examples:
-- [tuple](./blob/master/src/types/tuple.rs) <!-- TODO: replace this link by the real link -->
-- [struct](./blob/master/src/types/custom.rs) <!-- TODO: replace this link by the real link -->
-
-Don't forget to visit other `types` to see how the trait is implemented for each
-of them.
+- [struct](https://github.com/lakwet/voracious_sort/blob/master/src/types/custom.rs)
 
 ## Radix sort: basic notions
 
@@ -101,7 +99,7 @@ on your use case.
 
 In a radix sort, you use an **histogram** which has a size of `2.pow(radix)`.
 Given a **level**<sup>[1]</sup> and a radix, we can compute the histogram. This
-histogram give all the bucket sizes and thus, the algorithm know where to move
+histogram gives all the bucket sizes and thus, the algorithm knows where to move
 each elements. For a detail example, I let the reader read the Wikipedia page on
 [radix sort](https://en.wikipedia.org/wiki/Radix_sort).
 
@@ -110,12 +108,14 @@ each elements. For a detail example, I let the reader read the Wikipedia page on
 
 ## Performances
 
+CAUTION: Performance tests have been done on a previous version of the code.
+
 See raw benchmarck results in the results folder:
 
 For each sort, 3 columns:
-- 1st column: time
-- 2nd column: standard deviation (if more than 1 iteration)
-- 3rd column: time per item
+- 1st column: time un micro second
+- 2nd column: standard deviation (if more than 1 iteration) in nano second
+- 3rd column: time per item in nano second
 
 ## For developers and researchers
 
@@ -144,12 +144,9 @@ a variable radix (see [article](https://users.encs.concordia.ca/~sthiel/DS/SEA20
 - [PDQ sort](https://github.com/stjepang/pdqsort)
 
 
-## Futur work
+## Future work
 
 - Add multithread sort.
 - Improve k-way-merge algorithm.
-- Use more statistical hypothesis.
-- Finish 2-arity tuple implementation.
 - Add more generators (for tests).
-- Replace the MSD sort for string by a Burstsort or Spreadsort implementation
-or something else.
+- Add a sort for String.

@@ -1,167 +1,353 @@
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
-use super::super::sorts::lsd_sort::lsd_radixsort;
-use super::super::sorts::voracious_sort::voracious_sort;
-use super::super::{Radixable};
 use std::cmp::Ordering;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Custom {
-    min: u32,
-    max: u32,
-}
+use super::super::Radixable;
 
-impl Custom {
-    #![allow(dead_code)]
-    pub fn new(min: u32, max: u32) -> Custom {
-        Custom { min, max }
-    }
-}
-
-impl Ord for Custom {
-    fn cmp(&self, other: &Custom) -> Ordering {
-        (self.max - self.min).cmp(&(other.max - other.min))
-    }
-}
-
-impl PartialOrd for Custom {
-    fn partial_cmp(&self, other: &Custom) -> Option<Ordering> {
-        (self.max - self.min).partial_cmp(&(other.max - other.min))
-    }
-}
-
-impl Eq for Custom {}
-
-impl PartialEq for Custom {
-    fn eq(&self, other: &Self) -> bool {
-        self.max - self.min == other.max - other.min
-    }
-}
-
-impl Radixable<u32> for Custom {
-    type Key = u32;
-
-    #[inline]
-    fn key(&self) -> u32 {
-        self.max - self.min
-    }
-    fn voracious_sort(&self, arr: &mut [Custom]) {
-        lsd_radixsort(arr, 8);
-    }
-    fn dlsd_sort(&self, arr: &mut [Custom]) {
-        dlsd_radixsort(arr, 8);
-    }
-}
+// Struct
 
 #[derive(Copy, Clone, Debug)]
-pub struct MyStruct {
-    pub value: i32,
-    pub _rank: u8,
+pub struct StructBool {
+    pub value: bool,
+    pub other: isize,
 }
-
-impl PartialOrd for MyStruct {
-    fn partial_cmp(&self, other: &MyStruct) -> Option<Ordering> {
-        self.value.partial_cmp(&(other.value))
+impl PartialOrd for StructBool {
+    fn partial_cmp(&self, other: &StructBool) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
     }
 }
-
-impl PartialEq for MyStruct {
+impl PartialEq for StructBool {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
     }
 }
-
-impl Radixable<i32> for MyStruct {
-    type Key = i32;
-
+impl Radixable<bool> for StructBool {
+    type Key = bool;
     #[inline]
-    fn key(&self) -> i32 {
+    fn key(&self) -> Self::Key {
         self.value
     }
-    fn voracious_sort(&self, arr: &mut [MyStruct]) {
-        lsd_radixsort(arr, 8);
-    }
-    fn dlsd_sort(&self, arr: &mut [MyStruct]) {
-        dlsd_radixsort(arr, 8);
-    }
 }
+
+// Struct
 
 #[derive(Copy, Clone, Debug)]
-pub struct StructWithF64 {
-    pub rate: f64,
+pub struct StructChar {
+    pub value: char,
+    pub other: isize,
 }
-
-impl PartialOrd for StructWithF64 {
-    fn partial_cmp(&self, other: &StructWithF64) -> Option<Ordering> {
-        self.rate.partial_cmp(&(other.rate))
+impl PartialOrd for StructChar {
+    fn partial_cmp(&self, other: &StructChar) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
     }
 }
-
-impl PartialEq for StructWithF64 {
+impl PartialEq for StructChar {
     fn eq(&self, other: &Self) -> bool {
-        self.rate == other.rate
+        self.value == other.value
     }
 }
-
-impl Radixable<f64> for StructWithF64 {
-    type Key = f64;
-
+impl Radixable<char> for StructChar {
+    type Key = char;
     #[inline]
-    fn key(&self) -> f64 {
-        self.rate
-    }
-    fn voracious_sort(&self, arr: &mut [StructWithF64]) {
-        if arr.len() <= 500 {
-            voracious_sort(arr, 8);
-        } else {
-            lsd_radixsort(arr, 8);
-        }
-    }
-    fn dlsd_sort(&self, arr: &mut [StructWithF64]) {
-        if arr.len() <= 500 {
-            voracious_sort(arr, 8);
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn key(&self) -> Self::Key {
+        self.value
     }
 }
+
+// Struct
 
 #[derive(Copy, Clone, Debug)]
-pub struct Craftf32 {
-    pub key: usize,
+pub struct StructF32 {
     pub value: f32,
+    pub other: isize,
 }
-
-impl PartialOrd for Craftf32 {
-    fn partial_cmp(&self, other: &Craftf32) -> Option<Ordering> {
-        self.value.partial_cmp(&(other.value))
+impl PartialOrd for StructF32 {
+    fn partial_cmp(&self, other: &StructF32) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
     }
 }
-
-impl PartialEq for Craftf32 {
+impl PartialEq for StructF32 {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
     }
 }
-
-impl Radixable<f32> for Craftf32 {
+impl Radixable<f32> for StructF32 {
     type Key = f32;
-
     #[inline]
-    fn key(&self) -> f32 {
+    fn key(&self) -> Self::Key {
         self.value
     }
-    fn voracious_sort(&self, arr: &mut [Craftf32]) {
-        if arr.len() <= 300 {
-            arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
-            lsd_radixsort(arr, 8);
-        }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructF64 {
+    pub value: f64,
+    pub other: isize,
+}
+impl PartialOrd for StructF64 {
+    fn partial_cmp(&self, other: &StructF64) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
     }
-    fn dlsd_sort(&self, arr: &mut [Craftf32]) {
-        if arr.len() <= 300 {
-            arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
-            lsd_radixsort(arr, 8);
-        }
+}
+impl PartialEq for StructF64 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<f64> for StructF64 {
+    type Key = f64;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructU8 {
+    pub value: u8,
+    pub other: isize,
+}
+impl PartialOrd for StructU8 {
+    fn partial_cmp(&self, other: &StructU8) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructU8 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<u8> for StructU8 {
+    type Key = u8;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructU16 {
+    pub value: u16,
+    pub other: isize,
+}
+impl PartialOrd for StructU16 {
+    fn partial_cmp(&self, other: &StructU16) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructU16 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<u16> for StructU16 {
+    type Key = u16;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructU32 {
+    pub value: u32,
+    pub other: isize,
+}
+impl PartialOrd for StructU32 {
+    fn partial_cmp(&self, other: &StructU32) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructU32 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<u32> for StructU32 {
+    type Key = u32;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructU64 {
+    pub value: u64,
+    pub other: isize,
+}
+impl PartialOrd for StructU64 {
+    fn partial_cmp(&self, other: &StructU64) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructU64 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<u64> for StructU64 {
+    type Key = u64;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructU128 {
+    pub value: u128,
+    pub other: isize,
+}
+impl PartialOrd for StructU128 {
+    fn partial_cmp(&self, other: &StructU128) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructU128 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<u128> for StructU128 {
+    type Key = u128;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructI8 {
+    pub value: i8,
+    pub other: isize,
+}
+impl PartialOrd for StructI8 {
+    fn partial_cmp(&self, other: &StructI8) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructI8 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<i8> for StructI8 {
+    type Key = i8;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructI16 {
+    pub value: i16,
+    pub other: isize,
+}
+impl PartialOrd for StructI16 {
+    fn partial_cmp(&self, other: &StructI16) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructI16 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<i16> for StructI16 {
+    type Key = i16;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructI32 {
+    pub value: i32,
+    pub other: isize,
+}
+impl PartialOrd for StructI32 {
+    fn partial_cmp(&self, other: &StructI32) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructI32 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<i32> for StructI32 {
+    type Key = i32;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructI64 {
+    pub value: i64,
+    pub other: isize,
+}
+impl PartialOrd for StructI64 {
+    fn partial_cmp(&self, other: &StructI64) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructI64 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<i64> for StructI64 {
+    type Key = i64;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
+    }
+}
+
+// Struct
+
+#[derive(Copy, Clone, Debug)]
+pub struct StructI128 {
+    pub value: i128,
+    pub other: isize,
+}
+impl PartialOrd for StructI128 {
+    fn partial_cmp(&self, other: &StructI128) -> Option<Ordering> {
+        (self.value).partial_cmp(&(other.value))
+    }
+}
+impl PartialEq for StructI128 {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl Radixable<i128> for StructI128 {
+    type Key = i128;
+    #[inline]
+    fn key(&self) -> Self::Key {
+        self.value
     }
 }

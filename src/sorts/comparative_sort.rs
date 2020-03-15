@@ -114,7 +114,10 @@ where
     }
 }
 
-pub fn insertion_sort_try<T, K>(arr: &mut [T], p: &Params) -> Vec<(usize, usize)>
+pub fn insertion_sort_try<T, K>(
+    arr: &mut [T],
+    p: &Params,
+) -> Vec<(usize, usize)>
 where
     T: Radixable<K> + Copy + PartialOrd,
     K: RadixKey,

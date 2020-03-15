@@ -9,7 +9,7 @@ clean: ## clean build files
 
 lint: ## lint code
 	@rustup component add clippy
-	@cargo clippy -- -D warnings -A clippy::many-single-char-names -A clippy::match_wild_err_arm -A clippy::too-many-arguments -A clippy::redundant_closure
+	@cargo clippy -- -D warnings -A clippy::many-single-char-names -A clippy::match_wild_err_arm -A clippy::too-many-arguments -A clippy::redundant_closure -A clippy::comparison-chain
 
 fmt: ## format code
 	cargo fmt

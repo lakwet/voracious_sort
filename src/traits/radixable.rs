@@ -1,28 +1,45 @@
-use super::super::RadixKey;
 use super::super::sorts::utils::{
     compute_max_level, compute_offset, get_full_histograms_fast, Params,
 };
+use super::super::{Dispatcher, RadixKey};
 
-pub trait Radixable<K: RadixKey>: Sized + Copy + PartialOrd + Send + Sync {
-    type Key: RadixKey;
+pub trait Radixable<K: RadixKey>:
+    Sized + Copy + PartialOrd + Send + Sync
+{
+    type Key: RadixKey + Dispatcher<Self, K>;
     fn key(&self) -> Self::Key;
     #[inline] // default implementation, might be override
-    fn extract(&self, mask: <<Self as Radixable<K>>::Key as RadixKey>::Key, shift: usize) -> usize {
+    fn extract(
+        &self,
+        mask: <<Self as Radixable<K>>::Key as RadixKey>::Key,
+        shift: usize,
+    ) -> usize {
         let s = self.usize_to_keytype(shift);
         self.keytype_to_usize((self.into_key_type() & mask) >> s)
     }
     fn into_key_type(&self) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         self.key().into_keytype()
     }
-    fn type_size(&self) -> usize { self.key().type_size() }
-    fn usize_to_keytype(&self, item: usize) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
+    fn type_size(&self) -> usize {
+        self.key().type_size()
+    }
+    fn usize_to_keytype(
+        &self,
+        item: usize,
+    ) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         self.key().usize_to_keytype(item)
     }
-    fn keytype_to_usize(&self, item: <<Self as Radixable<K>>::Key as RadixKey>::Key) -> usize {
+    fn keytype_to_usize(
+        &self,
+        item: <<Self as Radixable<K>>::Key as RadixKey>::Key,
+    ) -> usize {
         self.key().keytype_to_usize(item)
     }
     #[inline]
-    fn default_mask(&self, radix: usize) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
+    fn default_mask(
+        &self,
+        radix: usize,
+    ) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         let mut mask: usize = 0;
         for _ in 0..radix {
             mask = (mask << 1) | 1;
@@ -30,7 +47,10 @@ pub trait Radixable<K: RadixKey>: Sized + Copy + PartialOrd + Send + Sync {
         self.usize_to_keytype(mask)
     }
     #[inline]
-    fn get_mask_and_shift(&self, p: &Params) -> (<<Self as Radixable<K>>::Key as RadixKey>::Key, usize) {
+    fn get_mask_and_shift(
+        &self,
+        p: &Params,
+    ) -> (<<Self as Radixable<K>>::Key as RadixKey>::Key, usize) {
         let mask = self.default_mask(p.radix);
         let shift: usize = p.radix * (p.max_level - p.level - 1);
         let mask = mask << self.usize_to_keytype(shift);
@@ -57,14 +77,19 @@ pub trait Radixable<K: RadixKey>: Sized + Copy + PartialOrd + Send + Sync {
     // transformation from the type to the key must be bijective.
     #[inline] // default implementation, might be override
     fn to_generic(&self, _value: usize) -> Self {
-        panic!("[Radiaxble -> to_generic] Counting Sort cannot be used on Struct.");
+        panic!(
+            "[Radiaxble -> to_generic] Counting Sort cannot be used on Struct."
+        );
     }
     #[inline] // default implementation, might be override
     fn compute_offset(&self, arr: &mut [Self], radix: usize) -> (usize, usize) {
         compute_offset(arr, radix)
     }
     #[inline]
-    fn get_max_key(&self, arr: &mut [Self]) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
+    fn get_max_key(
+        &self,
+        arr: &mut [Self],
+    ) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         arr.iter().map(|item| item.into_key_type()).max().unwrap()
     }
     #[inline] // default implementation, might be override
@@ -74,7 +99,7 @@ pub trait Radixable<K: RadixKey>: Sized + Copy + PartialOrd + Send + Sync {
     fn default_key(&self) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         self.key().default_key()
     }
-    fn one(&self) -><<Self as Radixable<K>>::Key as RadixKey>::Key {
+    fn one(&self) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         self.key().one()
     }
     #[inline]
@@ -108,6 +133,16 @@ pub trait Radixable<K: RadixKey>: Sized + Copy + PartialOrd + Send + Sync {
     ) -> Vec<Vec<usize>> {
         get_full_histograms_fast(arr, p)
     }
-    fn voracious_sort(&self, arr: &mut [Self]);
-    fn dlsd_sort(&self, arr: &mut [Self]);
+    fn voracious_sort(&self, arr: &mut [Self]) {
+        if !arr.is_empty() {
+            let dummy = arr[0].key();
+            Dispatcher::voracious_sort(&dummy, arr);
+        }
+    }
+    fn voracious_stable_sort(&self, arr: &mut [Self]) {
+        if !arr.is_empty() {
+            let dummy = arr[0].key();
+            dummy.voracious_stable_sort(arr);
+        }
+    }
 }

@@ -70,6 +70,23 @@ pub fn generators_usizef64(
 }
 
 // Uniform
+pub fn helper_random_array_uniform_f64usize(size: usize) -> Vec<(f64, usize)> {
+    let mut rng = thread_rng();
+    let mut array: Vec<(f64, usize)> = Vec::with_capacity(size);
+    for _ in 0..size {
+        let v1: f64 = rng.gen();
+        let v2: usize = rng.gen();
+        array.push((v1, v2));
+    }
+    array
+}
+
+pub fn generators_f64usize(
+) -> Vec<(&'static dyn Fn(usize) -> Vec<(f64, usize)>, &'static str)> {
+    vec![(&helper_random_array_uniform_f64usize, "-- Unif       :")]
+}
+
+// Uniform
 pub fn helper_random_array_uniform_usizef32(size: usize) -> Vec<(usize, f32)> {
     let mut rng = thread_rng();
     let mut array: Vec<(usize, f32)> = Vec::with_capacity(size);

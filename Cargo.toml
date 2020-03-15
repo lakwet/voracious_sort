@@ -1,19 +1,14 @@
 [package]
 name = "voracious_radix_sort"
 version = "0.1.0"
-authors = ["Axelle Piot <axelle.piot@fretlink.com>"]
+authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
-description = "Very fast radix sort for all Rust primitive types (except Array)"
+description = "Very fast radix sort for all Rust primitive types and struct (except Array and tuple)"
 license = "MIT"
-documentation = "https://github.com/fretlink/voracious_sort"
-repository = "https://github.com/fretlink/voracious_sort"
-keywords = ["sort", "sorts", "algorithms", "sorting", "algorithm", "radix", "radix sort", "voracious", "american flag sort", "ska sort", "lsd sort", "msd sort", "lsd", "msd", "diversion", "diverting", "types", "type", "primitive", "primitive type", "primitive types", "string", "bool", "str", "char", "signed", "unsigned", "integer", "integers", "float", "f32", "f64", "tuple", "struct", "benchmark", "research", "operational research", "R&D"]
-categories = ["sort", "sorts", "algorithms", "sorting", "algorithm", "radix", "radix sort", "research", "R&D"]
-
-[dependencies]
-rayon = "1.3.0"
+documentation = "https://docs.rs/voracious_radix_sort/"
+repository = "https://github.com/lakwet/voracious_sort"
+keywords = ["sort", "algorithms", "radixsort", "research", "operationalresearch"]
+categories = ["sort", "algorithm", "radix", "radixsort", "research"]
 
 [dev-dependencies]
-afsort = "0.3.1"
 rand = "0.5.5"
-rdxsort = "0.3.0"

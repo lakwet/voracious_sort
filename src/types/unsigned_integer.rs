@@ -1,16 +1,17 @@
 use super::super::sorts::counting_sort::counting_sort;
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::{lsd_radixsort, lsd_radixsort_heu};
 use super::super::sorts::msd_sort::msd_radixsort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::sorts::voracious_sort::voracious_sort_heu;
-use super::super::{Radixable};
+use super::super::Radixable;
 
 impl Radixable<u8> for u8 {
     type Key = u8;
 
     #[inline]
-    fn key(&self) -> u8 { *self }
+    fn key(&self) -> u8 {
+        *self
+    }
     #[inline] // default implementation, might be override
     fn extract(&self, mask: u8, shift: usize) -> usize {
         ((*self & mask) >> shift) as usize
@@ -64,12 +65,8 @@ impl Radixable<u8> for u8 {
             counting_sort(arr, 8);
         }
     }
-    fn dlsd_sort(&self, arr: &mut [u8]) {
-        if arr.len() <= 500 {
-            msd_radixsort(arr, 8);
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn voracious_stable_sort(&self, arr: &mut [u8]) {
+        self.voracious_sort(arr);
     }
 }
 
@@ -77,7 +74,9 @@ impl Radixable<u16> for u16 {
     type Key = u16;
 
     #[inline]
-    fn key(&self) -> u16 { *self }
+    fn key(&self) -> u16 {
+        *self
+    }
     #[inline] // default implementation, might be override
     fn extract(&self, mask: u16, shift: usize) -> usize {
         ((*self & mask) >> shift) as usize
@@ -166,12 +165,8 @@ impl Radixable<u16> for u16 {
             counting_sort(arr, 16);
         }
     }
-    fn dlsd_sort(&self, arr: &mut [u16]) {
-        if arr.len() <= 200 {
-            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn voracious_stable_sort(&self, arr: &mut [u16]) {
+        self.voracious_sort(arr);
     }
 }
 
@@ -179,7 +174,9 @@ impl Radixable<u32> for u32 {
     type Key = u32;
 
     #[inline]
-    fn key(&self) -> u32 { *self }
+    fn key(&self) -> u32 {
+        *self
+    }
     #[inline] // default implementation, might be override
     fn extract(&self, mask: u32, shift: usize) -> usize {
         ((*self & mask) >> shift) as usize
@@ -352,8 +349,8 @@ impl Radixable<u32> for u32 {
     fn voracious_sort(&self, arr: &mut [u32]) {
         lsd_radixsort_heu(arr, 8, 200_000);
     }
-    fn dlsd_sort(&self, arr: &mut [u32]) {
-        dlsd_radixsort(arr, 8);
+    fn voracious_stable_sort(&self, arr: &mut [u32]) {
+        self.voracious_sort(arr);
     }
 }
 
@@ -361,7 +358,9 @@ impl Radixable<u64> for u64 {
     type Key = u64;
 
     #[inline]
-    fn key(&self) -> u64 { *self }
+    fn key(&self) -> u64 {
+        *self
+    }
     #[inline] // default implementation, might be override
     fn extract(&self, mask: u64, shift: usize) -> usize {
         ((*self & mask) >> shift) as usize
@@ -842,12 +841,8 @@ impl Radixable<u64> for u64 {
             voracious_sort_heu(arr, 8, 200_000);
         }
     }
-    fn dlsd_sort(&self, arr: &mut [u64]) {
-        if arr.len() <= 200 {
-            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn voracious_stable_sort(&self, arr: &mut [u64]) {
+        self.voracious_sort(arr);
     }
 }
 
@@ -855,7 +850,9 @@ impl Radixable<u128> for u128 {
     type Key = u128;
 
     #[inline]
-    fn key(&self) -> u128 { *self }
+    fn key(&self) -> u128 {
+        *self
+    }
     #[inline] // default implementation, might be override
     fn extract(&self, mask: u128, shift: usize) -> usize {
         ((*self & mask) >> shift) as usize
@@ -891,7 +888,7 @@ impl Radixable<u128> for u128 {
     fn voracious_sort(&self, arr: &mut [u128]) {
         voracious_sort_heu(arr, 8, 200_000);
     }
-    fn dlsd_sort(&self, arr: &mut [u128]) {
-        dlsd_radixsort(arr, 8);
+    fn voracious_stable_sort(&self, arr: &mut [u128]) {
+        self.voracious_sort(arr);
     }
 }

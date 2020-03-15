@@ -152,6 +152,11 @@ where
         offset_from_bits(arr, max_key, sugg_radix, bits, zero, one);
     let (offset, _) = offset_from_bits(arr, max_key, radix, bits, zero, one);
     let max_level = dummy.compute_max_level(offset, radix);
+
+    if max_level == 0 {
+        return;
+    }
+
     let sugg_max_level = dummy.compute_max_level(sugg_raw_offset, sugg_radix);
 
     let (params, diversion, rbd) = if required_bytes < sugg_max_level {
@@ -161,7 +166,11 @@ where
             required_bytes,
         )
     } else if sugg_radix > radix {
-        (Params::new(0, sugg_radix, sugg_raw_offset, sugg_max_level), false, sugg_max_level)
+        (
+            Params::new(0, sugg_radix, sugg_raw_offset, sugg_max_level),
+            false,
+            sugg_max_level,
+        )
     } else {
         (Params::new(0, radix, offset, max_level), false, max_level)
     };

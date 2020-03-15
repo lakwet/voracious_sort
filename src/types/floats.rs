@@ -1,14 +1,15 @@
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::sorts::voracious_sort::voracious_sort;
-use super::super::{Radixable};
+use super::super::Radixable;
 
 impl Radixable<f32> for f32 {
     type Key = f32;
 
     #[inline]
-    fn key(&self) -> f32 { *self }
+    fn key(&self) -> f32 {
+        *self
+    }
     #[inline]
     fn extract(&self, mask: u32, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
@@ -190,12 +191,8 @@ impl Radixable<f32> for f32 {
             lsd_radixsort(arr, 8);
         }
     }
-    fn dlsd_sort(&self, arr: &mut [f32]) {
-        if arr.len() <= 300 {
-            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn voracious_stable_sort(&self, arr: &mut [f32]) {
+        self.voracious_sort(arr);
     }
 }
 
@@ -203,7 +200,9 @@ impl Radixable<f64> for f64 {
     type Key = f64;
 
     #[inline]
-    fn key(&self) -> f64 { *self }
+    fn key(&self) -> f64 {
+        *self
+    }
     #[inline]
     fn extract(&self, mask: u64, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
@@ -681,11 +680,7 @@ impl Radixable<f64> for f64 {
             lsd_radixsort(arr, 8);
         }
     }
-    fn dlsd_sort(&self, arr: &mut [f64]) {
-        if arr.len() <= 500 {
-            voracious_sort(arr, 8);
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn voracious_stable_sort(&self, arr: &mut [f64]) {
+        self.voracious_sort(arr);
     }
 }

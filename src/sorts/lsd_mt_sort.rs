@@ -89,7 +89,9 @@ where
                 let max_level = dummy.compute_max_level(offset, radix);
                 let p = Params::new(0, radix, offset, max_level);
 
-                lsd_radixsort_body(&mut part, &mut buffer_part, p);
+                if max_level > 0 {
+                    lsd_radixsort_body(&mut part, &mut buffer_part, p);
+                }
             });
         }
     });

@@ -1,13 +1,14 @@
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort_heu;
 use super::super::sorts::utils::{get_empty_histograms, Params};
-use super::super::{Radixable};
+use super::super::Radixable;
 
 impl Radixable<char> for char {
     type Key = char;
 
     #[inline]
-    fn key(&self) -> char { *self }
+    fn key(&self) -> char {
+        *self
+    }
     #[inline]
     fn extract(&self, mask: u32, shift: usize) -> usize {
         ((*self as u32 & mask) >> shift) as usize
@@ -184,11 +185,7 @@ impl Radixable<char> for char {
             lsd_radixsort_heu(arr, 8, 11_000);
         }
     }
-    fn dlsd_sort(&self, arr: &mut [char]) {
-        if arr.len() <= 256 {
-            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
-            dlsd_radixsort(arr, 8);
-        }
+    fn voracious_stable_sort(&self, arr: &mut [char]) {
+        self.voracious_sort(arr);
     }
 }

@@ -155,6 +155,11 @@ where
     let dummy = arr[0];
     let (offset, _) = dummy.compute_offset(arr, radix);
     let max_level = dummy.compute_max_level(offset, radix);
+
+    if max_level == 0 {
+        return;
+    }
+
     let params = Params::new(0, radix, offset, max_level);
 
     if params.max_level < 2 {

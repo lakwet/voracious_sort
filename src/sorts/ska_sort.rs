@@ -100,6 +100,7 @@ fn ska_sort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
             rest = second_part;
             if histogram[i] > 1 {
                 let new_params = p.new_level(p.level + 1);
+                println!("{:?}", new_params);
                 ska_sort_rec(first_part, new_params);
             }
         }
@@ -122,6 +123,11 @@ pub fn ska_sort<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
     let dummy = arr[0];
     let (offset, _) = dummy.compute_offset(arr, radix);
     let max_level = dummy.compute_max_level(offset, radix);
+
+    if max_level == 0 {
+        return;
+    }
+
     let params = Params::new(0, radix, offset, max_level);
 
     ska_sort_rec(arr, params);

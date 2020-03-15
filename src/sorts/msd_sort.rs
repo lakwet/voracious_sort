@@ -13,8 +13,7 @@ pub fn copy_by_histogram<T, K>(
     heads: &mut Vec<usize>,
     mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
-)
-where
+) where
     T: Radixable<K>,
     K: RadixKey,
 {
@@ -53,7 +52,10 @@ where
     }
 }
 
-pub fn msd_radixsort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
+pub fn msd_radixsort_rec<T: Radixable<K>, K: RadixKey>(
+    arr: &mut [T],
+    p: Params,
+) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
@@ -82,7 +84,10 @@ pub fn msd_radixsort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params)
     }
 }
 
-fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
+fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(
+    arr: &mut [T],
+    radix: usize,
+) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
@@ -91,6 +96,11 @@ fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) 
     let dummy = arr[0];
     let (offset, _) = dummy.compute_offset(arr, radix);
     let max_level = dummy.compute_max_level(offset, radix);
+
+    if max_level == 0 {
+        return;
+    }
+
     let params = Params::new(0, radix, offset, max_level);
 
     msd_radixsort_rec(arr, params);
@@ -113,7 +123,10 @@ fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) 
 /// The Verge sort pre-processing heuristic is also added.
 ///
 /// The MSD sort is an out of place unstable radix sort.
-pub fn msd_radixsort<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
+pub fn msd_radixsort<T: Radixable<K>, K: RadixKey>(
+    arr: &mut [T],
+    radix: usize,
+) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;

@@ -2,8 +2,8 @@
 
 use std::time::Instant;
 
-#[allow(unused_imports)]
-use rayon::prelude::*;
+// #[allow(unused_imports)]
+// use rayon::prelude::*;
 
 use super::super::{RadixSort, Radixable, RadixKey};
 
@@ -17,20 +17,23 @@ use super::super::sorts::comparative_sort::insertion_sort;
 use super::super::sorts::counting_sort::counting_sort;
 #[allow(unused_imports)]
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
-#[allow(unused_imports)]
-use super::super::sorts::lsd_mt_sort::lsd_mt_radixsort;
+// #[allow(unused_imports)]
+// use super::super::sorts::lsd_mt_sort::lsd_mt_radixsort;
 #[allow(unused_imports)]
 use super::super::sorts::lsd_sort::lsd_radixsort;
 #[allow(unused_imports)]
 use super::super::sorts::msd_sort::msd_radixsort;
 #[allow(unused_imports)]
 use super::super::sorts::ska_sort::ska_sort;
-#[allow(unused_imports)]
-use super::super::sorts::regions_sort::regions_sort;
+// #[allow(unused_imports)]
+// use super::super::sorts::regions_sort::regions_sort;
 #[allow(unused_imports)]
 use super::super::sorts::thiel_sort::thiel_radixsort;
 #[allow(unused_imports)]
 use super::super::sorts::voracious_sort::voracious_sort;
+
+#[allow(unused_imports)]
+use super::super::dedicated::lsd_f32::ded_lsd_radixsort;
 
 use super::super::generators::boolean::*;
 use super::super::generators::char::*;
@@ -46,8 +49,7 @@ use super::super::generators::signed_i16::*;
 use super::super::generators::signed_i32::*;
 use super::super::generators::signed_i64::*;
 use super::super::generators::signed_i8::*;
-use super::super::generators::string::*;
-use super::super::generators::tuple::*;
+// use super::super::generators::tuple::*;
 #[allow(unused_imports)]
 use super::super::generators::unsigned_u128::*;
 use super::super::generators::unsigned_u16::*;
@@ -79,22 +81,22 @@ fn helper_sort_aux<T, K>(
     size: usize,
     generator: &dyn Fn(usize) -> Vec<T>,
 ) where
-    T: Radixable<K> + Copy + PartialOrd + std::fmt::Debug,
+    T: Radixable<K> + std::fmt::Debug,
     K: RadixKey,
 {
     let mut nanos: Vec<u64> = Vec::with_capacity(runs);
 
     for _ in 0..runs {
         let mut array = generator(size);
-        // let mut check = array.to_vec();
+        let mut check = array.to_vec();
 
         let start = Instant::now();
         sort(&mut array);
         let ns: u64 = start.elapsed().as_nanos() as u64;
         nanos.push(ns);
 
-        // check.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        // assert_eq!(check, array);
+        check.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(check, array);
     }
 
     let sum: u64 = nanos.iter().sum();
@@ -121,57 +123,29 @@ fn helper_sort<T, K>(
     test_name: &str,
     generators: Vec<(&dyn Fn(usize) -> Vec<T>, &'static str)>,
 ) where
-    T: Radixable<K> + Copy + PartialOrd + std::fmt::Debug,
+    T: Radixable<K> + std::fmt::Debug,
     K: RadixKey,
     // T: Ord,
 {
-    let runs = 2;
+    let runs = 10;
     let thread_n = 4;
 
     let sizes: Vec<usize> = vec![
-        // 250, 500, 750, 1000, 1500, 2000, 2500, 5000, 7500, 10000,
-        // 12000, 14000, 16000, 18000, 20000, 25000, 30000,
-        // 100,
         100,
-        256,
-        // 500,
-        1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
-        11000, 12000, 13000, 14000, 15000, 16000, 17000, 18000, 19000,
-        20000,21000,22000,23000,24000,25000,26000,28000,29000,
-        30000,
-        // 500,
-        // 50_000,
-        // 50_000,60_000,70_000,80_000,90_000,
+        1000, 5_000,
+        10000, 15_000, 20_000, 25_000, 30_000,
         100_000,
-        // 200_000,
-        // 300_000,
-        // 350_000,
-        // 400_000,
-        // 500_000,
-        // 500_000,600_000,700_000,800_000,900_000,
         1_000_000,
-        2_000_000,3_000_000,4_000_000,
-        5_000_000,
-        6_000_000,7_000_000,
-        8_000_000,9_000_000,
         10_000_000,
-        // 50_000_000,
         100_000_000,
-        // 200_000_000,
-        // 300_000_000,400_000_000,
-        // 500_000_000,
-        // 600_000_000,700_000_000,
-        // 800_000_000,
-        // 900_000_000,
-        // 1_000_000_000,
     ];
 
     let sorts_name = vec![
         "Trait Vora",
+        "Trait Vora Stable",
         // "Trait DLSD",
         "Rust Std",
         "Rust Uns",
-        // "Fast LSD (lib)",
         // "Raw DLSD",
         // "LSD",
         // "MSD",
@@ -183,7 +157,6 @@ fn helper_sort<T, K>(
         // "Regions sort 128000",
         // "Regions sort 300000",
         // "Regions sort 1000000",
-        // "AF sort (lib)",
         // "Rayon pll uns",
     ];
 
@@ -201,10 +174,11 @@ fn helper_sort<T, K>(
             print!("{}", gen_name);
 
             helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,);
+            helper_sort_aux(&|arr: &mut [T]| arr.voracious_stable_sort(),runs,*size,generator,);
             // helper_sort_aux(&|arr: &mut [T]| arr.dlsd_sort(),runs,*size,generator);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort(), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable(),runs,*size,generator);
-            // helper_sort_aux(&|arr: &mut [T]| arr.sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator);
+            helper_sort_aux(&|arr: &mut [T]| arr.sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator);
             helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator);
             // helper_sort_aux(&|arr: &mut [T]| dlsd_radixsort(arr, 8),runs,*size,generator);
             // helper_sort_aux(&|arr: &mut [T]| lsd_radixsort(arr, 8),runs,*size,generator);
@@ -285,16 +259,6 @@ fn speed_test_u128() {
 }
 
 #[test]
-fn speed_test_custom() {
-    helper_sort("Test Custom", generators_custom());
-}
-
-#[test]
-fn speed_test_craftf32() {
-    helper_sort("Test Craftf32", generators_craftf32());
-}
-
-#[test]
 fn speed_test_f32() {
     helper_sort("Test f32", generators_f32());
 }
@@ -302,4 +266,41 @@ fn speed_test_f32() {
 #[test]
 fn speed_test_f64() {
     helper_sort("Test f64", generators_f64());
+}
+
+#[test]
+fn speed_test_structf32() {
+    helper_sort("Test struct{isize, f32}", generators_structf32());
+}
+
+#[test]
+fn speed_test_structf64() {
+    helper_sort("Test struct{isize, f64}", generators_structf64());
+}
+
+#[test]
+fn speed_test_dedicated_f32() {
+    let array_sizes = vec![
+        100,
+        1000,
+        10000,
+        100_000,
+        1_000_000,
+        10_000_000,
+        100_000_000,
+    ];
+
+    println!("Dedicated LSD sort for f32:");
+    for size in array_sizes.iter() {
+        for (gen, name) in generators_f32().iter() {
+            let mut arr = (*gen)(*size);
+            let mut check = arr.to_vec();
+            let start = Instant::now();
+            ded_lsd_radixsort(&mut arr);
+            let ns = start.elapsed().as_nanos() as u64;
+            check.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+            assert_eq!(arr, check);
+            println!("Time for {} {} \u{1b}[0;32m{}us\u{1b}[0m (\u{1b}[0;33m{:.2}ns\u{1b}[0m)", size, name, ns / 1000, ns as f64 / (*size as f64));
+        }
+    }
 }

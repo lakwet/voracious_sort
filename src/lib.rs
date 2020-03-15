@@ -5,7 +5,7 @@
 //! or
 //! [Rust unstable sort](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.sort_unstable).
 //! However it is a [radix sort](https://en.wikipedia.org/wiki/Radix_sort), it is a non comparative sort.
-//! It is a **very fast sort** and it compares very well against Rust standard and unstable sorts and other
+//! It is a **very fast sort** which compares very well against Rust standard and unstable sorts or others
 //! state of the art sorting algorithms (see runtimes below).
 //!
 //! Voracious sort can sort a
@@ -15,7 +15,6 @@
 //! of:
 //! - [`bool`](https://doc.rust-lang.org/stable/std/primitive.bool.html) (Counting sort),
 //! - [`char`](https://doc.rust-lang.org/stable/std/primitive.char.html) (Behave like u32),
-//! - [`&str`](https://doc.rust-lang.org/std/primitive.str.html) (Dedicated sort),
 //! - [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html),
 //! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html) (See [link](http://stereopsis.com/radix.html)),
 //! - [`i8`](https://doc.rust-lang.org/stable/std/primitive.i8.html),
@@ -28,8 +27,6 @@
 //! [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
 //! [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
 //! [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html) (Native implementation),
-//! - Some [`tuple`](https://doc.rust-lang.org/std/primitive.tuple.html), but
-//! they do not have been all implemented (Mapped to a key).
 //! - Custom [struct](https://doc.rust-lang.org/std/keyword.struct.html)
 //! if a the struct implements
 //! [`PartialOrd`](https://doc.rust-lang.org/std/cmp/trait.PartialOrd.html),
@@ -39,16 +36,17 @@
 //!
 //! Vocarious sort can only sort in ascending order. You can call the
 //! [`reverse`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.reverse)
-//! method if desired. Sorts from this crate are
-//! [unstable](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability) (Unstable sort,
-//! not unstable Rust feature !).
+//! method if desired.
+//!
+//! Because of Rust Orphan Rule, we chose not to support tuple sorting. You
+//! can use Struct instead.
 //!
 //! ## Version
 //!
 //! Last version tested/used:
-//! - Rustc: 1.38.0 stable
-//! - Rustfmt: 1.4.4 stable
-//! - Cargo: 1.38.0 stable
+//! - Rustc: 1.41.1 stable
+//! - Rustfmt: 1.4.11 stable
+//! - Cargo: 1.41.0 stable
 //! - Clippy: 0.0.212
 //!
 //! ## License
@@ -63,11 +61,6 @@
 //! voracious_radix_sort = "0.1.0"
 //! ```
 //!
-//! Import the crate in your project:
-//! ```no_run
-//! extern crate voracious_radix_sort;
-//! ```
-//!
 //! ### Environment variable
 //!
 //! To fully benefit from Voracious sort, it is better to add the environment
@@ -79,7 +72,7 @@
 //!
 //! When the Crate is imported, two methods are added to vectors and slices:
 //! - `voracious_sort()` (single thread).
-//! - `dlsd_sort()` (single thread).
+//! - `voracious_stable_sort()` (single thread).
 //!
 //! ### Example
 //!
@@ -88,23 +81,13 @@
 //!
 //! let mut array = vec![2, 45, 8, 7, 9, 65, 8, 74, 1, 2, 56, 9, 7, 41];
 //!
-//! // General multipurpose sort, to be used by default.
 //! array.voracious_sort();
 //!
 //! assert_eq!(array, vec![1, 2, 2, 7, 7, 8, 8, 9, 9, 41, 45, 56, 65, 74]);
-//! ```
-//!
-//! ### Example (experimental)
-//!
-//! ```
-//! use voracious_radix_sort::*;
 //!
 //! let mut array = vec![2, 45, 8, 7, 9, 65, 8, 74, 1, 2, 56, 9, 7, 41];
 //!
-//! // Experimental sort, faster than Voracious sort on
-//! // uniformly distributed data. It uses statistical
-//! // distribution hypothesis on the input.
-//! array.dlsd_sort();
+//! array.voracious_stable_sort();
 //!
 //! assert_eq!(array, vec![1, 2, 2, 7, 7, 8, 8, 9, 9, 41, 45, 56, 65, 74]);
 //! ```
@@ -117,23 +100,21 @@
 //! use std::cmp::Ordering;
 //!
 //! // We need a struct
-//! // We want, for example, to sort these structs by the key = max - min
+//! // We want, for example, to sort these structs by the key = value
 //! // This struct must implement the Copy and Clone traits, we can just derive them.
 //! #[derive(Copy, Clone, Debug)]
 //! pub struct Custom {
-//!     min: u32,
-//!     max: u32,
+//!     value: f32,
+//!     other: usize,
 //! }
-//!
-//! // And the PartialOrd and the PartialEq traits
 //! impl PartialOrd for Custom {
 //!     fn partial_cmp(&self, other: &Custom) -> Option<Ordering> {
-//!         (self.max - self.min).partial_cmp(&(other.max - other.min))
+//!         self.value.partial_cmp(&other.value)
 //!     }
 //! }
 //! impl PartialEq for Custom {
 //!     fn eq(&self, other: &Self) -> bool {
-//!         self.max - self.min == other.max - other.min
+//!         self.value == other.value
 //!     }
 //! }
 //! ```
@@ -144,164 +125,88 @@
 //! use voracious_radix_sort::*;
 //! # #[derive(Copy, Clone, Debug)]
 //! # pub struct Custom {
-//! #     min: u32,
-//! #     max: u32,
+//! #     value: f32,
+//! #     other: usize,
 //! # }
 //! # impl PartialOrd for Custom {
 //! #     fn partial_cmp(&self, other: &Custom) -> Option<Ordering> {
-//! #         (self.max - self.min).partial_cmp(&(other.max - other.min))
+//! #         self.value.partial_cmp(&other.value)
 //! #     }
 //! # }
 //! # impl PartialEq for Custom {
 //! #     fn eq(&self, other: &Self) -> bool {
-//! #         self.max - self.min == other.max - other.min
+//! #         self.value == other.value
 //! #     }
 //! # }
 //!
-//! impl Radixable for Custom {
-//!     // We have to map each struct to a key. The key must be amongst a type
-//!     // for the native implementation.
-//!     type KeyType = u32;
-//!
-//!     // This function is not mandatory
-//!     // Unless you want to optimize something, there is no need to
-//!     // implement it.
+//! impl Radixable<f32> for Custom {
+//!     type Key = f32;
 //!     #[inline]
-//!     fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
-//!         ((self.into_key_type() & mask) >> shift) as usize
-//!     }
-//!     // This function is mandatory.
-//!     // You have to provide the transformation from the struct to the key.
-//!     #[inline]
-//!     fn into_key_type(&self) -> u32 {
-//!         self.max - self.min
-//!     }
-//!     // This function is mandatory.
-//!     // You have to fill the number of bit of the key.
-//!     // For example, std::char::MAX == 0x10ffff, which is 21 bits.
-//!     // Despite the keytype is u32 for char, we do fill 21 in this
-//!     // function.
-//!     // But in this exemple, the key lengh is 32 bits.
-//!     #[inline]
-//!     fn type_size(&self) -> usize {
-//!         32
-//!     }
-//!     // This function is mandatory.
-//!     // It is just a cast. It is usefull for other functions in this crate.
-//!     #[inline]
-//!     fn usize_to_keytype(&self, item: usize) -> u32 {
-//!         item as u32
-//!     }
-//!     // This function is mandatory.
-//!     // It is just a cast. It is usefull for other functions in this crate.
-//!     #[inline]
-//!     fn keytype_to_usize(&self, item: u32) -> usize {
-//!         item as usize
-//!     }
-//!     // This function is mandatory.
-//!     // We needed a zero somewhere with the correct type.
-//!     #[inline]
-//!     fn default_key(&self) -> Self::KeyType {
-//!         0
-//!     }
-//!     // This function is mandatory.
-//!     // We needed a one somewhere with the correct type.
-//!     #[inline]
-//!     fn one(&self) -> Self::KeyType {
-//!         1
-//!     }
-//!     // This function is mandatory.
-//!     // This is where we can choose what to do depending on the type, the
-//!     // input size, the sort function etc...
-//!     fn voracious_sort(&self, arr: &mut [Custom]) {
-//!         lsd_radixsort(arr, 8);
-//!     }
-//!     // This function is mandatory.
-//!     // This is where we can choose what to do depending on the type, the
-//!     // input size, the sort function etc...
-//!     fn dlsd_sort(&self, arr: &mut [Custom]) {
-//!         dlsd_radixsort(arr, 8);
+//!     fn key(&self) -> Self::Key {
+//!         self.value
 //!     }
 //! }
 //! ```
 //!
-//! **See more implementation examples in our [GitHub](https://github.com/fretlink/voracious_sort)**
+//! **See more implementation examples on our [GitHub](https://github.com/lakwet/voracious_sort)**
 //!
-//! It is done, we can do a test:
+//! When it is done, we can run a test:
 //! ```
 //! use voracious_radix_sort::*;
 //! # use std::cmp::Ordering;
 //! # #[derive(Copy, Clone, Debug)]
 //! # pub struct Custom {
-//! #     min: u32,
-//! #     max: u32,
+//! #     value: f32,
+//! #     other: usize,
 //! # }
 //! # impl PartialOrd for Custom {
 //! #     fn partial_cmp(&self, other: &Custom) -> Option<Ordering> {
-//! #         (self.max - self.min).partial_cmp(&(other.max - other.min))
+//! #         self.value.partial_cmp(&other.value)
 //! #     }
 //! # }
 //! # impl PartialEq for Custom {
 //! #     fn eq(&self, other: &Self) -> bool {
-//! #         self.max - self.min == other.max - other.min
+//! #         self.value == other.value
 //! #     }
 //! # }
-//! # impl Radixable for Custom {
-//! #     type KeyType = u32;
+//! # impl Radixable<f32> for Custom {
+//! #     type Key = f32;
 //! #     #[inline]
-//! #     fn extract(&self, mask: Self::KeyType, shift: usize) -> usize {
-//! #         ((self.into_key_type() & mask) >> shift) as usize
-//! #     }
-//! #     #[inline]
-//! #     fn into_key_type(&self) -> u32 {
-//! #         self.max - self.min
-//! #     }
-//! #     #[inline]
-//! #     fn type_size(&self) -> usize {
-//! #         32
-//! #     }
-//! #     #[inline]
-//! #     fn usize_to_keytype(&self, item: usize) -> u32 {
-//! #         item as u32
-//! #     }
-//! #     #[inline]
-//! #     fn keytype_to_usize(&self, item: u32) -> usize {
-//! #         item as usize
-//! #     }
-//! #     #[inline]
-//! #     fn default_key(&self) -> Self::KeyType {
-//! #         0
-//! #     }
-//! #     #[inline]
-//! #     fn one(&self) -> Self::KeyType {
-//! #         1
-//! #     }
-//! #     fn voracious_sort(&self, arr: &mut [Custom]) {
-//! #         lsd_radixsort(arr, 8);
-//! #     }
-//! #     fn dlsd_sort(&self, arr: &mut [Custom]) {
-//! #         dlsd_radixsort(arr, 8);
+//! #     fn key(&self) -> Self::Key {
+//! #         self.value
 //! #     }
 //! # }
 //!
 //! let mut array = vec![
-//!     Custom { min: 5, max: 29 },
-//!     Custom { min: 2, max: 23 },
-//!     Custom { min: 14, max: 17 },
-//!     Custom { min: 4, max: 35 },
+//!     Custom { value: 5.7, other: 29 },
+//!     Custom { value: 2.7, other: 23 },
+//!     Custom { value: 14.7, other: 17 },
+//!     Custom { value: 4.7, other: 35 },
 //! ];
 //!
 //! array.voracious_sort();
 //!
-//! // Caution: in this case, the function to transform the struct to the
-//! // key is not injective, so depending on the input, it might have several
-//! // correct results:
-//! // Custom { min: 2, max: 4 } == Custom { min: 17, max: 19 }
 //! assert_eq!(array, vec![
-//!     Custom { min: 14, max: 17 },
-//!     Custom { min: 2, max: 23 },
-//!     Custom { min: 5, max: 29 },
-//!     Custom { min: 4, max: 35 },
+//!     Custom { value: 2.7, other: 23 },
+//!     Custom { value: 4.7, other: 35 },
+//!     Custom { value: 5.7, other: 29 },
+//!     Custom { value: 14.7, other: 17 },
+//! ]);
+//!
+//! let mut array = vec![
+//!     Custom { value: 5.7, other: 29 },
+//!     Custom { value: 2.7, other: 23 },
+//!     Custom { value: 14.7, other: 17 },
+//!     Custom { value: 4.7, other: 35 },
+//! ];
+//!
+//! array.voracious_stable_sort();
+//!
+//! assert_eq!(array, vec![
+//!     Custom { value: 2.7, other: 23 },
+//!     Custom { value: 4.7, other: 35 },
+//!     Custom { value: 5.7, other: 29 },
+//!     Custom { value: 14.7, other: 17 },
 //! ]);
 //! ```
 //!
@@ -311,13 +216,20 @@
 //! [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html)
 //! and
 //! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html)
-//! , it `panics` if there is a
+//! , if there is a
 //! [`NaN`](https://doc.rust-lang.org/stable/std/f64/constant.NAN.html)
-//! value in the
+//! value or an
+//! [`INFINITY`](https://doc.rust-lang.org/std/f32/constant.INFINITY.html)
+//!  or a
+//! [`NEG_INFINITY`](https://doc.rust-lang.org/std/f32/constant.INFINITY.html)
+//! in the
 //! [`vector`](https://doc.rust-lang.org/stable/std/vec/)
 //! or
 //! the
-//! [`slice`](https://doc.rust-lang.org/stable/std/primitive.slice.html).
+//! [`slice`](https://doc.rust-lang.org/stable/std/primitive.slice.html),
+//! the behavior is not guaranteed.
+//!
+//! It might panic or not sort correctly the array.
 //!
 //! ## Dependencies
 //!
@@ -328,8 +240,11 @@
 //! - All tests have been done on a i5 7500 3.4GHz 6MB cache L3 with 40GB DDR4 RAM (November 2019)
 //! with `RUSTFLAGS="-C target-cpu=native"`.
 //! - Only one run has been done by test.
-//! - For more runtimes, please visit our [GitHub](https://github.com/fretlink/voracious_sort).
+//! - For more runtimes, please visit our [GitHub](https://github.com/lakwet/voracious_sort).
 //! - Times are in micro seconde.
+//! - In order to have a very user friendly crate, sorts might be a little less faster
+//! than dedicated sort by type.
+//! - CAUTION: Performance tests have been done on a previous version of the code.
 //!
 //! - *[RdxSort](https://crates.io/crates/rdxsort) version 0.3.0
 //! - *[AfSort](https://crates.io/crates/afsort) version 0.3.1
@@ -368,26 +283,6 @@
 //! | Medium CharSet | `113_521` | `622_184` | `6_144_734` | `629_989`| `1_982_256` | `N/A` |
 //! | Big CharSet | `867_986` | `857_884` | `6_169_368` | `727_749`| `2_029_007` | `N/A` |
 //!
-//! ### For **`&str`** 10_000_000 &str
-//!
-//! | Distribution | Voracious | DLSD | Rust Std | Rust Unstable | RdxSort* | AFSort* |
-//! |-------------:|----------:|-----:|---------:|--------------:|---------:|--------:|
-//! | Uniform (length: 20) | `2_526_030` | `N/A` | `3_360_045` | `5_585_305`| `N/A` | `3_096_866` |
-//!
-//! ### For **`(u32, u32)`** 100_000_000 tuples
-//!
-//! | Distribution | Voracious | DLSD | Rust Std | Rust Unstable | RdxSort* | AFSort* |
-//! |-------------:|----------:|-----:|---------:|--------------:|---------:|--------:|
-//! | Uniform | `2_306_188` | `1_605_143` | `12_913_487` | `4_780_460`| `3_147_126` | `N/A` |
-//!
-//! ### For **`(bool, bool)`** 100_000_000 tuples
-//!
-//! - For `(bool, bool)`, Voracious sort uses a counting sort.
-//!
-//! | Distribution | Voracious | DLSD | Rust Std | Rust Unstable | RdxSort* | AFSort* |
-//! |-------------:|----------:|-----:|---------:|--------------:|---------:|--------:|
-//! | Uniform | `118_116` | `394_691` | `5_223_943` | `846_968`| `456_879` | `N/A` |
-//!
 //! # For Developers and Researchers
 //!
 //! ## Logic
@@ -407,42 +302,41 @@
 //!
 //! - All sorts fallback on the
 //! [PDQ sort](https://github.com/stjepang/pdqsort)
-//! (Rust Unstable sort) for very small inputs.
+//! (Rust Unstable sort) for very small inputs (or Rust stable sort).
 //!
-//! ## Futur work
+//! ## Future work
 //!
 //! - Add multithread sort.
 //! - Improve k-way-merge algorithm.
-//! - Use more statistical hypothesis.
-//! - Finish 2-arity tuple implementation.
 //! - Add more generators (for tests).
-//! - Replace the MSD sort for string by a Burstsort or Spreadsort implementation
-//! or something else.
+//! - Add a sort for String.
 
-extern crate rayon;
-
-pub mod algo;
+mod algo;
+mod dedicated;
 #[cfg(test)]
-pub mod generators;
+mod generators;
 mod sorts;
 #[cfg(test)]
-pub mod tests;
+mod tests;
 pub mod traits;
-pub mod types;
+mod types;
 
+pub use traits::dispatcher::Dispatcher;
 pub use traits::radix_key::RadixKey;
-pub use traits::radixsort::RadixSort;
 pub use traits::radixable::Radixable;
+pub use traits::radixsort::RadixSort;
 
 pub use sorts::american_flag_sort::american_flag_sort;
 pub use sorts::boolean_sort::boolean_sort;
 pub use sorts::comparative_sort::insertion_sort;
 pub use sorts::counting_sort::counting_sort;
 pub use sorts::dlsd_sort::dlsd_radixsort;
-pub use sorts::lsd_mt_sort::lsd_mt_radixsort;
 pub use sorts::lsd_sort::lsd_radixsort;
 pub use sorts::msd_sort::msd_radixsort;
-pub use sorts::regions_sort::regions_sort;
+pub use sorts::msd_stable_sort::msd_stable_radixsort;
 pub use sorts::ska_sort::ska_sort;
 pub use sorts::thiel_sort::thiel_radixsort;
 pub use sorts::voracious_sort::voracious_sort;
+// pub use sorts::sorter_network::sorter_network;
+
+pub use dedicated::lsd_f32::ded_lsd_radixsort;
