@@ -1,51 +1,80 @@
-use rand::distributions::{Distribution, Normal};
+use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
+use rand_distr::{Distribution, Normal};
+use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let value: f64 = rng.gen();
-        array.push(value);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen::<f64>())
+        .collect::<Vec<f64>>()
 }
 
 // Small
 pub fn helper_random_array_small_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let value: f64 = rng.gen_range(-1_000_000_000.0, 1_000_000_000.0);
-        array.push(value);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen_range(-1_000_000_000.0, 1_000_000_000.0))
+        .collect::<Vec<f64>>()
+}
+
+// Small plus
+pub fn helper_random_array_small_plus_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen_range(0.0, 1_000_000_000.0))
+        .collect::<Vec<f64>>()
+}
+
+// Small minus
+pub fn helper_random_array_small_minus_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen_range(-1_000_000_000.0, 0.0))
+        .collect::<Vec<f64>>()
+}
+
+// Very small
+pub fn helper_random_array_very_small_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen_range(-1_000_000.0, 1_000_000.0))
+        .collect::<Vec<f64>>()
+}
+
+// Very small plus
+pub fn helper_random_array_very_small_plus_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen_range(0.0, 1_000_000.0))
+        .collect::<Vec<f64>>()
+}
+
+// Very small minus
+pub fn helper_random_array_very_small_minus_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen_range(-1_000_000.0, 0.0))
+        .collect::<Vec<f64>>()
 }
 
 // Asc
 pub fn helper_random_array_asc_f64(size: usize) -> Vec<f64> {
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for i in 0..size {
-        array.push((i as f64) + 0.5);
-    }
-    array
+    (0..size).into_par_iter().map(|i| i as f64 + 0.5).collect::<Vec<f64>>()
 }
 
 // Desc
 pub fn helper_random_array_desc_f64(size: usize) -> Vec<f64> {
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for i in 0..size {
-        array.push(((size - i) as f64) + 0.5);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|i| ((size - i) as f64) + 0.5)
+        .collect::<Vec<f64>>()
 }
 
 // Equal
 pub fn helper_random_array_equal_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let value: f64 = rng.gen();
-    vec![value; size]
+    vec![thread_rng().gen(); size]
 }
 
 // Zipf
@@ -70,81 +99,47 @@ pub fn helper_random_array_zipf_f64(size: usize) -> Vec<f64> {
         i += 1;
     }
 
-    rng.shuffle(array.as_mut_slice());
+    array.as_mut_slice().shuffle(&mut rng);
 
     array
+}
+
+fn helper_normal(size: usize, range: f64) -> Vec<f64> {
+    let normal = Normal::new(0.0, range).unwrap();
+    (0..size)
+        .into_par_iter()
+        .map(|_| normal.sample(&mut thread_rng()))
+        .collect::<Vec<f64>>()
 }
 
 // Normale(0, 2^10)
 pub fn helper_random_array_normale_10_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1024.0);
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v);
-    }
-    array
+    helper_normal(size, 1024.0)
 }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1_000_000.0);
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v);
-    }
-    array
+    helper_normal(size, 1_000_000.0)
 }
 
 // Normale(0, 2^30)
 pub fn helper_random_array_normale_30_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1_000_000_000.0);
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v);
-    }
-    array
+    helper_normal(size, 1_000_000_000.0)
 }
 
 // Normale(0, 2^40)
 pub fn helper_random_array_normale_40_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1_000_000_000_000.0);
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v);
-    }
-    array
+    helper_normal(size, 1_000_000_000_000.0)
 }
 
 // Normale(0, 2^51)
 pub fn helper_random_array_normale_51_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 2_000_000_000_000_000.0);
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v);
-    }
-    array
+    helper_normal(size, 2_000_000_000_000_000.0)
 }
 
 // Normale(0, 2^63)
 pub fn helper_random_array_normale_63_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 4_000_000_000_000_000_000.0);
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v);
-    }
-    array
+    helper_normal(size, 4_000_000_000_000_000_000.0)
 }
 
 // Sqrt
@@ -172,13 +167,17 @@ pub fn helper_random_array_sqrt_f64(size: usize) -> Vec<f64> {
 
 // Almost sorted ascending
 pub fn helper_random_array_almost_asc_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for i in 0..size {
-        array.push(i as f64);
+    if size == 0 {
+        return Vec::new();
+    }
+    if size < 4 {
+        return helper_random_array_uniform_f64(size);
     }
 
-    for _ in 0..((size as f64).sqrt() as usize) {
+    let mut array = helper_random_array_asc_f64(size);
+    let mut rng = thread_rng();
+
+    for _ in 0..((size as f64).log2() as usize) {
         let i = rng.gen_range(0, size);
         let j = rng.gen_range(0, size);
         array.swap(i, j);
@@ -189,14 +188,17 @@ pub fn helper_random_array_almost_asc_f64(size: usize) -> Vec<f64> {
 
 // Almost sorted descending
 pub fn helper_random_array_almost_desc_f64(size: usize) -> Vec<f64> {
-    let mut rng = thread_rng();
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-
-    for i in 0..size {
-        array.push((size - 1 - i) as f64);
+    if size == 0 {
+        return Vec::new();
+    }
+    if size < 4 {
+        return helper_random_array_uniform_f64(size);
     }
 
-    for _ in 0..((size as f64).sqrt() as usize) {
+    let mut array = helper_random_array_desc_f64(size);
+    let mut rng = thread_rng();
+
+    for _ in 0..((size as f64).log2() as usize) {
         let i = rng.gen_range(0, size);
         let j = rng.gen_range(0, size);
         array.swap(i, j);
@@ -210,15 +212,12 @@ pub fn helper_random_array_asc_sawtooth_f64(size: usize) -> Vec<f64> {
     if size == 0 {
         return Vec::new();
     }
-
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f64;
-
-    for i in 0..size {
-        array.push((i as f64) % limit);
+    if size < 4 {
+        return helper_random_array_uniform_f64(size);
     }
 
-    array
+    let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f64;
+    (0..size).into_par_iter().map(|i| i as f64 % limit).collect::<Vec<f64>>()
 }
 
 // Descending sawtooth
@@ -226,41 +225,31 @@ pub fn helper_random_array_desc_sawtooth_f64(size: usize) -> Vec<f64> {
     if size == 0 {
         return Vec::new();
     }
-
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f64;
-
-    for i in 0..size {
-        array.push(((size - 1 - i) as f64) % limit);
+    if size < 4 {
+        return helper_random_array_uniform_f64(size);
     }
 
-    array
+    let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f64;
+    (0..size)
+        .into_par_iter()
+        .map(|i| (size - 1 - i) as f64 % limit)
+        .collect::<Vec<f64>>()
 }
 
 // Pipe Organ
 pub fn helper_random_array_pipe_organ_f64(size: usize) -> Vec<f64> {
-    let mut array: Vec<f64> = Vec::with_capacity(size);
     let middle = size / 2;
-
-    for i in 0..middle {
-        array.push(i as f64);
-    }
-    let mut k: f64 = middle as f64 + 1.0;
-    for _ in middle..size {
-        array.push(k);
-
-        k -= 1.0;
-    }
-
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|i| if i < middle { i as f64 } else { (size - i) as f64 })
+        .collect::<Vec<f64>>()
 }
 
 // Push Front
 pub fn helper_random_array_push_front_f64(size: usize) -> Vec<f64> {
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for i in 0..size {
-        array.push(i as f64);
-    }
+    let mut array =
+        (0..size).into_par_iter().map(|i| i as f64).collect::<Vec<f64>>();
+
     if size > 0 {
         array[size - 1] = 0.0;
     }
@@ -270,10 +259,9 @@ pub fn helper_random_array_push_front_f64(size: usize) -> Vec<f64> {
 
 // Push middle
 pub fn helper_random_array_push_middle_f64(size: usize) -> Vec<f64> {
-    let mut array: Vec<f64> = Vec::with_capacity(size);
-    for i in 0..size {
-        array.push(i as f64);
-    }
+    let mut array =
+        (0..size).into_par_iter().map(|i| i as f64).collect::<Vec<f64>>();
+
     if size > 0 {
         array[size - 1] = (size / 2) as f64;
     }
@@ -285,7 +273,12 @@ pub fn generators_f64(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<f64>, &'static str)> {
     vec![
         (&helper_random_array_uniform_f64, "-- Unif       :"),
-        (&helper_random_array_small_f64, "-- Small      :"),
+        (&helper_random_array_small_f64, "-- Small 10^9 :"),
+        (&helper_random_array_small_plus_f64, "-- Small+10^9 :"),
+        (&helper_random_array_small_minus_f64, "-- Small-10^9 :"),
+        (&helper_random_array_very_small_f64, "-- Small 10^6 :"),
+        (&helper_random_array_very_small_plus_f64, "-- Small+10^6 :"),
+        (&helper_random_array_very_small_minus_f64, "-- Small-10^6 :"),
         (&helper_random_array_asc_f64, "-- Asc        :"),
         (&helper_random_array_desc_f64, "-- Desc       :"),
         (&helper_random_array_equal_f64, "-- Equal      :"),

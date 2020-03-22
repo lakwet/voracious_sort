@@ -2,18 +2,18 @@ use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::{RadixKey, Radixable};
 use super::comparative_sort::insertion_sort_try;
+use super::lsd_sort::lsd_radixsort_body;
 use super::msd_sort::copy_by_histogram;
-use super::utils::offset_from_bits;
 use super::utils::{
-    copy_nonoverlapping, get_partial_histograms_fast, only_one_bucket_filled,
-    prefix_sums, Params,
+    copy_nonoverlapping, get_partial_histograms, offset_from_bits,
+    only_one_bucket_filled, prefix_sums, Params,
 };
 use super::voracious_sort::voracious_sort_rec;
 
 const EFST: f64 = 0.1; // Estimated Final Size Threshold
 const NRT: f64 = 0.35; // Next Radix Threshold
 
-pub fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
+fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
     let mut results = Vec::new();
 
     for r in 7..10 {
@@ -44,7 +44,7 @@ pub fn get_best_radix_size_and_runs(size: usize) -> (usize, usize) {
     }
 }
 
-pub fn dlsd_radixsort_body<T: Radixable<K> + Copy + PartialOrd, K: RadixKey>(
+pub fn dlsd_radixsort_body<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: Params,
     rbd: usize, // runs before diversion
@@ -63,7 +63,7 @@ pub fn dlsd_radixsort_body<T: Radixable<K> + Copy + PartialOrd, K: RadixKey>(
     let mut buffer: Vec<T> = vec![arr[0]; size];
 
     let histograms = if diversion {
-        get_partial_histograms_fast(arr, &p, rbd)
+        get_partial_histograms(arr, &p, rbd)
     } else {
         dummy.get_full_histograms(arr, &p)
     };
@@ -72,7 +72,7 @@ pub fn dlsd_radixsort_body<T: Radixable<K> + Copy + PartialOrd, K: RadixKey>(
     let t2 = &mut buffer;
     let mut t2 = t2.as_mut_slice();
 
-    /* Swap elements the right amount of time to reach diversion threshold */
+    // Swap elements the right amount of time to reach diversion threshold
     for level in (p.level..p.max_level).rev() {
         if only_one_bucket_filled(&histograms[level]) {
             continue;
@@ -107,7 +107,7 @@ pub fn dlsd_radixsort_body<T: Radixable<K> + Copy + PartialOrd, K: RadixKey>(
         }
     }
 
-    /* Ensure data is at the right place */
+    // Ensure data is at the right place
     if index == 1 {
         copy_nonoverlapping(t2, t1, size);
     }
@@ -115,23 +115,30 @@ pub fn dlsd_radixsort_body<T: Radixable<K> + Copy + PartialOrd, K: RadixKey>(
     if diversion && dummy.type_size() - p.offset >= p.radix * p.max_level {
         let unsorted_parts = insertion_sort_try(&mut t1, &p);
 
-        let new_level = 0;
-        let std_radix = 8;
-        let new_raw_offset = p.offset + p.max_level * p.radix;
-        let new_max_level = dummy.compute_max_level(new_raw_offset, std_radix);
-        let new_offset = dummy.type_size() - new_max_level * std_radix;
-        let new_params =
-            Params::new(new_level, std_radix, new_offset, new_max_level);
+        let radix = 8;
+        let raw_offset = p.max_level * p.radix + p.offset;
+        let new_max_level = dummy.compute_max_level(raw_offset, radix);
 
-        unsorted_parts.iter().for_each(|(start, end)| {
-            voracious_sort_rec(&mut t1[*start..*end], new_params, 2);
+        let new_params_msd = Params::new(0, radix, raw_offset, new_max_level);
+
+        let offset_lsd = dummy.type_size() - new_max_level * radix;
+        let new_params_lsd = Params::new(0, radix, offset_lsd, new_max_level);
+
+        unsorted_parts.iter().for_each(|(i, j)| {
+            if j - i <= 250 {
+                t1[*i..*j].sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+            } else if j - i > 3000 && new_max_level <= 4 {
+                lsd_radixsort_body(&mut t1[*i..*j], new_params_lsd);
+            } else {
+                voracious_sort_rec(&mut t1[*i..*j], new_params_msd, 0);
+            }
         });
     }
 }
 
-pub fn dlsd_radixsort_aux<T, K>(arr: &mut [T], radix: usize)
+fn dlsd_radixsort_aux<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 128 {
@@ -186,7 +193,8 @@ where
 ///
 /// Several changes have been made. Diversion is different, and only one out of
 /// the three ideas from the DFR sort is implemented. So it is less dependent on
-/// the uniformly distributed input hypothesis. Moreover a variable radix is added.
+/// the uniformly distributed input hypothesis. Moreover a variable radix is
+/// added.
 ///
 /// The core idea of this algorithm is, actually, an heuristic. An estimation
 /// of the number of required passes is computed, and then diversion occurs.
@@ -198,7 +206,7 @@ where
 /// is stable but fallback and diversion are unstable.
 pub fn dlsd_radixsort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 128 {

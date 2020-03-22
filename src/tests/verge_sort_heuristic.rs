@@ -7,9 +7,7 @@ use super::super::algo::verge_sort_heuristic::{
 };
 use super::super::generators::unsigned_u64::*;
 
-fn default_sort(arr: &mut [u64], _radix: usize) {
-    arr.sort_unstable();
-}
+fn default_sort(arr: &mut [u64], _radix: usize) { arr.sort_unstable(); }
 
 #[test]
 fn test_verge_sort_heuristic_compute_big_enough_run() {

@@ -1,4 +1,5 @@
 use rand::{thread_rng, Rng};
+use rayon::prelude::*;
 
 fn get_charset() -> Vec<char> {
     vec![
@@ -11,57 +12,52 @@ fn get_charset() -> Vec<char> {
 }
 
 pub fn helper_random_array_uniform_char(size: usize) -> Vec<char> {
-    let mut rng = thread_rng();
-    let mut array: Vec<char> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let value = rng.gen::<char>();
-        array.push(value);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen::<char>())
+        .collect::<Vec<char>>()
 }
 
 pub fn helper_random_array_equal_char(size: usize) -> Vec<char> {
-    let mut rng = thread_rng();
-    vec![rng.gen::<char>(); size]
+    vec![thread_rng().gen::<char>(); size]
 }
 
 pub fn helper_random_array_charset_char(size: usize) -> Vec<char> {
-    let mut rng = thread_rng();
-    let mut array: Vec<char> = Vec::with_capacity(size);
     let charset = get_charset();
-    for _ in 0..size {
-        let index: usize = rng.gen_range(0, charset.len());
-        array.push(charset[index]);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| {
+            let index: usize = thread_rng().gen_range(0, charset.len());
+            charset[index]
+        })
+        .collect::<Vec<char>>()
 }
 
 pub fn helper_random_array_charset_den_char(size: usize) -> Vec<char> {
-    let mut rng = thread_rng();
-    let mut array: Vec<char> = Vec::with_capacity(size);
     let mut charset = get_charset();
     charset.push(std::char::from_u32(0x00000db4).unwrap());
-    for _ in 0..size {
-        let index: usize = rng.gen_range(0, charset.len());
-        array.push(charset[index]);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| {
+            let index: usize = thread_rng().gen_range(0, charset.len());
+            charset[index]
+        })
+        .collect::<Vec<char>>()
 }
 
 pub fn helper_random_array_charset_vden_char(size: usize) -> Vec<char> {
-    let mut rng = thread_rng();
-    let mut array: Vec<char> = Vec::with_capacity(size);
     let mut charset = get_charset();
     for i in 0..11 {
-        charset.push(
-            std::char::from_u32(std::char::MAX as u32 - i as u32).unwrap(),
-        );
+        let char_u32 = std::char::MAX as u32 - i as u32;
+        charset.push(std::char::from_u32(char_u32).unwrap());
     }
-    for _ in 0..size {
-        let index: usize = rng.gen_range(0, charset.len());
-        array.push(charset[index]);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| {
+            let index: usize = thread_rng().gen_range(0, charset.len());
+            charset[index]
+        })
+        .collect::<Vec<char>>()
 }
 
 pub fn generators_char(

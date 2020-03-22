@@ -54,7 +54,7 @@ pub fn voracious_sort_rec<T: Radixable<K>, K: RadixKey>(
                         Orientation::IsAsc => (),
                         Orientation::IsDesc => {
                             first_part.reverse();
-                        }
+                        },
                         Orientation::IsPlateau => (),
                         Orientation::IsNone => {
                             voracious_sort_rec(
@@ -62,7 +62,7 @@ pub fn voracious_sort_rec<T: Radixable<K>, K: RadixKey>(
                                 new_params,
                                 zipf_heuristic_count - 1,
                             );
-                        }
+                        },
                     }
                 } else {
                     voracious_sort_rec(first_part, new_params, 0);
@@ -85,22 +85,22 @@ fn voracious_sort_aux<T: Radixable<K>, K: RadixKey>(
     }
 
     let dummy = arr[0];
-    let (offset, _) = dummy.compute_offset(arr, radix);
-    let max_level = dummy.compute_max_level(offset, radix);
+    let (_, raw_offset) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(raw_offset, radix);
 
     if max_level == 0 {
         return;
     }
 
-    let params = Params::new(0, radix, offset, max_level);
+    let params = Params::new(0, radix, raw_offset, max_level);
 
     if heuristic {
         // we could add more heuristics, but the idea is to keep an MSD radix
         // sort, so there is no additional memory requirement
         if max_level == 1 {
-            counting_sort(arr, 8);
+            counting_sort(arr, params.radix);
         } else if max_level == 2 && size >= min_cs2 {
-            counting_sort(arr, 16);
+            counting_sort(arr, 2 * params.radix);
         } else {
             voracious_sort_rec(arr, params, 2);
         }
@@ -126,9 +126,9 @@ fn voracious_sort_aux<T: Radixable<K>, K: RadixKey>(
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///
-/// The Voracious sort is an in place unstable radix sort. For array smaller than
-/// 30_000 elements it fallbacks to MSD sort which is out of place, but since the
-/// threshold is a constant, this algorithm is in place.
+/// The Voracious sort is an in place unstable radix sort. For array smaller
+/// than 30_000 elements it fallbacks on MSD sort which is out of place, but
+/// since the threshold is a constant, this algorithm is in place.
 pub fn voracious_sort<T, K>(arr: &mut [T], radix: usize)
 where
     T: Radixable<K>,

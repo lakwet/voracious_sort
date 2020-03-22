@@ -3,7 +3,7 @@ use super::utils::Params;
 
 fn counting_sort_aux<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     let dummy = arr[0];
@@ -37,21 +37,24 @@ where
 
     let mut position = 0;
     histogram.iter().enumerate().for_each(|(value, count)| {
-        let quotient = *count / 4;
-        let remainder = count % 4;
-        for _ in 0..quotient {
-            unsafe {
-                *arr.get_unchecked_mut(position) = dummy.to_generic(value);
-                *arr.get_unchecked_mut(position + 1) = dummy.to_generic(value);
-                *arr.get_unchecked_mut(position + 2) = dummy.to_generic(value);
-                *arr.get_unchecked_mut(position + 3) = dummy.to_generic(value);
+        if *count > 0 {
+            let quotient = *count / 4;
+            let remainder = count % 4;
+            let v = dummy.to_generic(value);
+            for _ in 0..quotient {
+                unsafe {
+                    *arr.get_unchecked_mut(position) = v;
+                    *arr.get_unchecked_mut(position + 1) = v;
+                    *arr.get_unchecked_mut(position + 2) = v;
+                    *arr.get_unchecked_mut(position + 3) = v;
+                }
+                position += 4;
             }
-            position += 4;
-        }
-        for _ in 0..remainder {
-            unsafe {
-                *arr.get_unchecked_mut(position) = dummy.to_generic(value);
-                position += 1;
+            for _ in 0..remainder {
+                unsafe {
+                    *arr.get_unchecked_mut(position) = v;
+                    position += 1;
+                }
             }
         }
     });
@@ -68,7 +71,7 @@ where
 /// This Counting sort has been a bit customized since it takes a radix input.
 pub fn counting_sort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() < 2 {

@@ -52,7 +52,7 @@ fn copy_by_histogram(
 }
 
 fn get_full_histograms(arr: &mut [f32], p: &Params) -> Vec<Vec<usize>> {
-    let mut histograms = get_empty_histograms(p, p.max_level);
+    let mut histograms = get_empty_histograms(p.max_level, p.radix_range);
 
     let default_mask = 0x0000_00FFu32;
     let shift = p.radix as u32;
@@ -253,7 +253,7 @@ fn lsd_radixsort_body(arr: &mut [f32], p: Params) {
     }
 }
 
-pub fn ded_lsd_radixsort(arr: &mut [f32]) {
+pub fn lsd_f32(arr: &mut [f32]) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;

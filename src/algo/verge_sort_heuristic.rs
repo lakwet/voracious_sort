@@ -92,11 +92,7 @@ where
         }
     }
 
-    i = if quotient > 10 {
-        start + ((quotient - 1) * 4) - 1
-    } else {
-        i
-    };
+    i = if quotient > 10 { start + ((quotient - 1) * 4) - 1 } else { i };
 
     while i < arr.len() - 1 {
         if arr[i] <= arr[i + 1] {
@@ -153,11 +149,7 @@ where
         }
     }
 
-    i = if quotient > 10 {
-        start + ((quotient - 1) * 4) - 1
-    } else {
-        i
-    };
+    i = if quotient > 10 { start + ((quotient - 1) * 4) - 1 } else { i };
 
     while i < arr.len() - 1 {
         if arr[i] >= arr[i + 1] {
@@ -211,11 +203,7 @@ pub fn explore_backward_asc<T: PartialOrd>(
         }
     }
 
-    i = if quotient > 10 {
-        start - ((quotient - 1) * 4) + 1
-    } else {
-        i
-    };
+    i = if quotient > 10 { start - ((quotient - 1) * 4) + 1 } else { i };
 
     while i > min_boundary {
         if arr[i - 1] <= arr[i] {
@@ -269,11 +257,7 @@ pub fn explore_backward_desc<T: PartialOrd>(
         }
     }
 
-    i = if quotient > 10 {
-        start - ((quotient - 1) * 4) + 1
-    } else {
-        i
-    };
+    i = if quotient > 10 { start - ((quotient - 1) * 4) + 1 } else { i };
 
     while i > min_boundary {
         if arr[i - 1] >= arr[i] {
@@ -327,11 +311,7 @@ pub fn explore_backward_plateau<T: PartialOrd>(
         }
     }
 
-    i = if quotient > 10 {
-        start - ((quotient - 1) * 4) + 1
-    } else {
-        i
-    };
+    i = if quotient > 10 { start - ((quotient - 1) * 4) + 1 } else { i };
 
     while i > min_boundary {
         if arr[i - 1] == arr[i] {
@@ -388,11 +368,7 @@ pub fn explore_forward_plateau<T: PartialOrd>(
         }
     }
 
-    i = if quotient > 10 {
-        start + ((quotient - 1) * 4) - 1
-    } else {
-        i
-    };
+    i = if quotient > 10 { start + ((quotient - 1) * 4) - 1 } else { i };
 
     while i < arr.len() - 1 {
         if arr[i] == arr[i + 1] {
@@ -510,7 +486,7 @@ pub fn explore_simple_forward<T: PartialOrd>(arr: &mut [T]) -> Orientation {
             } else {
                 Orientation::IsNone
             }
-        }
+        },
         Orientation::IsDesc => {
             let p = explore_forward_desc(arr, 0);
             if p == arr.len() {
@@ -518,7 +494,7 @@ pub fn explore_simple_forward<T: PartialOrd>(arr: &mut [T]) -> Orientation {
             } else {
                 Orientation::IsNone
             }
-        }
+        },
         Orientation::IsPlateau => {
             let fp = explore_forward_plateau(arr, 0);
             match forward_orientation(arr, fp - 1) {
@@ -529,7 +505,7 @@ pub fn explore_simple_forward<T: PartialOrd>(arr: &mut [T]) -> Orientation {
                     } else {
                         Orientation::IsNone
                     }
-                }
+                },
                 Orientation::IsDesc => {
                     let p = explore_forward_desc(arr, fp);
                     if p == arr.len() {
@@ -537,16 +513,16 @@ pub fn explore_simple_forward<T: PartialOrd>(arr: &mut [T]) -> Orientation {
                     } else {
                         Orientation::IsNone
                     }
-                }
+                },
                 Orientation::IsPlateau => {
                     panic!("[Verge sort heuristic] Bad implementation.")
-                }
+                },
                 Orientation::IsNone => Orientation::IsPlateau,
             }
-        }
+        },
         Orientation::IsNone => {
             panic!("[Verge sort heuristic] Bad implementation.")
-        }
+        },
     }
 }
 
@@ -555,19 +531,16 @@ pub fn explore_around<T: PartialOrd>(
     arr: &mut [T],
     position: usize,
     min_boundary: usize,
-) -> (
-    (BackwardGrowth, usize, usize),
-    (ForwardGrowth, usize, usize),
-) {
+) -> ((BackwardGrowth, usize, usize), (ForwardGrowth, usize, usize)) {
     let (b_pattern, bp1, bp2) = match backward_orientation(arr, position) {
         Orientation::IsAsc => {
             let p = explore_backward_asc(arr, position, min_boundary);
             (BackwardGrowth::AN, position, p)
-        }
+        },
         Orientation::IsDesc => {
             let p = explore_backward_desc(arr, position, min_boundary);
             (BackwardGrowth::DN, position, p)
-        }
+        },
         Orientation::IsPlateau => {
             let bp1 = explore_backward_plateau(arr, position, min_boundary);
             if bp1 == min_boundary {
@@ -577,29 +550,29 @@ pub fn explore_around<T: PartialOrd>(
                     Orientation::IsAsc => {
                         let bp2 = explore_backward_asc(arr, bp1, min_boundary);
                         (BackwardGrowth::AP, bp1, bp2)
-                    }
+                    },
                     Orientation::IsDesc => {
                         let bp2 = explore_backward_desc(arr, bp1, min_boundary);
                         (BackwardGrowth::DP, bp1, bp2)
-                    }
+                    },
                     Orientation::IsPlateau => {
                         panic!("[Verge sort heuristic] Bad implementation.")
-                    }
+                    },
                     Orientation::IsNone => (BackwardGrowth::NP, bp1, bp1),
                 }
             }
-        }
+        },
         Orientation::IsNone => (BackwardGrowth::NN, position, position),
     };
     let (f_pattern, fp1, fp2) = match forward_orientation(arr, position) {
         Orientation::IsAsc => {
             let p = explore_forward_asc(arr, position);
             (ForwardGrowth::NA, position, p)
-        }
+        },
         Orientation::IsDesc => {
             let p = explore_forward_desc(arr, position);
             (ForwardGrowth::ND, position, p)
-        }
+        },
         Orientation::IsPlateau => {
             let fp1 = explore_forward_plateau(arr, position);
             let new_position = if fp1 == position { fp1 } else { fp1 - 1 };
@@ -607,17 +580,17 @@ pub fn explore_around<T: PartialOrd>(
                 Orientation::IsAsc => {
                     let fp2 = explore_forward_asc(arr, fp1);
                     (ForwardGrowth::PA, fp1, fp2)
-                }
+                },
                 Orientation::IsDesc => {
                     let fp2 = explore_forward_desc(arr, fp1);
                     (ForwardGrowth::PD, fp1, fp2)
-                }
+                },
                 Orientation::IsPlateau => {
                     panic!("[Verge sort heuristic] Bad implementation.")
-                }
+                },
                 Orientation::IsNone => (ForwardGrowth::PN, fp1, fp1),
             }
-        }
+        },
         Orientation::IsNone => (ForwardGrowth::NN, position + 1, position + 1),
     };
 
@@ -806,7 +779,7 @@ where
             } else {
                 (fp2, last_sorted)
             }
-        }
+        },
         GrowthPattern::DescOnly => {
             if fp2 - bp2 >= big_enough {
                 if bp2 - last_sorted >= big_enough || bp2 - last_sorted == 0 {
@@ -824,10 +797,10 @@ where
             } else {
                 (fp2, last_sorted)
             }
-        }
+        },
         GrowthPattern::Neither => {
             panic!("[Verge sort heuristic] Bad implementation.")
-        }
+        },
     }
 }
 

@@ -34,7 +34,7 @@ fn insertion_sort_start_at<T: PartialOrd>(arr: &mut [T], start: usize) {
 
 fn find_end_of_bucket<T, K>(arr: &mut [T], start: usize, p: &Params) -> usize
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     let dummy = arr[0];
@@ -78,7 +78,7 @@ where
 
 fn find_start_of_bucket<T, K>(arr: &mut [T], start: usize, p: &Params) -> usize
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     let dummy = arr[0];
@@ -114,14 +114,10 @@ where
     }
 }
 
-pub fn insertion_sort_try<T, K>(
+pub fn insertion_sort_try<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: &Params,
-) -> Vec<(usize, usize)>
-where
-    T: Radixable<K> + Copy + PartialOrd,
-    K: RadixKey,
-{
+) -> Vec<(usize, usize)> {
     let dummy = arr[0];
     let mask = dummy.mask_for_high_bits(p.radix, p.offset, p.max_level);
 

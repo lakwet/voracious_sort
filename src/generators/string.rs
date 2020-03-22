@@ -1,22 +1,16 @@
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use rayon::prelude::*;
 
 pub fn helper_random_array_uniform_string(
     size: usize,
     string_size: usize,
 ) -> Vec<String> {
-    let mut rng = thread_rng();
-    let mut array: Vec<String> = Vec::with_capacity(size);
-
-    for _ in 0..size {
-        let s = rng
-            .sample_iter(&Alphanumeric)
+    (0..size).into_par_iter().map(|_|
+        thread_rng().sample_iter(&Alphanumeric)
             .take(string_size)
-            .collect::<String>();
-        array.push(s);
-    }
-
-    array
+            .collect::<String>()
+    ).collect::<Vec<u64>>()
 }
 
 pub fn generators_string(

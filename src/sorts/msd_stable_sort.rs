@@ -4,11 +4,13 @@ use super::super::{RadixKey, Radixable};
 use super::msd_sort::copy_by_histogram;
 use super::utils::{get_histogram, prefix_sums, Params};
 
+const FALLBACK_THRESHOLD: usize = 128;
+
 fn msd_stable_radixsort_rec<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: Params,
 ) {
-    if arr.len() <= 128 {
+    if arr.len() <= FALLBACK_THRESHOLD {
         arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
@@ -40,20 +42,20 @@ fn msd_stable_radixsort_aux<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     radix: usize,
 ) {
-    if arr.len() <= 128 {
+    if arr.len() <= FALLBACK_THRESHOLD {
         arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }
 
     let dummy = arr[0];
-    let (offset, _) = dummy.compute_offset(arr, radix);
-    let max_level = dummy.compute_max_level(offset, radix);
+    let (_, raw_offset) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(raw_offset, radix);
 
     if max_level == 0 {
         return;
     }
 
-    let params = Params::new(0, radix, offset, max_level);
+    let params = Params::new(0, radix, raw_offset, max_level);
 
     msd_stable_radixsort_rec(arr, params);
 }
@@ -69,8 +71,7 @@ fn msd_stable_radixsort_aux<T: Radixable<K>, K: RadixKey>(
 /// - Use vectorization.
 ///
 /// We choose to use an out of place implementation to have a fast radix sort
-/// for small input. This sort is used as a fallback for other radix sort from
-/// this crate.
+/// for small input.
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///
@@ -79,7 +80,7 @@ pub fn msd_stable_radixsort<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     radix: usize,
 ) {
-    if arr.len() <= 128 {
+    if arr.len() <= FALLBACK_THRESHOLD {
         arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         return;
     }

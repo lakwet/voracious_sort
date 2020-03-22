@@ -2,17 +2,14 @@ use super::super::{RadixKey, Radixable};
 use super::comparative_sort::insertion_sort;
 use super::utils::{get_histogram, prefix_sums, Params};
 
-fn serial_swap<T, K>(
+fn serial_swap<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     heads: &mut Vec<usize>,
     tails: &[usize],
     p: &Params,
     mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,
-) where
-    T: Radixable<K>,
-    K: RadixKey,
-{
+) {
     for i in 0..(p.radix_range) - 1 {
         while heads[i] < tails[i] {
             unsafe {
@@ -29,18 +26,16 @@ fn serial_swap<T, K>(
     }
 }
 
-pub fn serial_radixsort_rec<T, K>(arr: &mut [T], p: Params)
-where
-    T: Radixable<K>,
-    K: RadixKey,
-{
+pub fn serial_radixsort_rec<T: Radixable<K>, K: RadixKey>(
+    arr: &mut [T],
+    p: Params,
+) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;
     }
 
     let dummy = arr[0];
-
     let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
     let histogram = get_histogram(arr, &p, mask, shift);
     let (p_sums, mut heads, tails) = prefix_sums(&histogram);
@@ -70,26 +65,23 @@ where
 /// This algorithm is used as a fallback in the Ska sort.
 ///
 /// The American flag sort is an in place unstable radix sort.
-pub fn american_flag_sort<T, K>(arr: &mut [T], radix: usize)
-where
-    T: Radixable<K>,
-    K: RadixKey,
-{
+pub fn american_flag_sort<T: Radixable<K>, K: RadixKey>(
+    arr: &mut [T],
+    radix: usize,
+) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;
     }
 
     let dummy = arr[0];
-
-    let (offset, _) = dummy.compute_offset(arr, radix);
-    let max_level = dummy.compute_max_level(offset, radix);
+    let (_, raw_offset) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(raw_offset, radix);
 
     if max_level == 0 {
         return;
     }
 
-    let params = Params::new(0, radix, offset, max_level);
-
+    let params = Params::new(0, radix, raw_offset, max_level);
     serial_radixsort_rec(arr, params);
 }

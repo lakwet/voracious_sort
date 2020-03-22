@@ -1,3 +1,5 @@
+// use super::super::{RadixKey, Radixable};
+
 #[inline]
 fn boolean_sort_aux(arr: &mut [bool], shift: usize, count: usize, value: bool) {
     let quotient = count / 4;
@@ -49,6 +51,10 @@ pub fn boolean_sort(arr: &mut [bool]) {
                 count_false += 1;
             }
         }
+    }
+
+    if count_false == arr.len() || count_false == 0 {
+        return;
     }
 
     boolean_sort_aux(arr, 0, count_false, false);
