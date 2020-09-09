@@ -10,6 +10,7 @@ impl Radixable<bool> for bool {
     fn to_generic(&self, value: usize) -> Self { value == 1 }
     fn voracious_sort(&self, arr: &mut [bool]) { boolean_sort(arr); }
     fn voracious_stable_sort(&self, arr: &mut [bool]) { boolean_sort(arr); }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [bool], _thread_n: usize) {
         boolean_sort(arr);
     }

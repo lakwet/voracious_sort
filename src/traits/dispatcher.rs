@@ -1,3 +1,4 @@
+#[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
@@ -5,6 +6,7 @@ use super::super::sorts::lsd_sort::lsd_radixsort;
 use super::super::sorts::lsd_stable_sort::lsd_stable_radixsort;
 use super::super::sorts::msd_sort::msd_radixsort;
 use super::super::sorts::msd_stable_sort::msd_stable_radixsort;
+#[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::super::sorts::voracious_sort::voracious_sort;
@@ -13,6 +15,7 @@ use super::super::{RadixKey, Radixable};
 pub trait Dispatcher<T: Radixable<K>, K: RadixKey> {
     fn voracious_sort(&self, arr: &mut [T]);
     fn voracious_stable_sort(&self, arr: &mut [T]);
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize);
 }
 
@@ -29,6 +32,7 @@ impl<T: Radixable<bool>> Dispatcher<T, bool> for bool {
             msd_stable_radixsort(arr, 1);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() < 1_000_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -57,6 +61,7 @@ impl<T: Radixable<char>> Dispatcher<T, char> for char {
             lsd_stable_radixsort(arr, 11);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 900_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -90,6 +95,7 @@ impl<T: Radixable<f32>> Dispatcher<T, f32> for f32 {
             lsd_stable_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 800_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -129,6 +135,7 @@ impl<T: Radixable<f64>> Dispatcher<T, f64> for f64 {
             msd_stable_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 800_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -164,6 +171,7 @@ impl<T: Radixable<i8>> Dispatcher<T, i8> for i8 {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -189,6 +197,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -213,6 +222,7 @@ impl<T: Radixable<i16>> Dispatcher<T, i16> for i16 {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -238,6 +248,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -250,6 +261,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
 impl<T: Radixable<i32>> Dispatcher<T, i32> for i32 {
     fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -295,6 +307,7 @@ impl<T: Radixable<i64>> Dispatcher<T, i64> for i64 {
             msd_stable_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -328,6 +341,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
             msd_stable_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -342,6 +356,7 @@ impl<T: Radixable<i128>> Dispatcher<T, i128> for i128 {
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -357,6 +372,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -381,6 +397,7 @@ impl<T: Radixable<u8>> Dispatcher<T, u8> for u8 {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -406,6 +423,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -430,6 +448,7 @@ impl<T: Radixable<u16>> Dispatcher<T, u16> for u16 {
             lsd_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -467,6 +486,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
 impl<T: Radixable<u32>> Dispatcher<T, u32> for u32 {
     fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -508,6 +528,7 @@ impl<T: Radixable<u64>> Dispatcher<T, u64> for u64 {
             msd_stable_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -537,6 +558,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
             msd_stable_radixsort(arr, 8);
         }
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -551,6 +573,7 @@ impl<T: Radixable<u128>> Dispatcher<T, u128> for u128 {
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -566,6 +589,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

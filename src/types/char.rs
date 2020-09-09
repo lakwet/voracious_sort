@@ -1,6 +1,8 @@
+#[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
 use super::super::sorts::lsd_sort::lsd_radixsort_heu;
+#[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::Radixable;
@@ -189,6 +191,7 @@ impl Radixable<char> for char {
     fn voracious_stable_sort(&self, arr: &mut [char]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 1_800_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

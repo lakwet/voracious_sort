@@ -1,6 +1,6 @@
 [package]
 name = "voracious_radix_sort"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
 description = "State of the art radix sort algorithms. Single thread and multi thread versions."
@@ -11,11 +11,12 @@ repository = "https://github.com/lakwet/voracious_sort"
 keywords = ["sort", "algorithms", "radixsort", "research"]
 categories = ["algorithms", "science", "concurrency"]
 
+[features]
+voracious_multithread = ["rayon"]
+
 [dependencies]
-rayon = "1.4.0"
+rayon = { version = "1.5.0", optional = true }
 
 [dev-dependencies]
 rand = "0.7.3"
-rand_distr = "0.2.2"
-
-[profile.release]
+rand_distr = "0.3.0"

@@ -204,6 +204,12 @@ fn get_full_histograms(arr: &mut [u32], p: &Params) -> Vec<Vec<usize>> {
 
 pub fn lsd_radixsort_body(arr: &mut [u32], p: Params) {
     let size = arr.len();
+
+    if size <= 128 {
+        arr.sort_unstable();
+        return;
+    }
+
     let dummy = arr[0];
     let mut buffer: Vec<u32> = vec![0; size];
     let mut index = 0;
@@ -250,7 +256,7 @@ pub fn lsd_radixsort_body(arr: &mut [u32], p: Params) {
 
 pub fn lsd_u32(arr: &mut [u32]) {
     if arr.len() <= 128 {
-        arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        arr.sort_unstable();
         return;
     }
 

@@ -1,4 +1,5 @@
 use rand::{thread_rng, Rng};
+use rand_distr::{Distribution, Normal, Pareto};
 use rayon::prelude::*;
 
 use super::super::types::custom::*;
@@ -65,11 +66,72 @@ pub fn helper_random_array_109_structf32(size: usize) -> Vec<StructF32> {
         .collect::<Vec<StructF32>>()
 }
 
+fn helper_pareto_structf32(size: usize, arg: f32) -> Vec<StructF32> {
+    let pareto = Pareto::new(0.1, arg).unwrap();
+    (0..size)
+        .into_par_iter()
+        .map(|_| StructF32 {
+            value: pareto.sample(&mut thread_rng()),
+            other: thread_rng().gen::<isize>(),
+        })
+        .collect::<Vec<StructF32>>()
+}
+
+// Pareto
+pub fn helper_random_array_pareto075_structf32(size: usize) -> Vec<StructF32> {
+    helper_pareto_structf32(size, 0.75)
+}
+
+// Pareto
+pub fn helper_random_array_pareto100_structf32(size: usize) -> Vec<StructF32> {
+    helper_pareto_structf32(size, 1.0)
+}
+
+// Pareto
+pub fn helper_random_array_pareto200_structf32(size: usize) -> Vec<StructF32> {
+    helper_pareto_structf32(size, 2.0)
+}
+
+fn helper_normal_structf32(
+    size: usize,
+    standard_deviation: f32,
+) -> Vec<StructF32> {
+    let normal = Normal::new(0.0, standard_deviation).unwrap();
+    (0..size)
+        .into_par_iter()
+        .map(|_| StructF32 {
+            value: normal.sample(&mut thread_rng()),
+            other: thread_rng().gen::<isize>(),
+        })
+        .collect::<Vec<StructF32>>()
+}
+
+// Normale(0, 2^10)
+pub fn helper_random_array_normale_10_structf32(size: usize) -> Vec<StructF32> {
+    helper_normal_structf32(size, 1024.0)
+}
+
+// Normale(0, 2^20)
+pub fn helper_random_array_normale_20_structf32(size: usize) -> Vec<StructF32> {
+    helper_normal_structf32(size, 1_000_000.0)
+}
+
+// Normale(0, 2^30)
+pub fn helper_random_array_normale_30_structf32(size: usize) -> Vec<StructF32> {
+    helper_normal_structf32(size, 1_000_000_000.0)
+}
+
 pub fn generators_structf32(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<StructF32>, &'static str)> {
     vec![
         (&helper_random_array_uniform_structf32, "-- Unif       :"),
         (&helper_random_array_109_structf32, "-- +/-10^9   :"),
+        (&helper_random_array_pareto075_structf32, "-- Pareto 0.75:"),
+        (&helper_random_array_pareto100_structf32, "-- Pareto 1.00:"),
+        (&helper_random_array_pareto200_structf32, "-- Pareto 2.00:"),
+        (&helper_random_array_normale_10_structf32, "-- Normale 10 :"),
+        (&helper_random_array_normale_20_structf32, "-- Normale 20 :"),
+        (&helper_random_array_normale_30_structf32, "-- Normale 30 :"),
     ]
 }
 

@@ -1,18 +1,11 @@
-#[allow(unused_imports)] use rayon::slice::ParallelSliceMut;
+#[cfg(feature = "voracious_multithread")]
+use rayon::slice::ParallelSliceMut;
 
-#[allow(unused_imports)]
-use super::super::sorts::counting_sort::counting_sort;
-#[allow(unused_imports)]
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
-#[allow(unused_imports)]
-use super::super::sorts::lsd_sort::lsd_radixsort_heu;
-#[allow(unused_imports)] use super::super::sorts::msd_sort::msd_radixsort;
-#[allow(unused_imports)] use super::super::sorts::peeka_sort::peeka_sort;
-#[allow(unused_imports)]
+#[cfg(feature = "voracious_multithread")]
+use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
-#[allow(unused_imports)]
-use super::super::sorts::voracious_sort::voracious_sort_heu;
-#[allow(unused_imports)] use super::super::Radixable;
+use super::super::Radixable;
 
 #[cfg(target_pointer_width = "8")]
 impl Radixable<usize> for usize {
@@ -72,6 +65,7 @@ impl Radixable<usize> for usize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 1_300_000 {
             arr.par_sort_unstable();
@@ -181,6 +175,7 @@ impl Radixable<usize> for usize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 1_150_000, thread_n);
     }
@@ -369,6 +364,7 @@ impl Radixable<usize> for usize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 2_500_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -874,6 +870,7 @@ impl Radixable<usize> for usize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 2_000_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -928,6 +925,7 @@ impl Radixable<usize> for usize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 650_000, thread_n);
     }

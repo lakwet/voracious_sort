@@ -69,20 +69,17 @@ use super::test_helpers::helper_sort_aux;
 fn helper_sort<T, K>(
     test_name: &str,
     generators: Vec<(&dyn Fn(usize) -> Vec<T>, &'static str)>,
-    // runs: usize,
-    // sizes: &Vec<usize>,
 ) where
     T: Radixable<K> + std::fmt::Debug,
     K: RadixKey,
-    // T: Ord,
+    T: Ord,
 {
     let sorts_name = vec![
-        // "Trait Vora",
+        "Trait Vora",
         // "Trait Vora Stable",
-        "Trait Vora MT",
+        // "Trait Vora MT",
         // "Rust Std",
-        // "Rust Uns",
-        // "Counting sort",
+        "Rust Uns",
         // "Rollercoaster",
         // "LSD",
         // "MSD",
@@ -92,46 +89,18 @@ fn helper_sort<T, K>(
         // "Thiel",
         // "Raw Voracious sort",
         // "Raw Regions sort",
-        "Rayon pll uns",
+        // "Rayon pll uns",
         // "Rayon pll stable",
     ];
 
-    let runs = 50;
+    let runs = 10;
+    #[allow(unused_imports)]
     let thread_n = 16;
     let with_check = false;
 
     let sizes: Vec<usize> = vec![
-        // 500,1000, 10000, 50000,100000,500000,1000000, 10000000,
-        1000000,5000000,10000000,20000000,50000000,100000000,200000000
-        // 10, 30, 50, 70, 100
-        // 130,150,170,200,230,250,
-        // 300,350,400,500,600,700,800,900,
-        // 1000,1500,2000,3000,4000,5000,6000,7000,8000,9000,
-        // 10_000,20_000,30_000,
-        // 50_000,60_000,70_000,80_000,90_000,
-        // 100_000,
-        // 200_000,300_000,400_000,500_000,600_000,700_000,800_000,900_000,
-        // 1_000_000,
-        // 1_100_000,1_200_000,1_300_000,1_400_000,1_500_000,1_600_000,1_700_000,
-        // 1_800_000,1_900_000,
-        // 2_000_000,
-        // 2_100_000,2_200_000,2_300_000,2_400_000,2_500_000,2_600_000,2_700_000,2_800_000,2_900_000,
-        // 3_000_000,
-        // 3_100_000,3_200_000,3_300_000,3_400_000,3_500_000,3_600_000,3_700_000,3_800_000,3_900_000,
-        // 4_000_000,
-        // 5_000_000,
-        // 6_000_000,7_000_000,8_000_000,9_000_000,
-        // 10_000_000,
-        // 20_000_000,
-        // 30_000_000,40_000_000,
-        // 50_000_000,
-        // 60_000_000,
-        // 70_000_000,80_000_000,90_000_000,
-        // 100_000_000,
-        // 200_000_000,300_000_000,400_000_000,
-        // 500_000_000,600_000_000,700_000_000,800_000_000,900_000_000,
-        // 500_000_000,
-        // 1_000_000_000,
+        500,1_000, 2_000,5_000,10_000,50_000,100_000,500_000,1_000_000,5_000_000, 10_000_000,
+        // 1_000_000,5_000_000,10_000_000,20_000_000,50_000_000,100_000_000,200_000_000
     ];
 
     println!("Number of iterations: {}", runs);
@@ -147,11 +116,11 @@ fn helper_sort<T, K>(
         println!("Array size: {}", size);
         for (generator, gen_name) in generators.iter() {
             print!("{}", gen_name);
-            // helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,with_check);
+            helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.voracious_stable_sort(),runs,*size,generator, with_check);
-            helper_sort_aux(&|arr: &mut [T]| arr.voracious_mt_sort(thread_n),runs,*size,generator,with_check);
+            // helper_sort_aux(&|arr: &mut [T]| arr.voracious_mt_sort(thread_n),runs,*size,generator,with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort(), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable(),runs,*size,generator, with_check);
+            helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable(),runs,*size,generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| counting_sort(arr, 8),runs,*size,generator, with_check);
@@ -166,28 +135,11 @@ fn helper_sort<T, K>(
             // helper_sort_aux(&|arr: &mut [T]| american_flag_sort(arr, 8), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| thiel_radixsort(arr, 8), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| voracious_sort(arr, 8), runs, *size, generator, with_check);
-
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,    75_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   100_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   200_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   300_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   400_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   500_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   600_000, thread_n), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   650_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   700_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   800_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8,   900_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_000_000, thread_n), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_100_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_200_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_300_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_400_000, thread_n), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_500_000, thread_n), runs, *size, generator, with_check);
-
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable(), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort(), runs, *size, generator, with_check);
-            helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
+            // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             println!();
         }
@@ -209,10 +161,10 @@ fn helper_sort<T, K>(
 //     helper_sort("Test f32", generators_f32());
 // }
 
-#[test]
-fn speed_test_f64() {
-    helper_sort("Test f64", generators_f64());
-}
+// #[test]
+// fn speed_test_f64() {
+//     helper_sort("Test f64", generators_f64());
+// }
 
 // #[test]
 // fn speed_test_u8() {
@@ -352,55 +304,4 @@ fn speed_test_i64() {
 // #[test]
 // fn speed_test_structisize() {
 //     helper_sort("Test struct{isize, isize}", generators_structisize());
-// }
-
-// #[test]
-// fn speed_test_bench_all() {
-//     let medium: Vec<usize> = vec![
-//         10_000_000,
-//         50_000_000,
-//         75_000_000,
-//     ];
-
-//     let big: Vec<usize> = vec![
-//         100_000_000,
-//         250_000_000,
-//         500_000_000,
-//         750_000_000,
-//         1_000_000_000,
-//     ];
-
-//     helper_sort("Test boolean", generators_bool(), 31, &medium);
-//     helper_sort("Test char", generators_char(), 31, &medium);
-//     helper_sort("Test u8", generators_u8(), 31, &medium);
-//     helper_sort("Test u16", generators_u16(), 31, &medium);
-//     helper_sort("Test u32", generators_u32(), 31, &medium);
-//     helper_sort("Test u64", generators_u64(), 31, &medium);
-//     helper_sort("Test u128", generators_u128(), 31, &medium);
-//     helper_sort("Test i8", generators_i8(), 31, &medium);
-//     helper_sort("Test i16", generators_i16(), 31, &medium);
-//     helper_sort("Test i32", generators_i32(), 31, &medium);
-//     helper_sort("Test i64", generators_i64(), 31, &medium);
-//     helper_sort("Test i128", generators_i128(), 31, &medium);
-//     helper_sort("Test f32", generators_f32(), 31, &medium);
-//     helper_sort("Test f64", generators_f64(), 31, &medium);
-//     helper_sort("Test struct{isize, f32}", generators_structf32(), 31, &medium);
-//     helper_sort("Test struct{isize, f64}", generators_structf64(), 31, &medium);
-
-//     helper_sort("Test boolean", generators_bool(), 11, &big);
-//     helper_sort("Test char", generators_char(), 11, &big);
-//     helper_sort("Test u8", generators_u8(), 11, &big);
-//     helper_sort("Test u16", generators_u16(), 11, &big);
-//     helper_sort("Test u32", generators_u32(), 11, &big);
-//     helper_sort("Test u64", generators_u64(), 11, &big);
-//     helper_sort("Test u128", generators_u128(), 11, &big);
-//     helper_sort("Test i8", generators_i8(), 11, &big);
-//     helper_sort("Test i16", generators_i16(), 11, &big);
-//     helper_sort("Test i32", generators_i32(), 11, &big);
-//     helper_sort("Test i64", generators_i64(), 11, &big);
-//     helper_sort("Test i128", generators_i128(), 11, &big);
-//     helper_sort("Test f32", generators_f32(), 11, &big);
-//     helper_sort("Test f64", generators_f64(), 11, &big);
-//     helper_sort("Test struct{isize, f32}", generators_structf32(), 11, &big);
-//     helper_sort("Test struct{isize, f64}", generators_structf64(), 11, &big);
 // }
