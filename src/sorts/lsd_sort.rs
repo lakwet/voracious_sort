@@ -9,7 +9,7 @@ use super::utils::{
 
 pub fn lsd_radixsort_body<T, K>(arr: &mut [T], p: Params)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 128 {
@@ -63,15 +63,12 @@ where
     }
 }
 
-pub fn lsd_radixsort_aux<T, K>(
+pub fn lsd_radixsort_aux<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     radix: usize,
     heuristic: bool,
     min_cs2: usize,
-) where
-    T: Radixable<K> + Copy + PartialOrd,
-    K: RadixKey,
-{
+) {
     if arr.len() <= 128 {
         arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         return;
@@ -81,6 +78,9 @@ pub fn lsd_radixsort_aux<T, K>(
     let (offset, _) = dummy.compute_offset(arr, radix);
     let max_level = dummy.compute_max_level(offset, radix);
 
+    let (offset_reg, _) = dummy.compute_offset(arr, 8);
+    let max_level_reg = dummy.compute_max_level(offset_reg, 8);
+
     if max_level == 0 {
         return;
     }
@@ -88,9 +88,9 @@ pub fn lsd_radixsort_aux<T, K>(
     let params = Params::new(0, radix, offset, max_level);
 
     if heuristic {
-        if max_level == 1 {
+        if max_level_reg == 1 {
             counting_sort(arr, 8);
-        } else if max_level == 2 && arr.len() >= min_cs2 {
+        } else if max_level_reg == 2 && arr.len() >= min_cs2 {
             counting_sort(arr, 16);
         } else {
             lsd_radixsort_body(arr, params);
@@ -116,11 +116,11 @@ pub fn lsd_radixsort_aux<T, K>(
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///
-/// The LSD sort is an out of place unstable radix sort. The core algorithm is
+/// This LSD sort is an out of place unstable radix sort. The core algorithm is
 /// stable, but fallback is unstable.
 pub fn lsd_radixsort<T, K>(arr: &mut [T], radix: usize)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 128 {
@@ -136,7 +136,7 @@ where
 
 pub fn lsd_radixsort_heu<T, K>(arr: &mut [T], radix: usize, min_cs2: usize)
 where
-    T: Radixable<K> + Copy + PartialOrd,
+    T: Radixable<K>,
     K: RadixKey,
 {
     if arr.len() <= 128 {

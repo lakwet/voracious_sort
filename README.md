@@ -1,23 +1,24 @@
 # Voracious sort
 
-Dear visitor, welcome on our GitHub.
+![Rust](https://github.com/lakwet/voracious_sort/workflows/Rust/badge.svg)
+![Rust](https://docs.rs/voracious_radix_sort/badge.svg)
+
+Dear visitor, welcome.
 
 ## Introduction
 
 This project's purpose is to have a Rust implementation of a **state
-of the art radix sort**.
-
-We started with a single thread radix sort, but the goal is also to have
-a multithread radix sort.
+of the art radix sort** in a single thread and in a multi thread versions.
 
 This crate should be easy to use and the sort should be able to sort almost
 "everything". Radix sort is criticized because people think it can only sort
 unsigned integers. This project proves this wrong, **Voracious sort can sort all
-Rust primitive types** (except String, Tuple and Array for now) **and custom struct**. **It is way
-faster than Rust standard sort and Rust unstable sort** on most of the types and
-data distribution.
+Rust primitive types** (except String, Tuple and Array for now) **and custom struct**.
+**It is way faster than Rust standard sort and Rust unstable sort** on most of
+the types and data distribution.
 
-Because of Rust Orphan Rule, we chose not to support tuple sorting. You can use Struct instead.
+Because of Rust Orphan Rule, we chose not to support tuple sorting. You can use
+Struct instead.
 
 You will find here:
 - Version
@@ -25,7 +26,7 @@ You will find here:
 - A word about the sort’s name
 - The **documentation** on how to use this sort,
 - Radix sort: basic notions,
-- **Performance** analysis,
+- **Benchmarks**,
 - For developers and researchers
 - **References** we used for this project,
 - Future work,
@@ -33,9 +34,9 @@ You will find here:
 ## Version
 
 Last version tested/used:
-- Rustc: 1.41.1 stable
-- Rustfmt: 1.4.11 stable
-- Cargo: 1.41.0 stable
+- Rustc: 1.46.0 stable
+- Rustfmt: 1.4.18 stable
+- Cargo: 1.46.0 stable
 - Clippy: 0.0.212
 
 ## License
@@ -106,12 +107,11 @@ each elements. For a detail example, I let the reader read the Wikipedia page on
 <sup>[1]</sup>: If a radix of 8 is choosen, level 1 is the first 8 bits, level
 2 is the next 8 following bits, and so on until there is no more bit to handle.
 
-## Performances
+## Benchmarks
 
-CAUTION: Performance tests have been done on a previous version of the code.
+First, please, read: [PROFILING.md](https://github.com/lakwet/voracious_sort/blob/master/PROFILING.md).
 
-See raw benchmarck results in the results folder:
-
+If there is raw benchmark (in the [results folder](https://github.com/lakwet/voracious_sort/tree/master/results)) results available:
 For each sort, 3 columns:
 - 1st column: time un micro second
 - 2nd column: standard deviation (if more than 1 iteration) in nano second
@@ -119,20 +119,29 @@ For each sort, 3 columns:
 
 ## For developers and researchers
 
+- American flag sort is a MSD radix sort. It is an implementation of the very well
+known algorithm [https://en.wikipedia.org/wiki/American_flag_sort](https://en.wikipedia.org/wiki/American_flag_sort).
+
 - Voracious sort is a MSD radix sort. It is an improvement of the
 [Ska sort](https://probablydance.com/2016/12/27/i-wrote-a-faster-sorting-algorithm/)
 and it uses the [Verge sort pre-processing heuristic](https://github.com/Morwenn/vergesort). Depending on the type and the input size, another sort might be choosen (LSD sort, Counting sort, etc...).
-The purpose is to implement a multithread radix sort (see
-[Regions sort](https://github.com/omarobeya/parallel-inplace-radixsort) and
-the [article](https://people.csail.mit.edu/jshun/RegionsSort.pdf)).
 
 - DLSD (Diverting LSD radix sort) is a simpler version of the
 [DFR sort](https://github.com/ramou/dfr) with a different diversion and
 a variable radix (see [article](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)).
 
-- All sorts fallback on the
-[PDQ sort](https://github.com/stjepang/pdqsort)
-(Rust Unstable sort) for very small inputs.
+- Thiel sort is a LSD radix sort. It is an implementation of [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)
+
+- Rollercoaster sort is a hybrid radix sort. It starts as an MSD radix sort, and then switches as
+a LSD radix sort. It is a mix between the Voracious sort and the DLSD sort. This sort
+has a heuristic for signed integers. It performs very well on float (32 or 64 bits) and
+signed integer. It is my contribution to the science.
+
+- Peeka sort is a multithread MSD radix sort. It is an improvement of the MIT's
+researchers Regions sort algorithm: [Regions sort](https://github.com/omarobeya/parallel-inplace-radixsort): [Theoretically-Efficient and Practical Parallel In-Place Radix Sorting](https://people.csail.mit.edu/jshun/RegionsSort.pdf). It is also my contribution to the science.
+
+- All sorts fallback on the [PDQ sort](https://github.com/stjepang/pdqsort) (Rust
+Unstable sort) for very small inputs or on Rust (stable) sort for stable sorts.
 
 ## References
 
@@ -143,10 +152,13 @@ a variable radix (see [article](https://users.encs.concordia.ca/~sthiel/DS/SEA20
 - [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)
 - [PDQ sort](https://github.com/stjepang/pdqsort)
 
-
 ## Future work
 
-- Add multithread sort.
-- Improve k-way-merge algorithm.
-- Add more generators (for tests).
-- Add a sort for String.
+- Finish profiling.
+- Improve k-way-merge algorithm (add multithread).
+- Add a sort for String (Spreadsort and/or Burstsort).
+- Find a way to multithread the verge sort pre-processing heuristic.
+- Add stable multithread sort.
+- Improve multithread sort for signed integer.
+- Add a stable/unstable sort by key (to avoid to move/copy elements during the sorting).
+- More improvement !

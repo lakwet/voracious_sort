@@ -17,37 +17,34 @@ pub fn copy_by_histogram<T, K>(
     T: Radixable<K>,
     K: RadixKey,
 {
-    let quotient = size / UNROLL_SIZE;
+    let source = &mut source[0..size];
     let remainder = size % UNROLL_SIZE;
+    let (source_fst, source_snd) = source.split_at_mut(size - remainder);
 
-    for q in 0..quotient {
-        let i = q * UNROLL_SIZE;
-        unsafe {
-            let b0 = source.get_unchecked(i).extract(mask, shift);
-            let b1 = source.get_unchecked(i + 1).extract(mask, shift);
-            let b2 = source.get_unchecked(i + 2).extract(mask, shift);
-            let b3 = source.get_unchecked(i + 3).extract(mask, shift);
+    source_fst.chunks_exact(UNROLL_SIZE).for_each(|chunk| unsafe {
+        let b0 = chunk.get_unchecked(0).extract(mask, shift);
+        let b1 = chunk.get_unchecked(1).extract(mask, shift);
+        let b2 = chunk.get_unchecked(2).extract(mask, shift);
+        let b3 = chunk.get_unchecked(3).extract(mask, shift);
 
-            let d0 = heads[b0];
-            heads[b0] += 1;
-            let d1 = heads[b1];
-            heads[b1] += 1;
-            let d2 = heads[b2];
-            heads[b2] += 1;
-            let d3 = heads[b3];
-            heads[b3] += 1;
+        let d0 = *heads.get_unchecked(b0);
+        heads[b0] += 1;
+        let d1 = *heads.get_unchecked(b1);
+        heads[b1] += 1;
+        let d2 = *heads.get_unchecked(b2);
+        heads[b2] += 1;
+        let d3 = *heads.get_unchecked(b3);
+        heads[b3] += 1;
 
-            destination[d0] = *source.get_unchecked(i);
-            destination[d1] = *source.get_unchecked(i + 1);
-            destination[d2] = *source.get_unchecked(i + 2);
-            destination[d3] = *source.get_unchecked(i + 3);
-        }
-    }
+        destination[d0] = *chunk.get_unchecked(0);
+        destination[d1] = *chunk.get_unchecked(1);
+        destination[d2] = *chunk.get_unchecked(2);
+        destination[d3] = *chunk.get_unchecked(3);
+    });
 
-    for r in 0..remainder {
-        let i = quotient * UNROLL_SIZE + r;
-        let target_bucket = source[i].extract(mask, shift);
-        destination[heads[target_bucket]] = source[i];
+    for item in source_snd.iter() {
+        let target_bucket = item.extract(mask, shift);
+        destination[heads[target_bucket]] = *item;
         heads[target_bucket] += 1;
     }
 }
@@ -77,8 +74,13 @@ pub fn msd_radixsort_rec<T: Radixable<K>, K: RadixKey>(
             let (first_part, second_part) = rest.split_at_mut(bucket_end);
             rest = second_part;
             if histogram[i] > 1 {
-                let new_params = p.new_level(p.level + 1);
-                msd_radixsort_rec(first_part, new_params);
+                if first_part.len() <= 128 {
+                    first_part
+                        .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+                } else {
+                    let new_params = p.new_level(p.level + 1);
+                    msd_radixsort_rec(first_part, new_params);
+                }
             }
         }
     }
@@ -94,14 +96,14 @@ fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(
     }
 
     let dummy = arr[0];
-    let (offset, _) = dummy.compute_offset(arr, radix);
-    let max_level = dummy.compute_max_level(offset, radix);
+    let (_, raw_offset) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(raw_offset, radix);
 
     if max_level == 0 {
         return;
     }
 
-    let params = Params::new(0, radix, offset, max_level);
+    let params = Params::new(0, radix, raw_offset, max_level);
 
     msd_radixsort_rec(arr, params);
 }
@@ -122,7 +124,7 @@ fn msd_radixsort_aux<T: Radixable<K>, K: RadixKey>(
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///
-/// The MSD sort is an out of place unstable radix sort.
+/// This MSD sort is an out of place unstable radix sort.
 pub fn msd_radixsort<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     radix: usize,

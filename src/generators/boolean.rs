@@ -1,31 +1,22 @@
 use rand::{thread_rng, Rng};
+use rayon::prelude::*;
 
 pub fn helper_random_array_bool_unif(size: usize) -> Vec<bool> {
-    let mut rng = thread_rng();
-    let mut array: Vec<bool> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let value: u8 = rng.gen_range(0, 2);
-        if value == 0 {
-            array.push(false);
-        } else {
-            array.push(true);
-        }
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| {
+            let value: u8 = thread_rng().gen_range(0, 2);
+            value != 0
+        })
+        .collect::<Vec<bool>>()
 }
 
 pub fn helper_random_array_bool_alt(size: usize) -> Vec<bool> {
-    let mut array: Vec<bool> = Vec::with_capacity(size);
-    let mut is_odd = false;
-    for _ in 0..size {
-        if is_odd {
-            array.push(true);
-        } else {
-            array.push(false);
-        }
-        is_odd = !is_odd;
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .enumerate()
+        .map(|(i, _)| i % 2 == 0)
+        .collect::<Vec<bool>>()
 }
 
 pub fn helper_random_array_bool_true(size: usize) -> Vec<bool> {
@@ -37,25 +28,19 @@ pub fn helper_random_array_bool_false(size: usize) -> Vec<bool> {
 }
 
 pub fn helper_random_array_bool_pipe(size: usize) -> Vec<bool> {
-    let mut array: Vec<bool> = Vec::with_capacity(size);
-    for _ in 0..(size / 2) {
-        array.push(true);
-    }
-    for _ in (size / 2)..size {
-        array.push(false);
-    }
-    array
+    let mut trues = vec![false; size / 2];
+    let falses = vec![true; size - (size / 2)];
+
+    trues.extend(falses.iter());
+    trues
 }
 
 pub fn helper_random_array_bool_pipe_rev(size: usize) -> Vec<bool> {
-    let mut array: Vec<bool> = Vec::with_capacity(size);
-    for _ in 0..(size / 2) {
-        array.push(false);
-    }
-    for _ in (size / 2)..size {
-        array.push(true);
-    }
-    array
+    let trues = vec![false; size / 2];
+    let mut falses = vec![true; size - (size / 2)];
+
+    falses.extend(trues.iter());
+    falses
 }
 
 pub fn generators_bool(

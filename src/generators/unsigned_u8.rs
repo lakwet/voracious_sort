@@ -1,45 +1,29 @@
-use rand::distributions::{Distribution, Normal};
+use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
+use rand_distr::{Distribution, Normal};
+use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_u8(size: usize) -> Vec<u8> {
-    let mut rng = thread_rng();
-    let mut array: Vec<u8> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let value: u8 = rng.gen();
-        array.push(value);
-    }
-    array
+    (0..size)
+        .into_par_iter()
+        .map(|_| thread_rng().gen::<u8>())
+        .collect::<Vec<u8>>()
 }
 
 // Ascending sawtooth
 pub fn helper_random_array_asc_sawtooth_u8(size: usize) -> Vec<u8> {
-    let mut array: Vec<u8> = Vec::with_capacity(size);
-
-    for i in 0..size {
-        array.push(i as u8);
-    }
-
-    array
+    (0..size).into_par_iter().map(|i| i as u8).collect::<Vec<u8>>()
 }
 
 // Ascending sawtooth
 pub fn helper_random_array_desc_sawtooth_u8(size: usize) -> Vec<u8> {
-    let mut array: Vec<u8> = Vec::with_capacity(size);
-
-    for i in 0..size {
-        array.push((size - 1 - i) as u8);
-    }
-
-    array
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as u8).collect::<Vec<u8>>()
 }
 
 // All equals
 pub fn helper_random_array_allequals_u8(size: usize) -> Vec<u8> {
-    let mut rng = thread_rng();
-    let value: u8 = rng.gen();
-
-    vec![value; size]
+    vec![thread_rng().gen(); size]
 }
 
 // Zipf
@@ -64,21 +48,18 @@ pub fn helper_random_array_zipf_u8(size: usize) -> Vec<u8> {
         i += 1;
     }
 
-    rng.shuffle(array.as_mut_slice());
+    array.as_mut_slice().shuffle(&mut rng);
 
     array
 }
 
 // Normale(0, 2^10)
 pub fn helper_random_array_normale_10_u8(size: usize) -> Vec<u8> {
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1024.0);
-    let mut array: Vec<u8> = Vec::with_capacity(size);
-    for _ in 0..size {
-        let v: f64 = normal.sample(&mut rng);
-        array.push(v as u8);
-    }
-    array
+    let normal = Normal::new(0.0, 1024.0).unwrap();
+    (0..size)
+        .into_par_iter()
+        .map(|_| normal.sample(&mut thread_rng()) as u8)
+        .collect::<Vec<u8>>()
 }
 
 pub fn generators_u8() -> Vec<(&'static dyn Fn(usize) -> Vec<u8>, &'static str)>
@@ -91,4 +72,26 @@ pub fn generators_u8() -> Vec<(&'static dyn Fn(usize) -> Vec<u8>, &'static str)>
         (&helper_random_array_zipf_u8, "-- Zipf       :"),
         (&helper_random_array_normale_10_u8, "-- Normale 10 :"),
     ]
+}
+
+#[cfg(target_pointer_width = "8")]
+pub fn generators_usize(
+) -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
+    generators_u8()
+        .into_iter()
+        .map(|(gen, title)| {
+            let new_gen = move |size: usize| -> Vec<usize> {
+                unsafe {
+                    let arr = gen(size);
+                    std::mem::transmute::<Vec<u8>, Vec<usize>>(arr)
+                }
+            };
+
+            (
+                Box::leak(Box::new(new_gen))
+                    as &'static dyn Fn(usize) -> Vec<usize>,
+                title,
+            )
+        })
+        .collect()
 }

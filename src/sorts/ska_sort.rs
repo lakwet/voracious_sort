@@ -21,7 +21,7 @@ pub fn ska_swap<T: Radixable<K>, K: RadixKey>(
 
     while !buckets_size.is_empty() {
         let mut to_remove = Vec::new();
-        for (i, (computed_index, _)) in buckets_size.iter().enumerate() {
+        for (i, (computed_index, _)) in buckets_size.iter().enumerate().rev() {
             let span = tails[*computed_index] - heads[*computed_index];
 
             if span > 0 {
@@ -38,13 +38,13 @@ pub fn ska_swap<T: Radixable<K>, K: RadixKey>(
                         let tb2 = arr.get_unchecked(o + 2).extract(mask, shift);
                         let tb3 = arr.get_unchecked(o + 3).extract(mask, shift);
 
-                        let dest_index_0 = heads[tb0];
+                        let dest_index_0 = *heads.get_unchecked(tb0);
                         heads[tb0] += 1;
-                        let dest_index_1 = heads[tb1];
+                        let dest_index_1 = *heads.get_unchecked(tb1);
                         heads[tb1] += 1;
-                        let dest_index_2 = heads[tb2];
+                        let dest_index_2 = *heads.get_unchecked(tb2);
                         heads[tb2] += 1;
-                        let dest_index_3 = heads[tb3];
+                        let dest_index_3 = *heads.get_unchecked(tb3);
                         heads[tb3] += 1;
 
                         arr.swap(o, dest_index_0);
@@ -68,14 +68,13 @@ pub fn ska_swap<T: Radixable<K>, K: RadixKey>(
             }
         }
 
-        to_remove.reverse();
         for i in to_remove.iter() {
             buckets_size.remove(*i);
         }
     }
 }
 
-fn ska_sort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
+pub fn ska_sort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
     if arr.len() <= 64 {
         insertion_sort(arr);
         return;
@@ -100,7 +99,6 @@ fn ska_sort_rec<T: Radixable<K>, K: RadixKey>(arr: &mut [T], p: Params) {
             rest = second_part;
             if histogram[i] > 1 {
                 let new_params = p.new_level(p.level + 1);
-                println!("{:?}", new_params);
                 ska_sort_rec(first_part, new_params);
             }
         }
@@ -121,14 +119,14 @@ pub fn ska_sort<T: Radixable<K>, K: RadixKey>(arr: &mut [T], radix: usize) {
     }
 
     let dummy = arr[0];
-    let (offset, _) = dummy.compute_offset(arr, radix);
-    let max_level = dummy.compute_max_level(offset, radix);
+    let (_, raw_offset) = dummy.compute_offset(arr, radix);
+    let max_level = dummy.compute_max_level(raw_offset, radix);
 
     if max_level == 0 {
         return;
     }
 
-    let params = Params::new(0, radix, offset, max_level);
+    let params = Params::new(0, radix, raw_offset, max_level);
 
     ska_sort_rec(arr, params);
 }

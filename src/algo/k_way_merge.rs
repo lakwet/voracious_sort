@@ -1,6 +1,6 @@
 use super::super::sorts::utils::copy_nonoverlapping;
 
-fn forward_merge2<T: Copy + Clone + PartialOrd>(
+fn forward_merge2<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut [T],
     start: usize,
@@ -40,7 +40,7 @@ fn forward_merge2<T: Copy + Clone + PartialOrd>(
     }
 }
 
-fn backward_merge2<T: Copy + Clone + PartialOrd>(
+fn backward_merge2<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut [T],
     start: usize,
@@ -79,7 +79,7 @@ fn backward_merge2<T: Copy + Clone + PartialOrd>(
     }
 }
 
-pub fn merge2<T: Copy + Clone + PartialOrd>(
+pub fn merge2<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut [T],
     start: usize,
@@ -93,10 +93,10 @@ pub fn merge2<T: Copy + Clone + PartialOrd>(
     }
 }
 
-pub fn k_way_merge<T>(arr: &mut [T], separators: &mut Vec<usize>)
-where
-    T: Copy + Clone + PartialOrd,
-{
+pub fn k_way_merge<T: Copy + PartialOrd>(
+    arr: &mut [T],
+    separators: &mut Vec<usize>,
+) {
     if separators.len() <= 2 {
         return;
     }

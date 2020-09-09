@@ -1,9 +1,9 @@
-use rayon;
+use rayon::{ThreadPoolBuilder, ThreadPool};
 
 use super::k_way_merge::merge2;
 
-fn kway_merge_mt_helper<T: Copy + Clone + PartialOrd + Send>(
-    pool: &rayon::ThreadPool,
+fn kway_merge_mt_helper<T: Copy + PartialOrd + Send>(
+    pool: &ThreadPool,
     arr: &mut [T],
     buffer: &mut [T],
     separators: &mut Vec<usize>,
@@ -44,7 +44,7 @@ fn kway_merge_mt_helper<T: Copy + Clone + PartialOrd + Send>(
     });
 }
 
-pub fn k_way_merge_mt<T: Copy + Clone + PartialOrd + Send>(
+pub fn k_way_merge_mt<T: Copy + PartialOrd + Send>(
     arr: &mut [T],
     buffer: &mut [T],
     separators: &mut Vec<usize>,
@@ -72,7 +72,7 @@ pub fn k_way_merge_mt<T: Copy + Clone + PartialOrd + Send>(
         return;
     }
 
-    let pool = rayon::ThreadPoolBuilder::new()
+    let pool = ThreadPoolBuilder::new()
         .num_threads(thread_n)
         .build()
         .unwrap();
@@ -82,7 +82,7 @@ pub fn k_way_merge_mt<T: Copy + Clone + PartialOrd + Send>(
     }
 }
 
-pub fn k_way_merge_mt_with_buffer<T: Copy + Clone + PartialOrd + Send>(
+pub fn k_way_merge_mt_with_buffer<T: Copy + PartialOrd + Send>(
     arr: &mut [T],
     separators: &mut Vec<usize>,
     thread_n: usize,
@@ -109,7 +109,7 @@ pub fn k_way_merge_mt_with_buffer<T: Copy + Clone + PartialOrd + Send>(
         return;
     }
 
-    let pool = rayon::ThreadPoolBuilder::new()
+    let pool = ThreadPoolBuilder::new()
         .num_threads(thread_n)
         .build()
         .unwrap();

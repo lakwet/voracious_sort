@@ -1,4 +1,4 @@
-use super::super::sorts::regions_sort::{RegionsGraph, perform_swaps};
+use super::super::algo::regions_graph::RegionsGraph;
 
 #[test]
 fn test_regions_graph() {
@@ -28,8 +28,8 @@ fn test_regions_graph() {
     check.add(3, 1, (9, 35));
     // RegionsGraph { countries: [
     //     ([(1, 16, 2), (3, 33, 2)], [(1, 3, 4)]),
-    //     ([(0, 3, 4), (3, 35, 9)], [(2, 8, 4), (3, 12, 4), (0, 16, 2), (2, 19, 3)]),
-    //     ([(1, 8, 4), (1, 19, 3)], [(3, 25, 7)]),
+    //     ([(0, 3, 4), (3, 35, 9)], [(2, 8, 4), (3, 12, 4), (0, 16, 2), (2, 19,
+    // 3)]),     ([(1, 8, 4), (1, 19, 3)], [(3, 25, 7)]),
     //     ([(1, 12, 4), (2, 25, 7)], [(0, 33, 2), (1, 35, 9)])
     // ] }
 
@@ -63,7 +63,7 @@ fn test_regions_graph_bis() {
 
 #[test]
 fn test_regions_graph_two_cycle_1() {
-    let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
+    // let arr = vec![1, 3, 3, 1, 1, 2, 1];
     let h1 = vec![0, 1, 0, 2];
     let h2 = vec![0, 2, 1, 0];
     let h3 = vec![0, 1, 0, 0];
@@ -79,7 +79,7 @@ fn test_regions_graph_two_cycle_1() {
     // ] }
 
     let swaps = g.two_cycle(1);
-    perform_swaps(&mut arr, swaps);
+    assert_eq!(swaps, vec![(1, (3, 1), (3, 6))]);
 
     let mut check = RegionsGraph::new(4);
     check.add(1, 3, (1, 2));
@@ -91,15 +91,12 @@ fn test_regions_graph_two_cycle_1() {
     //     [[(3, 5, 1)], [(1, 4, 1)]],
     //     [[(1, 2, 1)], [(2, 5, 1)]],
     // ] }
-    let check_arr = vec![1, 1, 3, 1, 1, 2, 3];
-
     assert_eq!(g, check);
-    assert_eq!(arr, check_arr);
 }
 
 #[test]
 fn test_regions_graph_two_cycle_2() {
-    let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
+    // let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
     let h1 = vec![0, 1, 0, 2];
     let h2 = vec![0, 2, 1, 0];
     let h3 = vec![0, 1, 0, 0];
@@ -115,7 +112,7 @@ fn test_regions_graph_two_cycle_2() {
     // ] }
 
     let swaps = g.two_cycle(3);
-    perform_swaps(&mut arr, swaps);
+    assert_eq!(swaps, vec![(1, (1, 6), (1, 1))]);
 
     let mut check = RegionsGraph::new(4);
     check.add(1, 3, (1, 2));
@@ -127,15 +124,12 @@ fn test_regions_graph_two_cycle_2() {
     //     ([(3, 5, 1)], [(1, 4, 1)]),
     //     ([(1, 2, 1)], [(2, 5, 1)])
     // ] }
-    let check_arr = vec![1, 1, 3, 1, 1, 2, 3];
-
     assert_eq!(g, check);
-    assert_eq!(arr, check_arr);
 }
 
 #[test]
 fn test_regions_graph_two_cycle_3() {
-    let mut arr = vec![1, 1, 3, 1, 1, 2, 1];
+    // let mut arr = vec![1, 1, 3, 1, 1, 2, 1];
     let h1 = vec![0, 2, 0, 1];
     let h2 = vec![0, 2, 1, 0];
     let h3 = vec![0, 1, 0, 0];
@@ -151,7 +145,7 @@ fn test_regions_graph_two_cycle_3() {
     // ] }
 
     let swaps = g.two_cycle(1);
-    perform_swaps(&mut arr, swaps);
+    assert_eq!(swaps, vec![(1, (3, 2), (3, 6))]);
 
     let check = RegionsGraph::new(4);
     // RegionsGraph { countries: [
@@ -160,15 +154,12 @@ fn test_regions_graph_two_cycle_3() {
     //     ([], []),
     //     ([], []),
     // ] }
-    let check_arr = vec![1, 1, 1, 1, 1, 2, 3];
-
     assert_eq!(g, check);
-    assert_eq!(arr, check_arr);
 }
 
 #[test]
 fn test_regions_graph_two_path_1() {
-    let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
+    // let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
     let h1 = vec![0, 1, 0, 2];
     let h2 = vec![0, 2, 1, 0];
     let h3 = vec![0, 1, 0, 0];
@@ -184,7 +175,7 @@ fn test_regions_graph_two_path_1() {
     // ] }
 
     let swaps = g.two_path(2);
-    perform_swaps(&mut arr, swaps);
+    assert_eq!(swaps, vec![(1, (1, 4), (3, 5))]);
 
     let mut check = RegionsGraph::new(4);
     check.add(1, 3, (2, 1));
@@ -196,15 +187,12 @@ fn test_regions_graph_two_path_1() {
     // [[], []],
     // [[(1, 1, 2)], [(1, 6, 1), (1, 5, 1)]]
     // ] }
-    let check_arr = vec![1, 3, 3, 1, 2, 1, 1];
-
     assert_eq!(g, check);
-    assert_eq!(arr, check_arr);
 }
 
 #[test]
 fn test_regions_graph_two_path_2() {
-    let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
+    // let mut arr = vec![1, 3, 3, 1, 1, 2, 1];
     let h1 = vec![0, 1, 0, 2];
     let h2 = vec![0, 2, 1, 0];
     let h3 = vec![0, 1, 0, 0];
@@ -220,7 +208,7 @@ fn test_regions_graph_two_path_2() {
     // ] }
 
     let swaps = g.two_path(1);
-    perform_swaps(&mut arr, swaps);
+    assert_eq!(swaps, vec![(1, (3, 1), (2, 4)), (1, (3, 2), (3, 6))]);
 
     let mut check = RegionsGraph::new(4);
     check.add(2, 3, (1, 4));
@@ -231,8 +219,5 @@ fn test_regions_graph_two_path_2() {
     //     ([(3, 5, 1)], [(3, 4, 1)]),
     //     ([(2, 4, 1)], [(2, 5, 1)])
     // ] }
-    let check_arr = vec![1, 1, 1, 1, 3, 2, 3];
-
     assert_eq!(g, check);
-    assert_eq!(arr, check_arr);
 }

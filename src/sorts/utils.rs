@@ -24,7 +24,6 @@ impl Params {
             radix_range: (2 as usize).pow(radix as u32),
         }
     }
-
     pub fn new_level(&self, level: usize) -> Params {
         Params { level, ..(*self) }
     }
@@ -54,7 +53,7 @@ pub fn prefix_sums(
     });
 
     let mut heads = p_sums.to_vec();
-    heads.split_off(p_sums.len() - 1);
+    let _ = heads.split_off(p_sums.len() - 1);
     let tails = p_sums.to_vec().split_off(1);
 
     (p_sums, heads, tails)
@@ -130,6 +129,7 @@ pub fn compute_offset<T: Radixable<K> + Copy, K: RadixKey>(
 }
 
 pub fn compute_max_level(bits: usize, offset: usize, radix: usize) -> usize {
+    assert!(bits >= offset);
     let rest = bits - offset;
     if rest % radix != 0 {
         (rest / radix) + 1
@@ -138,11 +138,14 @@ pub fn compute_max_level(bits: usize, offset: usize, radix: usize) -> usize {
     }
 }
 
-pub fn get_empty_histograms(p: &Params, partial: usize) -> Vec<Vec<usize>> {
+pub fn get_empty_histograms(
+    partial: usize,
+    radix_range: usize,
+) -> Vec<Vec<usize>> {
     let mut histograms = Vec::new();
 
     for _ in 0..partial {
-        let histogram = vec![0; p.radix_range];
+        let histogram = vec![0; radix_range];
         histograms.push(histogram);
     }
 
@@ -156,60 +159,29 @@ pub fn get_histogram<T: Radixable<K>, K: RadixKey>(
     shift: usize,
 ) -> Vec<usize> {
     let mut histogram = vec![0; p.radix_range];
-
-    let quotient = arr.len() / 4;
     let remainder = arr.len() % 4;
+    let (arr_fst, arr_remainder) = arr.split_at(arr.len() - remainder);
 
-    for q in 0..quotient {
-        let i = q * 4;
-        unsafe {
-            let bucket0 = arr.get_unchecked(i).extract(mask, shift);
-            let bucket1 = arr.get_unchecked(i + 1).extract(mask, shift);
-            let bucket2 = arr.get_unchecked(i + 2).extract(mask, shift);
-            let bucket3 = arr.get_unchecked(i + 3).extract(mask, shift);
-            histogram[bucket0] += 1;
-            histogram[bucket1] += 1;
-            histogram[bucket2] += 1;
-            histogram[bucket3] += 1;
-        }
-    }
+    arr_fst.chunks_exact(4).for_each(|chunk| {
+        let bucket0 = chunk[0].extract(mask, shift);
+        let bucket1 = chunk[1].extract(mask, shift);
+        let bucket2 = chunk[2].extract(mask, shift);
+        let bucket3 = chunk[3].extract(mask, shift);
+        histogram[bucket0] += 1;
+        histogram[bucket1] += 1;
+        histogram[bucket2] += 1;
+        histogram[bucket3] += 1;
+    });
 
-    let offset = quotient * 4;
-    for i in 0..remainder {
-        unsafe {
-            let bucket = arr.get_unchecked(offset + i).extract(mask, shift);
-            histogram[bucket] += 1;
-        }
-    }
+    arr_remainder.iter().for_each(|item| {
+        let bucket = item.extract(mask, shift);
+        histogram[bucket] += 1;
+    });
 
     histogram
 }
 
-pub fn get_full_histogram_except_for_last_level<T, K>(
-    arr: &mut [T],
-    p: &Params,
-) -> Vec<Vec<usize>>
-where
-    T: Radixable<K> + Copy + PartialOrd,
-    K: RadixKey,
-{
-    let dummy = arr[0];
-    let mut histograms = Vec::new();
-    for level in 0..(p.max_level - 1) {
-        let mut histogram = vec![0; p.radix_range];
-        let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
-
-        arr.iter().for_each(|element| {
-            histogram[element.extract(mask, shift)] += 1;
-        });
-
-        histograms.push(histogram);
-    }
-
-    histograms
-}
-
-pub fn get_partial_histograms_fast<T: Radixable<K>, K: RadixKey>(
+pub fn get_partial_histograms<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: &Params,
     partial: usize,
@@ -219,7 +191,7 @@ pub fn get_partial_histograms_fast<T: Radixable<K>, K: RadixKey>(
     }
 
     let dummy = arr[0];
-    let mut histograms = get_empty_histograms(p, partial);
+    let mut histograms = get_empty_histograms(partial, p.radix_range);
     let default_mask = dummy.default_mask(p.radix);
     let shift = dummy.usize_to_keytype(p.radix);
     let bits = dummy.type_size();
@@ -230,528 +202,1642 @@ pub fn get_partial_histograms_fast<T: Radixable<K>, K: RadixKey>(
     };
     let fs = dummy.usize_to_keytype(fs);
 
+    let remainder = arr.len() % 4;
+    let (arr_fst, arr_remainder) = arr.split_at(arr.len() - remainder);
+
     if partial == 1 {
-        for element in arr.iter() {
-            let value = element.into_key_type() >> fs;
-
-            histograms[0][dummy.keytype_to_usize(value & default_mask)] += 1;
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let v0 = chunk[0].into_key_type() >> fs;
+            let v1 = chunk[1].into_key_type() >> fs;
+            let v2 = chunk[2].into_key_type() >> fs;
+            let v3 = chunk[3].into_key_type() >> fs;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let v = item.into_key_type() >> fs;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if partial == 2 {
-        for element in arr.iter() {
-            let mut value = element.into_key_type() >> fs;
-
-            histograms[1][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[0][dummy.keytype_to_usize(value & default_mask)] += 1;
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type() >> fs;
+            let mut v1 = chunk[1].into_key_type() >> fs;
+            let mut v2 = chunk[2].into_key_type() >> fs;
+            let mut v3 = chunk[3].into_key_type() >> fs;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type() >> fs;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if partial == 3 {
-        for element in arr.iter() {
-            let mut value = element.into_key_type() >> fs;
-
-            histograms[2][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[1][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[0][dummy.keytype_to_usize(value & default_mask)] += 1;
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type() >> fs;
+            let mut v1 = chunk[1].into_key_type() >> fs;
+            let mut v2 = chunk[2].into_key_type() >> fs;
+            let mut v3 = chunk[3].into_key_type() >> fs;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type() >> fs;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if partial == 4 {
-        for element in arr.iter() {
-            let mut value = element.into_key_type() >> fs;
-
-            histograms[3][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[2][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[1][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[0][dummy.keytype_to_usize(value & default_mask)] += 1;
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type() >> fs;
+            let mut v1 = chunk[1].into_key_type() >> fs;
+            let mut v2 = chunk[2].into_key_type() >> fs;
+            let mut v3 = chunk[3].into_key_type() >> fs;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type() >> fs;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if partial == 5 {
-        for element in arr.iter() {
-            let mut value = element.into_key_type() >> fs;
-
-            histograms[4][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[3][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[2][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[1][dummy.keytype_to_usize(value & default_mask)] += 1;
-            value = value >> shift;
-
-            histograms[0][dummy.keytype_to_usize(value & default_mask)] += 1;
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type() >> fs;
+            let mut v1 = chunk[1].into_key_type() >> fs;
+            let mut v2 = chunk[2].into_key_type() >> fs;
+            let mut v3 = chunk[3].into_key_type() >> fs;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type() >> fs;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     }
 
     histograms
 }
 
-pub fn get_full_histograms_fast<T, K>(
-    arr: &mut [T],
-    p: &Params,
-) -> Vec<Vec<usize>>
+pub fn get_full_histograms<T, K>(arr: &mut [T], p: &Params) -> Vec<Vec<usize>>
 where
     T: Radixable<K>,
     K: RadixKey,
 {
     let dummy = arr[0];
-    let mut histograms = get_empty_histograms(p, p.max_level);
+    let mut histograms = get_empty_histograms(p.max_level, p.radix_range);
     let default_mask = dummy.default_mask(p.radix);
     let shift = dummy.usize_to_keytype(p.radix);
 
-    let quotient = arr.len() / 4;
     let remainder = arr.len() % 4;
-    let offset = quotient * 4;
+    let (arr_fst, arr_remainder) = arr.split_at(arr.len() - remainder);
 
     if p.max_level == 1 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let v0 = arr.get_unchecked(i).into_key_type();
-                let v1 = arr.get_unchecked(i + 1).into_key_type();
-                let v2 = arr.get_unchecked(i + 2).into_key_type();
-                let v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let v0 = chunk[0].into_key_type();
+            let v1 = chunk[1].into_key_type();
+            let v2 = chunk[2].into_key_type();
+            let v3 = chunk[3].into_key_type();
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let v = item.into_key_type();
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 2 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 3 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 4 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 5 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 6 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 7 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
     } else if p.max_level == 8 {
-        for q in 0..quotient {
-            unsafe {
-                let i = q * 4;
-                let mut v0 = arr.get_unchecked(i).into_key_type();
-                let mut v1 = arr.get_unchecked(i + 1).into_key_type();
-                let mut v2 = arr.get_unchecked(i + 2).into_key_type();
-                let mut v3 = arr.get_unchecked(i + 3).into_key_type();
-                histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-                v0 = v0 >> shift;
-                v1 = v1 >> shift;
-                v2 = v2 >> shift;
-                v3 = v3 >> shift;
-                histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
-                histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
-            }
-        }
-        for i in 0..remainder {
-            unsafe {
-                let mut v = arr.get_unchecked(offset + i).into_key_type();
-                histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
-                v = v >> shift;
-                histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
-            }
-        }
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 9 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 10 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 11 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[10][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[10][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 12 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[11][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[10][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[11][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[10][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 13 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[12][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[11][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[10][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[12][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[11][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[10][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 14 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[13][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[12][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[11][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[10][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[13][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[12][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[11][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[10][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 15 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[14][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[14][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[14][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[14][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[13][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[12][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[11][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[10][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[13][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[12][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[11][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[10][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else if p.max_level == 16 {
+        arr_fst.chunks_exact(4).for_each(|chunk| {
+            let mut v0 = chunk[0].into_key_type();
+            let mut v1 = chunk[1].into_key_type();
+            let mut v2 = chunk[2].into_key_type();
+            let mut v3 = chunk[3].into_key_type();
+            histograms[15][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[15][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[15][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[15][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[14][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[14][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[14][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[14][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[13][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[13][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[12][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[12][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[11][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[11][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[10][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[10][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[9][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[9][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[8][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[8][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[7][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[7][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[6][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[6][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[5][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[5][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[4][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[4][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[3][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[3][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[2][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[2][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[1][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[1][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+            v0 = v0 >> shift;
+            v1 = v1 >> shift;
+            v2 = v2 >> shift;
+            v3 = v3 >> shift;
+            histograms[0][dummy.keytype_to_usize(v0 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v1 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v2 & default_mask)] += 1;
+            histograms[0][dummy.keytype_to_usize(v3 & default_mask)] += 1;
+        });
+        arr_remainder.iter().for_each(|item| {
+            let mut v = item.into_key_type();
+            histograms[15][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[14][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[13][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[12][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[11][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[10][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[9][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[8][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[7][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[6][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[5][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[4][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[3][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[2][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[1][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
+            histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
+        });
+    } else {
+        panic!("[Get full histogram] Too small radix.");
     }
 
     histograms

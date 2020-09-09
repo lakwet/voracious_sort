@@ -1,14 +1,21 @@
 [package]
 name = "voracious_radix_sort"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
-description = "Very fast radix sort for all Rust primitive types and struct (except Array and tuple)"
+description = "State of the art radix sort algorithms. Single thread and multi thread versions."
 license = "MIT"
+readme = "README.md"
 documentation = "https://docs.rs/voracious_radix_sort/"
 repository = "https://github.com/lakwet/voracious_sort"
-keywords = ["sort", "algorithms", "radixsort", "research", "operationalresearch"]
-categories = ["sort", "algorithm", "radix", "radixsort", "research"]
+keywords = ["sort", "algorithms", "radixsort", "research"]
+categories = ["algorithms", "science", "concurrency"]
+
+[dependencies]
+rayon = "1.4.0"
 
 [dev-dependencies]
-rand = "0.5.5"
+rand = "0.7.3"
+rand_distr = "0.2.2"
+
+[profile.release]

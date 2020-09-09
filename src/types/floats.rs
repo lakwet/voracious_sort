@@ -1,30 +1,30 @@
+use rayon::slice::ParallelSliceMut;
+
+use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
+use super::super::sorts::peeka_sort::peeka_sort;
+use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
-use super::super::sorts::voracious_sort::voracious_sort;
 use super::super::Radixable;
 
 impl Radixable<f32> for f32 {
     type Key = f32;
 
     #[inline]
-    fn key(&self) -> f32 {
-        *self
-    }
+    fn key(&self) -> f32 { *self }
     #[inline]
     fn extract(&self, mask: u32, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline]
     fn into_key_type(&self) -> u32 {
-        unsafe {
-            let submask = 0x8000_0000;
-            let casted = std::mem::transmute::<f32, u32>(*self);
+        let submask = 0x8000_0000;
+        let casted = (*self).to_bits();
 
-            if casted & submask == submask {
-                casted ^ 0xFFFF_FFFF
-            } else {
-                casted ^ submask
-            }
+        if casted & submask == submask {
+            casted ^ 0xFFFF_FFFF
+        } else {
+            casted ^ submask
         }
     }
     fn get_full_histograms(
@@ -32,7 +32,7 @@ impl Radixable<f32> for f32 {
         arr: &mut [f32],
         p: &Params,
     ) -> Vec<Vec<usize>> {
-        let mut histograms = get_empty_histograms(p, p.max_level);
+        let mut histograms = get_empty_histograms(p.max_level, p.radix_range);
         let default_mask = self.default_mask(p.radix);
         let shift = p.radix as u32;
 
@@ -187,12 +187,30 @@ impl Radixable<f32> for f32 {
     fn voracious_sort(&self, arr: &mut [f32]) {
         if arr.len() <= 300 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() <= 2_900_000 {
             lsd_radixsort(arr, 8);
+        } else {
+            rollercoaster_sort(arr, 8);
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [f32]) {
         self.voracious_sort(arr);
+    }
+    fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
+        if arr.len() < 1_000_000 {
+            arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        } else {
+            let chunk_size = if arr.len() < 10_000_000 {
+                200_000
+            } else if arr.len() < 100_000_000 {
+                300_000
+            } else if arr.len() < 300_000_000 {
+                600_000
+            } else {
+                700_000
+            };
+            peeka_sort(arr, 8, chunk_size, thread_n);
+        }
     }
 }
 
@@ -200,24 +218,20 @@ impl Radixable<f64> for f64 {
     type Key = f64;
 
     #[inline]
-    fn key(&self) -> f64 {
-        *self
-    }
+    fn key(&self) -> f64 { *self }
     #[inline]
     fn extract(&self, mask: u64, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
     }
     #[inline]
     fn into_key_type(&self) -> u64 {
-        unsafe {
-            let submask = 0x8000_0000_0000_0000;
-            let casted = std::mem::transmute::<f64, u64>(*self);
+        let submask = 0x8000_0000_0000_0000;
+        let casted = (*self).to_bits();
 
-            if casted & submask == submask {
-                casted ^ 0xFFFF_FFFF_FFFF_FFFF
-            } else {
-                casted ^ submask
-            }
+        if casted & submask == submask {
+            casted ^ 0xFFFF_FFFF_FFFF_FFFF
+        } else {
+            casted ^ submask
         }
     }
     fn get_full_histograms(
@@ -225,7 +239,7 @@ impl Radixable<f64> for f64 {
         arr: &mut [f64],
         p: &Params,
     ) -> Vec<Vec<usize>> {
-        let mut histograms = get_empty_histograms(p, p.max_level);
+        let mut histograms = get_empty_histograms(p.max_level, p.radix_range);
         let default_mask = self.default_mask(p.radix);
         let shift = p.radix as u64;
 
@@ -674,13 +688,33 @@ impl Radixable<f64> for f64 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [f64]) {
-        if arr.len() <= 500 {
-            voracious_sort(arr, 8);
+        if arr.len() <= 300 {
+            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap())
+        } else if arr.len() < 800 {
+            dlsd_radixsort(arr, 8);
         } else {
-            lsd_radixsort(arr, 8);
+            rollercoaster_sort(arr, 8);
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [f64]) {
         self.voracious_sort(arr);
+    }
+    fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
+        if arr.len() < 800_000 {
+            arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        } else {
+            let chunk_size = if arr.len() < 1_000_000 {
+                100_000
+            } else if arr.len() < 5_000_000 {
+                200_000
+            } else if arr.len() < 20_000_000 {
+                500_000
+            } else if arr.len() < 500_000_000 {
+                400_000
+            } else {
+                500_000
+            };
+            peeka_sort(arr, 8, chunk_size, thread_n);
+        }
     }
 }
