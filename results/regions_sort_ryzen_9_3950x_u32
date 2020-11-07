@@ -1,0 +1,32 @@
+workers = 32
+Test: u32
+Array size:1000000 range: 0 to 4294967295. Time: 15 ms.
+Array size:1000000 range: 0 to 1000000000. Time: 4 ms.
+Array size:5000000 range: 0 to 4294967295. Time: 17 ms.
+Array size:5000000 range: 0 to 1000000000. Time: 8 ms.
+Array size:10000000 range: 0 to 4294967295. Time: 20 ms.
+Array size:10000000 range: 0 to 1000000000. Time: 15 ms.
+Array size:20000000 range: 0 to 4294967295. Time: 30 ms.
+Array size:20000000 range: 0 to 1000000000. Time: 31 ms.
+Array size:50000000 range: 0 to 4294967295. Time: 63 ms.
+Array size:50000000 range: 0 to 1000000000. Time: 66 ms.
+Array size:100000000 range: 0 to 4294967295. Time: 143 ms.
+Array size:100000000 range: 0 to 1000000000. Time: 135 ms.
+Array size:200000000 range: 0 to 4294967295. Time: 266 ms.
+Array size:200000000 range: 0 to 1000000000. Time: 275 ms.
+Array size:300000000 range: 0 to 4294967295. Time: 402 ms.
+Array size:300000000 range: 0 to 1000000000. Time: 393 ms.
+Array size:400000000 range: 0 to 4294967295. Time: 556 ms.
+Array size:400000000 range: 0 to 1000000000. Time: 514 ms.
+Array size:500000000 range: 0 to 4294967295. Time: 711 ms.
+Array size:500000000 range: 0 to 1000000000. Time: 641 ms.
+Array size:600000000 range: 0 to 4294967295. Time: 870 ms.
+Array size:600000000 range: 0 to 1000000000. Time: 766 ms.
+Array size:700000000 range: 0 to 4294967295. Time: 1013 ms.
+Array size:700000000 range: 0 to 1000000000. Time: 893 ms.
+Array size:800000000 range: 0 to 4294967295. Time: 1124 ms.
+Array size:800000000 range: 0 to 1000000000. Time: 1018 ms.
+Array size:900000000 range: 0 to 4294967295. Time: 1290 ms.
+Array size:900000000 range: 0 to 1000000000. Time: 1141 ms.
+Array size:1000000000 range: 0 to 4294967295. Time: 1369 ms.
+Array size:1000000000 range: 0 to 1000000000. Time: 1281 ms.

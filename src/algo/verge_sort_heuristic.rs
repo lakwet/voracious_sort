@@ -618,29 +618,21 @@ where
     //        /¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯\
     //       /                   \
     //      /                     \
-    if fp1 - bp2 >= big_enough
-        && (bp2 - last_sorted > big_enough || bp2 - last_sorted == 0)
-    {
+    if fp1 - bp2 >= big_enough {
         if bp2 - last_sorted > 0 {
             fallback_sort(&mut arr[last_sorted..bp2], radix);
             separators.push(bp2);
         }
-
         separators.push(fp1);
-        (fp1, fp1)
+        (fp2, fp1)
     } else if fp2 - bp1 >= big_enough {
-        if bp1 - last_sorted >= big_enough || bp1 - last_sorted == 0 {
-            if bp1 - last_sorted > 0 {
-                fallback_sort(&mut arr[last_sorted..bp1], radix);
-                separators.push(bp1);
-            }
-
-            separators.push(fp2);
-            arr[bp1..fp2].reverse();
-            (fp2, fp2)
-        } else {
-            (fp2, last_sorted)
+        if bp1 - last_sorted > 0 {
+            fallback_sort(&mut arr[last_sorted..bp1], radix);
+            separators.push(bp1);
         }
+        separators.push(fp2);
+        arr[bp1..fp2].reverse();
+        (fp2, fp2)
     } else {
         (fp2, last_sorted)
     }
@@ -668,52 +660,20 @@ where
     //       \ |        |        | /
     //        \|________|________|/
     if fp2 - bp1 >= big_enough {
-        if bp1 - bp2 >= big_enough || bp1 - bp2 == 0 {
-            if bp2 - last_sorted >= big_enough || bp2 - last_sorted == 0 {
-                if bp2 - last_sorted > 0 {
-                    fallback_sort(&mut arr[last_sorted..bp2], radix);
-                    separators.push(bp2);
-                }
-
-                if bp1 - bp2 > 0 {
-                    separators.push(bp1);
-                    arr[bp2..bp1].reverse();
-                }
-
-                separators.push(fp2);
-                (fp2, fp2)
-            } else {
-                fallback_sort(&mut arr[last_sorted..bp1], radix);
-                separators.push(bp1);
-
-                separators.push(fp2);
-                (fp2, fp2)
-            }
-        } else if bp1 - last_sorted >= big_enough || bp1 - last_sorted == 0 {
-            if bp1 - last_sorted > 0 {
-                fallback_sort(&mut arr[last_sorted..bp1], radix);
-                separators.push(bp1);
-            }
-
-            separators.push(fp2);
-            (fp2, fp2)
-        } else {
-            (fp2, last_sorted)
+        if bp1 - last_sorted > 0 {
+            fallback_sort(&mut arr[last_sorted..bp1], radix);
+            separators.push(bp1);
         }
+        separators.push(fp2);
+        (fp2, fp2)
     } else if fp1 - bp2 >= big_enough {
-        if bp2 - last_sorted >= big_enough || bp2 - last_sorted == 0 {
-            if bp2 - last_sorted > 0 {
-                fallback_sort(&mut arr[last_sorted..bp2], radix);
-                separators.push(bp2);
-            }
-
-            separators.push(fp1);
-            arr[bp2..fp1].reverse();
-
-            (fp1, fp1)
-        } else {
-            (fp2, last_sorted)
+        if bp2 - last_sorted > 0 {
+            fallback_sort(&mut arr[last_sorted..bp2], radix);
+            separators.push(bp2);
         }
+        separators.push(fp1);
+        arr[bp2..fp1].reverse();
+        (fp2, fp1)
     } else {
         (fp2, last_sorted)
     }
@@ -764,36 +724,36 @@ where
             fallback_sort,
         ),
         GrowthPattern::AscOnly | GrowthPattern::PlateauOnly => {
+            //     bp2 bp1   position   fp1 fp2
+            //       | |        |        | /
+            //       | |________|________|/
+            //       | /
+            //       |/
             if fp2 - bp2 >= big_enough {
-                if bp2 - last_sorted >= big_enough || bp2 - last_sorted == 0 {
-                    if bp2 - last_sorted > 0 {
-                        fallback_sort(&mut arr[last_sorted..bp2], radix);
-                        separators.push(bp2);
-                    }
-
-                    separators.push(fp2);
-                    (fp2, fp2)
-                } else {
-                    (fp2, last_sorted)
+                if bp2 - last_sorted > 0 {
+                    fallback_sort(&mut arr[last_sorted..bp2], radix);
+                    separators.push(bp2);
                 }
+                separators.push(fp2);
+                (fp2, fp2)
             } else {
                 (fp2, last_sorted)
             }
         },
         GrowthPattern::DescOnly => {
+            //     bp2 bp1   position  fp1 fp2
+            //      \ |        |        |  |
+            //       \|________|________|  |
+            //                           \ |
+            //                            \|
             if fp2 - bp2 >= big_enough {
-                if bp2 - last_sorted >= big_enough || bp2 - last_sorted == 0 {
-                    if bp2 - last_sorted > 0 {
-                        fallback_sort(&mut arr[last_sorted..bp2], radix);
-                        separators.push(bp2);
-                    }
-
-                    separators.push(fp2);
-                    arr[bp2..fp2].reverse();
-                    (fp2, fp2)
-                } else {
-                    (fp2, last_sorted)
+                if bp2 - last_sorted > 0 {
+                    fallback_sort(&mut arr[last_sorted..bp2], radix);
+                    separators.push(bp2);
                 }
+                separators.push(fp2);
+                arr[bp2..fp2].reverse();
+                (fp2, fp2)
             } else {
                 (fp2, last_sorted)
             }

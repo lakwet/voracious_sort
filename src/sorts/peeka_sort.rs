@@ -10,7 +10,7 @@ use super::rollercoaster_sort::fallback;
 use super::ska_sort::ska_swap;
 use super::utils::{get_histogram, prefix_sums, Params};
 
-const FALLBACK_THRESHOLD: usize = 20_000;
+const FALLBACK_THRESHOLD: usize = 128_000;
 
 fn local_sorting<T, K>(
     arr: &mut [T],

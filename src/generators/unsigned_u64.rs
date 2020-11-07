@@ -24,6 +24,34 @@ pub fn helper_random_array_ascending_u64(size: usize) -> Vec<u64> {
     (0..size).into_par_iter().map(|i| i as u64).collect::<Vec<u64>>()
 }
 
+fn helper_asc_xth_start(size: usize, frac: usize) -> Vec<u64> {
+    (0..size)
+        .into_par_iter()
+        .map(|i| {
+            if i < size / frac {
+                thread_rng().gen::<u64>()
+            } else {
+                i as u64
+            }
+        })
+        .collect::<Vec<u64>>()
+}
+
+// Asc1pmst
+pub fn helper_random_array_asc1pmst_u64(size: usize) -> Vec<u64> {
+    helper_asc_xth_start(size, 1000)
+}
+
+// Asc1pctst
+pub fn helper_random_array_asc1pctst_u64(size: usize) -> Vec<u64> {
+    helper_asc_xth_start(size, 100)
+}
+
+// Asc10pctst
+pub fn helper_random_array_asc10pctst_u64(size: usize) -> Vec<u64> {
+    helper_asc_xth_start(size, 10)
+}
+
 fn helper_asc_xth(size: usize, frac: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
@@ -55,6 +83,34 @@ pub fn helper_random_array_asc10pct_u64(size: usize) -> Vec<u64> {
 // Descending
 pub fn helper_random_array_descending_u64(size: usize) -> Vec<u64> {
     (0..size).into_par_iter().map(|i| (size - i) as u64).collect::<Vec<u64>>()
+}
+
+fn helper_desc_xthst(size: usize, frac: usize) -> Vec<u64> {
+    (0..size)
+        .into_par_iter()
+        .map(|i| {
+            if i < size / frac {
+                thread_rng().gen::<u64>()
+            } else {
+                (size - i) as u64
+            }
+        })
+        .collect::<Vec<u64>>()
+}
+
+// Desc1pmst
+pub fn helper_random_array_desc1pmst_u64(size: usize) -> Vec<u64> {
+    helper_desc_xthst(size, 1000)
+}
+
+// Desc1pctst
+pub fn helper_random_array_desc1pctst_u64(size: usize) -> Vec<u64> {
+    helper_desc_xthst(size, 100)
+}
+
+// Desc10pctst
+pub fn helper_random_array_desc10pctst_u64(size: usize) -> Vec<u64> {
+    helper_desc_xthst(size, 10)
 }
 
 fn helper_desc_xth(size: usize, frac: usize) -> Vec<u64> {
@@ -269,6 +325,35 @@ pub fn helper_random_array_desc_sawtooth_u64(size: usize) -> Vec<u64> {
         .collect::<Vec<u64>>()
 }
 
+// Ascending sawtooth killer
+pub fn helper_random_array_asc_sawtooth_killer_u64(size: usize) -> Vec<u64> {
+    if size == 0 {
+        return Vec::new();
+    }
+    if size < 4 {
+        return helper_random_array_uniform_u64(size);
+    }
+
+    let limit = (size as f64 / ((size as f64).log2() * 1.1)) as u64;
+    (0..size).into_par_iter().map(|i| i as u64 % limit).collect::<Vec<u64>>()
+}
+
+// Descending sawtooth killer
+pub fn helper_random_array_desc_sawtooth_killer_u64(size: usize) -> Vec<u64> {
+    if size == 0 {
+        return Vec::new();
+    }
+    if size < 4 {
+        return helper_random_array_uniform_u64(size);
+    }
+
+    let limit = (size as f64 / ((size as f64).log2() * 1.1)) as u64;
+    (0..size)
+        .into_par_iter()
+        .map(|i| (size - 1 - i) as u64 % limit)
+        .collect::<Vec<u64>>()
+}
+
 // Pipe Organ
 pub fn helper_random_array_pipe_organ_u64(size: usize) -> Vec<u64> {
     let middle = size / 2;
@@ -356,10 +441,16 @@ pub fn generators_u64(
         (&helper_random_array_small_size6_u64, "-- Small 6    :"),
         (&helper_random_array_small_size7_u64, "-- Small 7    :"),
         (&helper_random_array_ascending_u64, "-- Asc        :"),
+        (&helper_random_array_asc1pmst_u64, "-- Asc1pmst   :"),
+        (&helper_random_array_asc1pctst_u64, "-- Asc1pctst  :"),
+        (&helper_random_array_asc10pctst_u64, "-- Asc10pctst :"),
         (&helper_random_array_asc1pm_u64, "-- Asc1pm     :"),
         (&helper_random_array_asc1pct_u64, "-- Asc1pct    :"),
         (&helper_random_array_asc10pct_u64, "-- Asc10pct   :"),
         (&helper_random_array_descending_u64, "-- Desc       :"),
+        (&helper_random_array_desc1pmst_u64, "-- Desc1pmst  :"),
+        (&helper_random_array_desc1pctst_u64, "-- Desc1pctst :"),
+        (&helper_random_array_desc10pctst_u64, "-- Desc10pctst:"),
         (&helper_random_array_desc1pm_u64, "-- Desc1pm    :"),
         (&helper_random_array_desc1pct_u64, "-- Desc1pct   :"),
         (&helper_random_array_desc10pct_u64, "-- Desc10pct  :"),
@@ -370,6 +461,8 @@ pub fn generators_u64(
         (&helper_random_array_almost_desc_u64, "-- Almost Desc:"),
         (&helper_random_array_asc_sawtooth_u64, "-- Asc Saw    :"),
         (&helper_random_array_desc_sawtooth_u64, "-- Desc Saw   :"),
+        (&helper_random_array_asc_sawtooth_killer_u64, "-- Asc Killer :"),
+        (&helper_random_array_desc_sawtooth_killer_u64, "-- Desc Killer:"),
         (&helper_random_array_sqrt_u64, "-- Sqrt       :"),
         (&helper_random_array_pipe_organ_u64, "-- Pipe Organ :"),
         (&helper_random_array_push_front_u64, "-- Front      :"),

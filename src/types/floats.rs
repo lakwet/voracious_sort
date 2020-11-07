@@ -1,7 +1,9 @@
+#[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
+#[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
@@ -196,6 +198,7 @@ impl Radixable<f32> for f32 {
     fn voracious_stable_sort(&self, arr: &mut [f32]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 1_000_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -699,6 +702,7 @@ impl Radixable<f64> for f64 {
     fn voracious_stable_sort(&self, arr: &mut [f64]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 800_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());

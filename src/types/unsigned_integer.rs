@@ -1,9 +1,11 @@
+#[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
 use super::super::sorts::counting_sort::counting_sort;
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort_heu;
 use super::super::sorts::msd_sort::msd_radixsort;
+#[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::sorts::voracious_sort::voracious_sort_heu;
@@ -66,6 +68,7 @@ impl Radixable<u8> for u8 {
     fn voracious_stable_sort(&self, arr: &mut [u8]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 1_300_000 {
             arr.par_sort_unstable();
@@ -174,6 +177,7 @@ impl Radixable<u16> for u16 {
     fn voracious_stable_sort(&self, arr: &mut [u16]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 1_150_000, thread_n);
     }
@@ -361,6 +365,7 @@ impl Radixable<u32> for u32 {
     fn voracious_stable_sort(&self, arr: &mut [u32]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 2_500_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -865,6 +870,7 @@ impl Radixable<u64> for u64 {
     fn voracious_stable_sort(&self, arr: &mut [u64]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 2_000_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
@@ -918,6 +924,7 @@ impl Radixable<u128> for u128 {
     fn voracious_stable_sort(&self, arr: &mut [u128]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 650_000, thread_n);
     }

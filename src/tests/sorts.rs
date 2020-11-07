@@ -753,7 +753,7 @@ fn test_sort_rollercoaster_sort_f64_inf() {
 
 #[test]
 fn test_sort_peeka_sort() {
-    for size in [0, 1, 10_000, 30_000, 500_000].iter() { for radix in [7, 8].iter() {
+    for size in [0, 1, 10_000, 30_000, 500_000].iter() { for radix in [8].iter() {
         helper_sort(false, &|a| peeka_sort(a, *radix, 100_000, 4), generators_bool(), *size);
         helper_sort(false, &|a| peeka_sort(a, *radix, 100_000, 4), generators_char(), *size);
         helper_sort(false, &|a| peeka_sort(a, *radix, 100_000, 4), generators_f32(), *size);
@@ -791,7 +791,7 @@ fn test_sort_peeka_sort() {
 
 #[test]
 fn test_sort_peeka_sort_f32_inf() {
-    let mut a = helper_random_array_uniform_f32(40_000);
+    let mut a = helper_random_array_uniform_f32(200_000);
     a[1999] = std::f32::NEG_INFINITY;
     a[0] = std::f32::INFINITY;
     let mut check = a.to_vec();
@@ -802,7 +802,7 @@ fn test_sort_peeka_sort_f32_inf() {
 
 #[test]
 fn test_sort_peeka_sort_f64_inf() {
-    let mut a = helper_random_array_uniform_f64(40_000);
+    let mut a = helper_random_array_uniform_f64(200_000);
     a[1999] = std::f64::NEG_INFINITY;
     a[0] = std::f64::INFINITY;
     let mut check = a.to_vec();

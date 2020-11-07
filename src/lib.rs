@@ -1,6 +1,6 @@
 //! # Voracious sort
 //!
-//! Voracious sort is a [sort algorithm](https://en.wikipedia.org/wiki/Sorting_algorithm), like
+//! Voracious sort is a [sorting algorithm](https://en.wikipedia.org/wiki/Sorting_algorithm), like
 //! [Rust standard sort](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.sort)
 //! or
 //! [Rust unstable sort](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.sort_unstable).
@@ -15,29 +15,25 @@
 //! [`slice`](https://doc.rust-lang.org/stable/std/primitive.slice.html)
 //! of:
 //! - [`bool`](https://doc.rust-lang.org/stable/std/primitive.bool.html)
-//!   (Counting sort),
-//! - [`char`](https://doc.rust-lang.org/stable/std/primitive.char.html) (Behave
-//!   like u32),
+//! - [`char`](https://doc.rust-lang.org/stable/std/primitive.char.html)
 //! - [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html),
-//! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html) (See [link](http://stereopsis.com/radix.html)),
+//! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html)
 //! - [`i8`](https://doc.rust-lang.org/stable/std/primitive.i8.html),
 //! [`i16`](https://doc.rust-lang.org/stable/std/primitive.i16.html),
 //! [`i32`](https://doc.rust-lang.org/stable/std/primitive.i32.html),
 //! [`i64`](https://doc.rust-lang.org/stable/std/primitive.i64.html),
 //! [`i128`](https://doc.rust-lang.org/stable/std/primitive.i128.html)
-//! [`isize`](https://doc.rust-lang.org/stable/std/primitive.isize.html) (First bit is flipped),
+//! - [`isize`](https://doc.rust-lang.org/stable/std/primitive.isize.html)
 //! - [`u8`](https://doc.rust-lang.org/stable/std/primitive.u8.html),
 //! [`u16`](https://doc.rust-lang.org/stable/std/primitive.u16.html),
 //! [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
 //! [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
-//! [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html),
-//! [`usize`](https://doc.rust-lang.org/stable/std/primitive.usize.html) (Native implementation),
-//! - Custom [struct](https://doc.rust-lang.org/std/keyword.struct.html)
-//! if a the struct implements
-//! [`PartialOrd`](https://doc.rust-lang.org/std/cmp/trait.PartialOrd.html),
-//! [`PartialEq`](https://doc.rust-lang.org/std/cmp/trait.PartialEq.html)
-//! and [`Copy`](https://doc.rust-lang.org/std/marker/trait.Copy.html) (and thus, Clone trait too)
-//! traits and `Radixable` trait (see below) (Mapped to a key).
+//! [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html)
+//! - [`usize`](https://doc.rust-lang.org/stable/std/primitive.usize.html)
+//! - [`struct`](https://doc.rust-lang.org/std/keyword.struct.html)
+//!   - The struct must be mapped to a key. The key must be among the aforementioned types (bool, char, f32, etc...).
+//!   - **Single thread** version: the struct must implement **`PartialOrd`**, **`PartialEq`**, **`Copy`** and **`Radixable`** traits.
+//!   - **Multi thread** version: the struct must implement **`PartialOrd`**, **`PartialEq`**, **`Copy`**, **`Send`**, **`Sync`** and **`Radixable`** traits.
 //!
 //! Vocarious sort can only sort in ascending order. You can call the
 //! [`reverse`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.reverse)
@@ -60,10 +56,16 @@
 //!
 //! ## How to use it
 //!
-//! Add in `Cargo.toml`:
+//! Add in `Cargo.toml` if you want only single thread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = "1.0.0"
+//! voracious_radix_sort = { version = "1.1.0" }
+//! ```
+//!
+//! If you also want the multithread version:
+//! ```toml
+//! [dependencies]
+//! voracious_radix_sort = { version = "1.1.0", features = ["voracious_multithread"] }
 //! ```
 //!
 //! ### Environment variable
@@ -75,10 +77,12 @@
 //! export RUSTFLAGS="-C target-cpu=native"
 //! ```
 //!
+//! ### Methods
+//!
 //! When the Crate is imported, three methods are added to vectors and slices:
 //! - `voracious_sort()` (single thread).
 //! - `voracious_stable_sort()` (single thread).
-//! - `voracious_mt_sort()` (multi thread).
+//! - `voracious_mt_sort()` (multi thread). (with the "`voracious_multithread`" feature)
 //!
 //! ### Example
 //!
@@ -110,12 +114,14 @@
 //!
 //! Let's do it through an example.
 //!
-//! ```no_run
+//! ```
 //! use std::cmp::Ordering;
 //!
-//! // We need a struct
-//! // We want, for example, to sort these structs by the key = value
+//! // We need a struct.
+//! // We want, for example, to sort these structs by the key: "value".
 //! // This struct must implement the Copy and Clone traits, we can just derive them.
+//! // For the multithread version the struct must implement de `Send` and `Sync` traits
+//! // too, which are by default for primitive types.
 //! #[derive(Copy, Clone, Debug)]
 //! pub struct Custom {
 //!     value: f32,
@@ -129,15 +135,14 @@
 //! impl PartialEq for Custom {
 //!     fn eq(&self, other: &Self) -> bool {
 //!         self.value == other.value
-//!         // you could add: && self.other == other.other
 //!     }
 //! }
 //! ```
 //!
-//! And then we have to implement the `Radixable` trait:
-//! ```no_run
+//! And then we have to implement the `Radixable` traits:
+//! ```
 //! # use std::cmp::Ordering;
-//! use voracious_radix_sort::{Radixable};
+//! use voracious_radix_sort::Radixable;
 //! # #[derive(Copy, Clone, Debug)]
 //! # pub struct Custom {
 //! #     value: f32,
@@ -167,8 +172,8 @@
 //!
 //! When it is done, we can run a test:
 //! ```
-//! use voracious_radix_sort::{RadixSort};
-//! # use voracious_radix_sort::{Radixable};
+//! use voracious_radix_sort::RadixSort;
+//! # use voracious_radix_sort::Radixable;
 //! # use std::cmp::Ordering;
 //! # #[derive(Copy, Clone, Debug)]
 //! # pub struct Custom {
@@ -216,6 +221,20 @@
 //!     Custom { value: 4.7, other: 35 },
 //! ];
 //!
+//! let mut array = vec![
+//!     Custom { value: 5.7, other: 29 },
+//!     Custom { value: 2.7, other: 23 },
+//!     Custom { value: 14.7, other: 17 },
+//!     Custom { value: 4.7, other: 35 },
+//! ];
+//!
+//! let mut array = vec![
+//!     Custom { value: 5.7, other: 29 },
+//!     Custom { value: 2.7, other: 23 },
+//!     Custom { value: 14.7, other: 17 },
+//!     Custom { value: 4.7, other: 35 },
+//! ];
+//!
 //! array.voracious_stable_sort();
 //!
 //! assert_eq!(array, vec![
@@ -241,11 +260,14 @@
 //!
 //! ## Dependencies
 //!
-//! - Rayon 1.4.0 (threadpool).
+//! - Rayon 1.5.0 (threadpool). This dependency is **optional**. If you use only the
+//! single thread version, you don't need it. If you want to use the multithread
+//! version, you will need it.
 //!
 //! ## Performances
 //!
 //! - First, please, read: [PROFILING.md](https://github.com/lakwet/voracious_sort/blob/master/PROFILING.md).
+//! - These results are from the v1.0.0 version. It might vary a bit with v1.1.0.
 //! - Performances can vary depending on the profile you are using.
 //! - Please notice that dedicated sorts are faster than generic sorts.
 //! - Tests have been done on an AMD Ryzen 9 3950x,  32GB DDR4 RAM, MB X570 TUF
@@ -264,7 +286,7 @@
 //! | 1_000 | **13 us** | **22 us** | | 5_000_000 | **9_819 us** | **16_662 us** |
 //! | 10_000 | **75 us** | **209 us** | | 10_000_000 | **13_784 us** | **34_578 us** |
 //! | 50_000 | **359 us** | **1_316 us** | | 20_000_000 | **21_277 us** | **69_020 us** |
-//! | 100_000 | **717 us** | **2_293 us** | | 50_000_000 | **5_6346 us** | **177_085 us** |
+//! | 100_000 | **717 us** | **2_293 us** | | 50_000_000 | **56_346 us** | **177_085 us** |
 //! | 500_000 | **3_663 us** | **12_927 us** | | 100_000_000 | **119_500 us** | **366_164 us** |
 //! | 1_000_000 | **6_596 us** | **24_879 us** | | 200_000_000 | **231_974 us** | **798_497 us** |
 //! | 10_000_000 | **79_342 us** | **263_105 us** | | | | |
@@ -336,6 +358,30 @@
 //!
 //! # For Developers
 //!
+//! ## Implementation details
+//!
+//! - [`bool`](https://doc.rust-lang.org/stable/std/primitive.bool.html)
+//! (Counting sort with radix == 1),
+//! - [`char`](https://doc.rust-lang.org/stable/std/primitive.char.html) (Behave
+//!   like u32),
+//! - [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html),
+//! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html) (See [link](http://stereopsis.com/radix.html)),
+//! - [`i8`](https://doc.rust-lang.org/stable/std/primitive.i8.html),
+//! [`i16`](https://doc.rust-lang.org/stable/std/primitive.i16.html),
+//! [`i32`](https://doc.rust-lang.org/stable/std/primitive.i32.html),
+//! [`i64`](https://doc.rust-lang.org/stable/std/primitive.i64.html),
+//! [`i128`](https://doc.rust-lang.org/stable/std/primitive.i128.html)
+//! [`isize`](https://doc.rust-lang.org/stable/std/primitive.isize.html) (First bit is flipped),
+//! - [`u8`](https://doc.rust-lang.org/stable/std/primitive.u8.html),
+//! [`u16`](https://doc.rust-lang.org/stable/std/primitive.u16.html),
+//! [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
+//! [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
+//! [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html),
+//! [`usize`](https://doc.rust-lang.org/stable/std/primitive.usize.html) (Native implementation),
+//! - [`struct`](https://doc.rust-lang.org/std/keyword.struct.html) (Mapped to a key among the aforementioned types).
+//!
+//! ## Using native functions
+//!
 //! As you can see, not only traits are exposed, but also native sorting functions.
 //! That way you can do whatever you want as long as you know what you are doing.
 //!
@@ -351,9 +397,13 @@
 
 mod algo;
 mod dedicated;
-#[cfg(test)] mod generators;
+#[cfg(feature = "voracious_multithread")]
+#[cfg(test)]
+mod generators;
 mod sorts;
-#[cfg(test)] mod tests;
+#[cfg(feature = "voracious_multithread")]
+#[cfg(test)]
+mod tests;
 mod traits;
 mod types;
 
@@ -376,6 +426,7 @@ pub use sorts::ska_sort::ska_sort;
 pub use sorts::thiel_sort::thiel_radixsort;
 pub use sorts::voracious_sort::voracious_sort;
 
+#[cfg(feature = "voracious_multithread")]
 pub use sorts::peeka_sort::peeka_sort;
 
 pub use dedicated::cs_u16::cs_u16;

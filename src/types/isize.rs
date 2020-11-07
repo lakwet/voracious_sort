@@ -1,5 +1,7 @@
+#[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
+#[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
@@ -63,6 +65,7 @@ impl Radixable<isize> for isize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 1_150_000, thread_n);
     }
@@ -161,6 +164,7 @@ impl Radixable<isize> for isize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 1_150_000, thread_n);
     }
@@ -349,6 +353,7 @@ impl Radixable<isize> for isize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 3_500_000 {
             arr.par_sort_unstable();
@@ -854,6 +859,7 @@ impl Radixable<isize> for isize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         if arr.len() < 10_000_000 {
             arr.par_sort_unstable();
@@ -907,6 +913,7 @@ impl Radixable<isize> for isize {
     fn voracious_stable_sort(&self, arr: &mut [Self]) {
         self.voracious_sort(arr);
     }
+    #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 650_000, thread_n);
     }

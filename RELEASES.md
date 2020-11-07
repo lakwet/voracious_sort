@@ -1,3 +1,39 @@
+# Version **1.1.0** (November 7<sup>th</sup> 2020)
+
+### Features:
+
+Now you can choose only the single thread version, without having `rayon` as
+dependency. Or the full version, including the multithread version, and with
+`rayon` as a dependency so the compilation time is longer.
+
+You just  have to add (or not) the features flag "`voracious_multithread`". See
+the doc.
+
+Since the compilation time was longer for the multithread version, and not
+everyone need it, it is now possible to skip it.
+
+Moreover it means the data you sort do not need anymore to by `Send + Sync` if
+you use the single thread version.
+
+### Improvement:
+
+- Update the fallback constant in the Peeka sort. It is a bit faster now.
+Instead of "fallbacking" when the chunk is smaller than 20_000 elements, it now
+fallbacks when the chunk is smaller than 128_000 elements.
+
+### Bugs fixes:
+
+- Fix the bug with the vergesort pre-processing heuristic. This improves
+performances for few distributions.
+
+### Other:
+
+- Bump rayon version to 1.5.0.
+- Fix typo in doc.
+- Update doc.
+- Add more benchmark results.
+- Add more distributions.
+
 # Version **1.0.0** (September 9<sup>th</sup> 2020)
 
 ### New single thread sort:
