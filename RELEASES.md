@@ -1,3 +1,14 @@
+# Version **1.1.1** (August 20<sup>th</sup> 2022)
+
+### Dependency:
+
+- Use Rayon 1.5.3 instead of 1.5.0.
+
+### Misc:
+
+- Update Readme.
+- Add Github workflows.
+
 # Version **1.1.0** (November 7<sup>th</sup> 2020)
 
 ### Features:
