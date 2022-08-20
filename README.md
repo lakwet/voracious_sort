@@ -130,7 +130,7 @@ and it uses the [Verge sort pre-processing heuristic](https://github.com/Morwenn
 [DFR sort](https://github.com/ramou/dfr) with a different diversion and
 a variable radix (see [article](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)).
 
-- Thiel sort is a LSD radix sort. It is an implementation of [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)
+- Thiel sort is a LSD radix sort. It is an implementation of [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf) (Implementation in C/C++ is not from the article's author)
 
 - Rollercoaster sort is a hybrid radix sort. It starts as an MSD radix sort, and then switches as
 a LSD radix sort. It is a mix between the Voracious sort and the DLSD sort. This sort
@@ -145,11 +145,16 @@ Unstable sort) for very small inputs or on Rust (stable) sort for stable sorts.
 
 ## References
 
+- [What is radixsort](https://axelle.me/2020/11/08/what-is-radixsort/)
+- [Voracious sort](https://axelle.me/2020/11/21/voracious-sort/)
+- [DLSD sort](https://axelle.me/2022/04/19/diverting-lsd-sort/)
+- [Rollercoaster sort](https://axelle.me/2022/04/19/rollercoaster-sort-the-best-of-the-two-worlds/)
+
 - [Ska sort](https://probablydance.com/2016/12/27/i-wrote-a-faster-sorting-algorithm/)
 - [Verge sort pre-processing heuristic](https://github.com/Morwenn/vergesort)
 - [Regions sort](https://github.com/omarobeya/parallel-inplace-radixsort): [Theoretically-Efficient and Practical Parallel In-Place Radix Sorting](https://people.csail.mit.edu/jshun/RegionsSort.pdf)
 - [DFR sort](https://github.com/ramou/dfr)
-- [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)
+- [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf) (Sort's implementation and article are not from the same person)
 - [PDQ sort](https://github.com/stjepang/pdqsort)
 
 ## Future work
