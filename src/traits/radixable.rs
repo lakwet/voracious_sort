@@ -23,9 +23,7 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd + Send + Sync {
         self.key().into_keytype()
     }
     #[inline]
-    fn type_size(&self) -> usize {
-        self.key().type_size()
-    }
+    fn type_size(&self) -> usize { self.key().type_size() }
     #[inline]
     fn usize_to_keytype(
         &self,
@@ -121,17 +119,11 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd + Send + Sync {
         self.key().one()
     }
     #[inline]
-    fn is_i32(&self) -> bool {
-        false
-    }
+    fn is_i32(&self) -> bool { false }
     #[inline]
-    fn is_i64(&self) -> bool {
-        false
-    }
+    fn is_i64(&self) -> bool { false }
     #[inline]
-    fn is_i128(&self) -> bool {
-        false
-    }
+    fn is_i128(&self) -> bool { false }
     #[inline]
     fn mask_for_high_bits(
         &self,
@@ -203,9 +195,7 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd {
         self.key().into_keytype()
     }
     #[inline]
-    fn type_size(&self) -> usize {
-        self.key().type_size()
-    }
+    fn type_size(&self) -> usize { self.key().type_size() }
     #[inline]
     fn usize_to_keytype(
         &self,
@@ -301,17 +291,11 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd {
         self.key().one()
     }
     #[inline]
-    fn is_i32(&self) -> bool {
-        false
-    }
+    fn is_i32(&self) -> bool { false }
     #[inline]
-    fn is_i64(&self) -> bool {
-        false
-    }
+    fn is_i64(&self) -> bool { false }
     #[inline]
-    fn is_i128(&self) -> bool {
-        false
-    }
+    fn is_i128(&self) -> bool { false }
     #[inline]
     fn mask_for_high_bits(
         &self,

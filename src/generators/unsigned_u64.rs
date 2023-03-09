@@ -27,13 +27,15 @@ pub fn helper_random_array_ascending_u64(size: usize) -> Vec<u64> {
 fn helper_asc_xth_start(size: usize, frac: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|i| {
-            if i < size / frac {
-                thread_rng().gen::<u64>()
-            } else {
-                i as u64
-            }
-        })
+        .map(
+            |i| {
+                if i < size / frac {
+                    thread_rng().gen::<u64>()
+                } else {
+                    i as u64
+                }
+            },
+        )
         .collect::<Vec<u64>>()
 }
 
