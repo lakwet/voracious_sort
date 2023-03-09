@@ -34,9 +34,9 @@ You will find here:
 ## Version
 
 Last version tested/used:
-- Rustc: 1.46.0 stable
-- Rustfmt: 1.4.18 stable
-- Cargo: 1.46.0 stable
+- Rustc: 1.67.1 stable
+- Rustfmt: 1.5.1 stable
+- Cargo: 1.67.1 stable
 - Clippy: 0.0.212
 
 ## License
@@ -116,6 +116,20 @@ For each sort, 3 columns:
 - 1st column: time un micro second
 - 2nd column: standard deviation (if more than 1 iteration) in nano second
 - 3rd column: time per item in nano second
+
+*Disclaimer*: voracious_mt_sort becomes slower if there is more than 16 threads. It is a know problem.
+I will try to address it later. Moreover, the voracious sort crate is optimized for CPU with AVX/AVX2,
+you can encounter dramatic loss of performance if you use it on a CPU without AVX/AVX2. Since I don't
+have a "big" CPU and enough RAM, it is complicated for me to benchmark the sort on array of size
+1_000_000_000+ (for u64 or i64), so I don't really know what happens after that.
+
+## Memory consumption
+
+This sort has been optimized for performance (speed) and not for memory consumption. Depending on the
+type and the size of the array, LSD sort "like" can be used so the required memory can be up to 2 x n
+(with "n" the size of the array).
+
+Better handling of memory consumption can be a future improvement.
 
 ## For developers and researchers
 

@@ -1,3 +1,13 @@
+# Version **1.1.2** (March 9<sup>th</sup> 2023)
+
+### Dependency:
+
+- Use Rayon 1.7.0 instead of 1.5.3.
+
+### Misc:
+
+- Update Readme.
+
 # Version **1.1.1** (August 20<sup>th</sup> 2022)
 
 ### Dependency:
