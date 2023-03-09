@@ -75,11 +75,11 @@ fn helper_sort<T, K>(
     T: Ord,
 {
     let sorts_name = vec![
-        "Trait Vora",
+        // "Trait Vora",
         // "Trait Vora Stable",
-        // "Trait Vora MT",
+        "Trait Vora MT",
         // "Rust Std",
-        "Rust Uns",
+        // "Rust Uns",
         // "Rollercoaster",
         // "LSD",
         // "MSD",
@@ -89,7 +89,7 @@ fn helper_sort<T, K>(
         // "Thiel",
         // "Raw Voracious sort",
         // "Raw Regions sort",
-        // "Rayon pll uns",
+        "Rayon pll uns",
         // "Rayon pll stable",
     ];
 
@@ -99,8 +99,9 @@ fn helper_sort<T, K>(
     let with_check = false;
 
     let sizes: Vec<usize> = vec![
-        500,1_000, 2_000,5_000,10_000,50_000,100_000,500_000,1_000_000,5_000_000, 10_000_000,
+        // 500,1_000, 2_000,5_000,10_000,50_000,100_000,500_000,1_000_000,5_000_000, 10_000_000,
         // 1_000_000,5_000_000,10_000_000,20_000_000,50_000_000,100_000_000,200_000_000
+        5_000_000_000
     ];
 
     println!("Number of iterations: {}", runs);
@@ -116,11 +117,11 @@ fn helper_sort<T, K>(
         println!("Array size: {}", size);
         for (generator, gen_name) in generators.iter() {
             print!("{}", gen_name);
-            helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,with_check);
+            // helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.voracious_stable_sort(),runs,*size,generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| arr.voracious_mt_sort(thread_n),runs,*size,generator,with_check);
+            helper_sort_aux(&|arr: &mut [T]| arr.voracious_mt_sort(thread_n),runs,*size,generator,with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort(), runs, *size, generator, with_check);
-            helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable(),runs,*size,generator, with_check);
+            // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable(),runs,*size,generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| counting_sort(arr, 8),runs,*size,generator, with_check);
@@ -139,7 +140,7 @@ fn helper_sort<T, K>(
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_100_000, thread_n), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable(), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort(), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
+            helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             println!();
         }
@@ -176,15 +177,15 @@ fn helper_sort<T, K>(
 //     helper_sort("Test u16", generators_u16());
 // }
 
-#[test]
-fn speed_test_u32() {
-    helper_sort("Test u32", generators_u32());
-}
+// #[test]
+// fn speed_test_u32() {
+//     helper_sort("Test u32", generators_u32());
+// }
 
-#[test]
-fn speed_test_u64() {
-    helper_sort("Test u64", generators_u64());
-}
+// #[test]
+// fn speed_test_u64() {
+//     helper_sort("Test u64", generators_u64());
+// }
 
 // #[test]
 // fn speed_test_u128() {
@@ -206,10 +207,10 @@ fn speed_test_u64() {
 //     helper_sort("Test i16", generators_i16());
 // }
 
-#[test]
-fn speed_test_i32() {
-    helper_sort("Test i32", generators_i32());
-}
+// #[test]
+// fn speed_test_i32() {
+//     helper_sort("Test i32", generators_i32());
+// }
 
 #[test]
 fn speed_test_i64() {

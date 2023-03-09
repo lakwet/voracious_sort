@@ -7,6 +7,6 @@ mod utils;
 mod utils_mt;
 mod verge_sort_heuristic;
 
-// mod test_helpers;
-// #[rustfmt::skip] mod speed_sort;
+mod test_helpers;
+#[rustfmt::skip] mod speed_sort;
 // #[rustfmt::skip] mod speed_sort_ded;
