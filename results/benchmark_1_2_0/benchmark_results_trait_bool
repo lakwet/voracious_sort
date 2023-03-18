@@ -1,0 +1,98 @@
+running 1 test
+Number of iterations: 1
+Number of threads: 16
+=== Test boolean ===	Trait Vora		Trait Vora Stable		Trait Vora MT		Rust Std		Rust Uns		Rayon pll uns
+Array size: 100
+-- Unif       :0us	0ns	(5.31ns)	0us	0ns	(1.00ns)	0us	0ns	(1.20ns)	2us	0ns	(29.26ns)	2us	0ns	(21.84ns)	1us	0ns	(13.02ns)
+-- Alt        :0us	0ns	(1.20ns)	0us	0ns	(1.30ns)	0us	0ns	(0.70ns)	1us	0ns	(19.43ns)	0us	0ns	(9.12ns)	0us	0ns	(7.72ns)
+-- True only  :0us	0ns	(1.10ns)	0us	0ns	(0.30ns)	0us	0ns	(0.40ns)	0us	0ns	(1.70ns)	0us	0ns	(1.70ns)	0us	0ns	(1.60ns)
+-- False only :0us	0ns	(0.50ns)	0us	0ns	(0.40ns)	0us	0ns	(0.40ns)	0us	0ns	(1.40ns)	0us	0ns	(1.40ns)	0us	0ns	(1.10ns)
+-- Pipe Organ :0us	0ns	(1.10ns)	0us	0ns	(0.50ns)	0us	0ns	(0.60ns)	0us	0ns	(1.30ns)	0us	0ns	(1.10ns)	0us	0ns	(1.10ns)
+-- Pipe Rev   :0us	0ns	(0.80ns)	0us	0ns	(0.61ns)	0us	0ns	(0.70ns)	0us	0ns	(4.00ns)	0us	0ns	(6.71ns)	0us	0ns	(6.21ns)
+Array size: 1000
+-- Unif       :0us	0ns	(0.50ns)	0us	0ns	(0.30ns)	0us	0ns	(0.38ns)	24us	0ns	(24.75ns)	3us	0ns	(3.40ns)	5us	0ns	(5.35ns)
+-- Alt        :0us	0ns	(0.36ns)	0us	0ns	(0.72ns)	0us	0ns	(0.63ns)	29us	0ns	(29.34ns)	5us	0ns	(5.96ns)	3us	0ns	(3.30ns)
+-- True only  :0us	0ns	(0.31ns)	0us	0ns	(0.16ns)	0us	0ns	(0.17ns)	0us	0ns	(0.85ns)	1us	0ns	(1.00ns)	0us	0ns	(0.86ns)
+-- False only :0us	0ns	(0.17ns)	0us	0ns	(0.17ns)	0us	0ns	(0.21ns)	1us	0ns	(1.07ns)	0us	0ns	(0.74ns)	1us	0ns	(1.03ns)
+-- Pipe Organ :0us	0ns	(0.20ns)	0us	0ns	(0.15ns)	0us	0ns	(0.15ns)	0us	0ns	(0.54ns)	0us	0ns	(0.55ns)	0us	0ns	(0.53ns)
+-- Pipe Rev   :0us	0ns	(0.16ns)	0us	0ns	(0.14ns)	0us	0ns	(0.16ns)	1us	0ns	(1.83ns)	1us	0ns	(1.74ns)	1us	0ns	(1.88ns)
+Array size: 5000
+-- Unif       :1us	0ns	(0.34ns)	1us	0ns	(0.31ns)	1us	0ns	(0.37ns)	130us	0ns	(26.19ns)	24us	0ns	(4.97ns)	25us	0ns	(5.16ns)
+-- Alt        :1us	0ns	(0.33ns)	1us	0ns	(0.30ns)	1us	0ns	(0.30ns)	109us	0ns	(21.93ns)	14us	0ns	(2.90ns)	25us	0ns	(5.02ns)
+-- True only  :0us	0ns	(0.14ns)	0us	0ns	(0.14ns)	0us	0ns	(0.11ns)	2us	0ns	(0.50ns)	2us	0ns	(0.50ns)	2us	0ns	(0.50ns)
+-- False only :0us	0ns	(0.11ns)	0us	0ns	(0.11ns)	0us	0ns	(0.11ns)	2us	0ns	(0.49ns)	2us	0ns	(0.49ns)	2us	0ns	(0.48ns)
+-- Pipe Organ :0us	0ns	(0.17ns)	0us	0ns	(0.12ns)	0us	0ns	(0.12ns)	2us	0ns	(0.50ns)	2us	0ns	(0.49ns)	2us	0ns	(0.48ns)
+-- Pipe Rev   :0us	0ns	(0.14ns)	0us	0ns	(0.13ns)	0us	0ns	(0.13ns)	9us	0ns	(1.88ns)	9us	0ns	(1.81ns)	21us	0ns	(4.39ns)
+Array size: 10_000
+-- Unif       :3us	0ns	(0.32ns)	2us	0ns	(0.30ns)	2us	0ns	(0.28ns)	273us	0ns	(27.34ns)	25us	0ns	(2.60ns)	55us	0ns	(5.58ns)
+-- Alt        :2us	0ns	(0.26ns)	2us	0ns	(0.26ns)	2us	0ns	(0.27ns)	220us	0ns	(22.01ns)	28us	0ns	(2.86ns)	27us	0ns	(2.77ns)
+-- True only  :1us	0ns	(0.15ns)	1us	0ns	(0.10ns)	1us	0ns	(0.11ns)	4us	0ns	(0.50ns)	4us	0ns	(0.48ns)	4us	0ns	(0.48ns)
+-- False only :1us	0ns	(0.13ns)	1us	0ns	(0.10ns)	1us	0ns	(0.10ns)	4us	0ns	(0.48ns)	7us	0ns	(0.71ns)	4us	0ns	(0.48ns)
+-- Pipe Organ :1us	0ns	(0.13ns)	1us	0ns	(0.11ns)	1us	0ns	(0.11ns)	4us	0ns	(0.48ns)	4us	0ns	(0.48ns)	4us	0ns	(0.48ns)
+-- Pipe Rev   :1us	0ns	(0.12ns)	1us	0ns	(0.11ns)	1us	0ns	(0.11ns)	16us	0ns	(1.67ns)	13us	0ns	(1.36ns)	33us	0ns	(3.39ns)
+Array size: 20_000
+-- Unif       :5us	0ns	(0.28ns)	5us	0ns	(0.27ns)	5us	0ns	(0.26ns)	557us	0ns	(27.86ns)	91us	0ns	(4.59ns)	82us	0ns	(4.15ns)
+-- Alt        :5us	0ns	(0.26ns)	5us	0ns	(0.28ns)	4us	0ns	(0.23ns)	481us	0ns	(24.09ns)	53us	0ns	(2.68ns)	64us	0ns	(3.23ns)
+-- True only  :2us	0ns	(0.10ns)	2us	0ns	(0.10ns)	2us	0ns	(0.10ns)	9us	0ns	(0.48ns)	9us	0ns	(0.47ns)	9us	0ns	(0.47ns)
+-- False only :2us	0ns	(0.10ns)	2us	0ns	(0.10ns)	2us	0ns	(0.10ns)	9us	0ns	(0.47ns)	28us	0ns	(1.41ns)	9us	0ns	(0.47ns)
+-- Pipe Organ :2us	0ns	(0.11ns)	2us	0ns	(0.11ns)	2us	0ns	(0.11ns)	9us	0ns	(0.47ns)	9us	0ns	(0.47ns)	9us	0ns	(0.47ns)
+-- Pipe Rev   :2us	0ns	(0.11ns)	2us	0ns	(0.11ns)	2us	0ns	(0.11ns)	32us	0ns	(1.64ns)	35us	0ns	(1.79ns)	46us	0ns	(2.34ns)
+Array size: 50_000
+-- Unif       :12us	0ns	(0.25ns)	12us	0ns	(0.24ns)	11us	0ns	(0.24ns)	1520us	0ns	(30.41ns)	97us	0ns	(1.95ns)	103us	0ns	(2.07ns)
+-- Alt        :11us	0ns	(0.22ns)	10us	0ns	(0.20ns)	11us	0ns	(0.22ns)	1272us	0ns	(25.44ns)	117us	0ns	(2.36ns)	195us	0ns	(3.91ns)
+-- True only  :5us	0ns	(0.12ns)	5us	0ns	(0.12ns)	5us	0ns	(0.12ns)	35us	0ns	(0.71ns)	35us	0ns	(0.71ns)	35us	0ns	(0.71ns)
+-- False only :5us	0ns	(0.12ns)	5us	0ns	(0.12ns)	7us	0ns	(0.14ns)	35us	0ns	(0.71ns)	35us	0ns	(0.71ns)	35us	0ns	(0.71ns)
+-- Pipe Organ :6us	0ns	(0.13ns)	6us	0ns	(0.13ns)	6us	0ns	(0.13ns)	35us	0ns	(0.71ns)	35us	0ns	(0.71ns)	35us	0ns	(0.71ns)
+-- Pipe Rev   :6us	0ns	(0.13ns)	5us	0ns	(0.11ns)	5us	0ns	(0.11ns)	80us	0ns	(1.61ns)	88us	0ns	(1.78ns)	158us	0ns	(3.18ns)
+Array size: 100_000
+-- Unif       :21us	0ns	(0.22ns)	21us	0ns	(0.22ns)	20us	0ns	(0.21ns)	3029us	0ns	(30.29ns)	442us	0ns	(4.43ns)	180us	0ns	(1.80ns)
+-- Alt        :19us	0ns	(0.19ns)	18us	0ns	(0.18ns)	19us	0ns	(0.19ns)	2800us	0ns	(28.01ns)	182us	0ns	(1.82ns)	216us	0ns	(2.16ns)
+-- True only  :10us	0ns	(0.10ns)	9us	0ns	(0.10ns)	10us	0ns	(0.10ns)	47us	0ns	(0.47ns)	46us	0ns	(0.47ns)	46us	0ns	(0.47ns)
+-- False only :10us	0ns	(0.10ns)	10us	0ns	(0.10ns)	9us	0ns	(0.10ns)	47us	0ns	(0.47ns)	46us	0ns	(0.47ns)	46us	0ns	(0.47ns)
+-- Pipe Organ :10us	0ns	(0.11ns)	10us	0ns	(0.11ns)	10us	0ns	(0.11ns)	47us	0ns	(0.47ns)	46us	0ns	(0.47ns)	46us	0ns	(0.47ns)
+-- Pipe Rev   :10us	0ns	(0.11ns)	10us	0ns	(0.11ns)	10us	0ns	(0.11ns)	165us	0ns	(1.66ns)	183us	0ns	(1.83ns)	294us	0ns	(2.94ns)
+Array size: 200_000
+-- Unif       :29us	0ns	(0.15ns)	37us	0ns	(0.19ns)	39us	0ns	(0.20ns)	6302us	0ns	(31.51ns)	292us	0ns	(1.46ns)	1125us	0ns	(5.63ns)
+-- Alt        :33us	0ns	(0.17ns)	43us	0ns	(0.22ns)	36us	0ns	(0.18ns)	5587us	0ns	(27.94ns)	324us	0ns	(1.62ns)	392us	0ns	(1.96ns)
+-- True only  :19us	0ns	(0.10ns)	19us	0ns	(0.10ns)	19us	0ns	(0.10ns)	93us	0ns	(0.47ns)	92us	0ns	(0.46ns)	92us	0ns	(0.46ns)
+-- False only :19us	0ns	(0.10ns)	19us	0ns	(0.10ns)	19us	0ns	(0.10ns)	92us	0ns	(0.46ns)	98us	0ns	(0.49ns)	92us	0ns	(0.46ns)
+-- Pipe Organ :21us	0ns	(0.11ns)	21us	0ns	(0.11ns)	21us	0ns	(0.11ns)	93us	0ns	(0.47ns)	92us	0ns	(0.46ns)	92us	0ns	(0.46ns)
+-- Pipe Rev   :21us	0ns	(0.11ns)	21us	0ns	(0.11ns)	21us	0ns	(0.11ns)	333us	0ns	(1.67ns)	412us	0ns	(2.06ns)	679us	0ns	(3.40ns)
+Array size: 500_000
+-- Unif       :67us	0ns	(0.13ns)	67us	0ns	(0.14ns)	90us	0ns	(0.18ns)	16265us	0ns	(32.53ns)	894us	0ns	(1.79ns)	753us	0ns	(1.51ns)
+-- Alt        :63us	0ns	(0.13ns)	66us	0ns	(0.13ns)	67us	0ns	(0.14ns)	14990us	0ns	(29.98ns)	695us	0ns	(1.39ns)	1030us	0ns	(2.06ns)
+-- True only  :49us	0ns	(0.10ns)	49us	0ns	(0.10ns)	49us	0ns	(0.10ns)	232us	0ns	(0.46ns)	230us	0ns	(0.46ns)	230us	0ns	(0.46ns)
+-- False only :47us	0ns	(0.10ns)	47us	0ns	(0.10ns)	49us	0ns	(0.10ns)	236us	0ns	(0.47ns)	230us	0ns	(0.46ns)	235us	0ns	(0.47ns)
+-- Pipe Organ :55us	0ns	(0.11ns)	57us	0ns	(0.11ns)	53us	0ns	(0.11ns)	231us	0ns	(0.46ns)	232us	0ns	(0.47ns)	232us	0ns	(0.47ns)
+-- Pipe Rev   :52us	0ns	(0.11ns)	54us	0ns	(0.11ns)	53us	0ns	(0.11ns)	814us	0ns	(1.63ns)	890us	0ns	(1.78ns)	2016us	0ns	(4.03ns)
+Array size: 1_000_000
+-- Unif       :125us	0ns	(0.13ns)	128us	0ns	(0.13ns)	132us	0ns	(0.13ns)	33863us	0ns	(33.86ns)	1762us	0ns	(1.76ns)	7492us	0ns	(7.49ns)
+-- Alt        :123us	0ns	(0.12ns)	143us	0ns	(0.14ns)	119us	0ns	(0.12ns)	35614us	0ns	(35.61ns)	1417us	0ns	(1.42ns)	2269us	0ns	(2.27ns)
+-- True only  :97us	0ns	(0.10ns)	96us	0ns	(0.10ns)	97us	0ns	(0.10ns)	466us	0ns	(0.47ns)	455us	0ns	(0.46ns)	455us	0ns	(0.46ns)
+-- False only :96us	0ns	(0.10ns)	96us	0ns	(0.10ns)	97us	0ns	(0.10ns)	465us	0ns	(0.47ns)	458us	0ns	(0.46ns)	458us	0ns	(0.46ns)
+-- Pipe Organ :108us	0ns	(0.11ns)	108us	0ns	(0.11ns)	108us	0ns	(0.11ns)	459us	0ns	(0.46ns)	463us	0ns	(0.46ns)	460us	0ns	(0.46ns)
+-- Pipe Rev   :107us	0ns	(0.11ns)	108us	0ns	(0.11ns)	108us	0ns	(0.11ns)	1617us	0ns	(1.62ns)	1375us	0ns	(1.38ns)	4025us	0ns	(4.03ns)
+Array size: 5_000_000
+-- Unif       :650us	0ns	(0.13ns)	601us	0ns	(0.12ns)	830us	0ns	(0.17ns)	198746us	0ns	(39.75ns)	6616us	0ns	(1.32ns)	17318us	0ns	(3.46ns)
+-- Alt        :569us	0ns	(0.11ns)	565us	0ns	(0.11ns)	881us	0ns	(0.18ns)	178150us	0ns	(35.63ns)	6413us	0ns	(1.28ns)	11018us	0ns	(2.20ns)
+-- True only  :481us	0ns	(0.10ns)	473us	0ns	(0.09ns)	476us	0ns	(0.10ns)	2235us	0ns	(0.45ns)	2255us	0ns	(0.45ns)	2248us	0ns	(0.45ns)
+-- False only :479us	0ns	(0.10ns)	478us	0ns	(0.10ns)	479us	0ns	(0.10ns)	2285us	0ns	(0.46ns)	2294us	0ns	(0.46ns)	2280us	0ns	(0.46ns)
+-- Pipe Organ :546us	0ns	(0.11ns)	549us	0ns	(0.11ns)	539us	0ns	(0.11ns)	2295us	0ns	(0.46ns)	2290us	0ns	(0.46ns)	2290us	0ns	(0.46ns)
+-- Pipe Rev   :553us	0ns	(0.11ns)	555us	0ns	(0.11ns)	550us	0ns	(0.11ns)	7965us	0ns	(1.59ns)	8653us	0ns	(1.73ns)	19635us	0ns	(3.93ns)
+Array size: 10_000_000
+-- Unif       :1357us	0ns	(0.14ns)	1932us	0ns	(0.19ns)	1859us	0ns	(0.19ns)	394985us	0ns	(39.50ns)	41593us	0ns	(4.16ns)	39805us	0ns	(3.98ns)
+-- Alt        :1253us	0ns	(0.13ns)	1862us	0ns	(0.19ns)	1827us	0ns	(0.18ns)	386444us	0ns	(38.64ns)	12458us	0ns	(1.25ns)	19640us	0ns	(1.96ns)
+-- True only  :1010us	0ns	(0.10ns)	1062us	0ns	(0.11ns)	1066us	0ns	(0.11ns)	4607us	0ns	(0.46ns)	4592us	0ns	(0.46ns)	4596us	0ns	(0.46ns)
+-- False only :1043us	0ns	(0.10ns)	1060us	0ns	(0.11ns)	1084us	0ns	(0.11ns)	4623us	0ns	(0.46ns)	4610us	0ns	(0.46ns)	4581us	0ns	(0.46ns)
+-- Pipe Organ :1275us	0ns	(0.13ns)	1266us	0ns	(0.13ns)	1329us	0ns	(0.13ns)	4513us	0ns	(0.45ns)	4571us	0ns	(0.46ns)	4611us	0ns	(0.46ns)
+-- Pipe Rev   :1280us	0ns	(0.13ns)	1264us	0ns	(0.13ns)	1311us	0ns	(0.13ns)	16474us	0ns	(1.65ns)	18408us	0ns	(1.84ns)	31206us	0ns	(3.12ns)
+Array size: 50_000_000
+-- Unif       :10372us	0ns	(0.21ns)	10408us	0ns	(0.21ns)	10337us	0ns	(0.21ns)	2070868us	0ns	(41.42ns)	83461us	0ns	(1.67ns)	74758us	0ns	(1.50ns)
+-- Alt        :11171us	0ns	(0.22ns)	10408us	0ns	(0.21ns)	9877us	0ns	(0.20ns)	2039896us	0ns	(40.80ns)	62814us	0ns	(1.26ns)	70279us	0ns	(1.41ns)
+-- True only  :6712us	0ns	(0.13ns)	6585us	0ns	(0.13ns)	6529us	0ns	(0.13ns)	22676us	0ns	(0.45ns)	22771us	0ns	(0.46ns)	22668us	0ns	(0.45ns)
+-- False only :4839us	0ns	(0.10ns)	4858us	0ns	(0.10ns)	4852us	0ns	(0.10ns)	22549us	0ns	(0.45ns)	22361us	0ns	(0.45ns)	22354us	0ns	(0.45ns)
+-- Pipe Organ :10546us	0ns	(0.21ns)	10340us	0ns	(0.21ns)	10270us	0ns	(0.21ns)	22708us	0ns	(0.45ns)	22621us	0ns	(0.45ns)	22701us	0ns	(0.45ns)
+-- Pipe Rev   :10418us	0ns	(0.21ns)	10317us	0ns	(0.21ns)	10252us	0ns	(0.21ns)	90529us	0ns	(1.81ns)	133947us	0ns	(2.68ns)	123387us	0ns	(2.47ns)
+test tests::speed_sort::speed_test_bool ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 11.68s

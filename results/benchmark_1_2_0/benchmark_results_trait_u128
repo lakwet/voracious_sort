@@ -1,0 +1,47 @@
+running 1 test
+Number of iterations: 5
+Number of threads: 16
+With check: true
+=== Test u128 ===	Trait Vora Uns or stable		Trait Vora MT		Rust Uns		Rust Std		Rayon pll uns
+Array size: 100
+-- Unif       :4us	204ns	(41.27ns)	4us	210ns	(41.80ns)	3us	188ns	(36.74ns)	6us	530ns	(64.24ns)	3us	158ns	(33.53ns)
+-- Unif 10^9  :3us	155ns	(33.23ns)	3us	156ns	(33.63ns)	3us	158ns	(33.55ns)	5us	237ns	(52.19ns)	3us	147ns	(32.63ns)
+Array size: 1000
+-- Unif       :31us	598ns	(31.64ns)	28us	417ns	(28.50ns)	33us	473ns	(33.40ns)	66us	936ns	(66.13ns)	32us	463ns	(32.52ns)
+-- Unif 10^9  :27us	399ns	(27.42ns)	25us	369ns	(25.90ns)	33us	479ns	(33.69ns)	66us	946ns	(66.68ns)	32us	459ns	(32.32ns)
+Array size: 5000
+-- Unif       :95us	609ns	(19.05ns)	95us	607ns	(19.10ns)	146us	929ns	(29.30ns)	389us	2470ns	(77.98ns)	139us	1253ns	(27.84ns)
+-- Unif 10^9  :94us	597ns	(18.81ns)	96us	613ns	(19.30ns)	145us	923ns	(29.12ns)	389us	2463ns	(77.89ns)	134us	1586ns	(26.93ns)
+Array size: 10_000
+-- Unif       :181us	924ns	(18.19ns)	168us	758ns	(16.89ns)	320us	1507ns	(32.07ns)	852us	3813ns	(85.26ns)	197us	951ns	(19.79ns)
+-- Unif 10^9  :174us	801ns	(17.41ns)	173us	777ns	(17.30ns)	294us	1319ns	(29.42ns)	845us	3783ns	(84.59ns)	212us	1055ns	(21.25ns)
+Array size: 20_000
+-- Unif       :342us	1118ns	(17.11ns)	327us	1037ns	(16.38ns)	580us	1837ns	(29.04ns)	1824us	5784ns	(91.23ns)	349us	1146ns	(17.50ns)
+-- Unif 10^9  :402us	2230ns	(20.12ns)	334us	1061ns	(16.75ns)	583us	1849ns	(29.19ns)	1898us	6118ns	(94.90ns)	336us	1192ns	(16.84ns)
+Array size: 50_000
+-- Unif       :798us	1660ns	(15.98ns)	793us	1589ns	(15.86ns)	1520us	3043ns	(30.42ns)	5005us	10012ns	(100.10ns)	537us	1124ns	(10.76ns)
+-- Unif 10^9  :812us	1630ns	(16.25ns)	789us	1586ns	(15.79ns)	1518us	3038ns	(30.37ns)	4963us	9928ns	(99.27ns)	669us	1434ns	(13.39ns)
+Array size: 100_000
+-- Unif       :1830us	2600ns	(18.31ns)	1828us	2588ns	(18.28ns)	3227us	4686ns	(32.28ns)	10529us	14891ns	(105.30ns)	1060us	1586ns	(10.61ns)
+-- Unif 10^9  :1869us	2645ns	(18.69ns)	1868us	2644ns	(18.69ns)	3138us	4449ns	(31.38ns)	10547us	14918ns	(105.48ns)	980us	1420ns	(9.80ns)
+Array size: 200_000
+-- Unif       :4077us	4078ns	(20.39ns)	6115us	6272ns	(30.58ns)	7434us	7655ns	(37.17ns)	22253us	22272ns	(111.27ns)	1972us	2028ns	(9.86ns)
+-- Unif 10^9  :4064us	4066ns	(20.32ns)	6922us	6931ns	(34.61ns)	6897us	6935ns	(34.49ns)	22157us	22159ns	(110.79ns)	1875us	1990ns	(9.38ns)
+Array size: 500_000
+-- Unif       :9708us	6144ns	(19.42ns)	10979us	6994ns	(21.96ns)	20031us	13001ns	(40.06ns)	59707us	37763ns	(119.42ns)	3998us	2549ns	(8.00ns)
+-- Unif 10^9  :9625us	6091ns	(19.25ns)	12719us	8066ns	(25.44ns)	19666us	13226ns	(39.33ns)	59809us	37827ns	(119.62ns)	4221us	2685ns	(8.44ns)
+Array size: 1_000_000
+-- Unif       :21451us	9601ns	(21.45ns)	11007us	4926ns	(11.01ns)	45782us	20522ns	(45.78ns)	131327us	58734ns	(131.33ns)	7633us	3549ns	(7.63ns)
+-- Unif 10^9  :22391us	10017ns	(22.39ns)	10591us	4805ns	(10.59ns)	44325us	19979ns	(44.33ns)	130305us	58275ns	(130.31ns)	8094us	3664ns	(8.09ns)
+Array size: 2_000_000
+-- Unif       :55965us	17806ns	(27.98ns)	14906us	4754ns	(7.45ns)	94190us	30110ns	(47.10ns)	275625us	87171ns	(137.81ns)	16397us	5304ns	(8.20ns)
+-- Unif 10^9  :56637us	18201ns	(28.32ns)	14773us	4699ns	(7.39ns)	95841us	30356ns	(47.92ns)	276095us	87311ns	(138.05ns)	17770us	5761ns	(8.89ns)
+Array size: 5_000_000
+-- Unif       :142822us	28632ns	(28.56ns)	31846us	6408ns	(6.37ns)	249059us	50487ns	(49.81ns)	739509us	147902ns	(147.90ns)	52624us	10697ns	(10.52ns)
+-- Unif 10^9  :138291us	27792ns	(27.66ns)	31728us	6403ns	(6.35ns)	252163us	50769ns	(50.43ns)	740872us	148275ns	(148.17ns)	53252us	11138ns	(10.65ns)
+Array size: 10_000_000
+-- Unif       :277892us	39531ns	(27.79ns)	70019us	9913ns	(7.00ns)	519646us	73911ns	(51.96ns)	1511228us	213731ns	(151.12ns)	107383us	15280ns	(10.74ns)
+-- Unif 10^9  :276395us	39101ns	(27.64ns)	70771us	10018ns	(7.08ns)	515625us	73312ns	(51.56ns)	1518822us	214816ns	(151.88ns)	106622us	15123ns	(10.66ns)
+test tests::speed_sort::speed_test_u128 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 53.97s

@@ -1,0 +1,80 @@
+running 1 test
+Number of iterations: 1
+Number of threads: 16
+With check: false
+=== Test f32 ===	Trait Vora MT		Rayon pll uns
+Array size: 20_000_000
+-- Unif       :37885us	0ns	(1.89ns)	153699us	0ns	(7.68ns)
+-- Small      :33311us	0ns	(1.67ns)	145556us	0ns	(7.28ns)
+-- Pareto 0.75:36793us	0ns	(1.84ns)	152100us	0ns	(7.61ns)
+-- Pareto 1.00:42664us	0ns	(2.13ns)	147045us	0ns	(7.35ns)
+-- Pareto 2.00:38200us	0ns	(1.91ns)	139648us	0ns	(6.98ns)
+-- Normale 10 :39756us	0ns	(1.99ns)	157572us	0ns	(7.88ns)
+-- Normale 20 :35931us	0ns	(1.80ns)	148492us	0ns	(7.42ns)
+-- Normale 30 :33684us	0ns	(1.68ns)	149697us	0ns	(7.48ns)
+Array size: 50_000_000
+-- Unif       :98018us	0ns	(1.96ns)	382918us	0ns	(7.66ns)
+-- Small      :93243us	0ns	(1.86ns)	366359us	0ns	(7.33ns)
+-- Pareto 0.75:93911us	0ns	(1.88ns)	374948us	0ns	(7.50ns)
+-- Pareto 1.00:92473us	0ns	(1.85ns)	371892us	0ns	(7.44ns)
+-- Pareto 2.00:111348us	0ns	(2.23ns)	417455us	0ns	(8.35ns)
+-- Normale 10 :85866us	0ns	(1.72ns)	399454us	0ns	(7.99ns)
+-- Normale 20 :100656us	0ns	(2.01ns)	382216us	0ns	(7.64ns)
+-- Normale 30 :89773us	0ns	(1.80ns)	377935us	0ns	(7.56ns)
+Array size: 100_000_000
+-- Unif       :167543us	0ns	(1.68ns)	768588us	0ns	(7.69ns)
+-- Small      :186551us	0ns	(1.87ns)	753142us	0ns	(7.53ns)
+-- Pareto 0.75:183543us	0ns	(1.84ns)	790559us	0ns	(7.91ns)
+-- Pareto 1.00:171045us	0ns	(1.71ns)	768949us	0ns	(7.69ns)
+-- Pareto 2.00:186219us	0ns	(1.86ns)	719392us	0ns	(7.19ns)
+-- Normale 10 :179081us	0ns	(1.79ns)	815346us	0ns	(8.15ns)
+-- Normale 20 :174820us	0ns	(1.75ns)	783596us	0ns	(7.84ns)
+-- Normale 30 :177835us	0ns	(1.78ns)	794128us	0ns	(7.94ns)
+Array size: 1_000_000_000
+-- Unif       :2118457us	0ns	(2.12ns)	8898425us	0ns	(8.90ns)
+-- Small      :2108885us	0ns	(2.11ns)	7726613us	0ns	(7.73ns)
+-- Pareto 0.75:2201330us	0ns	(2.20ns)	7576828us	0ns	(7.58ns)
+-- Pareto 1.00:2071227us	0ns	(2.07ns)	7556629us	0ns	(7.56ns)
+-- Pareto 2.00:2173539us	0ns	(2.17ns)	7759428us	0ns	(7.76ns)
+-- Normale 10 :2179490us	0ns	(2.18ns)	7924790us	0ns	(7.92ns)
+-- Normale 20 :2154271us	0ns	(2.15ns)	7784066us	0ns	(7.78ns)
+-- Normale 30 :2106249us	0ns	(2.11ns)	8016077us	0ns	(8.02ns)
+Array size: 2_000_000_000
+-- Unif       :4514503us	0ns	(2.26ns)	15962533us	0ns	(7.98ns)
+-- Small      :4678687us	0ns	(2.34ns)	15734222us	0ns	(7.87ns)
+-- Pareto 0.75:4613057us	0ns	(2.31ns)	15523214us	0ns	(7.76ns)
+-- Pareto 1.00:4555260us	0ns	(2.28ns)	17151916us	0ns	(8.58ns)
+-- Pareto 2.00:4830792us	0ns	(2.42ns)	15430518us	0ns	(7.72ns)
+-- Normale 10 :4546046us	0ns	(2.27ns)	15767762us	0ns	(7.88ns)
+-- Normale 20 :4633876us	0ns	(2.32ns)	16088779us	0ns	(8.04ns)
+-- Normale 30 :4608580us	0ns	(2.30ns)	16086400us	0ns	(8.04ns)
+Array size: 5_000_000_000
+-- Unif       :13935602us	0ns	(2.79ns)	40480472us	0ns	(8.10ns)
+-- Small      :13637361us	0ns	(2.73ns)	41086303us	0ns	(8.22ns)
+-- Pareto 0.75:13737197us	0ns	(2.75ns)	39759986us	0ns	(7.95ns)
+-- Pareto 1.00:13585368us	0ns	(2.72ns)	40513919us	0ns	(8.10ns)
+-- Pareto 2.00:13575404us	0ns	(2.72ns)	40067346us	0ns	(8.01ns)
+-- Normale 10 :12891387us	0ns	(2.58ns)	41642409us	0ns	(8.33ns)
+-- Normale 20 :12901479us	0ns	(2.58ns)	41019818us	0ns	(8.20ns)
+-- Normale 30 :12870223us	0ns	(2.57ns)	41166356us	0ns	(8.23ns)
+Array size: 7_000_000_000
+-- Unif       :20711575us	0ns	(2.96ns)	58456225us	0ns	(8.35ns)
+-- Small      :20324665us	0ns	(2.90ns)	57440686us	0ns	(8.21ns)
+-- Pareto 0.75:20570328us	0ns	(2.94ns)	60000244us	0ns	(8.57ns)
+-- Pareto 1.00:20548788us	0ns	(2.94ns)	61165571us	0ns	(8.74ns)
+-- Pareto 2.00:20637999us	0ns	(2.95ns)	57118547us	0ns	(8.16ns)
+-- Normale 10 :19179429us	0ns	(2.74ns)	58841411us	0ns	(8.41ns)
+-- Normale 20 :19203132us	0ns	(2.74ns)	62150317us	0ns	(8.88ns)
+-- Normale 30 :19153203us	0ns	(2.74ns)	56539817us	0ns	(8.08ns)
+Array size: 10_000_000_000
+-- Unif       :31431343us	0ns	(3.14ns)	84526201us	0ns	(8.45ns)
+-- Small      :31273745us	0ns	(3.13ns)	82075679us	0ns	(8.21ns)
+-- Pareto 0.75:30772276us	0ns	(3.08ns)	87214745us	0ns	(8.72ns)
+-- Pareto 1.00:31018503us	0ns	(3.10ns)	86807827us	0ns	(8.68ns)
+-- Pareto 2.00:31400963us	0ns	(3.14ns)	85885460us	0ns	(8.59ns)
+-- Normale 10 :29306760us	0ns	(2.93ns)	83905086us	0ns	(8.39ns)
+-- Normale 20 :29216320us	0ns	(2.92ns)	84682612us	0ns	(8.47ns)
+-- Normale 30 :29267997us	0ns	(2.93ns)	85118480us	0ns	(8.51ns)
+test tests::speed_sort::speed_test_f32 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 2907.10s

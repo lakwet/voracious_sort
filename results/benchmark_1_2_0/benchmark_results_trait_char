@@ -1,0 +1,86 @@
+running 1 test
+Number of iterations: 5
+Number of threads: 16
+With check: true
+=== Test char ===	Trait Vora Uns or stable		Trait Vora MT		Rust Uns		Rust Std		Rayon pll uns
+Array size: 100
+-- Unif       :2us	155ns	(25.07ns)	2us	133ns	(25.25ns)	2us	147ns	(22.61ns)	2us	134ns	(27.37ns)	2us	118ns	(22.04ns)
+-- Equal      :0us	8ns	(1.05ns)	0us	8ns	(1.15ns)	0us	6ns	(0.97ns)	0us	10ns	(1.42ns)	0us	6ns	(1.05ns)
+-- Charset    :2us	99ns	(21.26ns)	2us	104ns	(23.21ns)	2us	99ns	(21.41ns)	2us	118ns	(25.64ns)	2us	106ns	(22.49ns)
+-- Charset Den:2us	94ns	(20.74ns)	2us	102ns	(22.09ns)	2us	100ns	(21.66ns)	2us	114ns	(25.17ns)	2us	95ns	(21.01ns)
+-- Charset VDe:2us	98ns	(21.31ns)	2us	99ns	(21.96ns)	2us	92ns	(20.33ns)	2us	112ns	(24.72ns)	1us	89ns	(19.58ns)
+Array size: 1000
+-- Unif       :16us	346ns	(16.17ns)	22us	323ns	(22.76ns)	21us	308ns	(21.78ns)	33us	474ns	(33.44ns)	21us	310ns	(21.88ns)
+-- Equal      :0us	11ns	(0.60ns)	0us	6ns	(0.42ns)	0us	6ns	(0.41ns)	0us	9ns	(0.62ns)	0us	6ns	(0.42ns)
+-- Charset    :2us	49ns	(2.86ns)	14us	204ns	(14.39ns)	14us	204ns	(14.28ns)	32us	467ns	(32.98ns)	14us	206ns	(14.47ns)
+-- Charset Den:13us	203ns	(13.32ns)	14us	207ns	(14.63ns)	14us	204ns	(14.37ns)	33us	467ns	(33.01ns)	14us	201ns	(14.07ns)
+-- Charset VDe:17us	281ns	(17.95ns)	15us	220ns	(15.53ns)	15us	221ns	(15.58ns)	32us	463ns	(32.74ns)	15us	213ns	(15.01ns)
+Array size: 5000
+-- Unif       :48us	316ns	(9.62ns)	106us	1387ns	(21.26ns)	117us	744ns	(23.51ns)	191us	1212ns	(38.31ns)	78us	535ns	(15.64ns)
+-- Equal      :1us	12ns	(0.36ns)	2us	13ns	(0.42ns)	2us	13ns	(0.42ns)	2us	15ns	(0.46ns)	2us	13ns	(0.42ns)
+-- Charset    :6us	41ns	(1.29ns)	59us	467ns	(11.84ns)	52us	331ns	(10.43ns)	190us	1207ns	(38.16ns)	50us	379ns	(10.04ns)
+-- Charset Den:41us	269ns	(8.27ns)	53us	454ns	(10.64ns)	52us	332ns	(10.42ns)	191us	1209ns	(38.21ns)	61us	551ns	(12.22ns)
+-- Charset VDe:58us	374ns	(11.73ns)	63us	446ns	(12.77ns)	53us	336ns	(10.61ns)	190us	1208ns	(38.18ns)	57us	540ns	(11.41ns)
+Array size: 10_000
+-- Unif       :91us	442ns	(9.12ns)	142us	699ns	(14.24ns)	244us	1096ns	(24.46ns)	411us	1841ns	(41.17ns)	152us	790ns	(15.27ns)
+-- Equal      :3us	15ns	(0.34ns)	4us	19ns	(0.42ns)	4us	19ns	(0.42ns)	4us	20ns	(0.45ns)	4us	19ns	(0.42ns)
+-- Charset    :9us	43ns	(0.96ns)	85us	406ns	(8.57ns)	91us	413ns	(9.18ns)	411us	1846ns	(41.18ns)	86us	406ns	(8.62ns)
+-- Charset Den:93us	638ns	(9.37ns)	95us	433ns	(9.56ns)	155us	702ns	(15.58ns)	703us	3146ns	(70.35ns)	103us	498ns	(10.38ns)
+-- Charset VDe:175us	785ns	(17.54ns)	103us	548ns	(10.33ns)	165us	741ns	(16.51ns)	703us	3147ns	(70.36ns)	92us	419ns	(9.21ns)
+Array size: 20_000
+-- Unif       :310us	1014ns	(15.53ns)	236us	876ns	(11.83ns)	873us	2762ns	(43.66ns)	1501us	4749ns	(75.07ns)	282us	918ns	(14.14ns)
+-- Equal      :11us	35ns	(0.55ns)	13us	43ns	(0.68ns)	13us	43ns	(0.69ns)	16us	60ns	(0.83ns)	13us	43ns	(0.68ns)
+-- Charset    :24us	78ns	(1.22ns)	157us	512ns	(7.88ns)	306us	977ns	(15.31ns)	1496us	4732ns	(74.81ns)	150us	491ns	(7.50ns)
+-- Charset Den:107us	554ns	(5.35ns)	143us	463ns	(7.19ns)	302us	964ns	(15.14ns)	1492us	4720ns	(74.62ns)	155us	529ns	(7.75ns)
+-- Charset VDe:255us	808ns	(12.77ns)	155us	542ns	(7.76ns)	309us	988ns	(15.47ns)	1598us	5314ns	(79.92ns)	162us	546ns	(8.13ns)
+Array size: 50_000
+-- Unif       :615us	1236ns	(12.31ns)	450us	925ns	(9.02ns)	2362us	4802ns	(47.25ns)	4217us	8436ns	(84.35ns)	505us	1050ns	(10.11ns)
+-- Equal      :26us	53ns	(0.53ns)	32us	64ns	(0.64ns)	32us	67ns	(0.66ns)	37us	76ns	(0.76ns)	34us	71ns	(0.68ns)
+-- Charset    :55us	112ns	(1.12ns)	338us	718ns	(6.76ns)	750us	1543ns	(15.01ns)	4311us	8860ns	(86.24ns)	381us	853ns	(7.62ns)
+-- Charset Den:177us	367ns	(3.56ns)	307us	630ns	(6.14ns)	724us	1450ns	(14.49ns)	4170us	8342ns	(83.41ns)	324us	689ns	(6.49ns)
+-- Charset VDe:630us	1263ns	(12.61ns)	313us	631ns	(6.27ns)	814us	1652ns	(16.28ns)	3679us	7417ns	(73.59ns)	298us	613ns	(5.98ns)
+Array size: 100_000
+-- Unif       :1039us	1484ns	(10.40ns)	817us	1170ns	(8.18ns)	4161us	5940ns	(41.61ns)	5601us	10013ns	(56.02ns)	786us	1167ns	(7.86ns)
+-- Equal      :30us	43ns	(0.30ns)	35us	51ns	(0.36ns)	39us	68ns	(0.39ns)	47us	76ns	(0.47ns)	35us	51ns	(0.36ns)
+-- Charset    :65us	93ns	(0.66ns)	579us	985ns	(5.80ns)	841us	1204ns	(8.42ns)	5075us	7179ns	(50.76ns)	545us	806ns	(5.45ns)
+-- Charset Den:143us	204ns	(1.43ns)	598us	1010ns	(5.98ns)	834us	1185ns	(8.34ns)	5075us	7177ns	(50.75ns)	533us	827ns	(5.33ns)
+-- Charset VDe:723us	1025ns	(7.24ns)	485us	717ns	(4.85ns)	888us	1290ns	(8.89ns)	5118us	7240ns	(51.18ns)	583us	831ns	(5.83ns)
+Array size: 200_000
+-- Unif       :1373us	1380ns	(6.87ns)	1429us	1613ns	(7.15ns)	5640us	5641ns	(28.20ns)	10742us	10745ns	(53.71ns)	1368us	1455ns	(6.84ns)
+-- Equal      :59us	60ns	(0.30ns)	73us	75ns	(0.37ns)	71us	72ns	(0.36ns)	88us	88ns	(0.44ns)	73us	74ns	(0.37ns)
+-- Charset    :131us	131ns	(0.66ns)	950us	980ns	(4.75ns)	1742us	1987ns	(8.71ns)	10739us	10740ns	(53.70ns)	1015us	1094ns	(5.08ns)
+-- Charset Den:214us	216ns	(1.07ns)	959us	1096ns	(4.80ns)	1739us	1842ns	(8.70ns)	10763us	10764ns	(53.82ns)	950us	986ns	(4.75ns)
+-- Charset VDe:1426us	1445ns	(7.13ns)	955us	1074ns	(4.78ns)	1696us	1728ns	(8.48ns)	10747us	10749ns	(53.74ns)	1097us	1324ns	(5.49ns)
+Array size: 500_000
+-- Unif       :3308us	2108ns	(6.62ns)	3426us	2237ns	(6.85ns)	15867us	11214ns	(31.74ns)	28672us	18138ns	(57.35ns)	3377us	2160ns	(6.76ns)
+-- Equal      :158us	105ns	(0.32ns)	176us	112ns	(0.35ns)	177us	112ns	(0.36ns)	220us	141ns	(0.44ns)	179us	114ns	(0.36ns)
+-- Charset    :296us	188ns	(0.59ns)	2489us	1632ns	(4.98ns)	6866us	5373ns	(13.73ns)	28330us	17918ns	(56.66ns)	2477us	1618ns	(4.95ns)
+-- Charset Den:386us	245ns	(0.77ns)	2316us	1705ns	(4.63ns)	6351us	4939ns	(12.70ns)	28396us	17961ns	(56.79ns)	2511us	1674ns	(5.02ns)
+-- Charset VDe:3411us	2159ns	(6.82ns)	2378us	1671ns	(4.76ns)	6457us	4202ns	(12.91ns)	29086us	18725ns	(58.17ns)	2397us	1857ns	(4.80ns)
+Array size: 1_000_000
+-- Unif       :6739us	3026ns	(6.74ns)	2849us	1554ns	(2.85ns)	30942us	14361ns	(30.94ns)	57613us	25770ns	(57.61ns)	5303us	2443ns	(5.30ns)
+-- Equal      :295us	133ns	(0.30ns)	622us	281ns	(0.62ns)	356us	161ns	(0.36ns)	423us	190ns	(0.42ns)	349us	157ns	(0.35ns)
+-- Charset    :594us	266ns	(0.59ns)	2398us	1160ns	(2.40ns)	9243us	4409ns	(9.24ns)	59603us	26656ns	(59.60ns)	5146us	2723ns	(5.15ns)
+-- Charset Den:915us	514ns	(0.92ns)	2604us	1254ns	(2.60ns)	9763us	4447ns	(9.76ns)	59980us	26826ns	(59.98ns)	4563us	2238ns	(4.56ns)
+-- Charset VDe:7084us	3172ns	(7.08ns)	4566us	2220ns	(4.57ns)	8652us	3908ns	(8.65ns)	58343us	26096ns	(58.34ns)	4396us	2201ns	(4.40ns)
+Array size: 2_000_000
+-- Unif       :15143us	4800ns	(7.57ns)	4413us	1414ns	(2.21ns)	70850us	23581ns	(35.43ns)	124197us	39277ns	(62.10ns)	13581us	4344ns	(6.79ns)
+-- Equal      :663us	211ns	(0.33ns)	1139us	369ns	(0.57ns)	789us	250ns	(0.39ns)	921us	291ns	(0.46ns)	806us	263ns	(0.40ns)
+-- Charset    :1415us	514ns	(0.71ns)	3790us	1221ns	(1.90ns)	20904us	6952ns	(10.45ns)	121875us	38549ns	(60.94ns)	9736us	3326ns	(4.87ns)
+-- Charset Den:2979us	1019ns	(1.49ns)	4163us	1330ns	(2.08ns)	21695us	9447ns	(10.85ns)	122220us	38653ns	(61.11ns)	10853us	3484ns	(5.43ns)
+-- Charset VDe:19960us	8062ns	(9.98ns)	5895us	1934ns	(2.95ns)	25552us	12692ns	(12.78ns)	125172us	39584ns	(62.59ns)	8180us	2864ns	(4.09ns)
+Array size: 5_000_000
+-- Unif       :53830us	12023ns	(10.77ns)	9090us	1854ns	(1.82ns)	188512us	38022ns	(37.70ns)	311811us	62436ns	(62.36ns)	32364us	6740ns	(6.47ns)
+-- Equal      :2897us	730ns	(0.58ns)	2479us	504ns	(0.50ns)	2537us	510ns	(0.51ns)	2385us	477ns	(0.48ns)	2719us	545ns	(0.54ns)
+-- Charset    :6756us	1358ns	(1.35ns)	7365us	1500ns	(1.47ns)	56548us	11367ns	(11.31ns)	313353us	62719ns	(62.67ns)	28128us	6864ns	(5.63ns)
+-- Charset Den:9348us	1891ns	(1.87ns)	9005us	1824ns	(1.80ns)	58845us	11898ns	(11.77ns)	317389us	63494ns	(63.48ns)	25431us	6239ns	(5.09ns)
+-- Charset VDe:42847us	9037ns	(8.57ns)	13184us	2718ns	(2.64ns)	60010us	12778ns	(12.00ns)	312144us	62441ns	(62.43ns)	27999us	7914ns	(5.60ns)
+Array size: 10_000_000
+-- Unif       :99392us	14195ns	(9.94ns)	15812us	2256ns	(1.58ns)	343465us	49328ns	(34.35ns)	651511us	92157ns	(65.15ns)	57966us	8637ns	(5.80ns)
+-- Equal      :5594us	797ns	(0.56ns)	5947us	842ns	(0.59ns)	5690us	817ns	(0.57ns)	5192us	747ns	(0.52ns)	5910us	836ns	(0.59ns)
+-- Charset    :15793us	2260ns	(1.58ns)	13739us	1978ns	(1.37ns)	119933us	17398ns	(11.99ns)	649607us	91871ns	(64.96ns)	44606us	6622ns	(4.46ns)
+-- Charset Den:15912us	2275ns	(1.59ns)	17864us	2581ns	(1.79ns)	115609us	16742ns	(11.56ns)	674221us	95350ns	(67.42ns)	51625us	8533ns	(5.16ns)
+-- Charset VDe:86476us	12372ns	(8.65ns)	25060us	3737ns	(2.51ns)	123484us	17591ns	(12.35ns)	673078us	95414ns	(67.31ns)	48100us	8193ns	(4.81ns)
+test tests::speed_sort::speed_test_char ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 44.51s
