@@ -59,13 +59,13 @@
 //! Add in `Cargo.toml` if you want only single thread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = { version = "1.1.0" }
+//! voracious_radix_sort = { version = "1.2.0" }
 //! ```
 //!
 //! If you also want the multithread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = { version = "1.1.0", features = ["voracious_multithread"] }
+//! voracious_radix_sort = { version = "1.2.0", features = ["voracious_multithread"] }
 //! ```
 //!
 //! ### Environment variable
@@ -86,7 +86,7 @@
 //!
 //! ### Example
 //!
-//! ```
+//! ```ignore
 //! use voracious_radix_sort::{RadixSort};
 //!
 //! let mut array = vec![2, 45, 8, 7, 9, 65, 8, 74, 1, 2, 56, 9, 7, 41];

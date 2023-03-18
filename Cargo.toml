@@ -1,6 +1,6 @@
 [package]
 name = "voracious_radix_sort"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
 description = "State of the art radix sort algorithms. Single thread and multi thread versions."

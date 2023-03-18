@@ -54,6 +54,12 @@ sessions to code this project.
 
 You can also think about it like someone very voracious of radish...
 
+## Disclaimer about memory consumption
+
+Implemented sorts in the voracious trait may be out of place, it means it can
+use memory up to 2x the array size. If you want to be sure to use in place
+algorithm, please use sorting functions instead of the trait.
+
 ## Documentation: How to use it ?
 
 Since it is alreay explained in the crate documentation, we just provide the link:

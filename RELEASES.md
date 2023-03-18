@@ -1,3 +1,19 @@
+# Version **1.2.0** (March 18<sup>th</sup> 2023)
+
+### Dependency:
+
+- Use Rayon 1.7.0 instead of 1.5.3.
+
+### Bug fix:
+
+- Peeka sort did not scale correctly because of constants. Now it uses dynanmic
+values for blocks size for the parallele algorithm.
+
+### Misc:
+
+- Add warning about memory consumption in Readme.
+- Add benchmarck results (mostly for the multithreaded sort)
+
 # Version **1.1.1** (August 20<sup>th</sup> 2022)
 
 ### Dependency:
