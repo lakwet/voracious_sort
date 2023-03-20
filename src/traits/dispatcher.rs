@@ -12,6 +12,8 @@ use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::super::sorts::voracious_sort::voracious_sort;
 use super::super::{RadixKey, Radixable};
 
+// This trait is implemented when a struct with a key is the element in the
+// array to sort.
 pub trait Dispatcher<T: Radixable<K>, K: RadixKey> {
     fn voracious_sort(&self, arr: &mut [T]);
     fn voracious_stable_sort(&self, arr: &mut [T]);
@@ -70,8 +72,11 @@ impl<T: Radixable<char>> Dispatcher<T, char> for char {
                 100_000
             } else if arr.len() < 900_000_000 {
                 200_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 300_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 7, chunk_size, thread_n);
         }
@@ -108,8 +113,11 @@ impl<T: Radixable<f32>> Dispatcher<T, f32> for f32 {
                 200_000
             } else if arr.len() < 600_000_000 {
                 150_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 200_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
@@ -126,7 +134,7 @@ impl<T: Radixable<f64>> Dispatcher<T, f64> for f64 {
     }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         if arr.len() < 350 {
-            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+            arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         } else if arr.len() < 100_000 {
             msd_stable_radixsort(arr, 8);
         } else if arr.len() < 3_000_000 {
@@ -148,8 +156,11 @@ impl<T: Radixable<f64>> Dispatcher<T, f64> for f64 {
                 150_000
             } else if arr.len() < 300_000_000 {
                 200_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 300_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
@@ -168,15 +179,18 @@ impl<T: Radixable<i8>> Dispatcher<T, i8> for i8 {
         if arr.len() <= 500 {
             msd_stable_radixsort(arr, 8);
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -194,15 +208,18 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
         if arr.len() <= 500 {
             msd_stable_radixsort(arr, 8);
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -219,15 +236,18 @@ impl<T: Radixable<i16>> Dispatcher<T, i16> for i16 {
         if arr.len() <= 200 {
             arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -245,41 +265,58 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
         if arr.len() <= 200 {
             arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 impl<T: Radixable<i32>> Dispatcher<T, i32> for i32 {
-    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
-    fn voracious_stable_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        lsd_radixsort(arr, 8);
+    }
+    fn voracious_stable_sort(&self, arr: &mut [T]) {
+        lsd_stable_radixsort(arr, 8);
+    }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 #[cfg(target_pointer_width = "32")]
 impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
-    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
-    fn voracious_stable_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        lsd_radixsort(arr, 8);
+    }
+    fn voracious_stable_sort(&self, arr: &mut [T]) {
+        lsd_stable_radixsort(arr, 8);
+    }
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -302,7 +339,7 @@ impl<T: Radixable<i64>> Dispatcher<T, i64> for i64 {
         } else if arr.len() <= 8000 {
             msd_stable_radixsort(arr, 8);
         } else if arr.len() <= 100_000 {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         } else {
             msd_stable_radixsort(arr, 8);
         }
@@ -311,8 +348,11 @@ impl<T: Radixable<i64>> Dispatcher<T, i64> for i64 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -336,7 +376,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
         } else if arr.len() <= 8000 {
             msd_stable_radixsort(arr, 8);
         } else if arr.len() <= 100_000 {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         } else {
             msd_stable_radixsort(arr, 8);
         }
@@ -345,14 +385,19 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 impl<T: Radixable<i128>> Dispatcher<T, i128> for i128 {
-    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        voracious_sort(arr, 8);
+    }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -360,15 +405,20 @@ impl<T: Radixable<i128>> Dispatcher<T, i128> for i128 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 #[cfg(target_pointer_width = "128")]
 impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
-    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        voracious_sort(arr, 8);
+    }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -376,8 +426,11 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -394,15 +447,18 @@ impl<T: Radixable<u8>> Dispatcher<T, u8> for u8 {
         if arr.len() <= 500 {
             msd_stable_radixsort(arr, 8);
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -420,15 +476,18 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
         if arr.len() <= 500 {
             msd_stable_radixsort(arr, 8);
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -445,15 +504,18 @@ impl<T: Radixable<u16>> Dispatcher<T, u16> for u16 {
         if arr.len() <= 200 {
             arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -471,40 +533,57 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
         if arr.len() <= 200 {
             arr.sort_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         }
     }
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 impl<T: Radixable<u32>> Dispatcher<T, u32> for u32 {
-    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
-    fn voracious_stable_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        lsd_radixsort(arr, 8);
+    }
+    fn voracious_stable_sort(&self, arr: &mut [T]) {
+        lsd_stable_radixsort(arr, 8);
+    }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 #[cfg(target_pointer_width = "32")]
 impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
-    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
-    fn voracious_stable_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        lsd_radixsort(arr, 8);
+    }
+    fn voracious_stable_sort(&self, arr: &mut [T]) {
+        lsd_stable_radixsort(arr, 8);
+    }
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -523,7 +602,7 @@ impl<T: Radixable<u64>> Dispatcher<T, u64> for u64 {
         } else if arr.len() <= 8000 {
             msd_stable_radixsort(arr, 8);
         } else if arr.len() <= 100_000 {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         } else {
             msd_stable_radixsort(arr, 8);
         }
@@ -532,8 +611,11 @@ impl<T: Radixable<u64>> Dispatcher<T, u64> for u64 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
@@ -553,7 +635,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
         } else if arr.len() <= 8000 {
             msd_stable_radixsort(arr, 8);
         } else if arr.len() <= 100_000 {
-            lsd_radixsort(arr, 8);
+            lsd_stable_radixsort(arr, 8);
         } else {
             msd_stable_radixsort(arr, 8);
         }
@@ -562,14 +644,19 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 impl<T: Radixable<u128>> Dispatcher<T, u128> for u128 {
-    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        voracious_sort(arr, 8);
+    }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -577,15 +664,20 @@ impl<T: Radixable<u128>> Dispatcher<T, u128> for u128 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
 
 #[cfg(target_pointer_width = "128")]
 impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
-    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
+    fn voracious_sort(&self, arr: &mut [T]) {
+        voracious_sort(arr, 8);
+    }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -593,8 +685,11 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else {
+        } else if arr.len() < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
+        } else {
+            // Switch to regions sort algo
+            peeka_sort(arr, 8, 5_000, thread_n);
         }
     }
 }
