@@ -13,7 +13,9 @@ impl Radixable<f32> for f32 {
     type Key = f32;
 
     #[inline]
-    fn key(&self) -> f32 { *self }
+    fn key(&self) -> f32 {
+        *self
+    }
     #[inline]
     fn extract(&self, mask: u32, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
@@ -196,21 +198,31 @@ impl Radixable<f32> for f32 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [f32]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
-        if arr.len() < 1_000_000 {
+        if arr.len() <= 800_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
-            let chunk_size = if arr.len() < 10_000_000 {
+            let chunk_size = if arr.len() < 1_000_000 {
+                100_000
+            } else if arr.len() < 2_000_000 {
+                150_000
+            } else if arr.len() < 10_000_000 {
                 200_000
             } else if arr.len() < 100_000_000 {
                 300_000
             } else if arr.len() < 300_000_000 {
                 600_000
-            } else {
+            } else if arr.len() < 600_000_000 {
+                150_000
+            } else if arr.len() < 5_000_000_000 {
                 700_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
@@ -221,7 +233,9 @@ impl Radixable<f64> for f64 {
     type Key = f64;
 
     #[inline]
-    fn key(&self) -> f64 { *self }
+    fn key(&self) -> f64 {
+        *self
+    }
     #[inline]
     fn extract(&self, mask: u64, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
@@ -700,6 +714,7 @@ impl Radixable<f64> for f64 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [f64]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
@@ -715,8 +730,11 @@ impl Radixable<f64> for f64 {
                 500_000
             } else if arr.len() < 500_000_000 {
                 400_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 500_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
