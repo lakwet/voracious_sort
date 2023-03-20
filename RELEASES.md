@@ -7,12 +7,17 @@
 ### Bug fix:
 
 - Peeka sort did not scale correctly because of constants. Now it uses dynanmic
-values for blocks size for the parallele algorithm.
+values for blocks size for the parallele algorithm. It now scale for arrays whose
+size is bigger than 1_000_000_000.
+- Dispatcher trait was bugged for the stable sort. If using stable sort and custom
+structs, the stable sort called the unstable rust sort as fallback. It now calls
+the stable rust sort for the fallback.
 
 ### Misc:
 
-- Add warning about memory consumption in Readme.
-- Add benchmarck results (mostly for the multithreaded sort)
+- Add disclaimer about memory consumption in the Readme.
+- Add disclaimer about array size in the Readme.
+- Add human readable benchmark results.
 
 # Version **1.1.1** (August 20<sup>th</sup> 2022)
 

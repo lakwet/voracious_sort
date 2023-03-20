@@ -60,6 +60,12 @@ Implemented sorts in the voracious trait may be out of place, it means it can
 use memory up to 2x the array size. If you want to be sure to use in place
 algorithm, please use sorting functions instead of the trait.
 
+## Disclaimer about array size
+
+A radix sort is meant to be used on very big arrays. I make this crate to also sort
+smaller arrays but Voracious will fallback on native rust sorts. I let the user read
+the benchmark results to know if they need the Voracious sort.
+
 ## Documentation: How to use it ?
 
 Since it is alreay explained in the crate documentation, we just provide the link:
@@ -117,7 +123,9 @@ each elements. For a detail example, I let the reader read the Wikipedia page on
 
 First, please, read: [PROFILING.md](https://github.com/lakwet/voracious_sort/blob/master/PROFILING.md).
 
-If there is raw benchmark (in the [results folder](https://github.com/lakwet/voracious_sort/tree/master/results)) results available:
+Benchmarks are available here:
+[results folder](https://github.com/lakwet/voracious_sort/tree/master/results)
+
 For each sort, 3 columns:
 - 1st column: time un micro second
 - 2nd column: standard deviation (if more than 1 iteration) in nano second
