@@ -55,9 +55,9 @@ pub fn helper_sort_aux<T, K>(
         }
     }
 
-    if nanos.len() > 1 {
-        nanos.remove(0);
-    }
+    // if nanos.len() > 1 {
+    //     nanos.remove(0);
+    // }
 
     let sum: u64 = nanos.iter().sum();
     let mean: u64 = if runs > 1 { sum / (runs as u64 - 1) } else { sum as u64 };
