@@ -61,8 +61,24 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
     p: Params,
     pool: &ThreadPool,
-    block_size: usize,
+    previous_block_count: usize,
+    init_size: usize,
 ) {
+    let mut block_count = if previous_block_count * arr.len() / init_size == 0 {
+        1
+    } else {
+        previous_block_count * arr.len() / init_size
+    };
+    let mut block_size = if arr.len() / block_count < FALLBACK_THRESHOLD {
+        FALLBACK_THRESHOLD
+    } else {
+        arr.len() / block_count
+    };
+    if init_size < 5_000_000_000 {
+        block_size = previous_block_count;
+        block_count = previous_block_count;
+    }
+
     if arr.len() <= FALLBACK_THRESHOLD {
         fallback(arr, p);
         return;
@@ -143,7 +159,8 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
                             &mut broker,
                             new_params,
                             pool,
-                            block_size,
+                            block_count,
+                            init_size,
                         );
                     });
                 } else {
@@ -174,7 +191,7 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
 pub fn peeka_sort<T, K>(
     arr: &mut [T],
     radix: usize,
-    block_size: usize,
+    blocks_info: usize,
     thread_n: usize,
 ) where
     T: Radixable<K>,
@@ -196,7 +213,7 @@ pub fn peeka_sort<T, K>(
         if max_level > 0 {
             let params = Params::new(0, rdx, raw_offset, max_level);
 
-            peeka_sort_rec(array, params, &pool, block_size);
+            peeka_sort_rec(array, params, &pool, blocks_info, size);
         }
     });
 

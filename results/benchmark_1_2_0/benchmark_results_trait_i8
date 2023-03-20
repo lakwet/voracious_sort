@@ -1,0 +1,99 @@
+running 1 test
+Number of iterations: 5
+Number of threads: 16
+With check: true
+=== Test i8 ===	Trait Vora Uns or stable		Trait Vora MT		Rust Uns		Rust Std		Rayon pll uns
+Array size: 100
+-- Unif       :5us	614ns	(55.03ns)	3us	244ns	(36.19ns)	4us	225ns	(42.05ns)	5us	263ns	(54.22ns)	3us	250ns	(38.72ns)
+-- Asc Saw    :0us	63ns	(9.39ns)	0us	38ns	(7.56ns)	0us	13ns	(2.07ns)	0us	14ns	(2.58ns)	0us	27ns	(2.75ns)
+-- Desc Saw   :0us	39ns	(8.24ns)	0us	39ns	(8.31ns)	0us	12ns	(2.45ns)	0us	50ns	(6.26ns)	0us	11ns	(2.05ns)
+-- Equal      :0us	49ns	(6.24ns)	0us	22ns	(4.91ns)	0us	16ns	(1.37ns)	0us	20ns	(1.57ns)	0us	5ns	(0.92ns)
+-- Zipf       :0us	31ns	(5.76ns)	0us	22ns	(4.91ns)	1us	51ns	(11.27ns)	2us	101ns	(22.24ns)	0us	49ns	(9.84ns)
+-- Normale 10 :0us	59ns	(9.79ns)	0us	40ns	(8.51ns)	1us	56ns	(11.32ns)	2us	101ns	(21.96ns)	0us	51ns	(9.09ns)
+Array size: 1000
+-- Unif       :4us	58ns	(4.07ns)	3us	56ns	(3.93ns)	22us	316ns	(22.28ns)	33us	474ns	(33.42ns)	22us	322ns	(22.72ns)
+-- Asc Saw    :2us	40ns	(2.79ns)	2us	37ns	(2.60ns)	17us	322ns	(17.00ns)	8us	124ns	(8.75ns)	17us	322ns	(17.34ns)
+-- Desc Saw   :2us	41ns	(2.81ns)	3us	47ns	(3.05ns)	18us	391ns	(18.78ns)	7us	107ns	(7.52ns)	17us	310ns	(17.36ns)
+-- Equal      :2us	33ns	(2.36ns)	2us	33ns	(2.33ns)	0us	6ns	(0.42ns)	0us	7ns	(0.48ns)	0us	6ns	(0.41ns)
+-- Zipf       :1us	23ns	(1.58ns)	1us	22ns	(1.54ns)	6us	130ns	(6.22ns)	30us	434ns	(30.32ns)	5us	96ns	(5.93ns)
+-- Normale 10 :2us	40ns	(2.82ns)	2us	40ns	(2.78ns)	5us	89ns	(5.95ns)	27us	385ns	(27.11ns)	7us	119ns	(7.04ns)
+Array size: 5000
+-- Unif       :6us	43ns	(1.32ns)	6us	40ns	(1.25ns)	134us	850ns	(26.88ns)	339us	2145ns	(67.80ns)	86us	733ns	(17.39ns)
+-- Asc Saw    :7us	48ns	(1.50ns)	7us	47ns	(1.48ns)	125us	827ns	(25.06ns)	126us	805ns	(25.30ns)	117us	914ns	(23.48ns)
+-- Desc Saw   :7us	48ns	(1.50ns)	7us	47ns	(1.48ns)	121us	807ns	(24.36ns)	126us	799ns	(25.25ns)	92us	965ns	(18.50ns)
+-- Equal      :18us	117ns	(3.71ns)	18us	117ns	(3.69ns)	3us	20ns	(0.64ns)	3us	24ns	(0.75ns)	3us	20ns	(0.64ns)
+-- Zipf       :10us	69ns	(2.12ns)	10us	65ns	(2.06ns)	37us	269ns	(7.49ns)	320us	2039ns	(64.05ns)	47us	321ns	(9.43ns)
+-- Normale 10 :13us	88ns	(2.76ns)	13us	85ns	(2.69ns)	51us	399ns	(10.36ns)	274us	1737ns	(54.87ns)	53us	523ns	(10.77ns)
+Array size: 10_000
+-- Unif       :13us	61ns	(1.35ns)	13us	61ns	(1.36ns)	212us	1312ns	(21.26ns)	421us	1888ns	(42.20ns)	126us	580ns	(12.68ns)
+-- Asc Saw    :12us	59ns	(1.28ns)	11us	53ns	(1.18ns)	142us	641ns	(14.24ns)	173us	776ns	(17.36ns)	123us	573ns	(12.36ns)
+-- Desc Saw   :13us	59ns	(1.31ns)	13us	60ns	(1.32ns)	140us	631ns	(14.01ns)	176us	790ns	(17.65ns)	120us	629ns	(12.07ns)
+-- Equal      :21us	95ns	(2.12ns)	20us	94ns	(2.10ns)	3us	16ns	(0.36ns)	4us	19ns	(0.42ns)	3us	16ns	(0.36ns)
+-- Zipf       :11us	51ns	(1.15ns)	11us	51ns	(1.14ns)	49us	336ns	(5.00ns)	393us	1766ns	(39.37ns)	55us	276ns	(5.57ns)
+-- Normale 10 :16us	76ns	(1.69ns)	17us	77ns	(1.72ns)	70us	366ns	(7.02ns)	344us	1543ns	(34.44ns)	96us	480ns	(9.66ns)
+Array size: 20_000
+-- Unif       :20us	64ns	(1.01ns)	20us	64ns	(1.01ns)	268us	849ns	(13.41ns)	901us	2853ns	(45.09ns)	196us	656ns	(9.82ns)
+-- Asc Saw    :19us	63ns	(0.99ns)	19us	62ns	(0.98ns)	264us	836ns	(13.21ns)	404us	1280ns	(20.22ns)	214us	704ns	(10.73ns)
+-- Desc Saw   :19us	62ns	(0.98ns)	21us	68ns	(1.05ns)	261us	828ns	(13.07ns)	416us	1318ns	(20.83ns)	212us	753ns	(10.64ns)
+-- Equal      :42us	137ns	(2.14ns)	41us	131ns	(2.07ns)	7us	25ns	(0.39ns)	8us	26ns	(0.42ns)	7us	25ns	(0.40ns)
+-- Zipf       :22us	74ns	(1.13ns)	21us	69ns	(1.09ns)	70us	239ns	(3.51ns)	858us	2721ns	(42.91ns)	102us	426ns	(5.14ns)
+-- Normale 10 :30us	97ns	(1.53ns)	30us	96ns	(1.51ns)	127us	469ns	(6.36ns)	726us	2297ns	(36.31ns)	175us	772ns	(8.77ns)
+Array size: 50_000
+-- Unif       :38us	97ns	(0.78ns)	29us	61ns	(0.60ns)	607us	1216ns	(12.14ns)	2489us	4982ns	(49.79ns)	305us	779ns	(6.12ns)
+-- Asc Saw    :26us	53ns	(0.53ns)	26us	53ns	(0.53ns)	577us	1156ns	(11.56ns)	1217us	2436ns	(24.36ns)	359us	803ns	(7.20ns)
+-- Desc Saw   :26us	54ns	(0.53ns)	26us	53ns	(0.53ns)	585us	1172ns	(11.72ns)	1235us	2472ns	(24.72ns)	319us	686ns	(6.38ns)
+-- Equal      :104us	208ns	(2.08ns)	104us	209ns	(2.09ns)	19us	39ns	(0.39ns)	20us	42ns	(0.42ns)	19us	39ns	(0.39ns)
+-- Zipf       :59us	144ns	(1.18ns)	54us	111ns	(1.09ns)	244us	634ns	(4.88ns)	2310us	4801ns	(46.20ns)	229us	866ns	(4.60ns)
+-- Normale 10 :57us	114ns	(1.14ns)	56us	113ns	(1.13ns)	260us	621ns	(5.21ns)	1969us	3940ns	(39.39ns)	359us	1255ns	(7.19ns)
+Array size: 100_000
+-- Unif       :53us	75ns	(0.53ns)	52us	74ns	(0.52ns)	1175us	1664ns	(11.75ns)	5267us	7450ns	(52.68ns)	617us	931ns	(6.17ns)
+-- Asc Saw    :50us	72ns	(0.51ns)	51us	74ns	(0.51ns)	1135us	1607ns	(11.36ns)	2722us	3851ns	(27.23ns)	525us	779ns	(5.25ns)
+-- Desc Saw   :50us	72ns	(0.51ns)	49us	70ns	(0.49ns)	1121us	1587ns	(11.22ns)	2801us	3963ns	(28.01ns)	558us	839ns	(5.59ns)
+-- Equal      :209us	296ns	(2.09ns)	207us	294ns	(2.08ns)	36us	52ns	(0.37ns)	41us	59ns	(0.42ns)	38us	56ns	(0.38ns)
+-- Zipf       :104us	148ns	(1.05ns)	109us	159ns	(1.10ns)	459us	939ns	(4.59ns)	4970us	7112ns	(49.71ns)	650us	2058ns	(6.51ns)
+-- Normale 10 :108us	153ns	(1.08ns)	107us	152ns	(1.07ns)	479us	891ns	(4.79ns)	4158us	5889ns	(41.59ns)	680us	1892ns	(6.80ns)
+Array size: 200_000
+-- Unif       :122us	189ns	(0.61ns)	104us	107ns	(0.52ns)	2359us	2363ns	(11.80ns)	11060us	11062ns	(55.30ns)	922us	1052ns	(4.61ns)
+-- Asc Saw    :94us	94ns	(0.47ns)	122us	161ns	(0.61ns)	2255us	2256ns	(11.28ns)	6000us	6002ns	(30.00ns)	868us	880ns	(4.34ns)
+-- Desc Saw   :147us	147ns	(0.74ns)	158us	159ns	(0.79ns)	2341us	2342ns	(11.71ns)	6116us	6117ns	(30.58ns)	1023us	1041ns	(5.12ns)
+-- Equal      :415us	416ns	(2.08ns)	401us	402ns	(2.01ns)	70us	70ns	(0.35ns)	80us	81ns	(0.40ns)	70us	70ns	(0.35ns)
+-- Zipf       :216us	230ns	(1.08ns)	204us	205ns	(1.02ns)	779us	1101ns	(3.90ns)	10241us	10276ns	(51.21ns)	1304us	2997ns	(6.52ns)
+-- Normale 10 :208us	209ns	(1.04ns)	211us	212ns	(1.06ns)	811us	827ns	(4.06ns)	8629us	8647ns	(43.15ns)	1141us	2327ns	(5.71ns)
+Array size: 500_000
+-- Unif       :240us	152ns	(0.48ns)	243us	161ns	(0.49ns)	8674us	7306ns	(17.35ns)	29020us	18357ns	(58.04ns)	2578us	1712ns	(5.16ns)
+-- Asc Saw    :296us	235ns	(0.59ns)	274us	246ns	(0.55ns)	5320us	3368ns	(10.64ns)	16563us	10486ns	(33.13ns)	2124us	1382ns	(4.25ns)
+-- Desc Saw   :232us	147ns	(0.47ns)	233us	148ns	(0.47ns)	5411us	3423ns	(10.82ns)	16817us	10637ns	(33.64ns)	2324us	1516ns	(4.65ns)
+-- Equal      :1025us	650ns	(2.05ns)	1016us	643ns	(2.03ns)	176us	112ns	(0.35ns)	204us	129ns	(0.41ns)	175us	111ns	(0.35ns)
+-- Zipf       :516us	327ns	(1.03ns)	514us	325ns	(1.03ns)	2264us	1742ns	(4.53ns)	26445us	17506ns	(52.89ns)	2642us	2901ns	(5.28ns)
+-- Normale 10 :509us	322ns	(1.02ns)	507us	322ns	(1.02ns)	2419us	2291ns	(4.84ns)	22950us	14518ns	(45.90ns)	1478us	1020ns	(2.96ns)
+Array size: 1_000_000
+-- Unif       :484us	217ns	(0.48ns)	480us	215ns	(0.48ns)	14387us	7880ns	(14.39ns)	61319us	27423ns	(61.32ns)	4367us	2251ns	(4.37ns)
+-- Asc Saw    :454us	204ns	(0.45ns)	451us	202ns	(0.45ns)	15360us	6870ns	(15.36ns)	35860us	16038ns	(35.86ns)	6194us	2778ns	(6.19ns)
+-- Desc Saw   :452us	203ns	(0.45ns)	456us	204ns	(0.46ns)	13574us	7745ns	(13.57ns)	36478us	16314ns	(36.48ns)	6840us	3139ns	(6.84ns)
+-- Equal      :3141us	1406ns	(3.14ns)	2008us	899ns	(2.01ns)	346us	155ns	(0.35ns)	404us	181ns	(0.40ns)	348us	156ns	(0.35ns)
+-- Zipf       :1046us	470ns	(1.05ns)	1027us	460ns	(1.03ns)	4813us	2814ns	(4.81ns)	57170us	25775ns	(57.17ns)	5991us	2920ns	(5.99ns)
+-- Normale 10 :1000us	448ns	(1.00ns)	995us	445ns	(1.00ns)	4274us	2671ns	(4.27ns)	47932us	21442ns	(47.93ns)	4191us	3227ns	(4.19ns)
+Array size: 2_000_000
+-- Unif       :962us	307ns	(0.48ns)	966us	307ns	(0.48ns)	42044us	13958ns	(21.02ns)	127700us	40393ns	(63.85ns)	8266us	2795ns	(4.13ns)
+-- Asc Saw    :967us	326ns	(0.48ns)	1036us	355ns	(0.52ns)	43481us	13952ns	(21.74ns)	78504us	24826ns	(39.25ns)	10828us	3436ns	(5.41ns)
+-- Desc Saw   :1085us	360ns	(0.54ns)	1028us	346ns	(0.51ns)	36151us	12752ns	(18.08ns)	78769us	24910ns	(39.38ns)	11933us	3775ns	(5.97ns)
+-- Equal      :4080us	1291ns	(2.04ns)	4061us	1285ns	(2.03ns)	697us	221ns	(0.35ns)	812us	257ns	(0.41ns)	706us	224ns	(0.35ns)
+-- Zipf       :2087us	663ns	(1.04ns)	2052us	650ns	(1.03ns)	9651us	3784ns	(4.83ns)	121247us	38574ns	(60.62ns)	9392us	6945ns	(4.70ns)
+-- Normale 10 :2013us	637ns	(1.01ns)	2026us	641ns	(1.01ns)	7483us	2382ns	(3.74ns)	99684us	31541ns	(49.84ns)	5586us	2069ns	(2.79ns)
+Array size: 5_000_000
+-- Unif       :2897us	971ns	(0.58ns)	4437us	1257ns	(0.89ns)	120051us	24370ns	(24.01ns)	327325us	65476ns	(65.47ns)	33699us	8908ns	(6.74ns)
+-- Asc Saw    :6249us	1335ns	(1.25ns)	5833us	1319ns	(1.17ns)	95499us	21112ns	(19.10ns)	215054us	43019ns	(43.01ns)	39907us	10686ns	(7.98ns)
+-- Desc Saw   :7855us	1789ns	(1.57ns)	8411us	1682ns	(1.68ns)	103938us	22992ns	(20.79ns)	218816us	43765ns	(43.76ns)	38574us	10049ns	(7.71ns)
+-- Equal      :13796us	4512ns	(2.76ns)	10098us	2020ns	(2.02ns)	1733us	347ns	(0.35ns)	2033us	407ns	(0.41ns)	1742us	348ns	(0.35ns)
+-- Zipf       :5162us	1033ns	(1.03ns)	5608us	1360ns	(1.12ns)	27677us	5754ns	(5.54ns)	312289us	64054ns	(62.46ns)	24691us	5699ns	(4.94ns)
+-- Normale 10 :5451us	1383ns	(1.09ns)	8962us	1926ns	(1.79ns)	28652us	9389ns	(5.73ns)	260358us	52104ns	(52.07ns)	19008us	6239ns	(3.80ns)
+Array size: 10_000_000
+-- Unif       :6717us	991ns	(0.67ns)	13404us	2152ns	(1.34ns)	246353us	37379ns	(24.64ns)	687027us	97166ns	(68.70ns)	70505us	14413ns	(7.05ns)
+-- Asc Saw    :12902us	2064ns	(1.29ns)	12100us	1796ns	(1.21ns)	226219us	34086ns	(22.62ns)	461653us	65289ns	(46.17ns)	69741us	10784ns	(6.97ns)
+-- Desc Saw   :14954us	2462ns	(1.50ns)	11877us	1697ns	(1.19ns)	215136us	33143ns	(21.51ns)	463139us	65521ns	(46.31ns)	58188us	8657ns	(5.82ns)
+-- Equal      :24604us	5565ns	(2.46ns)	3408us	482ns	(0.34ns)	3539us	501ns	(0.35ns)	4065us	575ns	(0.41ns)	3524us	499ns	(0.35ns)
+-- Zipf       :10084us	1427ns	(1.01ns)	9334us	1360ns	(0.93ns)	66803us	10447ns	(6.68ns)	656335us	94356ns	(65.63ns)	67791us	14234ns	(6.78ns)
+-- Normale 10 :11698us	2726ns	(1.17ns)	12695us	1896ns	(1.27ns)	66391us	10827ns	(6.64ns)	539007us	76237ns	(53.90ns)	54471us	7783ns	(5.45ns)
+test tests::speed_sort::speed_test_i8 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 48.35s

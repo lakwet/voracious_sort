@@ -1,0 +1,48 @@
+running 1 test
+Number of iterations: 5
+Number of threads: 16
+With check: true
+=== Test i128 ===	Trait Vora Uns or stable		Trait Vora MT		Rust Uns		Rust Std		Rayon pll uns
+Array size: 100
+-- Unif       :3us	159ns	(30.08ns)	2us	120ns	(26.27ns)	2us	119ns	(25.99ns)	5us	285ns	(51.27ns)	2us	126ns	(27.25ns)
+-- +-10^9     :3us	161ns	(34.51ns)	3us	172ns	(35.36ns)	3us	142ns	(31.38ns)	5us	233ns	(50.37ns)	2us	120ns	(25.84ns)
+Array size: 1000
+-- Unif       :25us	572ns	(25.40ns)	19us	273ns	(19.10ns)	26us	382ns	(27.00ns)	62us	888ns	(62.74ns)	27us	389ns	(27.50ns)
+-- +-10^9     :169us	2972ns	(169.92ns)	151us	2150ns	(151.55ns)	26us	379ns	(26.75ns)	62us	885ns	(62.51ns)	26us	379ns	(26.72ns)
+Array size: 5000
+-- Unif       :95us	609ns	(19.11ns)	93us	595ns	(18.70ns)	143us	909ns	(28.67ns)	379us	2404ns	(75.99ns)	101us	702ns	(20.33ns)
+-- +-10^9     :659us	4194ns	(131.99ns)	669us	4240ns	(134.00ns)	143us	908ns	(28.71ns)	380us	2409ns	(76.15ns)	142us	1927ns	(28.54ns)
+Array size: 10000
+-- Unif       :178us	827ns	(17.86ns)	170us	780ns	(17.10ns)	294us	1317ns	(29.43ns)	836us	3740ns	(83.60ns)	192us	934ns	(19.22ns)
+-- +-10^9     :1284us	5772ns	(128.46ns)	1258us	5630ns	(125.83ns)	361us	1825ns	(36.11ns)	839us	3757ns	(83.98ns)	199us	974ns	(19.99ns)
+Array size: 20000
+-- Unif       :337us	1077ns	(16.86ns)	333us	1057ns	(16.69ns)	616us	1950ns	(30.82ns)	1817us	5749ns	(90.88ns)	332us	1128ns	(16.64ns)
+-- +-10^9     :2470us	7834ns	(123.53ns)	2459us	7789ns	(122.99ns)	665us	2111ns	(33.25ns)	1815us	5740ns	(90.76ns)	349us	1137ns	(17.46ns)
+Array size: 50000
+-- Unif       :822us	1649ns	(16.46ns)	804us	1612ns	(16.09ns)	1720us	3463ns	(34.41ns)	4962us	9926ns	(99.26ns)	587us	1322ns	(11.76ns)
+-- +-10^9     :6346us	12702ns	(126.93ns)	6337us	12683ns	(126.75ns)	1844us	3914ns	(36.88ns)	4976us	9953ns	(99.53ns)	634us	1403ns	(12.70ns)
+Array size: 100000
+-- Unif       :1881us	2675ns	(18.82ns)	1841us	2605ns	(18.42ns)	3777us	5556ns	(37.77ns)	10567us	14946ns	(105.67ns)	1094us	1980ns	(10.95ns)
+-- +-10^9     :5596us	7916ns	(55.97ns)	5606us	7929ns	(56.07ns)	4082us	6653ns	(40.82ns)	10580us	14963ns	(105.80ns)	1086us	1714ns	(10.87ns)
+Array size: 200000
+-- Unif       :4150us	4151ns	(20.75ns)	6272us	6594ns	(31.36ns)	9827us	10582ns	(49.14ns)	22622us	22624ns	(113.11ns)	1693us	1729ns	(8.47ns)
+-- +-10^9     :9508us	9510ns	(47.54ns)	7323us	7520ns	(36.62ns)	10239us	10342ns	(51.20ns)	22597us	22598ns	(112.99ns)	1924us	1943ns	(9.62ns)
+Array size: 500000
+-- Unif       :10037us	6349ns	(20.07ns)	11856us	7528ns	(23.71ns)	26868us	17917ns	(53.74ns)	60990us	38574ns	(121.98ns)	5735us	4286ns	(11.47ns)
+-- +-10^9     :24286us	15361ns	(48.57ns)	15186us	9727ns	(30.37ns)	26810us	17464ns	(53.62ns)	60602us	38329ns	(121.21ns)	4726us	3071ns	(9.45ns)
+Array size: 1000000
+-- Unif       :22070us	9872ns	(22.07ns)	11439us	5313ns	(11.44ns)	60512us	32741ns	(60.51ns)	127146us	56871ns	(127.15ns)	9489us	4316ns	(9.49ns)
+-- +-10^9     :53095us	24317ns	(53.10ns)	29527us	13689ns	(29.53ns)	59490us	27089ns	(59.49ns)	127499us	57021ns	(127.50ns)	10482us	5694ns	(10.48ns)
+Array size: 2000000
+-- Unif       :56553us	17946ns	(28.28ns)	15105us	4796ns	(7.55ns)	127600us	40767ns	(63.80ns)	271425us	85834ns	(135.71ns)	25125us	8508ns	(12.56ns)
+-- +-10^9     :128588us	41545ns	(64.29ns)	71225us	23324ns	(35.61ns)	128755us	42816ns	(64.38ns)	273794us	86584ns	(136.90ns)	22211us	7052ns	(11.11ns)
+Array size: 5000000
+-- Unif       :134708us	26963ns	(26.94ns)	31855us	6485ns	(6.37ns)	317921us	64231ns	(63.58ns)	711182us	142237ns	(142.24ns)	69538us	16506ns	(13.91ns)
+-- +-10^9     :334157us	66866ns	(66.83ns)	96913us	20932ns	(19.38ns)	334996us	67463ns	(67.00ns)	710658us	142146ns	(142.13ns)	66462us	13609ns	(13.29ns)
+Array size: 10000000
+-- Unif       :263080us	37224ns	(26.31ns)	70916us	10035ns	(7.09ns)	676433us	96015ns	(67.64ns)	1498794us	211965ns	(149.88ns)	144983us	20901ns	(14.50ns)
+-- +-10^9     :713573us	100925ns	(71.36ns)	172709us	24434ns	(17.27ns)	678170us	97231ns	(67.82ns)	test tests::speed_sort::speed_test_i128 has been running for over 60 seconds
+1495750us	211531ns	(149.58ns)	133857us	18933ns	(13.39ns)
+test tests::speed_sort::speed_test_i128 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 62.03s

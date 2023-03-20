@@ -1,0 +1,60 @@
+Number of iterations: 1
+Number of threads: 16
+With check: false
+=== Test i32 ===	Trait Vora MT		Rayon pll uns
+Array size: 20000000
+-- Unif       :30976us	0ns	(1.55ns)	135218us	0ns	(6.76ns)
+-- +-10^9     :35444us	0ns	(1.77ns)	122915us	0ns	(6.15ns)
+-- Small      :39002us	0ns	(1.95ns)	120956us	0ns	(6.05ns)
+-- Normale 10 :41973us	0ns	(2.10ns)	111000us	0ns	(5.55ns)
+-- Normale 20 :41992us	0ns	(2.10ns)	121137us	0ns	(6.06ns)
+-- Normale 30 :35079us	0ns	(1.75ns)	140539us	0ns	(7.03ns)
+Array size: 50000000
+-- Unif       :88195us	0ns	(1.76ns)	337714us	0ns	(6.75ns)
+-- +-10^9     :70602us	0ns	(1.41ns)	463584us	0ns	(9.27ns)
+-- Small      :94622us	0ns	(1.89ns)	330212us	0ns	(6.60ns)
+-- Normale 10 :105740us	0ns	(2.11ns)	362145us	0ns	(7.24ns)
+-- Normale 20 :93785us	0ns	(1.88ns)	338221us	0ns	(6.76ns)
+-- Normale 30 :72056us	0ns	(1.44ns)	351518us	0ns	(7.03ns)
+Array size: 100000000
+-- Unif       :137309us	0ns	(1.37ns)	728515us	0ns	(7.29ns)
+-- +-10^9     :159845us	0ns	(1.60ns)	724309us	0ns	(7.24ns)
+-- Small      :180028us	0ns	(1.80ns)	771581us	0ns	(7.72ns)
+-- Normale 10 :211781us	0ns	(2.12ns)	567168us	0ns	(5.67ns)
+-- Normale 20 :192071us	0ns	(1.92ns)	722103us	0ns	(7.22ns)
+-- Normale 30 :131360us	0ns	(1.31ns)	695101us	0ns	(6.95ns)
+Array size: 1000000000
+-- Unif       :1706026us	0ns	(1.71ns)	7914877us	0ns	(7.91ns)
+-- +-10^9     :1702239us	0ns	(1.70ns)	8472559us	0ns	(8.47ns)
+-- Small      :2154556us	0ns	(2.15ns)	7936913us	0ns	(7.94ns)
+-- Normale 10 :2281500us	0ns	(2.28ns)	8134604us	0ns	(8.13ns)
+-- Normale 20 :2416547us	0ns	(2.42ns)	7337746us	0ns	(7.34ns)
+-- Normale 30 :1681421us	0ns	(1.68ns)	8638530us	0ns	(8.64ns)
+Array size: 2000000000
+-- Unif       :3847697us	0ns	(1.92ns)	16253900us	0ns	(8.13ns)
+-- +-10^9     :3714446us	0ns	(1.86ns)	16736285us	0ns	(8.37ns)
+-- Small      :4566089us	0ns	(2.28ns)	16303297us	0ns	(8.15ns)
+-- Normale 10 :4487215us	0ns	(2.24ns)	14960588us	0ns	(7.48ns)
+-- Normale 20 :4883694us	0ns	(2.44ns)	15618931us	0ns	(7.81ns)
+-- Normale 30 :3781162us	0ns	(1.89ns)	16962622us	0ns	(8.48ns)
+Array size: 5000000000
+-- Unif       :11544519us	0ns	(2.31ns)	43049751us	0ns	(8.61ns)
+-- +-10^9     :10010445us	0ns	(2.00ns)	43328624us	0ns	(8.67ns)
+-- Small      :14632942us	0ns	(2.93ns)	40512934us	0ns	(8.10ns)
+-- Normale 10 :13814118us	0ns	(2.76ns)	43619970us	0ns	(8.72ns)
+-- Normale 20 :13679703us	0ns	(2.74ns)	40082123us	0ns	(8.02ns)
+-- Normale 30 :11562335us	0ns	(2.31ns)	43518908us	0ns	(8.70ns)
+Array size: 7000000000
+-- Unif       :16244393us	0ns	(2.32ns)	59130733us	0ns	(8.45ns)
+-- +-10^9     :15045825us	0ns	(2.15ns)	62619568us	0ns	(8.95ns)
+-- Small      :21595886us	0ns	(3.09ns)	58581062us	0ns	(8.37ns)
+-- Normale 10 :20399994us	0ns	(2.91ns)	53226976us	0ns	(7.60ns)
+-- Normale 20 :20500678us	0ns	(2.93ns)	63674549us	0ns	(9.10ns)
+-- Normale 30 :16022827us	0ns	(2.29ns)	57874928us	0ns	(8.27ns)
+Array size: 10000000000
+-- Unif       :25258179us	0ns	(2.53ns)	89834083us	0ns	(8.98ns)
+-- +-10^9     :23664834us	0ns	(2.37ns)	89311784us	0ns	(8.93ns)
+-- Small      :32205041us	0ns	(3.22ns)	92723392us	0ns	(9.27ns)
+-- Normale 10 :30283297us	0ns	(3.03ns)	78646776us	0ns	(7.86ns)
+-- Normale 20 :31182816us	0ns	(3.12ns)	84266853us	0ns	(8.43ns)
+-- Normale 30 :24358048us	0ns	(2.44ns)	84392827us	0ns	(8.44ns)

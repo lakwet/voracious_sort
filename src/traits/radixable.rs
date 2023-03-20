@@ -272,15 +272,6 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd {
     fn compute_offset(&self, arr: &mut [Self], radix: usize) -> (usize, usize) {
         compute_offset(arr, radix)
     }
-    #[cfg(feature = "voracious_multithread")]
-    #[inline]
-    fn compute_offset_mt(
-        &self,
-        arr: &mut [Self],
-        radix: usize,
-    ) -> (usize, usize) {
-        compute_offset_mt(arr, radix)
-    }
     #[inline]
     fn get_max_key(
         &self,
@@ -354,13 +345,6 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd {
         if arr.len() > 1 {
             let dummy_key = arr[0].key();
             Dispatcher::voracious_stable_sort(&dummy_key, arr);
-        }
-    }
-    #[cfg(feature = "voracious_multithread")]
-    fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
-        if arr.len() > 1 {
-            let dummy_key = arr[0].key();
-            Dispatcher::voracious_mt_sort(&dummy_key, arr, thread_n);
         }
     }
 }

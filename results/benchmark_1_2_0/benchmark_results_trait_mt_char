@@ -1,0 +1,56 @@
+running 1 test
+Number of iterations: 1
+Number of threads: 16
+With check: true
+=== Test char ===	Trait Vora MT		Rayon pll uns
+Array size: 20_000_000
+-- Unif       :22786us	0ns	(1.14ns)	90912us	0ns	(4.55ns)
+-- Equal      :7259us	0ns	(0.36ns)	11694us	0ns	(0.58ns)
+-- Charset    :18421us	0ns	(0.92ns)	69050us	0ns	(3.45ns)
+-- Charset Den:22532us	0ns	(1.13ns)	87117us	0ns	(4.36ns)
+-- Charset VDe:31470us	0ns	(1.57ns)	82313us	0ns	(4.12ns)
+Array size: 50_000_000
+-- Unif       :62119us	0ns	(1.24ns)	202578us	0ns	(4.05ns)
+-- Equal      :22777us	0ns	(0.46ns)	28878us	0ns	(0.58ns)
+-- Charset    :41645us	0ns	(0.83ns)	187679us	0ns	(3.75ns)
+-- Charset Den:61520us	0ns	(1.23ns)	250144us	0ns	(5.00ns)
+-- Charset VDe:69567us	0ns	(1.39ns)	203425us	0ns	(4.07ns)
+Array size: 100_000_000
+-- Unif       :133227us	0ns	(1.33ns)	453593us	0ns	(4.54ns)
+-- Equal      :45275us	0ns	(0.45ns)	55218us	0ns	(0.55ns)
+-- Charset    :84778us	0ns	(0.85ns)	410175us	0ns	(4.10ns)
+-- Charset Den:130455us	0ns	(1.30ns)	459777us	0ns	(4.60ns)
+-- Charset VDe:139559us	0ns	(1.40ns)	436588us	0ns	(4.37ns)
+Array size: 1_000_000_000
+-- Unif       :1732135us	0ns	(1.73ns)	5248481us	0ns	(5.25ns)
+-- Equal      :453842us	0ns	(0.45ns)	572438us	0ns	(0.57ns)
+-- Charset    :918784us	0ns	(0.92ns)	4398379us	0ns	(4.40ns)
+-- Charset Den:1312413us	0ns	(1.31ns)	3941584us	0ns	(3.94ns)
+-- Charset VDe:1446365us	0ns	(1.45ns)	3905170us	0ns	(3.91ns)
+Array size: 2_000_000_000
+-- Unif       :3491247us	0ns	(1.75ns)	11872448us	0ns	(5.94ns)
+-- Equal      :658751us	0ns	(0.33ns)	1124791us	0ns	(0.56ns)
+-- Charset    :2035892us	0ns	(1.02ns)	7710462us	0ns	(3.86ns)
+-- Charset Den:2630436us	0ns	(1.32ns)	7883963us	0ns	(3.94ns)
+-- Charset VDe:3029768us	0ns	(1.51ns)	7839258us	0ns	(3.92ns)
+Array size: 5_000_000_000
+-- Unif       :9285268us	0ns	(1.86ns)	32106210us	0ns	(6.42ns)
+-- Equal      :1679663us	0ns	(0.34ns)	2460292us	0ns	(0.49ns)
+-- Charset    :5102775us	0ns	(1.02ns)	20381138us	0ns	(4.08ns)
+-- Charset Den:6917731us	0ns	(1.38ns)	19509643us	0ns	(3.90ns)
+-- Charset VDe:8064494us	0ns	(1.61ns)	18889841us	0ns	(3.78ns)
+Array size: 7_000_000_000
+-- Unif       :14280610us	0ns	(2.04ns)	42914316us	0ns	(6.13ns)
+-- Equal      :2352124us	0ns	(0.34ns)	3960869us	0ns	(0.57ns)
+-- Charset    :7321949us	0ns	(1.05ns)	29033892us	0ns	(4.15ns)
+-- Charset Den:10479000us	0ns	(1.50ns)	28815081us	0ns	(4.12ns)
+-- Charset VDe:11953183us	0ns	(1.71ns)	27986142us	0ns	(4.00ns)
+Array size: 10_000_000_000
+-- Unif       :22708642us	0ns	(2.27ns)	66106512us	0ns	(6.61ns)
+-- Equal      :3317373us	0ns	(0.33ns)	5653910us	0ns	(0.57ns)
+-- Charset    :10906627us	0ns	(1.09ns)	40959404us	0ns	(4.10ns)
+-- Charset Den:16399595us	0ns	(1.64ns)	39127113us	0ns	(3.91ns)
+-- Charset VDe:17826355us	0ns	(1.78ns)	38833871us	0ns	(3.88ns)
+test tests::speed_sort::speed_test_char ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 2229.87s

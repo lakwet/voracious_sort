@@ -1,3 +1,24 @@
+# Version **1.2.0** (March 18<sup>th</sup> 2023)
+
+### Dependency:
+
+- Use Rayon 1.7.0 instead of 1.5.3.
+
+### Bug fix:
+
+- Peeka sort did not scale correctly because of constants. Now it uses dynanmic
+values for blocks size for the parallele algorithm. It now scale for arrays whose
+size is bigger than 1_000_000_000.
+- Dispatcher trait was bugged for the stable sort. If using stable sort and custom
+structs, the stable sort called the unstable rust sort as fallback. It now calls
+the stable rust sort for the fallback.
+
+### Misc:
+
+- Add disclaimer about memory consumption in the Readme.
+- Add disclaimer about array size in the Readme.
+- Add human readable benchmark results.
+
 # Version **1.1.1** (August 20<sup>th</sup> 2022)
 
 ### Dependency:

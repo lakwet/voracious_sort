@@ -189,11 +189,12 @@ impl Radixable<char> for char {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [char]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
-        if arr.len() < 1_800_000 {
+        if arr.len() < 1_000_000 {
             arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
             let chunk_size = if arr.len() < 5_000_000 {
@@ -202,8 +203,11 @@ impl Radixable<char> for char {
                 250_000
             } else if arr.len() < 100_000_000 {
                 400_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 600_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 7, chunk_size, thread_n);
         }

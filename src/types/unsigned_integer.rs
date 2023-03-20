@@ -66,19 +66,21 @@ impl Radixable<u8> for u8 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [u8]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
-        if arr.len() < 1_300_000 {
-            arr.par_sort_unstable();
+        if arr.len() < 10_000_000 {
+            self.voracious_sort(arr);
         } else {
-            let chunk_size = if arr.len() < 3_000_000 {
-                400_000
-            } else if arr.len() < 20_000_000 {
+            let chunk_size = if arr.len() < 20_000_000 {
                 500_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 1_300_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
@@ -175,11 +177,23 @@ impl Radixable<u16> for u16 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [u16]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
         peeka_sort(arr, 8, 1_150_000, thread_n);
+        if arr.len() < 10_000_000 {
+            self.voracious_sort(arr);
+        } else {
+            let chunk_size = if arr.len() < 5_000_000_000 {
+                1_150_000
+            } else {
+                // Switch to regions sort algo
+                5000
+            };
+            peeka_sort(arr, 8, chunk_size, thread_n);
+        }
     }
 }
 
@@ -363,6 +377,7 @@ impl Radixable<u32> for u32 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [u32]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
@@ -382,8 +397,11 @@ impl Radixable<u32> for u32 {
                 800_000
             } else if arr.len() < 800_000_000 {
                 900_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 1_000_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
@@ -868,6 +886,7 @@ impl Radixable<u64> for u64 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [u64]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
@@ -881,8 +900,11 @@ impl Radixable<u64> for u64 {
                 400_000
             } else if arr.len() < 500_000_000 {
                 500_000
-            } else {
+            } else if arr.len() < 5_000_000_000 {
                 650_000
+            } else {
+                // Switch to regions sort algo
+                5000
             };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
@@ -922,10 +944,17 @@ impl Radixable<u128> for u128 {
         }
     }
     fn voracious_stable_sort(&self, arr: &mut [u128]) {
+        // With primitive type, stable does mean anything
         self.voracious_sort(arr);
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&self, arr: &mut [Self], thread_n: usize) {
-        peeka_sort(arr, 8, 650_000, thread_n);
+        let chunk_size = if arr.len() < 5_000_000_000 {
+            650_000
+        } else {
+            // Switch to regions sort algo
+            5000
+        };
+        peeka_sort(arr, 8, chunk_size, thread_n);
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "voracious_radix_sort"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
 description = "State of the art radix sort algorithms. Single thread and multi thread versions."
@@ -15,7 +15,7 @@ categories = ["algorithms", "science", "concurrency"]
 voracious_multithread = ["rayon"]
 
 [dependencies]
-rayon = { version = "1.5.3", optional = true }
+rayon = { version = "1.7.0", optional = true }
 
 [dev-dependencies]
 rand = "0.7.3"
