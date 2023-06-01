@@ -337,3 +337,72 @@ impl Radixable<usize> for StructUsize {
     #[inline]
     fn key(&self) -> Self::Key { self.value }
 }
+
+// Struct
+
+// If you want to sort (usize, usize) but you can't because of the orphan rule,
+// you can do this instead: Use a struct to represent (a: usize, b: usize)
+// Caution: order matters!
+#[derive(Copy, Clone, Debug)]
+pub struct StructUsizeUsize {
+    pub a: usize,
+    pub b: usize,
+}
+impl PartialOrd for StructUsizeUsize {
+    fn partial_cmp(&self, other: &StructUsizeUsize) -> Option<Ordering> {
+      let result = if self.a < other.a {
+        Ordering::Less
+      }
+      else if self.a > other.a {
+        Ordering::Greater
+      }
+      else if self.b < other.b {
+        Ordering::Less
+      }
+      else if self.b > other.b {
+        Ordering::Greater
+      }
+      else {
+        Ordering::Equal
+      };
+
+      Some(result)
+    }
+}
+impl PartialEq for StructUsizeUsize {
+    fn eq(&self, other: &Self) -> bool { self.a == other.a && self.b == other.b }
+}
+#[cfg(target_pointer_width = "8")]
+impl Radixable<u16> for StructUsizeUsize {
+    type Key = u16;
+    #[inline]
+    fn key(&self) -> Self::Key {
+      ((self.a as u16) << 8) | (self.b as u16)
+    }
+}
+#[cfg(target_pointer_width = "16")]
+impl Radixable<u32> for StructUsizeUsize {
+    type Key = u32;
+    #[inline]
+    fn key(&self) -> Self::Key {
+      ((self.a as u32) << 16) | (self.b as u32)
+    }
+}
+
+#[cfg(target_pointer_width = "32")]
+impl Radixable<u64> for StructUsizeUsize {
+    type Key = u64;
+    #[inline]
+    fn key(&self) -> Self::Key {
+      ((self.a as u64) << 32) | (self.b as u64)
+    }
+}
+
+#[cfg(target_pointer_width = "64")]
+impl Radixable<u128> for StructUsizeUsize {
+    type Key = u128;
+    #[inline]
+    fn key(&self) -> Self::Key {
+      ((self.a as u128) << 64) | (self.b as u128)
+    }
+}

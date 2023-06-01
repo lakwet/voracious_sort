@@ -384,3 +384,21 @@ pub fn generators_structusize(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<StructUsize>, &'static str)> {
     vec![(&helper_random_array_uniform_structusize, "-- Unif       :")]
 }
+
+// Uniform
+pub fn helper_random_array_uniform_structusizeusize(
+  size: usize,
+) -> Vec<StructUsizeUsize> {
+  (0..size)
+      .into_par_iter()
+      .map(|_| StructUsizeUsize {
+          a: thread_rng().gen::<usize>(),
+          b: thread_rng().gen::<usize>(),
+      })
+      .collect::<Vec<StructUsizeUsize>>()
+}
+
+pub fn generators_structusizeusize(
+) -> Vec<(&'static dyn Fn(usize) -> Vec<StructUsizeUsize>, &'static str)> {
+  vec![(&helper_random_array_uniform_structusizeusize, "-- Unif       :")]
+}
