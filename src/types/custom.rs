@@ -350,23 +350,7 @@ pub struct StructUsizeUsize {
 }
 impl PartialOrd for StructUsizeUsize {
     fn partial_cmp(&self, other: &StructUsizeUsize) -> Option<Ordering> {
-      let result = if self.a < other.a {
-        Ordering::Less
-      }
-      else if self.a > other.a {
-        Ordering::Greater
-      }
-      else if self.b < other.b {
-        Ordering::Less
-      }
-      else if self.b > other.b {
-        Ordering::Greater
-      }
-      else {
-        Ordering::Equal
-      };
-
-      Some(result)
+      ((self.a, self.b)).partial_cmp(&((other.a, other.b)))
     }
 }
 impl PartialEq for StructUsizeUsize {

@@ -102,7 +102,7 @@ fn helper_sort<T, K>(
 
     let runs = 3;
     #[allow(unused_imports)]
-    let thread_n = 4;
+    let thread_n = 8;
     let with_check = true;
 
     let sizes: Vec<usize> = vec![
@@ -117,7 +117,7 @@ fn helper_sort<T, K>(
         // 20_000_000,
         // 50_000_000,
         100_000_000,
-        500_000_000,
+        200_000_000,
         // 1_000_000_000,
         // 2_000_000_000,
         // 5_000_000_000,
