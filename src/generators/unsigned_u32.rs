@@ -150,7 +150,6 @@ pub fn helper_random_array_almost_desc_u32(size: usize) -> Vec<u32> {
 
     let mut rng = thread_rng();
     let mut array = helper_random_array_descending_u32(size);
-    array.reverse();
 
     for _ in 0..((size as f64).log2() as usize) {
         let i = rng.gen_range(0, size);

@@ -285,7 +285,6 @@ pub fn helper_random_array_almost_desc_u64(size: usize) -> Vec<u64> {
 
     let mut rng = thread_rng();
     let mut array = helper_random_array_descending_u64(size);
-    array.reverse();
 
     for _ in 0..((size as f64).log2() as usize) {
         let i = rng.gen_range(0, size);
