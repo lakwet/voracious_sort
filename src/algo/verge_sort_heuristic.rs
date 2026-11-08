@@ -631,7 +631,7 @@ where
             separators.push(bp1);
         }
         separators.push(fp2);
-        arr[bp1..fp2].reverse();
+        reverse_descending_run(&mut arr[bp1..fp2]);
         (fp2, fp2)
     } else {
         (fp2, last_sorted)
@@ -672,7 +672,7 @@ where
             separators.push(bp2);
         }
         separators.push(fp1);
-        arr[bp2..fp1].reverse();
+        reverse_descending_run(&mut arr[bp2..fp1]);
         (fp2, fp1)
     } else {
         (fp2, last_sorted)
@@ -752,7 +752,7 @@ where
                     separators.push(bp2);
                 }
                 separators.push(fp2);
-                arr[bp2..fp2].reverse();
+                reverse_descending_run(&mut arr[bp2..fp2]);
                 (fp2, fp2)
             } else {
                 (fp2, last_sorted)
@@ -761,6 +761,25 @@ where
         GrowthPattern::Neither => {
             panic!("[Verge sort heuristic] Bad implementation.")
         },
+    }
+}
+
+fn reverse_descending_run<T: PartialOrd>(run: &mut [T]) {
+    run.reverse();
+
+    // Reversing a non-increasing run also reverses its equal-key groups.
+    // Restore each group's original order to keep preprocessing stable.
+    let mut start = 0;
+    while start < run.len() {
+        let mut end = start + 1;
+        while end < run.len()
+            && run[start].partial_cmp(&run[end])
+                == Some(std::cmp::Ordering::Equal)
+        {
+            end += 1;
+        }
+        run[start..end].reverse();
+        start = end;
     }
 }
 

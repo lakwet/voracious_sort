@@ -32,7 +32,7 @@ impl<T: Radixable<K>, K: RadixKey> RadixSort<T, K> for [T] {
 impl<T: Radixable<K>, K: RadixKey> RadixSort<T, K> for Vec<T> {
     fn voracious_sort(&mut self) { self.as_mut_slice().voracious_sort(); }
     fn voracious_stable_sort(&mut self) {
-        self.as_mut_slice().voracious_sort();
+        self.as_mut_slice().voracious_stable_sort();
     }
     #[cfg(feature = "voracious_multithread")]
     fn voracious_mt_sort(&mut self, thread_n: usize) {

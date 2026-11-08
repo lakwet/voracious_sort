@@ -2,6 +2,7 @@ mod comparative_sort;
 mod dedicated;
 mod regions_graph;
 #[rustfmt::skip] mod sorts;
+mod stable_sort;
 mod types;
 mod utils;
 mod utils_mt;
