@@ -4,7 +4,6 @@ use rayon::slice::ParallelSliceMut;
 use super::super::sorts::counting_sort::counting_sort;
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort_heu;
-use super::super::sorts::msd_sort::msd_radixsort;
 #[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
@@ -59,7 +58,7 @@ impl Radixable<u8> for u8 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [u8]) {
-        if arr.len() < 50 {
+        if arr.len() < 400 {
             arr.sort_unstable();
         } else {
             counting_sort(arr, 8);
@@ -168,7 +167,7 @@ impl Radixable<u16> for u16 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [u16]) {
-        if arr.len() <= 230 {
+        if arr.len() <= 2000 {
             arr.sort_unstable();
         } else if arr.len() <= 100_000 {
             lsd_radixsort_heu(arr, 8, 100_000);
@@ -368,7 +367,7 @@ impl Radixable<u32> for u32 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [u32]) {
-        if arr.len() < 200 {
+        if arr.len() < 700 {
             arr.sort_unstable();
         } else if arr.len() < 100_000 {
             dlsd_radixsort(arr, 8);
@@ -879,7 +878,7 @@ impl Radixable<u64> for u64 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [u64]) {
-        if arr.len() < 350 {
+        if arr.len() < 700 {
             arr.sort_unstable();
         } else {
             dlsd_radixsort(arr, 8);
@@ -934,7 +933,7 @@ impl Radixable<u128> for u128 {
     fn one(&self) -> u128 { 1 }
     fn voracious_sort(&self, arr: &mut [u128]) {
         if arr.len() <= 500 {
-            msd_radixsort(arr, 8);
+            arr.sort_unstable();
         } else if arr.len() <= 100_000 {
             dlsd_radixsort(arr, 8);
         } else if arr.len() <= 1_000_000 {

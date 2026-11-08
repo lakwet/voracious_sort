@@ -869,7 +869,7 @@ impl Radixable<usize> for usize {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [Self]) {
-        if arr.len() < 350 {
+        if arr.len() < 700 {
             arr.sort_unstable();
         } else {
             dlsd_radixsort(arr, 8);

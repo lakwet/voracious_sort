@@ -180,7 +180,7 @@ impl Radixable<char> for char {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [char]) {
-        if arr.len() <= 400 {
+        if arr.len() <= 700 {
             arr.sort_unstable();
         } else if arr.len() <= 15_000 {
             lsd_radixsort_heu(arr, 7, 11_000);

@@ -1,7 +1,6 @@
 #[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
 use super::super::sorts::lsd_sort::lsd_radixsort;
 #[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
@@ -189,7 +188,7 @@ impl Radixable<f32> for f32 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [f32]) {
-        if arr.len() <= 300 {
+        if arr.len() <= 1000 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else if arr.len() <= 2_900_000 {
             lsd_radixsort(arr, 8);
@@ -705,10 +704,8 @@ impl Radixable<f64> for f64 {
         histograms
     }
     fn voracious_sort(&self, arr: &mut [f64]) {
-        if arr.len() <= 300 {
+        if arr.len() <= 2500 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap())
-        } else if arr.len() < 800 {
-            dlsd_radixsort(arr, 8);
         } else {
             rollercoaster_sort(arr, 8);
         }

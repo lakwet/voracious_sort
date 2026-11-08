@@ -85,7 +85,7 @@ impl<T: Radixable<char>> Dispatcher<T, char> for char {
 
 impl<T: Radixable<f32>> Dispatcher<T, f32> for f32 {
     fn voracious_sort(&self, arr: &mut [T]) {
-        if arr.len() <= 400 {
+        if arr.len() <= 1500 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else if arr.len() < 500_000 {
             lsd_radixsort(arr, 8);
@@ -126,7 +126,7 @@ impl<T: Radixable<f32>> Dispatcher<T, f32> for f32 {
 
 impl<T: Radixable<f64>> Dispatcher<T, f64> for f64 {
     fn voracious_sort(&self, arr: &mut [T]) {
-        if arr.len() <= 800 {
+        if arr.len() <= 2500 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
             rollercoaster_sort(arr, 8);
@@ -283,7 +283,11 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
 
 impl<T: Radixable<i32>> Dispatcher<T, i32> for i32 {
     fn voracious_sort(&self, arr: &mut [T]) {
-        lsd_radixsort(arr, 8);
+        if arr.len() <= 1500 {
+            arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        } else {
+            lsd_radixsort(arr, 8);
+        }
     }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         lsd_stable_radixsort(arr, 8);
@@ -324,7 +328,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
 
 impl<T: Radixable<i64>> Dispatcher<T, i64> for i64 {
     fn voracious_sort(&self, arr: &mut [T]) {
-        if arr.len() <= 200 {
+        if arr.len() <= 700 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else if arr.len() <= 8000 {
             msd_radixsort(arr, 8);
@@ -592,7 +596,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
 
 impl<T: Radixable<u64>> Dispatcher<T, u64> for u64 {
     fn voracious_sort(&self, arr: &mut [T]) {
-        if arr.len() <= 300 {
+        if arr.len() <= 700 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         } else {
             dlsd_radixsort(arr, 8);
