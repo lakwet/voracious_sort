@@ -4,18 +4,23 @@ use std::time::Instant;
 
 use super::super::{RadixKey, Radixable};
 
+/// Sample standard deviation of the measured times (Bessel's correction:
+/// divided by `n - 1`, since the mean is estimated from the same runs).
 #[allow(dead_code)]
-pub fn std_deviation(data: &Vec<u64>, mean: u64, size: usize) -> f32 {
+pub fn std_deviation(data: &[u64], mean: u64) -> f32 {
+    if data.len() < 2 {
+        return 0.0;
+    }
     let variance = data
         .iter()
-        .map(|value| {
-            let diff =
-                if mean >= *value { mean - *value } else { *value - mean };
-
-            (diff * diff) as f64
+        .map(|&value| {
+            // Square in f64: a difference above ~4.3 s (in ns) would
+            // overflow u64 when squared.
+            let diff = value as f64 - mean as f64;
+            diff * diff
         })
         .sum::<f64>()
-        / size as f64;
+        / (data.len() - 1) as f64;
 
     variance.sqrt() as f32
 }
@@ -59,9 +64,13 @@ pub fn helper_sort_aux<T, K>(
     //     nanos.remove(0);
     // }
 
+    // Divide by the number of measures actually kept: dividing by runs - 1
+    // only made sense with the first run removed above (commented out), and
+    // inflated every mean by runs / (runs - 1), i.e. +11% with 10 runs.
     let sum: u64 = nanos.iter().sum();
-    let mean: u64 = if runs > 1 { sum / (runs as u64 - 1) } else { sum as u64 };
-    let std_dev: f32 = std_deviation(&nanos, mean, size);
+    let mean: u64 = sum / nanos.len().max(1) as u64;
+    // The deviation is over the runs, not over the array size.
+    let std_dev: f32 = std_deviation(&nanos, mean);
     let per_item: f32 = (mean as f64 / size as f64) as f32;
 
     // \u{1b} => escape for terminal
