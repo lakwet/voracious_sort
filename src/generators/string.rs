@@ -1,5 +1,5 @@
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use rand::distr::Alphanumeric;
+use rand::RngExt;
 use rayon::prelude::*;
 
 pub fn helper_random_array_uniform_string(
@@ -7,10 +7,11 @@ pub fn helper_random_array_uniform_string(
     string_size: usize,
 ) -> Vec<String> {
     (0..size).into_par_iter().map(|_|
-        thread_rng().sample_iter(&Alphanumeric)
+        rand::rng().sample_iter(&Alphanumeric)
             .take(string_size)
+            .map(char::from)
             .collect::<String>()
-    ).collect::<Vec<u64>>()
+    ).collect::<Vec<String>>()
 }
 
 pub fn generators_string(

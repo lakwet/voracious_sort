@@ -1,4 +1,4 @@
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rand_distr::{Distribution, Normal, Pareto};
 use rayon::prelude::*;
 
@@ -9,9 +9,9 @@ pub fn helper_random_array_uniform_structbool(size: usize) -> Vec<StructBool> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<bool>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<bool>();
             StructBool { value, other }
         })
         .collect::<Vec<StructBool>>()
@@ -27,9 +27,9 @@ pub fn helper_random_array_uniform_structchar(size: usize) -> Vec<StructChar> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<char>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<char>();
             StructChar { value, other }
         })
         .collect::<Vec<StructChar>>()
@@ -45,9 +45,9 @@ pub fn helper_random_array_uniform_structf32(size: usize) -> Vec<StructF32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<f32>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<f32>();
             StructF32 { value, other }
         })
         .collect::<Vec<StructF32>>()
@@ -58,9 +58,9 @@ pub fn helper_random_array_109_structf32(size: usize) -> Vec<StructF32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen_range(-1_000_000.0, 1_000_000.0);
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random_range(-1_000_000.0..1_000_000.0);
             StructF32 { value, other }
         })
         .collect::<Vec<StructF32>>()
@@ -71,8 +71,8 @@ fn helper_pareto_structf32(size: usize, arg: f32) -> Vec<StructF32> {
     (0..size)
         .into_par_iter()
         .map(|_| StructF32 {
-            value: pareto.sample(&mut thread_rng()),
-            other: thread_rng().gen::<isize>(),
+            value: pareto.sample(&mut rand::rng()),
+            other: rand::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructF32>>()
 }
@@ -100,8 +100,8 @@ fn helper_normal_structf32(
     (0..size)
         .into_par_iter()
         .map(|_| StructF32 {
-            value: normal.sample(&mut thread_rng()),
-            other: thread_rng().gen::<isize>(),
+            value: normal.sample(&mut rand::rng()),
+            other: rand::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructF32>>()
 }
@@ -140,9 +140,9 @@ pub fn helper_random_array_uniform_structf64(size: usize) -> Vec<StructF64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<f64>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<f64>();
             StructF64 { value, other }
         })
         .collect::<Vec<StructF64>>()
@@ -153,9 +153,9 @@ pub fn helper_random_array_109_structf64(size: usize) -> Vec<StructF64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen_range(-1_000_000.0, 1_000_000.0);
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random_range(-1_000_000.0..1_000_000.0);
             StructF64 { value, other }
         })
         .collect::<Vec<StructF64>>()
@@ -174,9 +174,9 @@ pub fn helper_random_array_uniform_structu8(size: usize) -> Vec<StructU8> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<u8>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<u8>();
             StructU8 { value, other }
         })
         .collect::<Vec<StructU8>>()
@@ -192,9 +192,9 @@ pub fn helper_random_array_uniform_structu16(size: usize) -> Vec<StructU16> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<u16>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<u16>();
             StructU16 { value, other }
         })
         .collect::<Vec<StructU16>>()
@@ -210,9 +210,9 @@ pub fn helper_random_array_uniform_structu32(size: usize) -> Vec<StructU32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<u32>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<u32>();
             StructU32 { value, other }
         })
         .collect::<Vec<StructU32>>()
@@ -228,9 +228,9 @@ pub fn helper_random_array_uniform_structu64(size: usize) -> Vec<StructU64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<u64>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<u64>();
             StructU64 { value, other }
         })
         .collect::<Vec<StructU64>>()
@@ -246,9 +246,9 @@ pub fn helper_random_array_uniform_structu128(size: usize) -> Vec<StructU128> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value: u128 = rng.gen::<u128>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value: u128 = rng.random::<u128>();
             StructU128 { value, other }
         })
         .collect::<Vec<StructU128>>()
@@ -264,9 +264,9 @@ pub fn helper_random_array_uniform_structi8(size: usize) -> Vec<StructI8> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<i8>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<i8>();
             StructI8 { value, other }
         })
         .collect::<Vec<StructI8>>()
@@ -282,9 +282,9 @@ pub fn helper_random_array_uniform_structi16(size: usize) -> Vec<StructI16> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<i16>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<i16>();
             StructI16 { value, other }
         })
         .collect::<Vec<StructI16>>()
@@ -300,9 +300,9 @@ pub fn helper_random_array_uniform_structi32(size: usize) -> Vec<StructI32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<i32>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<i32>();
             StructI32 { value, other }
         })
         .collect::<Vec<StructI32>>()
@@ -318,9 +318,9 @@ pub fn helper_random_array_uniform_structi64(size: usize) -> Vec<StructI64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value = rng.gen::<i64>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value = rng.random::<i64>();
             StructI64 { value, other }
         })
         .collect::<Vec<StructI64>>()
@@ -336,9 +336,9 @@ pub fn helper_random_array_uniform_structi128(size: usize) -> Vec<StructI128> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = thread_rng();
-            let other = rng.gen::<isize>();
-            let value: i128 = rng.gen::<i128>();
+            let mut rng = rand::rng();
+            let other = rng.random::<i64>() as isize;
+            let value: i128 = rng.random::<i128>();
             StructI128 { value, other }
         })
         .collect::<Vec<StructI128>>()
@@ -356,8 +356,8 @@ pub fn helper_random_array_uniform_structisize(
     (0..size)
         .into_par_iter()
         .map(|_| StructIsize {
-            value: thread_rng().gen::<isize>(),
-            other: thread_rng().gen::<isize>(),
+            value: rand::rng().random::<i64>() as isize,
+            other: rand::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructIsize>>()
 }
@@ -374,8 +374,8 @@ pub fn helper_random_array_uniform_structusize(
     (0..size)
         .into_par_iter()
         .map(|_| StructUsize {
-            value: thread_rng().gen::<usize>(),
-            other: thread_rng().gen::<isize>(),
+            value: rand::rng().random::<u64>() as usize,
+            other: rand::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructUsize>>()
 }

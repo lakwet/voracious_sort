@@ -1,16 +1,16 @@
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_i128(size: usize) -> Vec<i128> {
-    (0..size).into_par_iter().map(|_| thread_rng().gen()).collect::<Vec<i128>>()
+    (0..size).into_par_iter().map(|_| rand::rng().random()).collect::<Vec<i128>>()
 }
 
 // Small values
 pub fn helper_random_array_109_i128(size: usize) -> Vec<i128> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(-1_000_000_000, 1_000_000_000))
+        .map(|_| rand::rng().random_range(-1_000_000_000..1_000_000_000))
         .collect::<Vec<i128>>()
 }
 

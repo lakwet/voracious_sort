@@ -157,6 +157,57 @@ researchers Regions sort algorithm: [Regions sort](https://github.com/omarobeya/
 - All sorts fallback on the [PDQ sort](https://github.com/stjepang/pdqsort) (Rust
 Unstable sort) for very small inputs or on Rust (stable) sort for stable sorts.
 
+## Running the tests
+
+The test suite relies on the multithread feature (`rayon`) to generate its
+inputs:
+
+```sh
+make test
+# or
+cargo test --release --features "voracious_multithread"
+```
+
+### Windows with the GNU toolchain (`x86_64-pc-windows-gnu`)
+
+The test dependencies (`rand` → `getrandom`) link against Windows system DLLs
+through `raw-dylib`. On the GNU toolchain, rustc delegates this to `dlltool`,
+which in turn needs an assembler (`as`). Without one, the build fails with:
+
+```
+error: error calling dlltool 'dlltool.exe': program not found
+```
+
+or
+
+```
+error: dlltool could not create import library with ... dlltool.exe: CreateProcess
+```
+
+This only affects building the tests: `getrandom` is a dev-dependency, so
+crates depending on `voracious_radix_sort` are not concerned.
+
+Fix it with one of the following:
+
+- **Install MinGW binutils** and make sure `dlltool` and `as` are in your
+  `PATH`. With [MSYS2](https://www.msys2.org/):
+  ```sh
+  pacman -S mingw-w64-x86_64-binutils
+  ```
+  then add `C:\msys64\mingw64\bin` to your `PATH`.
+- **Use the MSVC toolchain** (requires the Visual Studio Build Tools):
+  ```sh
+  rustup toolchain install stable-x86_64-pc-windows-msvc
+  cargo +stable-x86_64-pc-windows-msvc test --release --features "voracious_multithread"
+  ```
+- **Workaround without installing anything**: make `getrandom` use the
+  `RDRAND` CPU instruction instead of the Windows API (x86_64 only, tests
+  only):
+  ```sh
+  RUSTFLAGS='--cfg getrandom_backend="rdrand" -C target-feature=+rdrand' \
+    cargo test --release --features "voracious_multithread"
+  ```
+
 ## References
 
 - [What is radixsort](https://axelle.me/2020/11/08/what-is-radixsort/)

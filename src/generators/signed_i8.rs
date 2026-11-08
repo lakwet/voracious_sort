@@ -1,5 +1,5 @@
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_i8(size: usize) -> Vec<i8> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen::<i8>())
+        .map(|_| rand::rng().random::<i8>())
         .collect::<Vec<i8>>()
 }
 
@@ -23,18 +23,18 @@ pub fn helper_random_array_desc_sawtooth_i8(size: usize) -> Vec<i8> {
 
 // All equals
 pub fn helper_random_array_allequals_i8(size: usize) -> Vec<i8> {
-    vec![thread_rng().gen(); size]
+    vec![rand::rng().random(); size]
 }
 
 // Zipf
 pub fn helper_random_array_zipf_i8(size: usize) -> Vec<i8> {
     let mut array: Vec<i8> = Vec::with_capacity(size);
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: i8 = 0;
     while quantity > 2 {
-        value = rng.gen();
+        value = rng.random();
 
         for _ in 0..quantity {
             array.push(value);
@@ -58,7 +58,7 @@ pub fn helper_random_array_normale_10_i8(size: usize) -> Vec<i8> {
     let normal = Normal::new(0.0, 1024.0).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut thread_rng()) as i8)
+        .map(|_| normal.sample(&mut rand::rng()) as i8)
         .collect::<Vec<i8>>()
 }
 

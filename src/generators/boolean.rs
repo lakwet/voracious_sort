@@ -1,11 +1,11 @@
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rayon::prelude::*;
 
 pub fn helper_random_array_bool_unif(size: usize) -> Vec<bool> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let value: u8 = thread_rng().gen_range(0, 2);
+            let value: u8 = rand::rng().random_range(0..2);
             value != 0
         })
         .collect::<Vec<bool>>()
