@@ -1,5 +1,5 @@
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen::<i32>())
+        .map(|_| rand::rng().random::<i32>())
         .collect::<Vec<i32>>()
 }
 
@@ -15,7 +15,7 @@ pub fn helper_random_array_uniform_i32(size: usize) -> Vec<i32> {
 pub fn helper_random_array_109_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(-1_000_000_000, 1_000_000_000))
+        .map(|_| rand::rng().random_range(-1_000_000_000..1_000_000_000))
         .collect::<Vec<i32>>()
 }
 
@@ -23,7 +23,7 @@ pub fn helper_random_array_109_i32(size: usize) -> Vec<i32> {
 pub fn helper_random_array_small_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(-64_000, 64_000))
+        .map(|_| rand::rng().random_range(-64_000..64_000))
         .collect::<Vec<i32>>()
 }
 
@@ -39,7 +39,7 @@ pub fn helper_random_array_descending_i32(size: usize) -> Vec<i32> {
 
 // All equals
 pub fn helper_random_array_allequals_i32(size: usize) -> Vec<i32> {
-    vec![thread_rng().gen(); size]
+    vec![rand::rng().random(); size]
 }
 
 // Alternating 16 values
@@ -48,9 +48,9 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
         .into_par_iter()
         .map(|i| {
             if i % 2 == 0 {
-                thread_rng().gen_range(0, 16) as i32
+                rand::rng().random_range(0..16) as i32
             } else {
-                -(thread_rng().gen_range(0, 16) as i32)
+                -(rand::rng().random_range(0..16) as i32)
             }
         })
         .collect::<Vec<i32>>()
@@ -59,12 +59,12 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
 // Zipf
 pub fn helper_random_array_zipf_i32(size: usize) -> Vec<i32> {
     let mut array: Vec<i32> = Vec::with_capacity(size);
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: i32 = 0;
     while quantity > 2 {
-        value = rng.gen();
+        value = rng.random();
 
         for _ in 0..quantity {
             array.push(value);
@@ -85,14 +85,14 @@ pub fn helper_random_array_zipf_i32(size: usize) -> Vec<i32> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_i32(size: usize) -> Vec<i32> {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<i32> = Vec::with_capacity(size);
 
     let mut i = 0;
     let mut value: i32 = 0;
     for _ in 0..sqrt {
-        value = rng.gen();
+        value = rng.random();
         for _ in 0..sqrt {
             array.push(value);
             i += 1;
@@ -118,8 +118,8 @@ pub fn helper_random_array_almost_asc_i32(size: usize) -> Vec<i32> {
     let mut array = helper_random_array_ascending_i32(size);
 
     for _ in 0..((size as f64).sqrt() as usize) {
-        let i = thread_rng().gen_range(0, size);
-        let j = thread_rng().gen_range(0, size);
+        let i = rand::rng().random_range(0..size);
+        let j = rand::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -138,8 +138,8 @@ pub fn helper_random_array_almost_desc_i32(size: usize) -> Vec<i32> {
     let mut array = helper_random_array_descending_i32(size);
 
     for _ in 0..((size as f64).sqrt() as usize) {
-        let i = thread_rng().gen_range(0, size);
-        let j = thread_rng().gen_range(0, size);
+        let i = rand::rng().random_range(0..size);
+        let j = rand::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -212,7 +212,7 @@ fn helper_normal(size: usize, range: f32) -> Vec<i32> {
     let normal = Normal::new(0.0, range).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut thread_rng()) as i32)
+        .map(|_| normal.sample(&mut rand::rng()) as i32)
         .collect::<Vec<i32>>()
 }
 

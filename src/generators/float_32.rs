@@ -1,4 +1,4 @@
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rand_distr::{Distribution, Normal, Pareto};
 use rayon::prelude::*;
 
@@ -6,7 +6,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen::<f32>())
+        .map(|_| rand::rng().random::<f32>())
         .collect::<Vec<f32>>()
 }
 
@@ -14,7 +14,7 @@ pub fn helper_random_array_uniform_f32(size: usize) -> Vec<f32> {
 pub fn helper_random_array_small_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(-1_000_000.0, 1_000_000.0))
+        .map(|_| rand::rng().random_range(-1_000_000.0..1_000_000.0))
         .collect::<Vec<f32>>()
 }
 
@@ -30,14 +30,14 @@ pub fn helper_random_array_desc_f32(size: usize) -> Vec<f32> {
 
 // Equal
 pub fn helper_random_array_equal_f32(size: usize) -> Vec<f32> {
-    vec![thread_rng().gen(); size]
+    vec![rand::rng().random(); size]
 }
 
 fn helper_pareto(size: usize, arg: f32) -> Vec<f32> {
     let pareto = Pareto::new(0.1, arg).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| pareto.sample(&mut thread_rng()))
+        .map(|_| pareto.sample(&mut rand::rng()))
         .collect::<Vec<f32>>()
 }
 
@@ -60,7 +60,7 @@ fn helper_normal(size: usize, standard_deviation: f32) -> Vec<f32> {
     let normal = Normal::new(0.0, standard_deviation).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut thread_rng()))
+        .map(|_| normal.sample(&mut rand::rng()))
         .collect::<Vec<f32>>()
 }
 
@@ -81,14 +81,14 @@ pub fn helper_random_array_normale_30_f32(size: usize) -> Vec<f32> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_f32(size: usize) -> Vec<f32> {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<f32> = Vec::with_capacity(size);
 
     let mut i = 0;
     let mut value: f32 = 0.0;
     for _ in 0..sqrt {
-        value = rng.gen();
+        value = rng.random();
         for _ in 0..sqrt {
             array.push(value);
             i += 1;
@@ -119,8 +119,8 @@ pub fn helper_random_array_almost_asc_f32(size: usize) -> Vec<f32> {
     let mut array = helper_random_array_asc_f32(size);
 
     for _ in 0..((size as f64).log2() as usize) {
-        let i = thread_rng().gen_range(0, size);
-        let j = thread_rng().gen_range(0, size);
+        let i = rand::rng().random_range(0..size);
+        let j = rand::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -139,8 +139,8 @@ pub fn helper_random_array_almost_desc_f32(size: usize) -> Vec<f32> {
     let mut array = helper_random_array_desc_f32(size);
 
     for _ in 0..((size as f64).log2() as usize) {
-        let i = thread_rng().gen_range(0, size);
-        let j = thread_rng().gen_range(0, size);
+        let i = rand::rng().random_range(0..size);
+        let j = rand::rng().random_range(0..size);
         array.swap(i, j);
     }
 

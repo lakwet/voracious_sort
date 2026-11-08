@@ -1,12 +1,12 @@
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_u16(size: usize) -> Vec<u16> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen::<u16>())
+        .map(|_| rand::rng().random::<u16>())
         .collect::<Vec<u16>>()
 }
 
@@ -14,7 +14,7 @@ pub fn helper_random_array_uniform_u16(size: usize) -> Vec<u16> {
 pub fn helper_random_array_small_u16(size: usize) -> Vec<u16> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(0, 255))
+        .map(|_| rand::rng().random_range(0..255))
         .collect::<Vec<u16>>()
 }
 
@@ -33,18 +33,18 @@ pub fn helper_random_array_desc_sawtooth_u16(size: usize) -> Vec<u16> {
 
 // All equals
 pub fn helper_random_array_allequals_u16(size: usize) -> Vec<u16> {
-    vec![thread_rng().gen(); size]
+    vec![rand::rng().random(); size]
 }
 
 // Zipf
 pub fn helper_random_array_zipf_u16(size: usize) -> Vec<u16> {
     let mut array: Vec<u16> = Vec::with_capacity(size);
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u16 = 0;
     while quantity > 2 {
-        value = rng.gen();
+        value = rng.random();
 
         for _ in 0..quantity {
             array.push(value);

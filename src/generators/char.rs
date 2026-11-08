@@ -1,4 +1,4 @@
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rayon::prelude::*;
 
 fn get_charset() -> Vec<char> {
@@ -14,12 +14,12 @@ fn get_charset() -> Vec<char> {
 pub fn helper_random_array_uniform_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen::<char>())
+        .map(|_| rand::rng().random::<char>())
         .collect::<Vec<char>>()
 }
 
 pub fn helper_random_array_equal_char(size: usize) -> Vec<char> {
-    vec![thread_rng().gen::<char>(); size]
+    vec![rand::rng().random::<char>(); size]
 }
 
 pub fn helper_random_array_charset_char(size: usize) -> Vec<char> {
@@ -27,7 +27,7 @@ pub fn helper_random_array_charset_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let index: usize = thread_rng().gen_range(0, charset.len());
+            let index: usize = rand::rng().random_range(0..charset.len());
             charset[index]
         })
         .collect::<Vec<char>>()
@@ -39,7 +39,7 @@ pub fn helper_random_array_charset_den_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let index: usize = thread_rng().gen_range(0, charset.len());
+            let index: usize = rand::rng().random_range(0..charset.len());
             charset[index]
         })
         .collect::<Vec<char>>()
@@ -54,7 +54,7 @@ pub fn helper_random_array_charset_vden_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let index: usize = thread_rng().gen_range(0, charset.len());
+            let index: usize = rand::rng().random_range(0..charset.len());
             charset[index]
         })
         .collect::<Vec<char>>()
