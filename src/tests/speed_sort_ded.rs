@@ -13,6 +13,7 @@ use super::test_helpers::helper_sort_aux;
 fn speed_dedicated<T, K>(
     name: &str,
     sort: &dyn Fn(&mut [T]) -> (),
+    blazing: &dyn Fn(&mut [T]) -> (),
     generators: Vec<(&dyn Fn(usize) -> Vec<T>, &'static str)>,
 ) where
     T: Radixable<K> + std::fmt::Debug,
@@ -37,11 +38,13 @@ fn speed_dedicated<T, K>(
 
     println!("Number of iterations: {}", runs);
     println!("=== Dedicated {} ===", name);
+    println!("\u{1b}[1;34m\t{}\t\tBlazing radix\u{1b}[0m", name);
     for size in sizes.iter() {
         println!("Array size: {}", size);
         for (generator, gen_name) in generators.iter() {
             print!("{}", gen_name);
             helper_sort_aux(&|arr: &mut [T]| sort(arr), runs, *size, generator, with_check);
+            helper_sort_aux(blazing, runs, *size, generator, with_check);
             println!();
         }
     }
@@ -49,15 +52,15 @@ fn speed_dedicated<T, K>(
 
 #[test]
 fn speed_dedicated_lsd_f32() {
-    speed_dedicated("LSD f32", &lsd_f32, generators_f32());
+    speed_dedicated("LSD f32", &lsd_f32, &blazing_radix::radix_sort::<f32>, generators_f32());
 }
 
 #[test]
 fn speed_dedicated_lsd_u32() {
-    speed_dedicated("LSD u32", &lsd_u32, generators_u32());
+    speed_dedicated("LSD u32", &lsd_u32, &blazing_radix::radix_sort::<u32>, generators_u32());
 }
 
 #[test]
 fn speed_dedicated_cs_u16() {
-    speed_dedicated("CS u16", &cs_u16, generators_u16());
+    speed_dedicated("CS u16", &cs_u16, &blazing_radix::radix_sort::<u16>, generators_u16());
 }

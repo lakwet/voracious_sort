@@ -208,6 +208,58 @@ Fix it with one of the following:
     cargo test --release --features "voracious_multithread"
   ```
 
+## Running the benchmarks
+
+The speed tests are regular `#[test]` functions hidden in the test suite. They
+are disabled by default because they are slow and print a colored table meant
+for humans.
+
+1. **Enable the modules** in `src/tests/mod.rs` by uncommenting these lines
+   (`test_helpers` is required by both speed modules):
+   ```rust
+   mod test_helpers;
+   #[rustfmt::skip] mod speed_sort;
+   #[rustfmt::skip] mod speed_sort_ded;
+   ```
+
+2. **Pick what to compare** in `src/tests/speed_sort.rs`, function
+   `helper_sort`:
+   - `sorts_name`: the column titles, uncomment the sorts you want.
+   - the `helper_sort_aux(...)` calls: uncomment the matching sorts, **in the
+     same order** as `sorts_name` (the titles are only labels).
+   - `runs` (number of iterations), `thread_n` (for multithread sorts),
+     `with_check` (checks the result against Rust's sort, slower) and `sizes`.
+   - at the bottom of the file, uncomment the `#[test]` functions for the types
+     you want (`speed_test_u64`, `speed_test_f32`, ...).
+   - the [`blazing-radix`](https://crates.io/crates/blazing-radix) crate
+     (dev-dependency only) is passed as the last argument of `helper_sort` for
+     the types it supports (`i8`..`i64`, `u8`..`u64`, `f32`), `None` otherwise.
+     Add a `"Blazing"` entry in `sorts_name` where its column appears.
+   - for floats (`f32`, `f64`), replace the `T: Ord` bound of `helper_sort` with
+     the commented `T: PartialOrd` one.
+
+   `src/tests/speed_sort_ded.rs` benchmarks the dedicated sorts (`lsd_f32`,
+   `lsd_u32`, `cs_u16`) against `blazing-radix`.
+
+3. **Run** in release mode, with `--nocapture` to see the output and a single
+   test thread so the benchmarks don't disturb each other:
+   ```sh
+   # shortcut (any test name or filter, adds the getrandom workaround on Windows)
+   make bench speed_test_u64
+   make bench speed_dedicated
+
+   # all enabled speed tests
+   cargo test --release --features "voracious_multithread" speed_ -- --nocapture --test-threads=1
+   # a single one
+   cargo test --release --features "voracious_multithread" speed_test_u64 -- --nocapture --test-threads=1
+   # dedicated sorts
+   cargo test --release --features "voracious_multithread" speed_dedicated -- --nocapture --test-threads=1
+   ```
+
+For each sort, the output shows the mean time in µs (green), the standard
+deviation in ns (red) and the time per item in ns (yellow). Large `sizes` need a
+lot of memory (the input plus a copy when `with_check` is enabled).
+
 ## References
 
 - [What is radixsort](https://axelle.me/2020/11/08/what-is-radixsort/)

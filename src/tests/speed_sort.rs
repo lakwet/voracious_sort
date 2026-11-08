@@ -69,6 +69,9 @@ use super::test_helpers::helper_sort_aux;
 fn helper_sort<T, K>(
     test_name: &str,
     generators: Vec<(&dyn Fn(usize) -> Vec<T>, &'static str)>,
+    // blazing-radix only supports i8..i64, u8..u64 and f32, so it is
+    // passed explicitly when the type is supported (None otherwise).
+    blazing: Option<&dyn Fn(&mut [T])>,
 ) where
     T: Radixable<K> + std::fmt::Debug,
     K: RadixKey,
@@ -76,9 +79,9 @@ fn helper_sort<T, K>(
     // T: PartialOrd,
 {
     let sorts_name = vec![
-        // "Trait Vora Uns or stable",
+        "Trait Vora Uns or stable",
         // "Trait Vora Stable",
-        "Trait Vora MT",
+        // "Trait Vora MT",
         // "Peeka 500",
         // "Peeka 1000",
         // "Peeka 2000",
@@ -94,13 +97,14 @@ fn helper_sort<T, K>(
         // "Ska Sort",
         // "American",
         // "Thiel",
+        "Blazing",
         // "Raw Voracious sort",
         // "Raw Regions sort",
-        "Rayon pll uns",
+        // "Rayon pll uns",
         // "Rayon pll stable",
     ];
 
-    let runs = 1;
+    let runs = 5;
     #[allow(unused_imports)]
     let thread_n = 16;
     let with_check = false;
@@ -110,9 +114,9 @@ fn helper_sort<T, K>(
         // 1_000_000,5_000_000,10_000_000,20_000_000,50_000_000,100_000_000,200_000_000
         // 20_000,
         // 100, 1000, 5000, 10000, 20000, 50000, 100_000, 200_000, 500_000,
-        // 1_000_000,
-        // 2_000_000,
-        // 5_000_000,
+        1_000_000,
+        2_000_000,
+        5_000_000,
         // 10_000_000,
         // 20_000_000,
         // 50_000_000,
@@ -121,7 +125,7 @@ fn helper_sort<T, K>(
         // 2_000_000_000,
         // 5_000_000_000,
         // 7_000_000_000,
-        10_000_000_000,
+        // 10_000_000_000,
     ];
 
     println!("Number of iterations: {}", runs);
@@ -137,9 +141,9 @@ fn helper_sort<T, K>(
         println!("Array size: {}", size);
         for (generator, gen_name) in generators.iter() {
             print!("{}", gen_name);
-            // helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,with_check);
+            helper_sort_aux(&|arr: &mut [T]| arr.voracious_sort(),runs,*size,generator,with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.voracious_stable_sort(),runs,*size,generator, with_check);
-            helper_sort_aux(&|arr: &mut [T]| arr.voracious_mt_sort(thread_n),runs,*size,generator,with_check);
+            // helper_sort_aux(&|arr: &mut [T]| arr.voracious_mt_sort(thread_n),runs,*size,generator,with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable(),runs,*size,generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort(), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
@@ -155,13 +159,16 @@ fn helper_sort<T, K>(
             // helper_sort_aux(&|arr: &mut [T]| ska_sort(arr, 8), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| american_flag_sort(arr, 8), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| thiel_radixsort(arr, 8), runs, *size, generator, with_check);
+            if let Some(blazing_sort) = blazing {
+                helper_sort_aux(blazing_sort, runs, *size, generator, with_check);
+            }
             // helper_sort_aux(&|arr: &mut [T]| voracious_sort(arr, 8), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1, 16), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 2, 16), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 3000, 16), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 5000, 16), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| peeka_sort(arr, 8, 1_100_000, thread_n), runs, *size, generator, with_check);
-            helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable(), runs, *size, generator, with_check);
+            // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable(), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort(), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| arr.par_sort_by(|a, b| a.partial_cmp(b).unwrap()), runs, *size, generator, with_check);
@@ -172,160 +179,160 @@ fn helper_sort<T, K>(
 
 // #[test]
 // fn speed_test_bool() {
-//     helper_sort("Test boolean", generators_bool());
+//     helper_sort("Test boolean", generators_bool(), None);
 // }
 
 // #[test]
 // fn speed_test_char() {
-//     helper_sort("Test char", generators_char());
+//     helper_sort("Test char", generators_char(), None);
 // }
 
 // #[test]
 // fn speed_test_f32() {
-//     helper_sort("Test f32", generators_f32());
+//     helper_sort("Test f32", generators_f32(), Some(&blazing_radix::radix_sort::<f32>));
 // }
 
 // #[test]
 // fn speed_test_f64() {
-//     helper_sort("Test f64", generators_f64());
+//     helper_sort("Test f64", generators_f64(), None);
 // }
 
 // #[test]
 // fn speed_test_u8() {
-//     helper_sort("Test u8", generators_u8());
+//     helper_sort("Test u8", generators_u8(), Some(&blazing_radix::radix_sort::<u8>));
 // }
 
 // #[test]
 // fn speed_test_u16() {
-//     helper_sort("Test u16", generators_u16());
+//     helper_sort("Test u16", generators_u16(), Some(&blazing_radix::radix_sort::<u16>));
 // }
 
 // #[test]
 // fn speed_test_u32() {
-//     helper_sort("Test u32", generators_u32());
+//     helper_sort("Test u32", generators_u32(), Some(&blazing_radix::radix_sort::<u32>));
 // }
 
 #[test]
 fn speed_test_u64() {
-    helper_sort("Test u64", generators_u64());
+    helper_sort("Test u64", generators_u64(), Some(&blazing_radix::radix_sort::<u64>));
 }
 
 // #[test]
 // fn speed_test_u128() {
-//     helper_sort("Test u128", generators_u128());
+//     helper_sort("Test u128", generators_u128(), None);
 // }
 
 // #[test]
 // fn speed_test_usize() {
-//     helper_sort("Test usize", generators_usize());
+//     helper_sort("Test usize", generators_usize(), None);
 // }
 
 // #[test]
 // fn speed_test_i8() {
-//     helper_sort("Test i8", generators_i8());
+//     helper_sort("Test i8", generators_i8(), Some(&blazing_radix::radix_sort::<i8>));
 // }
 
 // #[test]
 // fn speed_test_i16() {
-//     helper_sort("Test i16", generators_i16());
+//     helper_sort("Test i16", generators_i16(), Some(&blazing_radix::radix_sort::<i16>));
 // }
 
 // #[test]
 // fn speed_test_i32() {
-//     helper_sort("Test i32", generators_i32());
+//     helper_sort("Test i32", generators_i32(), Some(&blazing_radix::radix_sort::<i32>));
 // }
 
 // #[test]
 // fn speed_test_i64() {
-//     helper_sort("Test i64", generators_i64());
+//     helper_sort("Test i64", generators_i64(), Some(&blazing_radix::radix_sort::<i64>));
 // }
 
 // #[test]
 // fn speed_test_i128() {
-//     helper_sort("Test i128", generators_i128());
+//     helper_sort("Test i128", generators_i128(), None);
 // }
 
 // #[test]
 // fn speed_test_isize() {
-//     helper_sort("Test isize", generators_isize());
+//     helper_sort("Test isize", generators_isize(), None);
 // }
 
 // #[test]
 // fn speed_test_structbool() {
-//     helper_sort("Test struct{isize, bool}", generators_structbool());
+//     helper_sort("Test struct{isize, bool}", generators_structbool(), None);
 // }
 
 // #[test]
 // fn speed_test_structchar() {
-//     helper_sort("Test struct{isize, char}", generators_structchar());
+//     helper_sort("Test struct{isize, char}", generators_structchar(), None);
 // }
 
 // #[test]
 // fn speed_test_structf32() {
-//     helper_sort("Test struct{isize, f32}", generators_structf32());
+//     helper_sort("Test struct{isize, f32}", generators_structf32(), None);
 // }
 
 // #[test]
 // fn speed_test_structf64() {
-//     helper_sort("Test struct{isize, f64}", generators_structf64());
+//     helper_sort("Test struct{isize, f64}", generators_structf64(), None);
 // }
 
 // #[test]
 // fn speed_test_structu8() {
-//     helper_sort("Test struct{isize, u8}", generators_structu8());
+//     helper_sort("Test struct{isize, u8}", generators_structu8(), None);
 // }
 
 // #[test]
 // fn speed_test_structu16() {
-//     helper_sort("Test struct{isize, u16}", generators_structu16());
+//     helper_sort("Test struct{isize, u16}", generators_structu16(), None);
 // }
 
 // #[test]
 // fn speed_test_structu32() {
-//     helper_sort("Test struct{isize, u32}", generators_structu32());
+//     helper_sort("Test struct{isize, u32}", generators_structu32(), None);
 // }
 
 // #[test]
 // fn speed_test_structu64() {
-//     helper_sort("Test struct{isize, u64}", generators_structu64());
+//     helper_sort("Test struct{isize, u64}", generators_structu64(), None);
 // }
 
 // #[test]
 // fn speed_test_structu128() {
-//     helper_sort("Test struct{isize, u128}", generators_structu128());
+//     helper_sort("Test struct{isize, u128}", generators_structu128(), None);
 // }
 
 // #[test]
 // fn speed_test_structusize() {
-//     helper_sort("Test struct{isize, usize}", generators_structusize());
+//     helper_sort("Test struct{isize, usize}", generators_structusize(), None);
 // }
 
 // #[test]
 // fn speed_test_structi8() {
-//     helper_sort("Test struct{isize, i8}", generators_structi8());
+//     helper_sort("Test struct{isize, i8}", generators_structi8(), None);
 // }
 
 // #[test]
 // fn speed_test_structi16() {
-//     helper_sort("Test struct{isize, i16}", generators_structi16());
+//     helper_sort("Test struct{isize, i16}", generators_structi16(), None);
 // }
 
 // #[test]
 // fn speed_test_structi32() {
-//     helper_sort("Test struct{isize, i32}", generators_structi32());
+//     helper_sort("Test struct{isize, i32}", generators_structi32(), None);
 // }
 
 // #[test]
 // fn speed_test_structi64() {
-//     helper_sort("Test struct{isize, i64}", generators_structi64());
+//     helper_sort("Test struct{isize, i64}", generators_structi64(), None);
 // }
 
 // #[test]
 // fn speed_test_structi128() {
-//     helper_sort("Test struct{isize, i128}", generators_structi128());
+//     helper_sort("Test struct{isize, i128}", generators_structi128(), None);
 // }
 
 // #[test]
 // fn speed_test_structisize() {
-//     helper_sort("Test struct{isize, isize}", generators_structisize());
+//     helper_sort("Test struct{isize, isize}", generators_structisize(), None);
 // }
