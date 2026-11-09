@@ -27,6 +27,8 @@ use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::float_detect::{detect32, detect64};
 use super::float_lsd::w32;
+#[cfg(test)]
+use super::float_lsd::Digits;
 
 /// Below these sizes, the whole array is sorted with `sort_unstable` on the
 /// encoded keys.
@@ -129,6 +131,14 @@ impl FloatSort for f64 {
 pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
     let mut separators =
         verge_sort_preprocessing(arr, 8, &|chunk: &mut [f32], _| w32::lsd(bits32(chunk)));
+    k_way_merge(arr, &mut separators);
+}
+
+/// f32 radix path with a forced digit layout (tests).
+#[cfg(test)]
+pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
+    let mut separators =
+        verge_sort_preprocessing(arr, 8, &|chunk: &mut [f32], _| w32::lsd_mode(bits32(chunk), mode));
     k_way_merge(arr, &mut separators);
 }
 

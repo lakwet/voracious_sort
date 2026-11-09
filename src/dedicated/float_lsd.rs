@@ -1,13 +1,15 @@
 //! Fused LSD radix sort on float bits (encoding fused into the first scatter
-//! pass, decoding into the last one), tuned for single thread:
+//! pass, decoding into the last one), tuned for single thread. Several ideas
+//! come from blazing-radix (MIT License, Copyright (c) 2026 Max Tikhomirov):
 //!
 //! - one read pass builds the histograms of every digit, with a layout known
-//!   at compile time (unrolled digit loop) and 4 lanes so that consecutive
-//!   equal digits do not serialize on the same counter (store-to-load
-//!   dependency);
+//!   at compile time (unrolled digit loop) and several lanes (4 for bytes, 2
+//!   for 11-bit digits) so that consecutive equal digits do not serialize on
+//!   the same counter (store-to-load dependency);
 //! - `u32` counters while `n <= u32::MAX` (half the cache footprint), `usize`
 //!   counters beyond;
-//! - digits equal in every key are skipped;
+//! - 11-bit digits (3 passes instead of 4 on 32-bit keys) when the keys vary
+//!   on enough bits; digits equal in every key are skipped;
 //! - the scatter loop reads 4 keys before writing them, with a fast path when
 //!   the 4 keys share their digit; on the top digit (sign + exponent: few,
 //!   unbalanced buckets) the 4 positions are resolved inside the block
@@ -19,6 +21,21 @@ use std::mem::MaybeUninit;
 
 /// Below this size the encoded keys are sorted with Rust's `sort_unstable`.
 const LSD_MIN: usize = 128;
+/// From this size 11-bit digits may be used.
+const WIDE_MIN: usize = 8192;
+/// Up to this size 11-bit digits may be used on 32-bit keys: beyond, the
+/// 2048 write streams of a scatter pass cost more than the saved pass
+/// (measured on Snapdragon X Elite, to check on x86).
+const WIDE_MAX_32: usize = 4_000_000;
+
+/// Digit layout forced for experiments (`Auto` in production).
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) enum Digits {
+    Auto,
+    Bytes,
+    Wide,
+}
 
 /// Histogram counter: `u32` for arrays up to `u32::MAX` elements.
 trait Counter: Copy + std::ops::AddAssign {
@@ -58,9 +75,9 @@ impl Counter for usize {
 }
 
 macro_rules! fused_lsd {
-    ($uint:ty, $sint:ty, $name:ident) => {
+    ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr) => {
         pub(crate) mod $name {
-            use super::{Counter, MaybeUninit, LSD_MIN};
+            use super::{Counter, Digits, MaybeUninit, LSD_MIN, WIDE_MAX_32, WIDE_MIN};
 
             const BITS: u32 = <$uint>::BITS;
 
@@ -273,26 +290,56 @@ macro_rules! fused_lsd {
                 }
             }
 
-            fn sort_with<C: Counter>(bits: &mut [$uint]) {
-                let shifts: Vec<u32> = (0..BITS).step_by(8).collect();
-                let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4>(bits, 8);
-                sort_digits::<C, 256>(bits, &shifts, tables);
+            /// Bits varying among 16 spread encoded keys (blazing's sample).
+            fn variation(bits: &[$uint]) -> u32 {
+                let first = encode(bits[0]);
+                bits.iter()
+                    .step_by((bits.len() / 16).max(1))
+                    .take(16)
+                    .fold(0, |acc, &v| acc | (encode(v) ^ first))
+                    .count_ones()
+            }
+
+            fn sort_with<C: Counter>(bits: &mut [$uint], mode: Digits) {
+                let wide = match mode {
+                    Digits::Bytes => false,
+                    Digits::Wide => true,
+                    Digits::Auto => {
+                        bits.len() >= WIDE_MIN
+                            && (BITS == 64 || bits.len() <= WIDE_MAX_32)
+                            && variation(bits) >= $wide_bits
+                    }
+                };
+                if wide {
+                    let shifts: Vec<u32> = (0..BITS).step_by(11).collect();
+                    let tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2>(bits, 11);
+                    sort_digits::<C, 2048>(bits, &shifts, tables);
+                } else {
+                    let shifts: Vec<u32> = (0..BITS).step_by(8).collect();
+                    let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4>(bits, 8);
+                    sort_digits::<C, 256>(bits, &shifts, tables);
+                }
             }
 
             /// Sorts raw float bits in total order.
             pub(crate) fn lsd(bits: &mut [$uint]) {
+                lsd_mode(bits, Digits::Auto);
+            }
+
+            /// Sorts raw float bits in total order with a forced layout.
+            pub(crate) fn lsd_mode(bits: &mut [$uint], mode: Digits) {
                 if bits.len() <= LSD_MIN {
                     bits.iter_mut().for_each(|b| *b = encode(*b));
                     bits.sort_unstable();
                     bits.iter_mut().for_each(|b| *b = decode(*b));
                 } else if bits.len() <= u32::MAX as usize {
-                    sort_with::<u32>(bits);
+                    sort_with::<u32>(bits, mode);
                 } else {
-                    sort_with::<usize>(bits);
+                    sort_with::<usize>(bits, mode);
                 }
             }
         }
     };
 }
 
-fused_lsd!(u32, i32, w32);
+fused_lsd!(u32, i32, w32, 20);

@@ -169,3 +169,13 @@ fn test_ded_float_sort_detectors() {
         }
     }
 }
+
+/// Every digit layout of the fused LSD (bytes, 11-bit, automatic choice).
+#[test]
+fn test_ded_float_lsd_layouts() {
+    use super::super::dedicated::float_lsd::Digits;
+    use super::super::dedicated::float_sort::float_sort_f32_radix_mode;
+    for mode in [Digits::Auto, Digits::Bytes, Digits::Wide] {
+        check_total_order_f32(&|a| float_sort_f32_radix_mode(a, mode));
+    }
+}
