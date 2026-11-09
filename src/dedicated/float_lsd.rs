@@ -2,7 +2,9 @@
 //! pass, decoding into the last one), tuned for single thread:
 //!
 //! - one read pass builds the histograms of every digit, with a layout known
-//!   at compile time (unrolled digit loop);
+//!   at compile time (unrolled digit loop) and 4 lanes so that consecutive
+//!   equal digits do not serialize on the same counter (store-to-load
+//!   dependency);
 //! - `u32` counters while `n <= u32::MAX` (half the cache footprint), `usize`
 //!   counters beyond;
 //! - digits equal in every key are skipped;
@@ -65,8 +67,9 @@ macro_rules! fused_lsd {
 
             /// Histograms of the `P` digits of `STEP` bits (`R = 2^STEP`
             /// buckets) of the encoded keys, in `L` lanes (element `i`
-            /// counted in lane `i % L`). The layout is known at compile
-            /// time, so the digit loop is unrolled.
+            /// counted in lane `i % L`, so that consecutive keys sharing a
+            /// digit do not wait on the same counter). The layout is known
+            /// at compile time, so the digit loop is unrolled.
             fn hist_const<C: Counter, const R: usize, const P: usize, const L: usize>(
                 bits: &[$uint],
                 step: u32,
@@ -191,7 +194,7 @@ macro_rules! fused_lsd {
 
             fn sort_with<C: Counter>(bits: &mut [$uint]) {
                 let shifts: Vec<u32> = (0..BITS).step_by(8).collect();
-                let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 1>(bits, 8);
+                let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4>(bits, 8);
                 sort_digits::<C, 256>(bits, &shifts, tables);
             }
 
