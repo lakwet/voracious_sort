@@ -16,8 +16,7 @@
 //! 4. Verge sort pre-processing (already sorted parts are not radix sorted;
 //!    the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
-//!    is fused into the first scatter pass, the decoding into the last one),
-//!    or for very large f64 chunks rollercoaster on the encoded keys;
+//!    is fused into the first scatter pass, the decoding into the last one);
 //! 5. when merging the segments would cost more than radix sorting the
 //!    whole array (several segments with unpredictable interleavings), the
 //!    whole array is radix sorted instead.
@@ -31,7 +30,6 @@
 use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
-use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::float_detect::{detect32, detect64};
 use super::float_lsd::{w32, w64};
 #[cfg(test)]
@@ -41,8 +39,6 @@ use super::float_lsd::Digits;
 /// encoded keys.
 const SMALL_F32: usize = 600;
 const SMALL_F64: usize = 3_000;
-/// From this chunk size f64 uses rollercoaster instead of the fused LSD.
-const ROLLER_F64: usize = 2_000_000;
 
 mod sealed {
     pub trait Sealed {}
@@ -224,16 +220,9 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     k_way_merge_fast(arr, &mut separators);
 }
 
-/// f64 radix path (see `radix_path`): the fused LSD sorts the chunks, or
-/// rollercoaster on the encoded keys for very large ones.
+/// f64 radix path (see `radix_path`), the fused LSD sorting the chunks.
 pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
-    radix_path(arr, &|s: &mut [f64]| {
-        if s.len() < ROLLER_F64 {
-            w64::lsd(bits64(s));
-        } else {
-            roller64(s);
-        }
-    });
+    radix_path(arr, &|s: &mut [f64]| w64::lsd(bits64(s)));
 }
 
 /// f64 radix path with a forced digit layout, fused LSD only (tests).
@@ -245,10 +234,3 @@ pub(crate) fn float_sort_f64_radix_mode(arr: &mut [f64], mode: Digits) {
     k_way_merge_fast(arr, &mut separators);
 }
 
-/// Rollercoaster on the encoded keys (one encode and one decode pass).
-fn roller64(chunk: &mut [f64]) {
-    let keys = bits64(chunk);
-    keys.iter_mut().for_each(|b| *b = encode64(*b));
-    rollercoaster_sort(keys, 8);
-    keys.iter_mut().for_each(|b| *b = decode64(*b));
-}
