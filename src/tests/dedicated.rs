@@ -198,3 +198,26 @@ fn test_ded_float_lsd_profile() {
         assert!(a == e, "profile wide={}", wide);
     }
 }
+
+/// Integer-valued floats make bucket starts alias in the cache: the staged
+/// scatter is used for those passes. Check the result on such data.
+#[test]
+fn test_ded_float_sort_aliased_buckets() {
+    for &n in [100_003usize, 1_000_003].iter() {
+        let teeth: Vec<f32> = (0..n).map(|i| (i % (n / 4)) as f32).collect();
+        let saw = helper_random_array_asc_sawtooth_f32(n);
+        let ints: Vec<f64> = (0..n).map(|i| ((i * 7919) % (n / 3)) as f64).collect();
+        for v in [teeth, saw].iter() {
+            let mut a = v.clone();
+            let mut e = v.clone();
+            e.sort_unstable_by(|x, y| x.total_cmp(y));
+            float_sort(&mut a);
+            assert!(a.iter().map(|x| x.to_bits()).eq(e.iter().map(|x| x.to_bits())), "f32 {}", n);
+        }
+        let mut a = ints.clone();
+        let mut e = ints.clone();
+        e.sort_unstable_by(|x, y| x.total_cmp(y));
+        float_sort(&mut a);
+        assert!(a.iter().map(|x| x.to_bits()).eq(e.iter().map(|x| x.to_bits())), "f64 {}", n);
+    }
+}
