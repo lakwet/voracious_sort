@@ -11,14 +11,14 @@
 //! 1. low-cardinality detectors (integer range, power-of-two grid, few
 //!    values), see `float_detect`;
 //! 2. small arrays: encoded keys sorted with `sort_unstable`;
-//! 3. f32: repair of nearly sorted arrays (a few misplaced elements set
-//!    aside, sorted and inserted back), see `near_sorted`;
+//! 3. repair of nearly sorted arrays (a few misplaced elements set aside,
+//!    sorted and inserted back), see `near_sorted`;
 //! 4. Verge sort pre-processing (already sorted parts are not radix sorted;
-//!    for f32 the faster `verge_sort_fast` and `k_way_merge_fast` variants),
+//!    the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
 //!    is fused into the first scatter pass, the decoding into the last one),
 //!    or for very large f64 chunks rollercoaster on the encoded keys;
-//! 5. f32: when merging the segments would cost more than radix sorting the
+//! 5. when merging the segments would cost more than radix sorting the
 //!    whole array (several segments with unpredictable interleavings), the
 //!    whole array is radix sorted instead.
 //!
@@ -28,11 +28,9 @@
 //! The Verge pre-processing compares floats with `<`: arrays containing NaN
 //! are not supported yet (it may panic), as for the generic float sorts.
 
-use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
-use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::float_detect::{detect32, detect64};
 use super::float_lsd::{w32, w64};
@@ -138,34 +136,35 @@ impl FloatSort for f64 {
     }
 }
 
-/// f32 radix path: repair of nearly sorted arrays, else Verge
-/// pre-processing, then the fused LSD on each chunk.
-pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
+/// Radix path shared by f32 and f64: repair of nearly sorted arrays, else
+/// the Verge pre-processing records the unsorted chunks; when merging the
+/// segments would cost more than sorting the whole array (several segments
+/// with unpredictable interleavings), `sort` is applied to the whole array,
+/// else to each chunk and the segments are merged.
+fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], sort: &dyn Fn(&mut [T])) {
     if repair_near_sorted(arr) {
         return;
     }
-    float_sort_f32_radix_norepair(arr);
-}
-
-/// f32 radix path without the near-sorted repair.
-pub(crate) fn float_sort_f32_radix_norepair(arr: &mut [f32]) {
     let base = arr.as_ptr() as usize;
     let chunks: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
-    // The Verge pre-processing only records the unsorted chunks: whether to
-    // sort them depends on the merge decision below.
-    let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
-        let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<f32>();
+    let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [T], _| {
+        let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<T>();
         chunks.borrow_mut().push((start, chunk.len()));
     });
     let chunks = chunks.into_inner();
     if merge_rule_enabled() && unpredictable_merges(arr, &separators, &chunks) {
-        w32::lsd(bits32(arr));
+        sort(arr);
         return;
     }
     for &(start, len) in chunks.iter() {
-        w32::lsd(bits32(&mut arr[start..start + len]));
+        sort(&mut arr[start..start + len]);
     }
     k_way_merge_fast(arr, &mut separators);
+}
+
+/// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
+pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
+    radix_path(arr, &|s: &mut [f32]| w32::lsd(bits32(s)));
 }
 
 /// Tests / benchmarks: always merge the Verge segments (A/B comparisons).
@@ -225,25 +224,25 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     k_way_merge_fast(arr, &mut separators);
 }
 
-/// f64 radix path: Verge pre-processing, then on each chunk the fused LSD,
-/// or rollercoaster on the encoded keys for very large chunks.
+/// f64 radix path (see `radix_path`): the fused LSD sorts the chunks, or
+/// rollercoaster on the encoded keys for very large ones.
 pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
-    let mut separators = verge_sort_preprocessing(arr, 8, &|chunk: &mut [f64], _| {
-        if chunk.len() < ROLLER_F64 {
-            w64::lsd(bits64(chunk));
+    radix_path(arr, &|s: &mut [f64]| {
+        if s.len() < ROLLER_F64 {
+            w64::lsd(bits64(s));
         } else {
-            roller64(chunk);
+            roller64(s);
         }
     });
-    k_way_merge(arr, &mut separators);
 }
 
 /// f64 radix path with a forced digit layout, fused LSD only (tests).
 #[cfg(test)]
 pub(crate) fn float_sort_f64_radix_mode(arr: &mut [f64], mode: Digits) {
-    let mut separators =
-        verge_sort_preprocessing(arr, 8, &|chunk: &mut [f64], _| w64::lsd_mode(bits64(chunk), mode));
-    k_way_merge(arr, &mut separators);
+    let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f64], _| {
+        w64::lsd_mode(bits64(chunk), mode)
+    });
+    k_way_merge_fast(arr, &mut separators);
 }
 
 /// Rollercoaster on the encoded keys (one encode and one decode pass).
