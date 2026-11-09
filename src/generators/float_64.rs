@@ -269,6 +269,71 @@ pub fn helper_random_array_push_middle_f64(size: usize) -> Vec<f64> {
     array
 }
 
+// Integer-valued floats in a narrow range (ratings, ages, counters): 0..=100
+pub fn helper_random_array_int_narrow_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| rand::rng().random_range(0..=100u32) as f64)
+        .collect::<Vec<f64>>()
+}
+
+// Integer-valued floats in a wide range (ids stored as floats): shuffled 0..n
+pub fn helper_random_array_int_wide_f64(size: usize) -> Vec<f64> {
+    let mut array = (0..size).map(|i| i as f64).collect::<Vec<f64>>();
+    array.as_mut_slice().shuffle(&mut rand::rng());
+    array
+}
+
+// Power-of-two grid: multiples of 0.25 in [-32, 32) (256 points)
+pub fn helper_random_array_grid_quarter_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| rand::rng().random_range(-128..128i32) as f64 * 0.25)
+        .collect::<Vec<f64>>()
+}
+
+// Decimal grid (prices in cents): not exactly representable in binary
+pub fn helper_random_array_prices_f64(size: usize) -> Vec<f64> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| rand::rng().random_range(0..100_000u32) as f64 / 100.0)
+        .collect::<Vec<f64>>()
+}
+
+// Few distinct values: 16 random values
+pub fn helper_random_array_few16_f64(size: usize) -> Vec<f64> {
+    let mut rng = rand::rng();
+    let values: Vec<f64> = (0..16).map(|_| rng.random_range(-1000.0..1000.0)).collect();
+    (0..size).map(|_| values[rng.random_range(0..16)]).collect::<Vec<f64>>()
+}
+
+// Detector worst case: narrow integers, one wide outlier late (at 95 %)
+pub fn helper_random_array_int_late_outlier_f64(size: usize) -> Vec<f64> {
+    let mut array = helper_random_array_int_narrow_f64(size);
+    if size > 0 {
+        array[size * 95 / 100] = 1_000_000.0;
+    }
+    array
+}
+
+// Detector worst case: 16 distinct values, a 17th one late (at 95 %)
+pub fn helper_random_array_few16_late_f64(size: usize) -> Vec<f64> {
+    let mut array = helper_random_array_few16_f64(size);
+    if size > 0 {
+        array[size * 95 / 100] = 12_345.5;
+    }
+    array
+}
+
+// Detector worst case: ascending for 90 %, random tail
+pub fn helper_random_array_asc_random_tail_f64(size: usize) -> Vec<f64> {
+    let mut rng = rand::rng();
+    let cut = size * 9 / 10;
+    (0..size)
+        .map(|i| if i < cut { i as f64 } else { rng.random_range(0.0..size as f64) })
+        .collect::<Vec<f64>>()
+}
+
 pub fn generators_f64(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<f64>, &'static str)> {
     vec![
@@ -297,5 +362,13 @@ pub fn generators_f64(
         (&helper_random_array_normale_40_f64, "-- Normale 40 :"),
         (&helper_random_array_normale_51_f64, "-- Normale 51 :"),
         (&helper_random_array_normale_63_f64, "-- Normale 63 :"),
+        (&helper_random_array_int_narrow_f64, "-- Int 0..100 :"),
+        (&helper_random_array_int_wide_f64, "-- Int 0..n   :"),
+        (&helper_random_array_grid_quarter_f64, "-- Grid 0.25  :"),
+        (&helper_random_array_prices_f64, "-- Prices     :"),
+        (&helper_random_array_few16_f64, "-- Few 16     :"),
+        (&helper_random_array_int_late_outlier_f64, "-- Int late out:"),
+        (&helper_random_array_few16_late_f64, "-- Few16 late :"),
+        (&helper_random_array_asc_random_tail_f64, "-- Asc rnd tail:"),
     ]
 }
