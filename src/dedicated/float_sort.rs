@@ -8,8 +8,10 @@
 //! (`-0.0 < +0.0`, NaNs at both ends according to their sign).
 //!
 //! Steps:
-//! 1. small arrays: encoded keys sorted with `sort_unstable`;
-//! 2. Verge sort pre-processing (already sorted parts are not radix sorted),
+//! 1. low-cardinality detectors (integer range, power-of-two grid, few
+//!    values), see `float_detect`;
+//! 2. small arrays: encoded keys sorted with `sort_unstable`;
+//! 3. Verge sort pre-processing (already sorted parts are not radix sorted),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
 //!    is fused into the first scatter pass, the decoding into the last one)
 //!    for f32, rollercoaster on the encoded keys for f64.
@@ -23,6 +25,7 @@
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
+use super::float_detect::{detect32, detect64};
 use super::float_lsd::w32;
 
 /// Below these sizes, the whole array is sorted with `sort_unstable` on the
@@ -98,6 +101,9 @@ float_width!(f64, u64, i64, bits64, encode64, decode64, small64);
 
 impl FloatSort for f32 {
     fn float_sort_impl(arr: &mut [f32]) {
+        if detect32(arr) {
+            return;
+        }
         if arr.len() <= SMALL_F32 {
             small32(bits32(arr));
             return;
@@ -108,6 +114,9 @@ impl FloatSort for f32 {
 
 impl FloatSort for f64 {
     fn float_sort_impl(arr: &mut [f64]) {
+        if detect64(arr) {
+            return;
+        }
         if arr.len() <= SMALL_F64 {
             small64(bits64(arr));
             return;

@@ -107,3 +107,65 @@ fn test_ded_float_sort_special_values() {
         assert!(a == expected32, "special f32 size {} multiset", size);
     }
 }
+
+/// Low-cardinality detectors: integer ranges, grids, few values, with late
+/// outliers, signed zeros and negative values, around the size limits.
+#[test]
+fn test_ded_float_sort_detectors() {
+    fn check64(mut arr: Vec<f64>, what: &str) {
+        let mut expected: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
+        expected.sort_unstable();
+        float_sort(&mut arr);
+        assert!(arr.windows(2).all(|w| w[0] <= w[1]), "{} {} not sorted", what, arr.len());
+        let mut got: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
+        got.sort_unstable();
+        assert!(got == expected, "{} {} multiset", what, arr.len());
+        // f32 version of the same values
+        let mut a32: Vec<f32> = arr.iter().map(|&x| x as f32).collect();
+        let mut e32: Vec<u32> = a32.iter().map(|x| x.to_bits()).collect();
+        e32.sort_unstable();
+        float_sort(&mut a32);
+        assert!(a32.windows(2).all(|w| w[0] <= w[1]), "{} {} f32 not sorted", what, a32.len());
+        let mut g32: Vec<u32> = a32.iter().map(|x| x.to_bits()).collect();
+        g32.sort_unstable();
+        assert!(g32 == e32, "{} {} f32 multiset", what, a32.len());
+    }
+    let mut seed = 0x1234_5678_9abc_def0u64;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for &n in [129usize, 200, 1_000, 4_095, 4_096, 5_000, 70_000].iter() {
+        let ints: Vec<f64> = (0..n).map(|_| (next() % 256) as f64 - 128.0).collect();
+        check64(ints.clone(), "ints");
+        for &pos in [0, n / 2, n - 1, n * 95 / 100, 63, 64, 65.min(n - 1)].iter() {
+            let mut v = ints.clone();
+            v[pos] = 1e6;
+            check64(v, "ints wide outlier");
+            let mut v = ints.clone();
+            v[pos] = 0.5;
+            check64(v, "ints fractional outlier");
+            let mut v = ints.clone();
+            v[pos] = -0.0;
+            check64(v, "ints signed zero");
+            let mut v = ints.clone();
+            v[pos] = f64::INFINITY;
+            check64(v, "ints infinity");
+        }
+        let grid: Vec<f64> = (0..n).map(|_| ((next() % 256) as f64 - 128.0) * 0.125 + 3.0).collect();
+        check64(grid.clone(), "grid");
+        let mut v = grid.clone();
+        v[n * 95 / 100] = 3.0625;
+        check64(v, "grid off-grid");
+        let reps = [-7.25f64, -0.0, 0.0, 1e-300, 3.5, 1e300, -1e300, 42.0, 0.1, 0.2, 0.3, 0.4, 5e-324, -5e-324, 99.9, -99.9];
+        for &k in [1usize, 2, 4, 5, 16].iter() {
+            let few: Vec<f64> = (0..n).map(|_| reps[(next() % k as u64) as usize]).collect();
+            check64(few.clone(), "few");
+            let mut v = few.clone();
+            v[n * 95 / 100] = 1234.5;
+            check64(v, "few late");
+        }
+    }
+}
