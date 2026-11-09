@@ -13,8 +13,8 @@
 //! 2. small arrays: encoded keys sorted with `sort_unstable`;
 //! 3. Verge sort pre-processing (already sorted parts are not radix sorted),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
-//!    is fused into the first scatter pass, the decoding into the last one)
-//!    for f32, rollercoaster on the encoded keys for f64.
+//!    is fused into the first scatter pass, the decoding into the last one),
+//!    or for very large f64 chunks rollercoaster on the encoded keys.
 //!
 //! The arrays are only reinterpreted (`f32` <-> `u32`, `f64` <-> `u64`), never
 //! copied, so bit patterns are preserved.
@@ -26,7 +26,7 @@ use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
 use super::float_detect::{detect32, detect64};
-use super::float_lsd::w32;
+use super::float_lsd::{w32, w64};
 #[cfg(test)]
 use super::float_lsd::Digits;
 
@@ -34,6 +34,8 @@ use super::float_lsd::Digits;
 /// encoded keys.
 const SMALL_F32: usize = 600;
 const SMALL_F64: usize = 3_000;
+/// From this chunk size f64 uses rollercoaster instead of the fused LSD.
+const ROLLER_F64: usize = 2_000_000;
 
 mod sealed {
     pub trait Sealed {}
@@ -142,11 +144,24 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     k_way_merge(arr, &mut separators);
 }
 
-/// f64 radix path: Verge pre-processing, then rollercoaster on the encoded
-/// keys of each chunk.
+/// f64 radix path: Verge pre-processing, then on each chunk the fused LSD,
+/// or rollercoaster on the encoded keys for very large chunks.
 pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
+    let mut separators = verge_sort_preprocessing(arr, 8, &|chunk: &mut [f64], _| {
+        if chunk.len() < ROLLER_F64 {
+            w64::lsd(bits64(chunk));
+        } else {
+            roller64(chunk);
+        }
+    });
+    k_way_merge(arr, &mut separators);
+}
+
+/// f64 radix path with a forced digit layout, fused LSD only (tests).
+#[cfg(test)]
+pub(crate) fn float_sort_f64_radix_mode(arr: &mut [f64], mode: Digits) {
     let mut separators =
-        verge_sort_preprocessing(arr, 8, &|chunk: &mut [f64], _| roller64(chunk));
+        verge_sort_preprocessing(arr, 8, &|chunk: &mut [f64], _| w64::lsd_mode(bits64(chunk), mode));
     k_way_merge(arr, &mut separators);
 }
 

@@ -174,8 +174,9 @@ fn test_ded_float_sort_detectors() {
 #[test]
 fn test_ded_float_lsd_layouts() {
     use super::super::dedicated::float_lsd::Digits;
-    use super::super::dedicated::float_sort::float_sort_f32_radix_mode;
+    use super::super::dedicated::float_sort::{float_sort_f32_radix_mode, float_sort_f64_radix_mode};
     for mode in [Digits::Auto, Digits::Bytes, Digits::Wide] {
         check_total_order_f32(&|a| float_sort_f32_radix_mode(a, mode));
+        check_total_order_f64(&|a| float_sort_f64_radix_mode(a, mode));
     }
 }

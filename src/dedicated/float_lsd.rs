@@ -343,3 +343,4 @@ macro_rules! fused_lsd {
 }
 
 fused_lsd!(u32, i32, w32, 20);
+fused_lsd!(u64, i64, w64, 44);
