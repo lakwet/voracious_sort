@@ -386,3 +386,66 @@ fn test_verge_fast_same_as_original() {
         }
     }
 }
+
+/// The fast k-way merge must give exactly the result of the original one
+/// (stable merge: equal keys keep their order).
+#[test]
+fn test_k_way_merge_fast_same_as_original() {
+    use super::super::algo::k_way_merge::k_way_merge;
+    use super::super::algo::k_way_merge_fast::k_way_merge_fast;
+
+    #[derive(Clone, Copy, Debug)]
+    struct S {
+        k: u32,
+        id: u32,
+    }
+    impl PartialEq for S {
+        fn eq(&self, o: &Self) -> bool {
+            self.k == o.k
+        }
+    }
+    impl PartialOrd for S {
+        fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+            self.k.partial_cmp(&o.k)
+        }
+    }
+
+    let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for case in 0..3000 {
+        let n = 2 + (next() % 400) as usize;
+        let range = [2u64, 10, 1000, 1 << 30][case % 4];
+        // Random run boundaries, including tiny runs (insert path).
+        let mut seps = vec![0usize];
+        while *seps.last().unwrap() < n {
+            let len = match next() % 4 {
+                0 => 1 + (next() % 3) as usize,
+                1 => 1 + (next() % 20) as usize,
+                _ => 1 + (next() % 200) as usize,
+            };
+            seps.push((seps.last().unwrap() + len).min(n));
+        }
+        let mut arr: Vec<S> = (0..n).map(|i| S { k: (next() % range) as u32, id: i as u32 }).collect();
+        for w in seps.windows(2) {
+            arr[w[0]..w[1]].sort_by(|a, b| a.k.cmp(&b.k));
+        }
+        // Special shapes: sorted + moved element (Front / Middle).
+        if case % 10 == 0 {
+            arr = (0..n).map(|i| S { k: i as u32, id: i as u32 }).collect();
+            arr[n - 1].k = [0u32, (n / 2) as u32][case % 20 / 10];
+            seps = vec![0, n - 1, n];
+        }
+        let mut a = arr.clone();
+        let mut b = arr.clone();
+        k_way_merge(&mut a, &mut seps.clone());
+        k_way_merge_fast(&mut b, &mut seps.clone());
+        let ka: Vec<(u32, u32)> = a.iter().map(|s| (s.k, s.id)).collect();
+        let kb: Vec<(u32, u32)> = b.iter().map(|s| (s.k, s.id)).collect();
+        assert!(ka == kb, "case {} n {} seps {:?}", case, n, seps);
+    }
+}

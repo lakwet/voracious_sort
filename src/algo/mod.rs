@@ -3,3 +3,4 @@ pub mod k_way_merge;
 #[cfg(feature = "voracious_multithread")] pub mod regions_graph;
 pub mod verge_sort_heuristic;
 pub mod verge_sort_fast;
+pub mod k_way_merge_fast;

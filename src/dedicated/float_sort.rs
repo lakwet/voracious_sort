@@ -12,7 +12,7 @@
 //!    values), see `float_detect`;
 //! 2. small arrays: encoded keys sorted with `sort_unstable`;
 //! 3. Verge sort pre-processing (already sorted parts are not radix sorted;
-//!    for f32 the faster `verge_sort_fast` variant),
+//!    for f32 the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
 //!    is fused into the first scatter pass, the decoding into the last one),
 //!    or for very large f64 chunks rollercoaster on the encoded keys.
@@ -24,6 +24,7 @@
 //! are not supported yet (it may panic), as for the generic float sorts.
 
 use super::super::algo::k_way_merge::k_way_merge;
+use super::super::algo::k_way_merge_fast::k_way_merge_fast;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
@@ -136,7 +137,7 @@ pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
         w32::lsd(bits32(chunk))
     });
-    k_way_merge(arr, &mut separators);
+    k_way_merge_fast(arr, &mut separators);
 }
 
 /// f32 radix path with a forced digit layout (tests).
@@ -145,7 +146,7 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
         w32::lsd_mode(bits32(chunk), mode)
     });
-    k_way_merge(arr, &mut separators);
+    k_way_merge_fast(arr, &mut separators);
 }
 
 /// f64 radix path: Verge pre-processing, then on each chunk the fused LSD,
