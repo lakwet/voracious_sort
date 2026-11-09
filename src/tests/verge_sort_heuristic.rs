@@ -326,3 +326,63 @@ fn test_verge_sort_heuristic_verge_sort_preprocessing() {
         }
     }
 }
+
+/// The fast Verge variant must take exactly the same decisions as the
+/// original one: same explorations, same separators, same array (stable).
+#[test]
+fn test_verge_fast_same_as_original() {
+    use super::super::algo::verge_sort_fast as fast;
+    use super::super::algo::verge_sort_heuristic as orig;
+    use super::super::generators::float_32::generators_f32;
+
+    // Explorations on every start position of patterned arrays.
+    let patterns: Vec<Vec<u64>> = vec![
+        (0..300).collect(),
+        (0..300).rev().collect(),
+        vec![7; 300],
+        (0..300).map(|i| (i / 37) as u64).collect(),
+        (0..300).map(|i| if i % 50 < 25 { i as u64 } else { 1000 - i as u64 }).collect(),
+        (0..300).map(|i| ((i * 7919) % 13) as u64).collect(),
+        (0..300).map(|i| if i == 150 { 0 } else { i as u64 }).collect(),
+    ];
+    for p in patterns.iter() {
+        let mut a = p.clone();
+        for s in 0..a.len() {
+            assert_eq!(fast::explore_forward_asc(&a, s), orig::explore_forward_asc(&mut a, s));
+            assert_eq!(fast::explore_forward_desc(&a, s), orig::explore_forward_desc(&mut a, s));
+            assert_eq!(fast::explore_forward_plateau(&a, s), orig::explore_forward_plateau(&mut a, s));
+            for m in [0, s / 2, s].iter() {
+                assert_eq!(fast::explore_backward_asc(&a, s, *m), orig::explore_backward_asc(&mut a, s, *m));
+                assert_eq!(fast::explore_backward_desc(&a, s, *m), orig::explore_backward_desc(&mut a, s, *m));
+                assert_eq!(fast::explore_backward_plateau(&a, s, *m), orig::explore_backward_plateau(&mut a, s, *m));
+            }
+        }
+    }
+
+    // Whole pre-processing on every f32 distribution and several sizes.
+    let fallback = |a: &mut [f32], _r: usize| a.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    for size in [200usize, 1_000, 10_000, 100_000].iter() {
+        for (gen, name) in generators_f32().iter() {
+            let input = gen(*size);
+            let mut a = input.clone();
+            let mut b = input.clone();
+            let mut c = input.clone();
+            let sa = orig::verge_sort_preprocessing(&mut a, 8, &fallback);
+            let sb = fast::verge_sort_preprocessing_fast::<_, true>(&mut b, 8, &fallback);
+            let sc = fast::verge_sort_preprocessing_fast::<_, false>(&mut c, 8, &fallback);
+            assert_eq!(sa, sb, "{} {} separators (stable)", name, size);
+            assert_eq!(sa, sc, "{} {} separators (unstable)", name, size);
+            let bits = |v: &[f32]| v.iter().map(|x| x.to_bits()).collect::<Vec<u32>>();
+            assert!(bits(&a) == bits(&b), "{} {} array (stable)", name, size);
+            // Unstable: same multiset, and each segment sorted.
+            for w in sc.windows(2) {
+                assert!(c[w[0]..w[1]].windows(2).all(|p| p[0] <= p[1]), "{} {} segment", name, size);
+            }
+            let mut ma = bits(&a);
+            let mut mc = bits(&c);
+            ma.sort_unstable();
+            mc.sort_unstable();
+            assert!(ma == mc, "{} {} multiset", name, size);
+        }
+    }
+}
