@@ -180,3 +180,21 @@ fn test_ded_float_lsd_layouts() {
         check_total_order_f64(&|a| float_sort_f64_radix_mode(a, mode));
     }
 }
+
+/// The per-step profiling helper of the fused LSD must still sort.
+#[test]
+fn test_ded_float_lsd_profile() {
+    use super::super::dedicated::float_lsd::w32;
+    for &wide in [false, true].iter() {
+        let mut v = helper_random_array_uniform_f32(10_000);
+        let mut expected = v.clone();
+        expected.sort_unstable_by(|a, b| a.total_cmp(b));
+        let bits: &mut [u32] =
+            unsafe { std::slice::from_raw_parts_mut(v.as_mut_ptr() as *mut u32, v.len()) };
+        let steps = w32::profile(bits, wide);
+        assert!(steps.iter().any(|(name, _)| name == "histogram"));
+        let a: Vec<u32> = v.iter().map(|x| x.to_bits()).collect();
+        let e: Vec<u32> = expected.iter().map(|x| x.to_bits()).collect();
+        assert!(a == e, "profile wide={}", wide);
+    }
+}

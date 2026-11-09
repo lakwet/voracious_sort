@@ -300,6 +300,92 @@ macro_rules! fused_lsd {
                     .count_ones()
             }
 
+            /// Diagnostic (tests only): times in ns per element of each step
+            /// of the LSD on `bits`, sorted in place (no digit skipped):
+            /// histogram pass, allocation, each scatter pass, final copy;
+            /// plus two floors measured on the same data: a copy into fresh
+            /// memory (page faults included) and a sequential read + write.
+            /// Generate the data on the calling thread: data just written by
+            /// another core makes the first passes look slow up to ~1M.
+            #[cfg(test)]
+            #[allow(dead_code)]
+            pub(crate) fn profile(bits: &mut [$uint], wide: bool) -> Vec<(String, f64)> {
+                use std::time::Instant;
+                let size = bits.len();
+                let per = |t: Instant| t.elapsed().as_nanos() as f64 / size as f64;
+                let mut res = Vec::new();
+                let mut scratch: Vec<$uint> = vec![0; size];
+                // Floors.
+                let t = Instant::now();
+                scratch.copy_from_slice(bits);
+                res.push(("floor_memcpy".to_string(), per(t)));
+                // Sequential read + encode/decode + write (no random write).
+                let t = Instant::now();
+                for (d, &s) in scratch.iter_mut().zip(bits.iter()) {
+                    *d = decode(encode(s));
+                }
+                res.push(("floor_seq_rw".to_string(), per(t)));
+                std::hint::black_box(&scratch);
+
+                let shifts: Vec<u32> =
+                    if wide { (0..BITS).step_by(11).collect() } else { (0..BITS).step_by(8).collect() };
+                macro_rules! run {
+                    ($r:expr) => {{
+                        let t = Instant::now();
+                        let mut tables = if $r == 2048 {
+                            hist_const::<u32, $r, { ((BITS + 10) / 11) as usize }, 2>(bits, 11)
+                        } else {
+                            hist_const::<u32, $r, { (BITS / 8) as usize }, 4>(bits, 8)
+                        };
+                        res.push(("histogram".to_string(), per(t)));
+                        for table in tables.iter_mut() {
+                            let mut sum = 0u32;
+                            for c in table.iter_mut() {
+                                let n = sum + *c;
+                                *c = sum;
+                                sum = n;
+                            }
+                        }
+                        let t = Instant::now();
+                        let mut buffer: Vec<MaybeUninit<$uint>> = Vec::with_capacity(size);
+                        unsafe { buffer.set_len(size) };
+                        let bp = buffer.as_mut_ptr() as *mut $uint;
+                        res.push(("alloc".to_string(), per(t)));
+                        let last = shifts.len() - 1;
+                        for (pass, &shift) in shifts.iter().enumerate() {
+                            let heads = &mut tables[pass];
+                            let t = Instant::now();
+                            // SAFETY: as in `sort_digits` (no digit skipped).
+                            unsafe {
+                                let (src, dst): (&[$uint], *mut $uint) = if pass % 2 == 0 {
+                                    (&*bits, bp)
+                                } else {
+                                    (std::slice::from_raw_parts(bp, size), bits.as_mut_ptr())
+                                };
+                                match (pass == 0, pass == last) {
+                                    (true, _) => scatter::<u32, $r, true, false>(src, dst, heads, shift),
+                                    (false, true) => scatter::<u32, $r, false, true>(src, dst, heads, shift),
+                                    (false, false) => scatter::<u32, $r, false, false>(src, dst, heads, shift),
+                                }
+                            }
+                            res.push((format!("pass{}", pass), per(t)));
+                        }
+                        let t = Instant::now();
+                        if shifts.len() % 2 == 1 {
+                            let sorted = unsafe { std::slice::from_raw_parts(bp, size) };
+                            bits.copy_from_slice(sorted);
+                        }
+                        res.push(("copy".to_string(), per(t)));
+                    }};
+                }
+                if wide {
+                    run!(2048);
+                } else {
+                    run!(256);
+                }
+                res
+            }
+
             fn sort_with<C: Counter>(bits: &mut [$uint], mode: Digits) {
                 let wide = match mode {
                     Digits::Bytes => false,
