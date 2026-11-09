@@ -17,7 +17,10 @@
 //!    for f32 the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
 //!    is fused into the first scatter pass, the decoding into the last one),
-//!    or for very large f64 chunks rollercoaster on the encoded keys.
+//!    or for very large f64 chunks rollercoaster on the encoded keys;
+//! 5. f32: when merging the segments would cost more than radix sorting the
+//!    whole array (several segments with unpredictable interleavings), the
+//!    whole array is radix sorted instead.
 //!
 //! The arrays are only reinterpreted (`f32` <-> `u32`, `f64` <-> `u64`), never
 //! copied, so bit patterns are preserved.
@@ -26,7 +29,7 @@
 //! are not supported yet (it may panic), as for the generic float sorts.
 
 use super::super::algo::k_way_merge::k_way_merge;
-use super::super::algo::k_way_merge_fast::k_way_merge_fast;
+use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
@@ -146,10 +149,71 @@ pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
 
 /// f32 radix path without the near-sorted repair.
 pub(crate) fn float_sort_f32_radix_norepair(arr: &mut [f32]) {
+    let base = arr.as_ptr() as usize;
+    let chunks: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
+    // The Verge pre-processing only records the unsorted chunks: whether to
+    // sort them depends on the merge decision below.
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
-        w32::lsd(bits32(chunk))
+        let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<f32>();
+        chunks.borrow_mut().push((start, chunk.len()));
     });
+    let chunks = chunks.into_inner();
+    if merge_rule_enabled() && unpredictable_merges(arr, &separators, &chunks) {
+        w32::lsd(bits32(arr));
+        return;
+    }
+    for &(start, len) in chunks.iter() {
+        w32::lsd(bits32(&mut arr[start..start + len]));
+    }
     k_way_merge_fast(arr, &mut separators);
+}
+
+/// Tests / benchmarks: always merge the Verge segments (A/B comparisons).
+#[cfg(test)]
+pub(crate) static NO_MERGE_RULE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[inline(always)]
+fn merge_rule_enabled() -> bool {
+    #[cfg(test)]
+    {
+        !NO_MERGE_RULE.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
+
+/// Whether merging the Verge segments would cost more than radix sorting
+/// the whole array: at least 3 segments (2 merge rounds or more) and most
+/// first-round merges between two runs unpredictable for a branchy merge. A
+/// merge round with an irregular interleaving (e.g. concatenated sorted
+/// sources with random values) costs about as much as a whole radix sort,
+/// while a predictable one (long stretches, runs holding the same values)
+/// costs much less. Chunks are not sorted yet, so only run-run pairs are
+/// sampled.
+fn unpredictable_merges<T: Copy + PartialOrd>(
+    arr: &[T],
+    separators: &[usize],
+    chunks: &[(usize, usize)],
+) -> bool {
+    if separators.len() < 4 {
+        return false;
+    }
+    let is_chunk = |s: usize| chunks.iter().any(|&(c, _)| c == s);
+    let (mut sampled, mut unpredictable) = (0, 0);
+    for w in separators.windows(3).step_by(2) {
+        let (s, m, e) = (w[0], w[1], w[2]);
+        if is_chunk(s) || is_chunk(m) || arr[m - 1] <= arr[m] {
+            continue;
+        }
+        sampled += 1;
+        if !predictable_merge(&arr[s..e], m - s) {
+            unpredictable += 1;
+        }
+    }
+    sampled > 0 && 2 * unpredictable > sampled
 }
 
 /// f32 radix path with a forced digit layout (tests).
