@@ -8,6 +8,8 @@
 //! - `u32` counters while `n <= u32::MAX` (half the cache footprint), `usize`
 //!   counters beyond;
 //! - digits equal in every key are skipped;
+//! - the scatter loop reads 4 keys before writing them, with a fast path when
+//!   the 4 keys share their digit;
 //! - the scratch buffer is not zero-initialized: the first scatter pass
 //!   writes every slot of it before anything reads it.
 
@@ -20,12 +22,14 @@ const LSD_MIN: usize = 128;
 trait Counter: Copy + std::ops::AddAssign {
     const ZERO: Self;
     const ONE: Self;
+    const FOUR: Self;
     fn get(self) -> usize;
 }
 
 impl Counter for u32 {
     const ZERO: Self = 0;
     const ONE: Self = 1;
+    const FOUR: Self = 4;
     #[inline(always)]
     fn get(self) -> usize {
         self as usize
@@ -35,6 +39,7 @@ impl Counter for u32 {
 impl Counter for usize {
     const ZERO: Self = 0;
     const ONE: Self = 1;
+    const FOUR: Self = 4;
     #[inline(always)]
     fn get(self) -> usize {
         self
@@ -118,11 +123,43 @@ macro_rules! fused_lsd {
             ) {
                 let key = |v: $uint| if FIRST { encode(v) } else { v };
                 let out = |k: $uint| if LAST { decode(k) } else { k };
+                let mut blocks = src.chunks_exact(4);
                 // SAFETY (all writes): for each bucket, its head plus the
                 // number of its keys already written is an unused index below
                 // `src.len()` (buckets partition 0..len); `dst` is valid for
                 // `src.len()` writes (caller).
-                for &v in src.iter() {
+                for block in &mut blocks {
+                    let (a, b, c, d) = (key(block[0]), key(block[1]), key(block[2]), key(block[3]));
+                    let (da, db) = (digit::<R>(a, shift), digit::<R>(b, shift));
+                    let (dc, dd) = (digit::<R>(c, shift), digit::<R>(d, shift));
+                    if da == dd && da == db && dc == dd {
+                        let p = heads[da].get();
+                        heads[da] += C::FOUR;
+                        unsafe {
+                            let w = dst.add(p);
+                            w.write(out(a));
+                            w.add(1).write(out(b));
+                            w.add(2).write(out(c));
+                            w.add(3).write(out(d));
+                        }
+                        continue;
+                    }
+                    let pa = heads[da].get();
+                    heads[da] += C::ONE;
+                    let pb = heads[db].get();
+                    heads[db] += C::ONE;
+                    let pc = heads[dc].get();
+                    heads[dc] += C::ONE;
+                    let pd = heads[dd].get();
+                    heads[dd] += C::ONE;
+                    unsafe {
+                        dst.add(pa).write(out(a));
+                        dst.add(pb).write(out(b));
+                        dst.add(pc).write(out(c));
+                        dst.add(pd).write(out(d));
+                    }
+                }
+                for &v in blocks.remainder() {
                     let k = key(v);
                     let dk = digit::<R>(k, shift);
                     let p = heads[dk].get();
