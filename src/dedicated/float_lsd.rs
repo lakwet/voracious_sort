@@ -9,7 +9,9 @@
 //!   counters beyond;
 //! - digits equal in every key are skipped;
 //! - the scatter loop reads 4 keys before writing them, with a fast path when
-//!   the 4 keys share their digit;
+//!   the 4 keys share their digit; on the top digit (sign + exponent: few,
+//!   unbalanced buckets) the 4 positions are resolved inside the block
+//!   without branches, so the 4 counter loads are independent;
 //! - the scratch buffer is not zero-initialized: the first scatter pass
 //!   writes every slot of it before anything reads it.
 
@@ -24,6 +26,7 @@ trait Counter: Copy + std::ops::AddAssign {
     const ONE: Self;
     const FOUR: Self;
     fn get(self) -> usize;
+    fn from_usize(v: usize) -> Self;
 }
 
 impl Counter for u32 {
@@ -34,6 +37,10 @@ impl Counter for u32 {
     fn get(self) -> usize {
         self as usize
     }
+    #[inline(always)]
+    fn from_usize(v: usize) -> Self {
+        v as u32
+    }
 }
 
 impl Counter for usize {
@@ -43,6 +50,10 @@ impl Counter for usize {
     #[inline(always)]
     fn get(self) -> usize {
         self
+    }
+    #[inline(always)]
+    fn from_usize(v: usize) -> Self {
+        v
     }
 }
 
@@ -128,6 +139,39 @@ macro_rules! fused_lsd {
                 // number of its keys already written is an unused index below
                 // `src.len()` (buckets partition 0..len); `dst` is valid for
                 // `src.len()` writes (caller).
+                // Branch-free position resolution on the top digit only
+                // (sign + exponent for floats: few, unbalanced buckets, so
+                // consecutive keys often share a bucket counter).
+                if shift as usize + R.trailing_zeros() as usize >= BITS as usize {
+                    for block in &mut blocks {
+                        let (a, b, c, d) = (key(block[0]), key(block[1]), key(block[2]), key(block[3]));
+                        let (da, db) = (digit::<R>(a, shift), digit::<R>(b, shift));
+                        let (dc, dd) = (digit::<R>(c, shift), digit::<R>(d, shift));
+                        // Positions resolved inside the block: each key adds
+                        // the number of previous keys of the block in the
+                        // same bucket, so the 4 counter loads are independent
+                        // (no store-to-load chain inside the block).
+                        let pa = heads[da].get();
+                        let pb = heads[db].get() + usize::from(db == da);
+                        let pc = heads[dc].get() + usize::from(dc == da) + usize::from(dc == db);
+                        let pd = heads[dd].get()
+                            + usize::from(dd == da)
+                            + usize::from(dd == db)
+                            + usize::from(dd == dc);
+                        // Stores in block order: for equal digits the last
+                        // one (largest position) wins.
+                        heads[da] = C::from_usize(pa + 1);
+                        heads[db] = C::from_usize(pb + 1);
+                        heads[dc] = C::from_usize(pc + 1);
+                        heads[dd] = C::from_usize(pd + 1);
+                        unsafe {
+                            dst.add(pa).write(out(a));
+                            dst.add(pb).write(out(b));
+                            dst.add(pc).write(out(c));
+                            dst.add(pd).write(out(d));
+                        }
+                    }
+                }
                 for block in &mut blocks {
                     let (a, b, c, d) = (key(block[0]), key(block[1]), key(block[2]), key(block[3]));
                     let (da, db) = (digit::<R>(a, shift), digit::<R>(b, shift));
