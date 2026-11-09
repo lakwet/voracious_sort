@@ -295,6 +295,26 @@ pub fn helper_random_array_asc_random_tail_f32(size: usize) -> Vec<f32> {
         .collect::<Vec<f32>>()
 }
 
+// Concatenation of k independently sorted random sources (e.g. sorted logs
+// from several machines): k sorted runs with randomly interleaved values.
+fn helper_sorted_runs_f32(size: usize, k: usize) -> Vec<f32> {
+    let mut array = helper_random_array_uniform_f32(size);
+    let k = k.max(1);
+    for r in 0..k {
+        let (a, b) = (r * size / k, (r + 1) * size / k);
+        array[a..b].sort_unstable_by(|x, y| x.partial_cmp(y).unwrap());
+    }
+    array
+}
+
+pub fn helper_random_array_sorted_runs8_f32(size: usize) -> Vec<f32> {
+    helper_sorted_runs_f32(size, 8)
+}
+
+pub fn helper_random_array_sorted_runs64_f32(size: usize) -> Vec<f32> {
+    helper_sorted_runs_f32(size, 64)
+}
+
 pub fn generators_f32(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<f32>, &'static str)> {
     vec![
@@ -326,5 +346,7 @@ pub fn generators_f32(
         (&helper_random_array_int_late_outlier_f32, "-- Int late out:"),
         (&helper_random_array_few16_late_f32, "-- Few16 late :"),
         (&helper_random_array_asc_random_tail_f32, "-- Asc rnd tail:"),
+        (&helper_random_array_sorted_runs8_f32, "-- Runs 8     :"),
+        (&helper_random_array_sorted_runs64_f32, "-- Runs 64    :"),
     ]
 }
