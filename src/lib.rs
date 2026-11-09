@@ -430,5 +430,6 @@ pub use sorts::voracious_sort::voracious_sort;
 pub use sorts::peeka_sort::peeka_sort;
 
 pub use dedicated::cs_u16::cs_u16;
+pub use dedicated::float_sort::{float_sort, FloatSort};
 pub use dedicated::lsd_f32::lsd_f32;
 pub use dedicated::lsd_u32::lsd_u32;
