@@ -449,3 +449,51 @@ fn test_k_way_merge_fast_same_as_original() {
         assert!(ka == kb, "case {} n {} seps {:?}", case, n, seps);
     }
 }
+
+/// Near-sorted repair: sorted result when it succeeds, permutation of the
+/// input in every case.
+#[test]
+fn test_near_sorted_repair() {
+    use super::super::algo::near_sorted::{repair_ascending, repair_near_sorted};
+    let mut seed = 0x2545_f491_4f6c_dd1du64;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for case in 0..4000 {
+        let n = 1 + (next() % 3000) as usize;
+        let dups = case % 3 == 0;
+        let mut arr: Vec<u32> = (0..n).map(|i| if dups { (i / 7) as u32 } else { i as u32 }).collect();
+        // Disorder: a few far swaps, adjacent swaps, moved blocks, or random.
+        let swaps = match case % 5 {
+            0 => 0,
+            1 => 1 + (next() % 4) as usize,
+            2 => 1 + (next() % 40) as usize,
+            3 => n / 4 + 1,
+            _ => 3,
+        };
+        for _ in 0..swaps {
+            let i = (next() % n as u64) as usize;
+            let j = if case % 2 == 0 { (next() % n as u64) as usize } else { (i + 1).min(n - 1) };
+            arr.swap(i, j);
+        }
+        if case % 7 == 0 {
+            arr.reverse();
+        }
+        let mut expected = arr.clone();
+        expected.sort_unstable();
+        for &both in [false, true].iter() {
+            let mut a = arr.clone();
+            let sorted = if both { repair_near_sorted(&mut a) } else { repair_ascending(&mut a) };
+            if sorted {
+                assert!(a == expected, "case {} n {} sorted wrongly", case, n);
+            } else {
+                let mut b = a.clone();
+                b.sort_unstable();
+                assert!(b == expected, "case {} n {} not a permutation", case, n);
+            }
+        }
+    }
+}

@@ -11,7 +11,9 @@
 //! 1. low-cardinality detectors (integer range, power-of-two grid, few
 //!    values), see `float_detect`;
 //! 2. small arrays: encoded keys sorted with `sort_unstable`;
-//! 3. Verge sort pre-processing (already sorted parts are not radix sorted;
+//! 3. f32: repair of nearly sorted arrays (a few misplaced elements set
+//!    aside, sorted and inserted back), see `near_sorted`;
+//! 4. Verge sort pre-processing (already sorted parts are not radix sorted;
 //!    for f32 the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
 //!    is fused into the first scatter pass, the decoding into the last one),
@@ -25,6 +27,7 @@
 
 use super::super::algo::k_way_merge::k_way_merge;
 use super::super::algo::k_way_merge_fast::k_way_merge_fast;
+use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::super::algo::verge_sort_heuristic::verge_sort_preprocessing;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
@@ -132,8 +135,17 @@ impl FloatSort for f64 {
     }
 }
 
-/// f32 radix path: Verge pre-processing, then the fused LSD on each chunk.
+/// f32 radix path: repair of nearly sorted arrays, else Verge
+/// pre-processing, then the fused LSD on each chunk.
 pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
+    if repair_near_sorted(arr) {
+        return;
+    }
+    float_sort_f32_radix_norepair(arr);
+}
+
+/// f32 radix path without the near-sorted repair.
+pub(crate) fn float_sort_f32_radix_norepair(arr: &mut [f32]) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
         w32::lsd(bits32(chunk))
     });
