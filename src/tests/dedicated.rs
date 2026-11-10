@@ -327,3 +327,46 @@ fn test_ded_int_sort_window() {
     window!(i32);
     window!(i64);
 }
+
+/// The Verge skip is exact: whenever it says skip, the Verge pre-processing
+/// keeps no run (one chunk, the whole array, left untouched).
+#[test]
+fn test_ded_skip_verge_exact() {
+    use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
+    use super::super::dedicated::float_sort::skip_verge;
+    fn check<T: Copy + PartialOrd + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, ty: &str) {
+        let mut skipped = 0;
+        let mut total = 0;
+        for &n in [129usize, 150, 200, 351, 1_000, 4_096, 10_000, 65_537, 200_000].iter() {
+            for (gen, name) in gens.iter() {
+                for _ in 0..3 {
+                    let arr = gen(n);
+                    total += 1;
+                    if !skip_verge(&arr) {
+                        continue;
+                    }
+                    skipped += 1;
+                    let mut work = arr.clone();
+                    let chunks = std::cell::RefCell::new(Vec::new());
+                    let seps = verge_sort_preprocessing_fast::<_, false>(&mut work, 8, &|c: &mut [T], _| chunks.borrow_mut().push(c.len()));
+                    assert_eq!(seps, vec![0, n], "{} {} {}", ty, name, n);
+                    assert_eq!(chunks.into_inner(), vec![n], "{} {} {}", ty, name, n);
+                    assert!(work.iter().zip(arr.iter()).all(|(a, b)| a.partial_cmp(b) == Some(std::cmp::Ordering::Equal) || (a != a && b != b)), "{} {} {}", ty, name, n);
+                }
+            }
+        }
+        assert!(skipped > 0 && skipped < total, "{} {}/{}", ty, skipped, total);
+    }
+    use super::super::generators::int_extra::*;
+    let mut g = generators_u32();
+    g.extend(extra_u32::generators());
+    check(g, "u32");
+    let mut g = super::super::generators::unsigned_u64::generators_u64();
+    g.extend(extra_u64::generators());
+    check(g, "u64");
+    let mut g = super::super::generators::signed_i64::generators_i64();
+    g.extend(extra_i64::generators());
+    check(g, "i64");
+    check(super::super::generators::float_64::generators_f64(), "f64");
+    check(super::super::generators::float_32::generators_f32(), "f32");
+}

@@ -217,6 +217,10 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut 
     if repair_near_sorted(arr) || few(arr) {
         return;
     }
+    if skip_verge(arr) {
+        sort(arr);
+        return;
+    }
     let base = arr.as_ptr() as usize;
     let chunks: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [T], _| {
@@ -233,6 +237,54 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut 
     }
     k_way_merge_fast(arr, &mut separators);
 }
+
+/// Whether the Verge pre-processing can be skipped: it only keeps
+/// monotone runs (non-decreasing or non-increasing) of at least `n /
+/// log2(n)` keys, and without one it leaves the array untouched and sorts
+/// it whole. Such a run contains a point of a grid of step half that length
+/// followed by `RUN_PROBE` monotone pairs (the run is longer than the step
+/// plus the window); if no grid point has them, there is no such run and
+/// the result is the same without Verge. Random keys fail each probe within
+/// a couple of pairs: about 2 log2(n) probes instead of Verge's
+/// explorations and allocations (0.45 ns per key at 1k u64).
+pub(crate) fn skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
+    #[cfg(test)]
+    match VERGE_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => return false,
+        2 => {
+            let min = VERGE_MIN.load(std::sync::atomic::Ordering::Relaxed);
+            if arr.len() < min {
+                return true;
+            }
+        }
+        _ => {}
+    }
+    const RUN_PROBE: usize = 8;
+    let n = arr.len();
+    let big_enough = super::super::algo::verge_sort_heuristic::compute_big_enough_run(n);
+    let step = big_enough / 2;
+    if step <= RUN_PROBE {
+        return false;
+    }
+    let mut p = 0;
+    while p + RUN_PROBE < n {
+        let w = &arr[p..=p + RUN_PROBE];
+        let asc = w.windows(2).all(|x| x[0] <= x[1]);
+        let desc = w.windows(2).all(|x| x[0] >= x[1]);
+        if asc || desc {
+            return false;
+        }
+        p += step;
+    }
+    true
+}
+
+/// Tests / benchmarks: Verge skipping (0 default; 1 never skipped, as
+/// before; 2 default plus skipped below `VERGE_MIN` keys).
+#[cfg(test)]
+pub(crate) static VERGE_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+#[cfg(test)]
+pub(crate) static VERGE_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
 pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
