@@ -30,7 +30,8 @@ pub(crate) struct CacheInfo {
     pub l2: usize,
     /// Page size in bytes.
     pub page: usize,
-    /// Whether the L2 size was read from the system.
+    /// Whether the L2 size was read from the system (diagnostics, tests).
+    #[allow(dead_code)]
     pub l2_detected: bool,
 }
 
