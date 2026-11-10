@@ -17,6 +17,36 @@
 
 use super::verge_sort_fast::explore_forward_asc;
 
+/// Most kept elements set aside at once by `misplaced_tail`.
+const TAIL_MAX: usize = 8;
+
+/// When `x = arr[i]` is below the last two kept elements: either `x` is
+/// misplaced (too small), or several of the last kept ones are (too large,
+/// e.g. two large elements moved next to each other). In the second case
+/// the next element is below the last kept one too: then the number `k` of
+/// last kept elements above `x` (at most `TAIL_MAX`, with a kept element
+/// <= `x` before them, or none), else `None`. Random swaps of `m` elements
+/// put about m^2 / n pairs of them side by side (4 for the sqrt(n) swaps of
+/// "almost sorted" inputs, whatever n): without this the repair gave up on
+/// about half of them (then sorted by radix: i32 almost sorted at 10M
+/// 5.5 ns per key instead of 1.1). Out of line: it runs on misplaced
+/// elements only.
+#[cold]
+#[inline(never)]
+fn misplaced_tail<T: Copy + PartialOrd>(arr: &[T], kept: usize, i: usize, x: T) -> Option<usize> {
+    if i + 1 >= arr.len() || !(arr[i + 1] < arr[kept - 1]) {
+        return None;
+    }
+    let mut k = 2;
+    while k <= TAIL_MAX && k <= kept {
+        if k == kept || arr[kept - 1 - k] <= x {
+            return Some(k);
+        }
+        k += 1;
+    }
+    None
+}
+
 /// Repairs `arr` if it is ascending except for a few misplaced elements.
 /// Returns `true` if `arr` is sorted, `false` if the repair gave up (`arr`
 /// is then a permutation of the input).
@@ -40,6 +70,13 @@ pub fn repair_ascending<T: Copy + PartialOrd>(arr: &mut [T]) -> bool {
             // The last kept element is the misplaced one (too large).
             aside.push(arr[kept - 1]);
             arr[kept - 1] = x;
+            true
+        } else if let Some(k) = misplaced_tail(arr, kept, i, x) {
+            // The last `k` kept elements are the misplaced ones.
+            aside.extend_from_slice(&arr[kept - k..kept]);
+            kept -= k;
+            arr[kept] = x;
+            kept += 1;
             true
         } else {
             aside.push(x);

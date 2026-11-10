@@ -370,3 +370,43 @@ fn test_ded_skip_verge_exact() {
     check(super::super::generators::float_64::generators_f64(), "f64");
     check(super::super::generators::float_32::generators_f32(), "f32");
 }
+
+/// Repair of nearly sorted arrays: misplaced elements alone, side by side
+/// (large or small, up to 10 in a row), at both ends; random arrays. Sorted
+/// and a permutation of the input when it succeeds, a permutation otherwise.
+#[test]
+fn test_ded_repair_near_sorted() {
+    use super::super::algo::near_sorted::repair_near_sorted;
+    use rand::RngExt;
+    let mut rng = rand::rng();
+    for &n in [64usize, 100, 1_000, 10_000, 100_000].iter() {
+        for case in 0..40 {
+            let mut arr: Vec<u32> = (0..n as u32).map(|v| v * 4).collect();
+            if case == 39 {
+                arr.iter_mut().for_each(|v| *v = rng.random());
+            } else {
+                let groups = 1 + case % 5;
+                for _ in 0..groups {
+                    let len = 1 + rng.random_range(0..10usize.min(n / 8));
+                    let at = match case % 4 { 0 => 0, 1 => n - len, _ => rng.random_range(0..n - len) };
+                    for k in 0..len {
+                        arr[at + k] = if case % 3 == 0 { rng.random_range(0..4 * n as u32) } else if case % 3 == 1 { 4 * n as u32 + k as u32 } else { k as u32 };
+                    }
+                }
+            }
+            if case % 2 == 1 {
+                arr.reverse();
+            }
+            let mut expected = arr.clone();
+            expected.sort_unstable();
+            let mut work = arr.clone();
+            let ok = repair_near_sorted(&mut work);
+            let mut perm = work.clone();
+            perm.sort_unstable();
+            assert_eq!(perm, expected, "n {} case {}: not a permutation", n, case);
+            if ok {
+                assert_eq!(work, expected, "n {} case {}: not sorted", n, case);
+            }
+        }
+    }
+}
