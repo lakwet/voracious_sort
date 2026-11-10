@@ -267,21 +267,11 @@ macro_rules! fused_lsd {
             /// buckets of a top digit never reach it). The 16 relates to the
             /// cache associativity: machine dependent, measured on ARM only.
             fn aliased<C: Counter, const R: usize>(heads: &[C; R], size: usize) -> bool {
-                let mut classes = [0u32; 64];
-                let mut nonempty = 0u32;
-                for b in 0..R {
+                crate::dedicated::cache_info::crowded((0..R).filter_map(|b| {
                     let start = heads[b].get();
                     let end = if b + 1 < R { heads[b + 1].get() } else { size };
-                    if end > start {
-                        let byte = start * std::mem::size_of::<$uint>();
-                        classes[(byte % 4096) / 64] += 1;
-                        nonempty += 1;
-                    }
-                }
-                let max = *classes.iter().max().unwrap();
-                // Conflicts need more streams on a set than it has ways (a
-                // few to a dozen): 16, and well above the average spread.
-                max > 16 && max > 4 * ((nonempty + 63) / 64)
+                    (end > start).then(|| start * std::mem::size_of::<$uint>())
+                }))
             }
 
             /// Scatter pass through per-bucket staging lines: keys are

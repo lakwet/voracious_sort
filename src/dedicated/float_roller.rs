@@ -22,9 +22,12 @@
 use std::mem::MaybeUninit;
 
 
-/// Target bucket size (bytes of keys) for the leaves: a leaf and its scratch
-/// buffer (2 x 2 MiB) stay in L2 (256k f64 keys).
-const LEAF_BYTES: usize = 2 << 20;
+/// Target bucket size (keys) for the leaves. Not a cache size: with 2^15
+/// keys the DLSD prefix (log2 n + ~8 bits) fits in 2 passes of 12 bits;
+/// larger leaves need a third pass. Measured on Snapdragon X Elite, leaves
+/// of 128 KiB to 2 MiB of keys at 4M / 16M keys: best at 32k keys for f64
+/// (256 KiB: 4.89 ns vs 5.94 with 2 MiB) and f32 (128 KiB: 3.39 vs 5.04).
+const LEAF_KEYS: usize = 1 << 15;
 /// A bucket up to this many times `LEAF` (a digit value holding more than
 /// `LEAF` keys) still goes to the leaf sort: the DLSD stays efficient up to
 /// a few MiB, cheaper than one more MSD pass over the bucket.
@@ -40,22 +43,22 @@ const MAX_BITS: u32 = 18;
 /// log2 of the average number of keys per digit value.
 const KEYS_PER_DIGIT_LOG: u32 = 7;
 
-/// Tests / benchmarks: leaf size override in keys (0: `LEAF_BYTES`).
+/// Tests / benchmarks: leaf size override in keys (0: `LEAF_KEYS`).
 #[cfg(test)]
 pub(crate) static LEAF_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 #[inline(always)]
-fn leaf_size(key_bytes: usize) -> usize {
+fn leaf_size() -> usize {
     #[cfg(test)]
     {
         match LEAF_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
-            0 => LEAF_BYTES / key_bytes,
+            0 => LEAF_KEYS,
             v => v,
         }
     }
     #[cfg(not(test))]
     {
-        LEAF_BYTES / key_bytes
+        LEAF_KEYS
     }
 }
 
@@ -126,7 +129,7 @@ macro_rules! roller_width {
 
             /// Sorts raw float bits in total order.
             pub(crate) fn roller(bits: &mut [$uint]) {
-                let leaf = leaf_size(std::mem::size_of::<$uint>());
+                let leaf = leaf_size();
                 if bits.len() <= leaf {
                     d::dlsd(bits);
                     return;

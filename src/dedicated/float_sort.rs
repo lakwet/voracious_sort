@@ -18,7 +18,7 @@
 //!    then each unsorted chunk is radix sorted: f32 with the fused LSD of
 //!    `float_lsd` (the encoding is fused into the first scatter pass, the
 //!    decoding into the last one), f64 with the DLSD of `float_dlsd`; from
-//!    `ROLLER_F32` / `ROLLER_F64` keys with the float rollercoaster of
+//!    a size derived from the L2 size with the float rollercoaster of
 //!    `float_roller` (in-place MSD passes, then the DLSD on cache-sized
 //!    buckets);
 //! 5. when merging the segments would cost more than radix sorting the
@@ -49,19 +49,24 @@ use super::float_lsd::Digits;
 /// 1.13 at 600, 1.00 at 800, 0.94 at 1000, Snapdragon X Elite).
 const SMALL_F32: usize = 600;
 const SMALL_F64: usize = 800;
-/// From this chunk size f64 is sorted by the float rollercoaster instead of
-/// the DLSD alone: about where the DLSD's keys and scratch buffer (16 bytes
-/// per key) outgrow the L2 and its prefix needs a third pass. Measured
-/// crossover between 1M (DLSD 2.63 vs 2.68 ns, geometric mean over 36
-/// distributions) and 1.25M (3.33 vs 2.98) on Snapdragon X Elite (12 MiB
-/// L2); machine dependent, to derive from the L2 size.
-const ROLLER_F64: usize = 1 << 20;
-/// From this chunk size f32 is sorted by the float rollercoaster instead of
-/// the fused LSD (on 32-bit keys the DLSD does not beat the LSD: its prefix
-/// needs as many passes). Measured on Snapdragon X Elite (geometric mean
-/// over 31 distributions, rollercoaster / LSD): 1.08 at 4M, 1.00 at 8M,
-/// 0.91 at 16M, 0.82 at 32M; machine dependent.
-const ROLLER_F32: usize = 1 << 23;
+/// From this chunk size (keys) f64 is sorted by the float rollercoaster
+/// (in-place MSD pass, then the DLSD on leaves of 2^15 keys) instead of the
+/// DLSD alone: L2 / 48, where the DLSD's keys and scratch buffer (16 bytes
+/// per key) take a third of the L2 and its prefix needs 3 passes. Measured
+/// on Snapdragon X Elite (12 MiB L2: 256k keys), rollercoaster / DLSD over
+/// 36 distributions: 1.09 at 128k, 1.00 at 256k, 0.95 at 512k, 0.91 at 1M.
+fn roller_f64() -> usize {
+    super::cache_info::l2_bytes() / 48
+}
+
+/// From this chunk size (keys) f32 is sorted by the float rollercoaster
+/// instead of the fused LSD (on 32-bit keys the DLSD alone does not beat the
+/// LSD: its prefix needs as many passes): L2 / 12. Measured on Snapdragon X
+/// Elite (12 MiB L2: 1M keys), rollercoaster / LSD over 31 distributions:
+/// 1.13 at 512k, 1.00 at 1M, 0.73 from 2M to 8M.
+fn roller_f32() -> usize {
+    super::cache_info::l2_bytes() / 12
+}
 
 mod sealed {
     pub trait Sealed {}
@@ -197,7 +202,7 @@ pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
             3 => return roller32(bits32(s)),
             _ => {}
         }
-        if s.len() >= ROLLER_F32 {
+        if s.len() >= roller_f32() {
             roller32(bits32(s));
         } else {
             w32::lsd(bits32(s));
@@ -279,7 +284,7 @@ pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
             3 => return roller64(bits64(s)),
             _ => {}
         }
-        if s.len() >= ROLLER_F64 {
+        if s.len() >= roller_f64() {
             roller64(bits64(s));
         } else {
             dlsd64_with(bits64(s), &mut scratch.borrow_mut());

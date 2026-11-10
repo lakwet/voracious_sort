@@ -37,12 +37,14 @@ const INSERTION_BUDGET: usize = 2;
 /// Groups of equal prefix up to this size are finished by insertion sort.
 const GROUP_INSERTION: usize = 16;
 /// From this many bytes of keys the bucket starts are checked for cache
-/// aliasing (2M f64 keys). Below, the keys and their buffer stay in L2,
+/// aliasing: L2 x 4 / 3 (16 MiB, 2M f64 keys, with the 12 MiB L2 of
+/// Snapdragon X Elite). Below, the keys and their buffer mostly stay in L2,
 /// where aliased write streams cost little and the staged scatter costs
-/// more than it saves (measured on Snapdragon X Elite, 12 MiB L2: Sqrt 12.0
-/// vs 7.2 ns at 1M f64 keys; at 4M staging is needed, sorted integer
-/// sequences 14 vs 23 ns).
-const ALIAS_MIN_BYTES: usize = 16 << 20;
+/// more than it saves (measured there: Sqrt 12.0 vs 7.2 ns at 1M f64 keys;
+/// at 4M staging is needed, sorted integer sequences 14 vs 23 ns).
+fn alias_min_bytes() -> usize {
+    super::cache_info::l2_bytes() / 3 * 4
+}
 
 /// Tests: profile counters (ns or counts), see `PROF_NAMES`.
 #[cfg(test)]
@@ -234,7 +236,7 @@ macro_rules! dlsd_width {
                         let counts = &tables[t * r..(t + 1) * r];
                         let shift = base + t as u32 * w;
                         let heads = prefix_sums(counts);
-                        if n < ALIAS_MIN_BYTES / std::mem::size_of::<$uint>() || !stage_enabled() || !aliased(&heads, n) {
+                        if n < alias_min_bytes() / std::mem::size_of::<$uint>() || !stage_enabled() || !aliased(&heads, n) {
                             ops.push((shift, w, heads, false));
                             continue;
                         }
@@ -403,20 +405,13 @@ macro_rules! dlsd_width {
                 }
 
                 /// Whether the bucket starts (`heads`, exclusive prefix sums) crowd on a few
-                /// line positions inside a 4 KiB page (same criterion as `float_lsd`).
+                /// line positions of a page (see `cache_info::crowded`).
                 fn aliased(heads: &[u32], n: usize) -> bool {
-                    let mut classes = [0u32; 64];
-                    let mut nonempty = 0u32;
-                    for b in 0..heads.len() {
+                    super::super::cache_info::crowded((0..heads.len()).filter_map(|b| {
                         let start = heads[b] as usize;
                         let end = if b + 1 < heads.len() { heads[b + 1] as usize } else { n };
-                        if end > start {
-                            classes[(start * std::mem::size_of::<$uint>() % 4096) / 64] += 1;
-                            nonempty += 1;
-                        }
-                    }
-                    let max = *classes.iter().max().unwrap();
-                    max > 16 && max > 4 * nonempty.div_ceil(64)
+                        (end > start).then(|| start * std::mem::size_of::<$uint>())
+                    }))
                 }
 
                 /// One stable scatter pass on the digit `((key - min) >> shift) & mask`.

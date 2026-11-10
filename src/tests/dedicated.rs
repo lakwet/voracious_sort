@@ -34,7 +34,7 @@ use super::super::generators::float_64::*;
 
 /// float_sort must give exactly (bit for bit) the `total_cmp` order.
 fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
-    for size in [0, 1, 2, 100, 128, 129, 600, 601, 5_000, 8_191, 8_192, 100_000, 8_388_607, 8_388_608].iter() {
+    for size in [0, 1, 2, 100, 128, 129, 600, 601, 5_000, 8_191, 8_192, 100_000, 1_048_575, 1_048_576].iter() {
         for (gen, name) in generators_f32().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();
@@ -48,7 +48,7 @@ fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
 }
 
 fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
-    for size in [0, 1, 2, 100, 128, 129, 800, 801, 3_000, 3_001, 8_192, 10_000, 100_000, 1_048_575, 1_048_576, 1_500_000].iter() {
+    for size in [0, 1, 2, 100, 128, 129, 800, 801, 3_000, 3_001, 8_192, 10_000, 100_000, 262_143, 262_144, 1_500_000].iter() {
         for (gen, name) in generators_f64().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();
