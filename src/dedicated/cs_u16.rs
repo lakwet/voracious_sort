@@ -6,20 +6,29 @@ pub fn cs_u16(arr: &mut [u16]) {
         return;
     }
 
-    let mut histogram = vec![0; 65536];
-
-    let remainder = size % UNROLL_SIZE;
-    let (arr_main, arr_remainder) = arr.split_at_mut(size - remainder);
-
-    arr_main.chunks_exact(UNROLL_SIZE).for_each(|chunk| {
-        histogram[chunk[0] as usize] += 1;
-        histogram[chunk[1] as usize] += 1;
-        histogram[chunk[2] as usize] += 1;
-        histogram[chunk[3] as usize] += 1;
-    });
-    arr_remainder.iter().for_each(|item| {
-        histogram[*item as usize] += 1;
-    });
+    // Counts: u32 in the hot loop, added to usize totals every 2^31 keys, so
+    // that a value present more than 4 billion times cannot overflow (the
+    // counters were inferred as i32 before: wrong result beyond 2^31 equal
+    // keys).
+    let mut histogram = vec![0usize; 65536];
+    let mut block_counts = vec![0u32; 65536];
+    for block in arr.chunks(1 << 31) {
+        let remainder = block.len() % UNROLL_SIZE;
+        let (block_main, block_remainder) = block.split_at(block.len() - remainder);
+        block_main.chunks_exact(UNROLL_SIZE).for_each(|chunk| {
+            block_counts[chunk[0] as usize] += 1;
+            block_counts[chunk[1] as usize] += 1;
+            block_counts[chunk[2] as usize] += 1;
+            block_counts[chunk[3] as usize] += 1;
+        });
+        block_remainder.iter().for_each(|item| {
+            block_counts[*item as usize] += 1;
+        });
+        for (total, c) in histogram.iter_mut().zip(block_counts.iter_mut()) {
+            *total += *c as usize;
+            *c = 0;
+        }
+    }
 
     let mut position = 0;
     histogram.iter().enumerate().for_each(|(value, count)| {
