@@ -21,6 +21,28 @@ use std::mem::MaybeUninit;
 
 /// Below this size the encoded keys are sorted with Rust's `sort_unstable`.
 const LSD_MIN: usize = 128;
+/// Below this size the byte histograms take one lane on the stack.
+const SHORT_MAX: usize = 4096;
+
+/// Tests / benchmarks: `SHORT_MAX` override (0: none).
+#[cfg(test)]
+pub(crate) static SHORT_MAX_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[inline(always)]
+fn short_max() -> usize {
+    #[cfg(test)]
+    {
+        match SHORT_MAX_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
+            0 => SHORT_MAX,
+            v => v,
+        }
+    }
+    #[cfg(not(test))]
+    {
+        SHORT_MAX
+    }
+}
+
 /// From this size 11-bit digits may be used.
 const WIDE_MIN: usize = 8192;
 /// Up to this size 11-bit digits may be used on 32-bit keys: beyond, the
@@ -94,7 +116,7 @@ impl Counter for usize {
 macro_rules! fused_lsd {
     ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr) => {
         pub(crate) mod $name {
-            use super::{alias_fix_enabled, Counter, Digits, MaybeUninit, LSD_MIN, WIDE_MAX_32, WIDE_MIN};
+            use super::{alias_fix_enabled, short_max, Counter, Digits, MaybeUninit, LSD_MIN, WIDE_MAX_32, WIDE_MIN};
 
             const BITS: u32 = <$uint>::BITS;
 
@@ -120,6 +142,36 @@ macro_rules! fused_lsd {
             /// counted in lane `i % L`, so that consecutive keys sharing a
             /// digit do not wait on the same counter). The layout is known
             /// at compile time, so the digit loop is unrolled.
+            /// Byte histograms of the `P` bytes of the keys, on the stack, in
+            /// 2 lanes (consecutive keys alternate, so that the near-constant
+            /// top byte of floats does not chain every increment on one
+            /// counter), for short arrays.
+            #[inline(always)]
+            fn hist_stack<C: Counter, const P: usize, const ENC: bool>(bits: &[$uint]) -> [[C; 256]; P] {
+                let mut a = [[C::ZERO; 256]; P];
+                let mut b = [[C::ZERO; 256]; P];
+                let mut pairs = bits.chunks_exact(2);
+                for pr in &mut pairs {
+                    let (x, y) = if ENC { (encode(pr[0]), encode(pr[1])) } else { (pr[0], pr[1]) };
+                    for t in 0..P {
+                        a[t][digit::<256>(x, 8 * t as u32)] += C::ONE;
+                        b[t][digit::<256>(y, 8 * t as u32)] += C::ONE;
+                    }
+                }
+                for &v in pairs.remainder() {
+                    let x = if ENC { encode(v) } else { v };
+                    for t in 0..P {
+                        a[t][digit::<256>(x, 8 * t as u32)] += C::ONE;
+                    }
+                }
+                for t in 0..P {
+                    for d in 0..256 {
+                        a[t][d] += b[t][d];
+                    }
+                }
+                a
+            }
+
             fn hist_const<C: Counter, const R: usize, const P: usize, const L: usize, const ENC: bool>(
                 bits: &[$uint],
                 step: u32,
@@ -355,25 +407,32 @@ macro_rules! fused_lsd {
             fn sort_digits<C: Counter, const R: usize, const ENC: bool>(
                 bits: &mut [$uint],
                 all_shifts: &[u32],
-                mut tables: Vec<[C; R]>,
+                tables: &mut [[C; R]],
                 buffer: &mut Vec<MaybeUninit<$uint>>,
             ) {
                 let size = bits.len();
-                // Skip the digits equal in every key.
-                let mut passes: Vec<(u32, usize)> = Vec::with_capacity(all_shifts.len());
+                // Skip the digits equal in every key: then the bucket of the
+                // first key holds all of them (one lookup per digit, not a
+                // scan of the table). No allocation (at most 8 digits).
+                let first = if ENC { encode(bits[0]) } else { bits[0] };
+                let mut pass_store = [(0u32, 0usize); 8];
+                let mut np = 0;
                 for (t, &shift) in all_shifts.iter().enumerate() {
-                    if !tables[t].iter().any(|&c| c.get() == size) {
-                        passes.push((shift, t));
+                    if tables[t][digit::<R>(first, shift)].get() != size {
+                        pass_store[np] = (shift, t);
+                        np += 1;
                     }
                 }
+                let passes = &pass_store[..np];
                 if passes.is_empty() {
                     if !ENC {
                         bits.iter_mut().for_each(|b| *b = decode(*b));
                     }
                     return;
                 }
-                // Exclusive prefix sums.
-                for table in tables.iter_mut() {
+                // Exclusive prefix sums (of the digits sorted only).
+                for &(_, t) in passes.iter() {
+                    let table = &mut tables[t];
                     let mut sum = C::ZERO;
                     for count in table.iter_mut() {
                         let mut next = sum;
@@ -595,20 +654,29 @@ macro_rules! fused_lsd {
                     }
                 };
                 if wide {
-                    let shifts: Vec<u32> = (0..BITS).step_by(11).collect();
-                    let tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
+                    let shifts: [u32; ((BITS + 10) / 11) as usize] = std::array::from_fn(|t| 11 * t as u32);
+                    let mut tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
                     // Encoded input, layout chosen: the cache-aliasing fix
                     // exists for byte digits only, so aliased 11-bit passes
                     // (integer-valued or grid keys) fall back to bytes.
                     if ENC || mode != Digits::Auto || !wide_aliased(&tables, bits.len()) {
-                        sort_digits::<C, 2048, ENC>(bits, &shifts, tables, buffer);
+                        sort_digits::<C, 2048, ENC>(bits, &shifts, &mut tables, buffer);
                         return;
                     }
                 }
                 {
-                    let shifts: Vec<u32> = (0..BITS).step_by(8).collect();
-                    let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4, ENC>(bits, 8);
-                    sort_digits::<C, 256, ENC>(bits, &shifts, tables, buffer);
+                    let shifts: [u32; (BITS / 8) as usize] = std::array::from_fn(|t| 8 * t as u32);
+                    if bits.len() < short_max() {
+                        // Short arrays: one lane on the stack. The 4 lanes on the
+                        // heap (allocated, zeroed and summed on each call: 4096
+                        // counters for f32, 8192 for f64) cost more than the
+                        // passes below a few thousand keys.
+                        let mut tables = hist_stack::<C, { (BITS / 8) as usize }, ENC>(bits);
+                        sort_digits::<C, 256, ENC>(bits, &shifts, &mut tables, buffer);
+                    } else {
+                        let mut tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4, ENC>(bits, 8);
+                        sort_digits::<C, 256, ENC>(bits, &shifts, &mut tables, buffer);
+                    }
                 }
             }
 
