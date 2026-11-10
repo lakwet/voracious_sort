@@ -47,10 +47,12 @@ use super::float_lsd::Digits;
 const SMALL_F32: usize = 600;
 const SMALL_F64: usize = 3_000;
 /// From this chunk size f64 is sorted by the float rollercoaster instead of
-/// the DLSD alone: once the DLSD's keys and scratch buffer (16 bytes per key)
-/// no longer fit in L2. Measured crossover between 512k and 1M on Snapdragon
-/// X Elite (12 MiB L2); machine dependent, to derive from the L2 size.
-const ROLLER_F64: usize = 786_432;
+/// the DLSD alone: about where the DLSD's keys and scratch buffer (16 bytes
+/// per key) outgrow the L2 and its prefix needs a third pass. Measured
+/// crossover between 1M (DLSD 2.63 vs 2.68 ns, geometric mean over 36
+/// distributions) and 1.25M (3.33 vs 2.98) on Snapdragon X Elite (12 MiB
+/// L2); machine dependent, to derive from the L2 size.
+const ROLLER_F64: usize = 1 << 20;
 
 mod sealed {
     pub trait Sealed {}
@@ -237,6 +239,13 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
 pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
     let scratch = std::cell::RefCell::new(Vec::new());
     radix_path(arr, &|s: &mut [f64]| {
+        #[cfg(test)]
+        match F64_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+            1 => return dlsd64_with(bits64(s), &mut scratch.borrow_mut()),
+            2 => return w64::lsd(bits64(s)),
+            3 => return roller64(bits64(s)),
+            _ => {}
+        }
         if s.len() >= ROLLER_F64 {
             roller64(bits64(s));
         } else {
@@ -244,6 +253,11 @@ pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
         }
     });
 }
+
+/// Tests / benchmarks: f64 chunk sort forced (0 default, 1 DLSD, 2 fused
+/// LSD, 3 rollercoaster).
+#[cfg(test)]
+pub(crate) static F64_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// f64 radix path with a forced digit layout, fused LSD only (tests).
 #[cfg(test)]
