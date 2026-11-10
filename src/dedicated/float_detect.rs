@@ -22,6 +22,20 @@ fn validation_blocks<T>(values: &[T]) -> impl Iterator<Item = &[T]> {
     std::iter::once(head).chain(tail.chunks(1024))
 }
 
+/// The lane counters of the range and grid detectors are `u32` (smaller and
+/// as fast as `usize` in the hot loop); they are added to `usize` totals at
+/// least every `FLUSH` keys, so that neither a lane nor a total can overflow
+/// on arrays of more than 4 billion keys. Small in tests, to exercise it.
+const FLUSH: usize = if cfg!(test) { 1 << 12 } else { 1 << 30 };
+
+/// Adds the 4 lanes of `counts` to `totals` and clears them.
+fn flush(counts: &mut [[u32; 256]; 4], totals: &mut [usize; 256]) {
+    for b in 0..256 {
+        totals[b] += counts[0][b] as usize + counts[1][b] as usize + counts[2][b] as usize + counts[3][b] as usize;
+    }
+    *counts = [[0; 256]; 4];
+}
+
 macro_rules! float_detect {
     (
         $float:ty, $uint:ty, $sint:ty, $mant:expr, $bias:expr,
@@ -50,6 +64,8 @@ macro_rules! float_detect {
                 }
             }
             let mut counts = [[0u32; 256]; 4];
+            let mut totals = [0usize; 256];
+            let mut pending = 0usize;
             let mut minima = [lo; 4];
             let mut maxima = [hi; 4];
             for block in validation_blocks(values) {
@@ -77,13 +93,18 @@ macro_rules! float_detect {
                 if !ok || (hi as i128) - (lo as i128) > 255 {
                     return false;
                 }
+                pending += block.len();
+                if pending >= FLUSH {
+                    flush(&mut counts, &mut totals);
+                    pending = 0;
+                }
             }
+            flush(&mut counts, &mut totals);
             // The span is at most 256 integers: low bytes are distinct.
             let mut start = 0;
             let mut k = lo;
             loop {
-                let b = (k as usize) & 255;
-                let c = (counts[0][b] + counts[1][b] + counts[2][b] + counts[3][b]) as usize;
+                let c = totals[(k as usize) & 255];
                 values[start..start + c].fill(k as $float);
                 start += c;
                 if k == hi {
@@ -123,6 +144,8 @@ macro_rules! float_detect {
                 return false;
             }
             let mut counts = [[0u32; 256]; 4];
+            let mut totals = [0usize; 256];
+            let mut pending = 0usize;
             let (mut minima, mut maxima) = ([i32::MAX; 4], [i32::MIN; 4]);
             for block in validation_blocks(values) {
                 let mut chunks = block.chunks_exact(4);
@@ -149,13 +172,18 @@ macro_rules! float_detect {
                 if !ok || i64::from(hi) - i64::from(lo) > 255 {
                     return false;
                 }
+                pending += block.len();
+                if pending >= FLUSH {
+                    flush(&mut counts, &mut totals);
+                    pending = 0;
+                }
             }
+            flush(&mut counts, &mut totals);
             let lo = *minima.iter().min().unwrap();
             let hi = *maxima.iter().max().unwrap();
             let mut start = 0;
             for i in lo..=hi {
-                let b = (i as usize) & 255;
-                let c = (counts[0][b] + counts[1][b] + counts[2][b] + counts[3][b]) as usize;
+                let c = totals[(i as usize) & 255];
                 values[start..start + c].fill(rebuild(i));
                 start += c;
             }
