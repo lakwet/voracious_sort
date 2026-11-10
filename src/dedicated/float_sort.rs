@@ -17,9 +17,10 @@
 //!    the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then each unsorted chunk is radix sorted: f32 with the fused LSD of
 //!    `float_lsd` (the encoding is fused into the first scatter pass, the
-//!    decoding into the last one); f64 with the DLSD of `float_dlsd`, or
-//!    from `ROLLER_F64` keys the float rollercoaster of `float_roller`
-//!    (in-place MSD passes, then the DLSD on cache-sized buckets);
+//!    decoding into the last one), f64 with the DLSD of `float_dlsd`; from
+//!    `ROLLER_F32` / `ROLLER_F64` keys with the float rollercoaster of
+//!    `float_roller` (in-place MSD passes, then the DLSD on cache-sized
+//!    buckets);
 //! 5. when merging the segments would cost more than radix sorting the
 //!    whole array (several segments with unpredictable interleavings), the
 //!    whole array is radix sorted instead.
@@ -38,7 +39,7 @@ use super::float_dlsd::dlsd64_with;
 use super::float_lsd::w32;
 #[cfg(test)]
 use super::float_lsd::w64;
-use super::float_roller::roller64;
+use super::float_roller::{roller32, roller64};
 #[cfg(test)]
 use super::float_lsd::Digits;
 
@@ -55,6 +56,12 @@ const SMALL_F64: usize = 800;
 /// distributions) and 1.25M (3.33 vs 2.98) on Snapdragon X Elite (12 MiB
 /// L2); machine dependent, to derive from the L2 size.
 const ROLLER_F64: usize = 1 << 20;
+/// From this chunk size f32 is sorted by the float rollercoaster instead of
+/// the fused LSD (on 32-bit keys the DLSD does not beat the LSD: its prefix
+/// needs as many passes). Measured on Snapdragon X Elite (geometric mean
+/// over 31 distributions, rollercoaster / LSD): 1.08 at 4M, 1.00 at 8M,
+/// 0.91 at 16M, 0.82 at 32M; machine dependent.
+const ROLLER_F32: usize = 1 << 23;
 
 mod sealed {
     pub trait Sealed {}
@@ -183,8 +190,25 @@ fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], sort: &dyn Fn(&mut [T])) {
 
 /// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
 pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
-    radix_path(arr, &|s: &mut [f32]| w32::lsd(bits32(s)));
+    radix_path(arr, &|s: &mut [f32]| {
+        #[cfg(test)]
+        match F32_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+            2 => return w32::lsd(bits32(s)),
+            3 => return roller32(bits32(s)),
+            _ => {}
+        }
+        if s.len() >= ROLLER_F32 {
+            roller32(bits32(s));
+        } else {
+            w32::lsd(bits32(s));
+        }
+    });
 }
+
+/// Tests / benchmarks: f32 chunk sort forced (0 default, 2 fused LSD, 3
+/// rollercoaster).
+#[cfg(test)]
+pub(crate) static F32_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// Tests / benchmarks: always merge the Verge segments (A/B comparisons).
 #[cfg(test)]

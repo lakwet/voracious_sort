@@ -315,6 +315,18 @@ pub fn helper_random_array_sorted_runs64_f32(size: usize) -> Vec<f32> {
     helper_sorted_runs_f32(size, 64)
 }
 
+// Tight clusters (measurements around n / 200 random values, relative noise
+// 1e-5, a few ulps of f32), shuffled.
+pub fn helper_random_array_clusters_f32(size: usize) -> Vec<f32> {
+    let mut rng = rand::rng();
+    let k = (size / 200).max(1);
+    let centers: Vec<f32> = (0..k).map(|_| rng.random::<f32>() * 1000.0).collect();
+    let mut array: Vec<f32> =
+        (0..size).map(|i| centers[i % k] * (1.0 + rng.random::<f32>() * 1e-5)).collect();
+    array.as_mut_slice().shuffle(&mut rng);
+    array
+}
+
 pub fn generators_f32(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<f32>, &'static str)> {
     vec![
@@ -348,5 +360,6 @@ pub fn generators_f32(
         (&helper_random_array_asc_random_tail_f32, "-- Asc rnd tail:"),
         (&helper_random_array_sorted_runs8_f32, "-- Runs 8     :"),
         (&helper_random_array_sorted_runs64_f32, "-- Runs 64    :"),
+        (&helper_random_array_clusters_f32, "-- Clusters   :"),
     ]
 }
