@@ -120,10 +120,11 @@ macro_rules! fused_lsd {
             /// counted in lane `i % L`, so that consecutive keys sharing a
             /// digit do not wait on the same counter). The layout is known
             /// at compile time, so the digit loop is unrolled.
-            fn hist_const<C: Counter, const R: usize, const P: usize, const L: usize>(
+            fn hist_const<C: Counter, const R: usize, const P: usize, const L: usize, const ENC: bool>(
                 bits: &[$uint],
                 step: u32,
             ) -> Vec<[C; R]> {
+                let encode = |v: $uint| if ENC { encode(v) } else { v };
                 let mut lanes = vec![[[C::ZERO; R]; P]; L];
                 let mut chunks = bits.chunks_exact(L);
                 for chunk in &mut chunks {
@@ -358,10 +359,14 @@ macro_rules! fused_lsd {
                 }
             }
 
-            fn sort_digits<C: Counter, const R: usize>(
+            /// `ENC`: the input holds raw bits (encoded by the first pass);
+            /// otherwise it holds encoded keys. The output is always raw
+            /// bits. `buffer` is the scratch space, grown when needed.
+            fn sort_digits<C: Counter, const R: usize, const ENC: bool>(
                 bits: &mut [$uint],
                 all_shifts: &[u32],
                 mut tables: Vec<[C; R]>,
+                buffer: &mut Vec<MaybeUninit<$uint>>,
             ) {
                 let size = bits.len();
                 // Skip the digits equal in every key.
@@ -372,6 +377,9 @@ macro_rules! fused_lsd {
                     }
                 }
                 if passes.is_empty() {
+                    if !ENC {
+                        bits.iter_mut().for_each(|b| *b = decode(*b));
+                    }
                     return;
                 }
                 // Exclusive prefix sums.
@@ -385,9 +393,11 @@ macro_rules! fused_lsd {
                     }
                     assert_eq!(sum.get(), size);
                 }
-                let mut buffer: Vec<MaybeUninit<$uint>> = Vec::with_capacity(size);
-                // SAFETY: `MaybeUninit` needs no initialization.
-                unsafe { buffer.set_len(size) };
+                if buffer.len() < size {
+                    buffer.reserve(size - buffer.len());
+                    // SAFETY: `MaybeUninit` needs no initialization.
+                    unsafe { buffer.set_len(size) };
+                }
                 let buffer_ptr = buffer.as_mut_ptr() as *mut $uint;
                 let last = passes.len() - 1;
                 let mut staging: Vec<$uint> = Vec::new();
@@ -407,7 +417,7 @@ macro_rules! fused_lsd {
                                 (std::slice::from_raw_parts(buffer_ptr, size), bits.as_mut_ptr())
                             };
                             let (st, sb) = (&mut staging[..], &mut starts[..]);
-                            match (pass == 0, pass == last) {
+                            match (ENC && pass == 0, pass == last) {
                                 (true, true) => scatter_staged::<C, R, true, true>(src, dst, heads, shift, st, sb),
                                 (true, false) => scatter_staged::<C, R, true, false>(src, dst, heads, shift, st, sb),
                                 (false, true) => scatter_staged::<C, R, false, true>(src, dst, heads, shift, st, sb),
@@ -428,7 +438,7 @@ macro_rules! fused_lsd {
                         } else {
                             (std::slice::from_raw_parts(buffer_ptr, size), bits.as_mut_ptr())
                         };
-                        match (pass == 0, pass == last) {
+                        match (ENC && pass == 0, pass == last) {
                             (true, true) => scatter::<C, R, true, true>(src, dst, heads, shift),
                             (true, false) => scatter::<C, R, true, false>(src, dst, heads, shift),
                             (false, true) => scatter::<C, R, false, true>(src, dst, heads, shift),
@@ -445,6 +455,8 @@ macro_rules! fused_lsd {
 
             /// Bits varying among 16 spread encoded keys (blazing's sample).
             fn variation(bits: &[$uint]) -> u32 {
+                // Also used on encoded keys: `encode` then flips either all
+                // bits or the top one only, so the count barely changes.
                 let first = encode(bits[0]);
                 bits.iter()
                     .step_by((bits.len() / 16).max(1))
@@ -486,9 +498,9 @@ macro_rules! fused_lsd {
                     ($r:expr) => {{
                         let t = Instant::now();
                         let mut tables = if $r == 2048 {
-                            hist_const::<u32, $r, { ((BITS + 10) / 11) as usize }, 2>(bits, 11)
+                            hist_const::<u32, $r, { ((BITS + 10) / 11) as usize }, 2, true>(bits, 11)
                         } else {
-                            hist_const::<u32, $r, { (BITS / 8) as usize }, 4>(bits, 8)
+                            hist_const::<u32, $r, { (BITS / 8) as usize }, 4, true>(bits, 8)
                         };
                         res.push(("histogram".to_string(), per(t)));
                         for table in tables.iter_mut() {
@@ -549,10 +561,43 @@ macro_rules! fused_lsd {
                 res
             }
 
-            fn sort_with<C: Counter>(bits: &mut [$uint], mode: Digits) {
+            /// Whether one of the passes of the 11-bit histograms `tables`
+            /// (counts) would scatter to aliased bucket starts.
+            fn wide_aliased<C: Counter>(tables: &[[C; 2048]], size: usize) -> bool {
+                tables.iter().any(|table| {
+                    if size < ALIAS_MIN || table.iter().any(|&c| c.get() == size) {
+                        return false;
+                    }
+                    let mut heads = [C::ZERO; 2048];
+                    let mut sum = C::ZERO;
+                    for b in 0..2048 {
+                        heads[b] = sum;
+                        sum += table[b];
+                    }
+                    aliased::<C, 2048>(&heads, size)
+                })
+            }
+
+            fn sort_with<C: Counter, const ENC: bool>(
+                bits: &mut [$uint],
+                mode: Digits,
+                buffer: &mut Vec<MaybeUninit<$uint>>,
+            ) {
                 let wide = match mode {
                     Digits::Bytes => false,
                     Digits::Wide => true,
+                    // Encoded input (leaves of the float rollercoaster, whose
+                    // top bits are equal): exact count of the passes.
+                    Digits::Auto if !ENC => {
+                        bits.len() >= WIDE_MIN && (BITS == 64 || bits.len() <= WIDE_MAX_32) && {
+                            let first = bits[0];
+                            let diff = bits.iter().fold(0, |acc: $uint, &k| acc | (k ^ first));
+                            let passes = |step: u32| {
+                                (0..BITS).step_by(step as usize).filter(|&s| (diff >> s) & ((1 << step) - 1) != 0).count()
+                            };
+                            passes(11) < passes(8)
+                        }
+                    }
                     Digits::Auto => {
                         bits.len() >= WIDE_MIN
                             && (BITS == 64 || bits.len() <= WIDE_MAX_32)
@@ -561,12 +606,19 @@ macro_rules! fused_lsd {
                 };
                 if wide {
                     let shifts: Vec<u32> = (0..BITS).step_by(11).collect();
-                    let tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2>(bits, 11);
-                    sort_digits::<C, 2048>(bits, &shifts, tables);
-                } else {
+                    let tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
+                    // Encoded input, layout chosen: the cache-aliasing fix
+                    // exists for byte digits only, so aliased 11-bit passes
+                    // (integer-valued or grid keys) fall back to bytes.
+                    if ENC || mode != Digits::Auto || !wide_aliased(&tables, bits.len()) {
+                        sort_digits::<C, 2048, ENC>(bits, &shifts, tables, buffer);
+                        return;
+                    }
+                }
+                {
                     let shifts: Vec<u32> = (0..BITS).step_by(8).collect();
-                    let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4>(bits, 8);
-                    sort_digits::<C, 256>(bits, &shifts, tables);
+                    let tables = hist_const::<C, 256, { (BITS / 8) as usize }, 4, ENC>(bits, 8);
+                    sort_digits::<C, 256, ENC>(bits, &shifts, tables, buffer);
                 }
             }
 
@@ -582,10 +634,46 @@ macro_rules! fused_lsd {
                     bits.sort_unstable();
                     bits.iter_mut().for_each(|b| *b = decode(*b));
                 } else if bits.len() <= u32::MAX as usize {
-                    sort_with::<u32>(bits, mode);
+                    sort_with::<u32, true>(bits, mode, &mut Vec::new());
                 } else {
-                    sort_with::<usize>(bits, mode);
+                    sort_with::<usize, true>(bits, mode, &mut Vec::new());
                 }
+            }
+
+            /// Sorts already encoded keys and writes them back decoded (raw
+            /// bits in total order), using `buffer` as scratch space (grown
+            /// when needed, kept for the next call).
+            #[allow(dead_code)]
+            pub(crate) fn lsd_encoded(keys: &mut [$uint], buffer: &mut Vec<MaybeUninit<$uint>>) {
+                lsd_encoded_mode(keys, buffer, Digits::Auto);
+            }
+
+            /// `lsd_encoded` with a forced digit layout.
+            #[allow(dead_code)]
+            pub(crate) fn lsd_encoded_mode(keys: &mut [$uint], buffer: &mut Vec<MaybeUninit<$uint>>, mode: Digits) {
+                if keys.len() <= LSD_MIN {
+                    keys.sort_unstable();
+                    keys.iter_mut().for_each(|b| *b = decode(*b));
+                } else if keys.len() <= u32::MAX as usize {
+                    sort_with::<u32, false>(keys, mode, buffer);
+                } else {
+                    sort_with::<usize, false>(keys, mode, buffer);
+                }
+            }
+
+            /// Encodes raw bits into keys whose unsigned order is the total
+            /// order of the floats.
+            #[inline(always)]
+            #[allow(dead_code)]
+            pub(crate) fn encode_key(bits: $uint) -> $uint {
+                encode(bits)
+            }
+
+            /// Inverse of `encode_key`.
+            #[inline(always)]
+            #[allow(dead_code)]
+            pub(crate) fn decode_key(key: $uint) -> $uint {
+                decode(key)
             }
         }
     };

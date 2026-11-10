@@ -2,5 +2,7 @@ pub mod cs_u16;
 pub mod lsd_f32;
 pub mod lsd_u32;
 pub(crate) mod float_detect;
+pub(crate) mod float_dlsd;
 pub(crate) mod float_lsd;
+pub(crate) mod float_roller;
 pub mod float_sort;
