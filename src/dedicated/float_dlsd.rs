@@ -47,8 +47,37 @@ const GROUP_INSERTION: usize = 16;
 /// more than it saves (measured there: Sqrt 12.0 vs 7.2 ns at 1M f64 keys;
 /// at 4M staging is needed, sorted integer sequences 14 vs 23 ns).
 fn alias_min_bytes() -> usize {
+    #[cfg(test)]
+    {
+        let v = ALIAS_MIN_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+        if v != 0 {
+            return v;
+        }
+    }
     super::cache_info::l2_bytes() / 3 * 4
 }
+
+/// Integer keys: from L2 / 32 bytes (384 KiB, 48k u64 keys, with a 12
+/// MiB L2). Integer sequences (permutations, saw teeth, timestamps) give
+/// regular bucket sizes whose aliased streams cost even inside L2 (u64
+/// Int 0..n at 250k: 12.4 -> 4.9 ns per key staged, Asc Saw 14.5 -> 6.8);
+/// int_sort over all generators, 100k to 1M: 1 to 4 % faster. Floats keep
+/// `alias_min_bytes` (staged earlier, f64 float_sort 1 % slower, Int 0..n
+/// 17 %).
+fn alias_min_bytes_int() -> usize {
+    #[cfg(test)]
+    {
+        let v = ALIAS_MIN_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+        if v != 0 {
+            return v;
+        }
+    }
+    super::cache_info::l2_bytes() / 32
+}
+
+/// Tests: alias check threshold in bytes (0: default).
+#[cfg(test)]
+pub(crate) static ALIAS_MIN_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// Tests: profile counters (ns or counts), see `PROF_NAMES`.
 #[cfg(test)]
@@ -92,7 +121,7 @@ fn stage_enabled() -> bool {
 }
 
 macro_rules! dlsd_width {
-    ($uint:ty, $w:ident, $m:ident) => {
+    ($uint:ty, $w:ident, $m:ident, $alias_min:path) => {
         #[allow(dead_code)]
         pub(crate) mod $m {
             use super::*;
@@ -252,7 +281,7 @@ macro_rules! dlsd_width {
                     // Scatter passes: the tables become their exclusive prefix
                     // sums in place; a pass whose bucket starts alias in the
                     // cache is staged.
-                    let check_alias = n >= alias_min_bytes() / std::mem::size_of::<$uint>() && stage_enabled();
+                    let check_alias = n >= $alias_min() / std::mem::size_of::<$uint>() && stage_enabled();
                     let mut staged_store = [false; 64];
                     for (i, &t) in todo.iter().enumerate() {
                         let table = &mut tables[t * r..(t + 1) * r];
@@ -448,10 +477,10 @@ macro_rules! dlsd_width {
                 /// Whether the bucket starts (`heads`, exclusive prefix sums) crowd on a few
                 /// line positions of a page (see `cache_info::crowded`).
                 fn aliased(heads: &[u32], n: usize) -> bool {
-                    super::super::cache_info::crowded((0..heads.len()).filter_map(|b| {
+                    super::super::cache_info::crowded((0..heads.len()).map(|b| {
                         let start = heads[b] as usize;
                         let end = if b + 1 < heads.len() { heads[b + 1] as usize } else { n };
-                        (end > start).then(|| start * std::mem::size_of::<$uint>())
+                        (start * std::mem::size_of::<$uint>(), (end - start) * std::mem::size_of::<$uint>())
                     }))
                 }
 
@@ -572,12 +601,12 @@ macro_rules! dlsd_width {
     };
 }
 
-dlsd_width!(u64, w64, d64);
-dlsd_width!(u32, w32, d32);
-dlsd_width!(u64, wu64, du64);
-dlsd_width!(u32, wu32, du32);
-dlsd_width!(u64, wi64, di64);
-dlsd_width!(u32, wi32, di32);
+dlsd_width!(u64, w64, d64, alias_min_bytes);
+dlsd_width!(u32, w32, d32, alias_min_bytes);
+dlsd_width!(u64, wu64, du64, alias_min_bytes_int);
+dlsd_width!(u32, wu32, du32, alias_min_bytes_int);
+dlsd_width!(u64, wi64, di64, alias_min_bytes_int);
+dlsd_width!(u32, wi32, di32, alias_min_bytes_int);
 pub(crate) use d64::{dlsd as dlsd64, dlsd_with as dlsd64_with};
 #[allow(unused_imports)]
 pub(crate) use d32::{dlsd as dlsd32, dlsd_with as dlsd32_with};

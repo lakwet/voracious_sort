@@ -352,10 +352,10 @@ macro_rules! fused_lsd {
             /// buckets of a top digit never reach it). The 16 relates to the
             /// cache associativity: machine dependent, measured on ARM only.
             fn aliased<C: Counter, const R: usize>(heads: &[C; R], size: usize) -> bool {
-                crate::dedicated::cache_info::crowded((0..R).filter_map(|b| {
+                crate::dedicated::cache_info::crowded((0..R).map(|b| {
                     let start = heads[b].get();
                     let end = if b + 1 < R { heads[b + 1].get() } else { size };
-                    (end > start).then(|| start * std::mem::size_of::<$uint>())
+                    (start * std::mem::size_of::<$uint>(), (end - start) * std::mem::size_of::<$uint>())
                 }))
             }
 
@@ -689,10 +689,12 @@ macro_rules! fused_lsd {
                 if wide {
                     let shifts: [u32; ((BITS + 10) / 11) as usize] = std::array::from_fn(|t| 11 * t as u32);
                     let mut tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
-                    // Encoded input, layout chosen: the cache-aliasing fix
-                    // exists for byte digits only, so aliased 11-bit passes
-                    // (integer-valued or grid keys) fall back to bytes.
-                    if ENC || mode != Digits::Auto || !wide_aliased(&tables, bits.len()) {
+                    // Layout chosen: the cache-aliasing fix exists for byte
+                    // digits only, so aliased 11-bit passes (integer-valued
+                    // or grid keys, permutations, timestamps) fall back to
+                    // bytes. Raw u32 input, 2M keys: permutation of 0..n
+                    // 13.5 -> 7.5 ns per key, timestamps 10.2 -> 7.6.
+                    if mode != Digits::Auto || !wide_aliased(&tables, bits.len()) {
                         sort_digits::<C, 2048, ENC>(bits, &shifts, &mut tables, buffer);
                         return;
                     }

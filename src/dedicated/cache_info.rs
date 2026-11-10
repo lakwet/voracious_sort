@@ -245,25 +245,61 @@ mod os {
     }
 }
 
-/// Whether the starts of the non-empty buckets of a scatter pass (byte
-/// offsets) crowd on a few cache-line positions inside a page: their write
-/// streams then map to the same cache sets and evict each other (integer
-/// valued or grid floats give bucket sizes that are multiples of powers of
-/// two). Criterion: one of the page's line positions holds more than 16
-/// bucket starts (more streams than an L1 set has ways) and more than 4
-/// times the average. The page stands for the L1 way size (equal on x86
-/// and Apple Silicon); lines of 64 bytes. Measured on ARM only.
-pub(crate) fn crowded(byte_starts: impl Iterator<Item = usize>) -> bool {
+/// Whether the write streams of a scatter pass (bucket start and length,
+/// in bytes) crowd on a few cache-line positions inside a page: they then
+/// map to the same cache sets and evict each other (integer-valued or grid
+/// keys, permutations, saw teeth and timestamps give bucket sizes that are
+/// multiples of powers of two). Only buckets of at least `STREAM_MIN` bytes
+/// count as streams: smaller ones (the rare values of a top digit) share
+/// their lines instead of competing for sets. Criterion: one of the page's
+/// line positions holds more than 8 streams (more than an L1 set has ways
+/// on many cores: 6 to 12) and more than 4 times the average. The page
+/// stands for the L1 way size (equal on x86 and Apple Silicon); lines of
+/// 64 bytes. Measured on ARM only: u32 permutation of 0..2^20, bytes, the
+/// 16 buckets of 256 KiB of the top pass: 10.8 ns per key for this pass,
+/// 15.4 -> 6.4 for the sort once staged (16 was the limit before).
+pub(crate) fn crowded(streams: impl Iterator<Item = (usize, usize)>) -> bool {
     const LINE: usize = 64;
     const MAX_LINES: usize = 1024;
+    const STREAM_MIN: usize = 1024;
     let lines = (page_bytes() / LINE).clamp(1, MAX_LINES);
     let period = lines * LINE;
     let mut classes = [0u32; MAX_LINES];
     let mut nonempty = 0u32;
-    for b in byte_starts {
-        classes[(b % period) / LINE] += 1;
-        nonempty += 1;
+    for (b, len) in streams {
+        if len >= STREAM_MIN {
+            classes[(b % period) / LINE] += 1;
+            nonempty += 1;
+        }
+    }
+    if nonempty == 0 {
+        return false;
     }
     let max = *classes[..lines].iter().max().unwrap();
-    max > 16 && max > 4 * nonempty.div_ceil(lines as u32)
+    let r = max > crowd_min() && max > 4 * nonempty.div_ceil(lines as u32);
+    #[cfg(test)]
+    if r {
+        CROWD_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    r
+}
+
+/// Tests: number of crowded passes seen.
+#[cfg(test)]
+pub(crate) static CROWD_HITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Tests: stream count threshold of `crowded` (0: default).
+#[cfg(test)]
+pub(crate) static CROWD_OVERRIDE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+#[inline(always)]
+fn crowd_min() -> u32 {
+    #[cfg(test)]
+    {
+        let v = CROWD_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+        if v != 0 {
+            return v;
+        }
+    }
+    8
 }
