@@ -286,4 +286,44 @@ fn test_ded_int_sort() {
     check_int_sort(generators_u64(), &[0u64, 1, u64::MAX, u64::MAX - 1, 1 << 63, (1 << 63) - 1, 12345], "u64");
     check_int_sort(generators_i32(), &[0i32, 1, -1, i32::MIN, i32::MAX, i32::MIN + 1, -12345], "i32");
     check_int_sort(generators_i64(), &[0i64, 1, -1, i64::MIN, i64::MAX, i64::MIN + 1, -12345], "i64");
+    use super::super::generators::int_extra::*;
+    check_int_sort(extra_u32::generators(), &[0u32], "u32 extra");
+    check_int_sort(extra_u64::generators(), &[0u64], "u64 extra");
+    check_int_sort(extra_i32::generators(), &[0i32], "i32 extra");
+    check_int_sort(extra_i64::generators(), &[0i64], "i64 extra");
+}
+
+/// Narrow-range counting window: ranges at the ends of the key domain, keys
+/// outside the sample window early, late, below and above it (count
+/// resumed in a wider window, or given up beyond the limit).
+#[test]
+fn test_ded_int_sort_window() {
+    use rand::RngExt;
+    macro_rules! window {
+        ($t:ty) => {
+            let mut rng = rand::rng();
+            let bases: [$t; 4] = [<$t>::MIN, <$t>::MAX - 60, 0, (<$t>::MAX / 3) as $t];
+            for &n in [129usize, 1_000, 5_000, 100_000, 300_000].iter() {
+                for &base in bases.iter() {
+                    for case in 0..8 {
+                        let mut arr: Vec<$t> = (0..n).map(|_| base.wrapping_add(rng.random_range(0..60) as $t)).collect();
+                        let pos = [n / 50, n * 95 / 100, n - 1, 0][case % 4];
+                        let off: $t = if case < 4 { 3_000 as $t } else { (1u64 << 20) as $t };
+                        arr[pos] = if base == <$t>::MAX - 60 { base.wrapping_sub(off) } else { base.wrapping_add(off) };
+                        if case % 2 == 1 {
+                            arr[n / 3] = base.wrapping_add(200 as $t);
+                        }
+                        let mut expected = arr.clone();
+                        expected.sort_unstable();
+                        crate::int_sort(&mut arr);
+                        assert!(arr == expected, "{} n {} base {} case {}", stringify!($t), n, base, case);
+                    }
+                }
+            }
+        };
+    }
+    window!(u32);
+    window!(u64);
+    window!(i32);
+    window!(i64);
 }

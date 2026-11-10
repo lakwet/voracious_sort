@@ -32,7 +32,9 @@
 //! Parts:
 //! - `sort`: `float_sort` against `sort_unstable_by(total_cmp)` (std),
 //!   `voracious_sort` (this crate's generic sort) and, for `f32`,
-//!   blazing-radix, on every generator; summary per size: geometric mean of
+//!   blazing-radix; integers: `int_sort` against std, `voracious_sort` and
+//!   blazing-radix, on each type's generators plus the shared ones of
+//!   `generators::int_extra`; summary per size: geometric mean of
 //!   the ratios, distributions won, worst distributions.
 //! - `knobs`: the machine-dependent settings, each varied while the others
 //!   keep their value: the L2 size the thresholds are derived from, the
@@ -54,6 +56,7 @@ use super::super::dedicated::float_roller::{roller32, roller64, BLOCK_PERMUTE, L
 use super::super::dedicated::float_sort::float_sort;
 use super::super::generators::float_32::*;
 use super::super::generators::float_64::*;
+use super::super::generators::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
 use super::super::generators::signed_i32::generators_i32;
 use super::super::generators::signed_i64::generators_i64;
 use super::super::generators::unsigned_u32::generators_u32;
@@ -479,15 +482,16 @@ fn bench_portable() {
                     variant("int_sort", |a: &mut [$t]| int_sort(a)),
                     variant("std", |a: &mut [$t]| a.sort_unstable()),
                     variant("voracious", |a: &mut [$t]| a.voracious_sort()),
+                    variant("blazing", |a: &mut [$t]| blazing_radix::radix_sort::<$t>(a)),
                 ];
                 sort_part(&cfg, $name, &$gens, &v, $bits, |a: &$t, b: &$t| a.cmp(b));
             }
         };
     }
-    int_part!(u32, "u32", generators_u32(), |x: &u32| *x as u64);
-    int_part!(u64, "u64", generators_u64(), |x: &u64| *x);
-    int_part!(i32, "i32", generators_i32(), |x: &i32| *x as u32 as u64);
-    int_part!(i64, "i64", generators_i64(), |x: &i64| *x as u64);
+    int_part!(u32, "u32", { let mut g = generators_u32(); g.extend(extra_u32::generators()); g }, |x: &u32| *x as u64);
+    int_part!(u64, "u64", { let mut g = generators_u64(); g.extend(extra_u64::generators()); g }, |x: &u64| *x);
+    int_part!(i32, "i32", { let mut g = generators_i32(); g.extend(extra_i32::generators()); g }, |x: &i32| *x as u32 as u64);
+    int_part!(i64, "i64", { let mut g = generators_i64(); g.extend(extra_i64::generators()); g }, |x: &i64| *x as u64);
     if parts.contains(&"knobs") {
         knobs_part(&cfg);
     }
