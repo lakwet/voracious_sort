@@ -19,7 +19,6 @@
 //! Memory: the array plus one leaf-sized scratch buffer (the MSD passes are
 //! in place), against twice the array for the LSD.
 
-use std::mem::MaybeUninit;
 
 
 /// Target bucket size (keys) for the leaves. Not a cache size: with 2^15

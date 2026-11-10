@@ -47,10 +47,10 @@ use super::float_lsd::Digits;
 /// Below these sizes, the whole array is sorted with `sort_unstable` on the
 /// encoded keys: where the median over the distributions of radix path /
 /// small path crosses 1 (f32 against the fused LSD: 1.04 at 300, 0.94 at
-/// 400; f64 against the DLSD: 1.13 at 600, 1.00 at 800, 0.94 at 1000,
+/// 400; f64 against the DLSD: 1.05 at 600, 0.96 at 800, 0.89 at 1000,
 /// Snapdragon X Elite).
 const SMALL_F32: usize = 350;
-const SMALL_F64: usize = 800;
+const SMALL_F64: usize = 700;
 /// From this chunk size (keys) f64 is sorted by the float rollercoaster
 /// (in-place MSD pass, then the DLSD on leaves of 2^15 keys) instead of the
 /// DLSD alone: L2 / 48, where the DLSD's keys and scratch buffer (16 bytes

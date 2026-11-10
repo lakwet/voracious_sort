@@ -48,7 +48,7 @@ fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
 }
 
 fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
-    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 800, 801, 3_000, 3_001, 8_192, 10_000, 100_000, 262_143, 262_144, 1_500_000].iter() {
+    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 700, 701, 800, 801, 3_000, 3_001, 8_192, 10_000, 100_000, 262_143, 262_144, 1_500_000].iter() {
         for (gen, name) in generators_f64().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();

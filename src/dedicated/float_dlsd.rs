@@ -31,6 +31,10 @@ const MAX_DIGIT_BITS: u32 = 12;
 /// finished cheaply anyway. Sorting it costs ~0.1 ns per key.
 const SAMPLE_DIV: usize = 256;
 const SAMPLE_MIN: usize = 16;
+/// Histogram counters kept on the stack (16 KiB); more go to the heap.
+const STACK_COUNTERS: usize = 4096;
+/// Sample keys kept on the stack.
+const STACK_SAMPLE: usize = 256;
 /// Moves per key allowed to the final insertion sort before the groups of
 /// equal prefix are finished one by one (8 measured worse: Prices).
 const INSERTION_BUDGET: usize = 2;
@@ -172,8 +176,24 @@ macro_rules! dlsd_width {
                     let r = 1usize << w;
                     let mask = (r - 1) as $uint;
 
-                    // Histograms of the prefix digits, one read, 2 lanes.
-                    let mut tables = vec![0u32; 2 * k * r];
+                    // Histograms of the prefix digits, one read, 2 lanes. On the
+                    // stack when they fit in `STACK_COUNTERS` (only the part
+                    // used is zeroed), else on the heap.
+                    let need = 2 * k * r;
+                    let mut stack_tables = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
+                    let mut heap_tables: Vec<u32> = Vec::new();
+                    let tables: &mut [u32] = if need <= STACK_COUNTERS {
+                        // SAFETY: the first `need` counters are zeroed before
+                        // the slice over them is formed.
+                        unsafe {
+                            let ptr = stack_tables.as_mut_ptr() as *mut u32;
+                            std::ptr::write_bytes(ptr, 0, need);
+                            std::slice::from_raw_parts_mut(ptr, need)
+                        }
+                    } else {
+                        heap_tables.resize(need, 0);
+                        &mut heap_tables
+                    };
                     #[cfg(test)]
                     let th = std::time::Instant::now();
                     {
@@ -200,8 +220,8 @@ macro_rules! dlsd_width {
                         for i in 0..k * r {
                             t0[i] += t1[i];
                         }
-                        tables.truncate(k * r);
                     }
+                    let tables = &mut tables[..k * r];
                     #[cfg(test)]
                     PROF[1].fetch_add(th.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
                     let (q, p) = (k, k);
@@ -209,8 +229,19 @@ macro_rules! dlsd_width {
                     let low = base;
                     let exact = low == 0;
                     count(8, (top - low) as u64);
-                    // Passes whose digit varies (the top one always does).
-                    let todo: Vec<usize> = (k - q..p).filter(|&t| !tables[t * r..(t + 1) * r].iter().any(|&c| c as usize == n)).collect();
+                    // Passes whose digit varies (the top one always does): a
+                    // digit equal in every key has all of them in the bucket of
+                    // the first key (one lookup, not a scan of the table).
+                    let f0 = enc::<RAW>(keys[0]).wrapping_sub(min) >> base;
+                    let mut todo_store = [0usize; 64];
+                    let mut nt = 0;
+                    for t in k - q..p {
+                        if tables[t * r + ((f0 >> (t as u32 * w)) & mask) as usize] as usize != n {
+                            todo_store[nt] = t;
+                            nt += 1;
+                        }
+                    }
+                    let todo = &todo_store[..nt];
 
                     if scratch.len() < n {
                         scratch.reserve(n - scratch.len());
@@ -218,36 +249,28 @@ macro_rules! dlsd_width {
                         unsafe { scratch.set_len(n) };
                     }
                     let buf = scratch.as_mut_ptr() as *mut $uint;
-                    // Scatter passes: (shift, width, exclusive prefix sums, staged). A pass
-                    // whose bucket starts alias in the cache is staged.
-                    let mut ops: Vec<(u32, u32, Vec<u32>, bool)> = Vec::with_capacity(todo.len() + 2);
-                    let prefix_sums = |counts: &[u32]| {
+                    // Scatter passes: the tables become their exclusive prefix
+                    // sums in place; a pass whose bucket starts alias in the
+                    // cache is staged.
+                    let check_alias = n >= alias_min_bytes() / std::mem::size_of::<$uint>() && stage_enabled();
+                    let mut staged_store = [false; 64];
+                    for (i, &t) in todo.iter().enumerate() {
+                        let table = &mut tables[t * r..(t + 1) * r];
                         let mut sum = 0u32;
-                        counts
-                            .iter()
-                            .map(|&c| {
-                                let h = sum;
-                                sum += c;
-                                h
-                            })
-                            .collect::<Vec<u32>>()
-                    };
-                    for &t in todo.iter() {
-                        let counts = &tables[t * r..(t + 1) * r];
-                        let shift = base + t as u32 * w;
-                        let heads = prefix_sums(counts);
-                        if n < alias_min_bytes() / std::mem::size_of::<$uint>() || !stage_enabled() || !aliased(&heads, n) {
-                            ops.push((shift, w, heads, false));
-                            continue;
+                        for c in table.iter_mut() {
+                            let v = *c;
+                            *c = sum;
+                            sum += v;
                         }
-                        ops.push((shift, w, heads, true));
+                        staged_store[i] = check_alias && aliased(table, n);
                     }
                     let mut staging: Vec<$uint> = Vec::new();
                     let mut starts: Vec<u32> = Vec::new();
-                    let last = ops.len() - 1;
-                    for (i, (shift, wd, heads, staged)) in ops.iter_mut().enumerate() {
-                        let (shift, staged) = (*shift, *staged);
-                        let mask = ((1 as $uint) << *wd) - 1;
+                    let last = todo.len() - 1;
+                    for (i, &t) in todo.iter().enumerate() {
+                        let shift = base + t as u32 * w;
+                        let staged = staged_store[i];
+                        let heads = &mut tables[t * r..(t + 1) * r];
                         let first = RAW && i == 0;
                         let decode = exact && i == last;
                         count(6, 1);
@@ -287,7 +310,7 @@ macro_rules! dlsd_width {
                         #[cfg(test)]
                         PROF[if staged { 3 } else { 2 }].fetch_add(ts.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
                     }
-                    if ops.len() % 2 == 1 {
+                    if todo.len() % 2 == 1 {
                         // SAFETY: the buffer was fully written by the last pass.
                         keys.copy_from_slice(unsafe { std::slice::from_raw_parts(buf, n) });
                     }
@@ -367,19 +390,37 @@ macro_rules! dlsd_width {
                     // data, e.g. sawtooth teeth, samples near-duplicates and asks for every
                     // bit).
                     const PHI: u64 = 0x9E37_79B9_7F4A_7C15;
-                    let mut sample: Vec<$uint> = (0..s as u64)
-                        .map(|i| {
-                            let pos = ((i.wrapping_mul(PHI) >> 32) * n as u64) >> 32;
-                            enc::<RAW>(keys[pos as usize]).wrapping_sub(min)
-                        })
-                        .collect();
+                    // Sample and needs on the stack up to `STACK_SAMPLE` keys.
+                    let mut sample_stack = [0 as $uint; STACK_SAMPLE];
+                    let mut sample_heap: Vec<$uint> = Vec::new();
+                    let sample: &mut [$uint] = if s <= STACK_SAMPLE {
+                        &mut sample_stack[..s]
+                    } else {
+                        sample_heap.resize(s, 0);
+                        &mut sample_heap
+                    };
+                    for (i, slot) in sample.iter_mut().enumerate() {
+                        let pos = (((i as u64).wrapping_mul(PHI) >> 32) * n as u64) >> 32;
+                        *slot = enc::<RAW>(keys[pos as usize]).wrapping_sub(min);
+                    }
                     sample.sort_unstable();
                     // Bits shared from the top of the range, plus one: bits that separate.
-                    let mut need: Vec<u32> = sample
-                        .windows(2)
-                        .filter(|p| p[0] != p[1])
-                        .map(|p| ((p[0] ^ p[1]).leading_zeros() + 1).saturating_sub(<$uint>::BITS - top))
-                        .collect();
+                    let mut need_stack = [0u32; STACK_SAMPLE];
+                    let mut need_heap: Vec<u32> = Vec::new();
+                    let need_all: &mut [u32] = if s <= STACK_SAMPLE {
+                        &mut need_stack[..s]
+                    } else {
+                        need_heap.resize(s, 0);
+                        &mut need_heap
+                    };
+                    let mut m = 0;
+                    for p in sample.windows(2) {
+                        if p[0] != p[1] {
+                            need_all[m] = ((p[0] ^ p[1]).leading_zeros() + 1).saturating_sub(<$uint>::BITS - top);
+                            m += 1;
+                        }
+                    }
+                    let need = &mut need_all[..m];
                     let log_n = usize::BITS - n.leading_zeros();
                     if need.is_empty() {
                         // Sample of equal keys (very few distinct values): a short prefix,
@@ -533,6 +574,6 @@ macro_rules! dlsd_width {
 
 dlsd_width!(u64, w64, d64);
 dlsd_width!(u32, w32, d32);
-pub(crate) use d64::{dlsd as dlsd64, dlsd_encoded as dlsd64_encoded, dlsd_with as dlsd64_with};
+pub(crate) use d64::{dlsd as dlsd64, dlsd_with as dlsd64_with};
 #[allow(unused_imports)]
-pub(crate) use d32::{dlsd as dlsd32, dlsd_encoded as dlsd32_encoded, dlsd_with as dlsd32_with};
+pub(crate) use d32::{dlsd as dlsd32, dlsd_with as dlsd32_with};
