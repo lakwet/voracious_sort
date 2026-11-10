@@ -1,3 +1,4 @@
+mod bench_portable;
 mod comparative_sort;
 mod dedicated;
 mod regions_graph;
