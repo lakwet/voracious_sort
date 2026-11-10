@@ -24,11 +24,16 @@ use super::float_lsd::w64;
 const SMALL: usize = 64;
 /// Widest digit (4096 buckets: their write streams still fit in L1/L2).
 const MAX_DIGIT_BITS: u32 = 12;
-/// Prefix bits beyond log2(n): about `n / 2^X` keys share their prefix
-/// with another key.
-const DLSD_EXTRA_BITS: u32 = 3;
+/// Sample for the prefix length: n / `SAMPLE_DIV` keys (at least
+/// `SAMPLE_MIN`). A sample proportional to n keeps seeing pairs of keys
+/// from the same tight cluster however many clusters there are: the share
+/// of such neighbouring pairs is about S * c / (2 n) for clusters of c keys,
+/// above the 5 % the 95th percentile needs from c = 26; smaller groups are
+/// finished cheaply anyway. Sorting it costs ~0.1 ns per key.
+const SAMPLE_DIV: usize = 256;
+const SAMPLE_MIN: usize = 16;
 /// Moves per key allowed to the final insertion sort before the groups of
-/// equal prefix are finished one by one.
+/// equal prefix are finished one by one (8 measured worse: Prices).
 const INSERTION_BUDGET: usize = 2;
 /// Groups of equal prefix up to this size are finished by insertion sort.
 const GROUP_INSERTION: usize = 16;
@@ -146,17 +151,18 @@ fn dlsd_rec<const RAW: bool>(keys: &mut [u64], scratch: &mut Vec<MaybeUninit<u64
     }
     let top = 64 - range.leading_zeros();
     let log_n = usize::BITS - n.leading_zeros();
-    let wanted = log_n + DLSD_EXTRA_BITS;
-    // Digit width: ~16 keys per digit value at least, 8 to 12 bits.
-    let w = log_n.saturating_sub(4).clamp(8, MAX_DIGIT_BITS);
-    // Candidate digits, numbered from the lowest: enough to hold `wanted`
-    // bits of information if the keys spread evenly, plus one.
-    let k = (wanted.div_ceil(w) + 1).min(top.div_ceil(w)) as usize;
+    // Prefix length: bits needed to tell apart most neighbouring keys,
+    // estimated on a spread sample (see `prefix_bits`).
+    let bits = prefix_bits::<RAW>(keys, min, top);
+    let passes = bits.div_ceil(MAX_DIGIT_BITS);
+    // Digit width: the prefix split evenly, at most ~n/16 digit values.
+    let w = bits.div_ceil(passes).min(log_n.saturating_sub(4).max(8)).max(1);
+    let k = bits.div_ceil(w) as usize;
     let base = top.saturating_sub(k as u32 * w);
     let r = 1usize << w;
     let mask = (r - 1) as u64;
 
-    // Histograms of the candidate digits, one read, 2 lanes.
+    // Histograms of the prefix digits, one read, 2 lanes.
     let mut tables = vec![0u32; 2 * k * r];
     #[cfg(test)]
     let th = std::time::Instant::now();
@@ -188,26 +194,9 @@ fn dlsd_rec<const RAW: bool>(keys: &mut [u64], scratch: &mut Vec<MaybeUninit<u64
     }
     #[cfg(test)]
     PROF[1].fetch_add(th.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
-    // Prefix: the top digits until their information (entropy of each
-    // digit, an upper bound of what they add together) reaches `wanted`
-    // bits. Keys clustered on a few values of the top bits (both signs,
-    // few exponents) then get a longer prefix.
-    let ln = (n as f64).log2();
-    let mut info = 0.0;
-    let mut q = 0;
-    while q < k && info < wanted as f64 {
-        let t = k - 1 - q;
-        let sum: f64 = tables[t * r..(t + 1) * r]
-            .iter()
-            .filter(|&&c| c > 1)
-            .map(|&c| c as f64 * (c as f64).log2())
-            .sum();
-        info += ln - sum / n as f64;
-        q += 1;
-    }
-    let p = k;
+    let (q, p) = (k, k);
     // The prefix is bits `low..top` of `key - min`; exact when `low == 0`.
-    let low = base + (k - q) as u32 * w;
+    let low = base;
     let exact = low == 0;
     count(8, (top - low) as u64);
     // Passes whose digit varies (the top one always does).
@@ -350,6 +339,47 @@ fn dlsd_rec<const RAW: bool>(keys: &mut [u64], scratch: &mut Vec<MaybeUninit<u64
     }
     #[cfg(test)]
     PROF[4].fetch_add(tf.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Prefix length (bits of `key - min` from the top of the range, at most
+/// `top`) for the DLSD: on a sorted spread sample of `S` keys, the bits a
+/// pair of unequal neighbours share, plus one, at the 95th percentile, plus
+/// log2(n / S) (neighbours in the array are n / S times closer than in the
+/// sample). Unlike the entropy of each digit taken alone, this sees
+/// correlated digits (tight clusters: the top bits name the cluster, the
+/// keys of a cluster differ much lower) and isolated extremes. Equal keys
+/// need no prefix and are ignored.
+fn prefix_bits<const RAW: bool>(keys: &[u64], min: u64, top: u32) -> u32 {
+    let n = keys.len();
+    let s = (n / SAMPLE_DIV).max(SAMPLE_MIN).min(n);
+    // Positions frac(i * golden ratio) * n: spread like a stride but in
+    // resonance with no period of the data (a stride of n / S on periodic
+    // data, e.g. sawtooth teeth, samples near-duplicates and asks for every
+    // bit).
+    const PHI: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut sample: Vec<u64> = (0..s as u64)
+        .map(|i| {
+            let pos = ((i.wrapping_mul(PHI) >> 32) * n as u64) >> 32;
+            enc::<RAW>(keys[pos as usize]).wrapping_sub(min)
+        })
+        .collect();
+    sample.sort_unstable();
+    // Bits shared from the top of the range, plus one: bits that separate.
+    let mut need: Vec<u32> = sample
+        .windows(2)
+        .filter(|p| p[0] != p[1])
+        .map(|p| ((p[0] ^ p[1]).leading_zeros() + 1).saturating_sub(64 - top))
+        .collect();
+    let log_n = usize::BITS - n.leading_zeros();
+    if need.is_empty() {
+        // Sample of equal keys (very few distinct values): a short prefix,
+        // the finish handles the equal groups for free.
+        return (log_n + 3).min(top);
+    }
+    need.sort_unstable();
+    let p95 = need[(need.len() * 95 / 100).min(need.len() - 1)];
+    let spread = (usize::BITS - (n / s).leading_zeros()).saturating_sub(1);
+    (p95 + spread).clamp(1, top)
 }
 
 fn insertion(a: &mut [u64]) {
