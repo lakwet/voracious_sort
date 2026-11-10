@@ -43,9 +43,11 @@ use super::float_roller::roller64;
 use super::float_lsd::Digits;
 
 /// Below these sizes, the whole array is sorted with `sort_unstable` on the
-/// encoded keys.
+/// encoded keys: where the median over the distributions of radix path /
+/// small path crosses 1 (f32 against the fused LSD; f64 against the DLSD:
+/// 1.13 at 600, 1.00 at 800, 0.94 at 1000, Snapdragon X Elite).
 const SMALL_F32: usize = 600;
-const SMALL_F64: usize = 3_000;
+const SMALL_F64: usize = 800;
 /// From this chunk size f64 is sorted by the float rollercoaster instead of
 /// the DLSD alone: about where the DLSD's keys and scratch buffer (16 bytes
 /// per key) outgrow the L2 and its prefix needs a third pass. Measured
@@ -138,7 +140,14 @@ impl FloatSort for f64 {
         if detect64(arr) {
             return;
         }
-        if arr.len() <= SMALL_F64 {
+        #[cfg(test)]
+        let small = match F64_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
+            0 => SMALL_F64,
+            v => v,
+        };
+        #[cfg(not(test))]
+        let small = SMALL_F64;
+        if arr.len() <= small {
             small64(bits64(arr));
             return;
         }
@@ -253,6 +262,11 @@ pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
         }
     });
 }
+
+/// Tests / benchmarks: f64 small-path limit override (0: `SMALL_F64`; 1:
+/// radix path from 2 keys).
+#[cfg(test)]
+pub(crate) static F64_SMALL_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// Tests / benchmarks: f64 chunk sort forced (0 default, 1 DLSD, 2 fused
 /// LSD, 3 rollercoaster).
