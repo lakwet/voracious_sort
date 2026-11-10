@@ -14,6 +14,9 @@
 //!
 //! Environment variables (all optional):
 //! - `BENCH_PARTS`: comma-separated parts among `sort`, `knobs`, `aa` (all by default);
+//! - `BENCH_TYPES`: types of the `sort` part among `f64`, `f32`, `u32`, `u64`,
+//!   `i32`, `i64` (all by default; integers: `int_sort` against std and
+//!   `voracious_sort`);
 //! - `BENCH_MAX`: largest array size (default 10_000_000);
 //! - `BENCH_MEM_MB`: memory budget of one measurement in MiB (default 2048);
 //! - `BENCH_REPS`: repetitions per measurement, the median is kept (default 3);
@@ -51,6 +54,11 @@ use super::super::dedicated::float_roller::{roller32, roller64, BLOCK_PERMUTE, L
 use super::super::dedicated::float_sort::float_sort;
 use super::super::generators::float_32::*;
 use super::super::generators::float_64::*;
+use super::super::generators::signed_i32::generators_i32;
+use super::super::generators::signed_i64::generators_i64;
+use super::super::generators::unsigned_u32::generators_u32;
+use super::super::generators::unsigned_u64::generators_u64;
+use super::super::int_sort;
 use super::super::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -235,7 +243,7 @@ fn sort_part<T: Copy + PartialOrd>(
     let names: Vec<&str> = variants.iter().map(|v| v.name).collect();
     let mut file = std::fs::File::create(cfg.out.join(format!("sort_{}.csv", ty))).unwrap();
     writeln!(file, "type,gen,size,{}", names.join(",")).unwrap();
-    println!("\n== sort {} (ns per key; ratios > 1: float_sort faster)", ty);
+    println!("\n== sort {} (ns per key; ratios > 1: {} faster)", ty, names[0]);
     for &size in [1_000usize, 10_000, 100_000, 1_000_000, 10_000_000].iter().filter(|&&s| s <= cfg.max) {
         let rows = measure(cfg, gens, size, variants, to_bits, total_cmp);
         if rows.is_empty() {
@@ -243,7 +251,7 @@ fn sort_part<T: Copy + PartialOrd>(
             continue;
         }
         write_rows(&mut file, ty, size, &rows);
-        let mut line = format!("{:>9}: float_sort {:.2} ns", size, geo(rows.iter().map(|r| r.1[0])));
+        let mut line = format!("{:>9}: {} {:.2} ns", size, names[0], geo(rows.iter().map(|r| r.1[0])));
         for v in 1..variants.len() {
             let ratio = geo(rows.iter().map(|r| r.1[v] / r.1[0]));
             let wins = rows.iter().filter(|r| r.1[0] < r.1[v]).count();
@@ -445,13 +453,17 @@ fn bench_portable() {
     if parts.contains(&"aa") {
         aa_part(&cfg);
     }
-    if parts.contains(&"sort") {
+    let types = std::env::var("BENCH_TYPES").unwrap_or_else(|_| "f64,f32,u32,u64,i32,i64".into());
+    let types: Vec<&str> = types.split(',').map(|t| t.trim()).collect();
+    if parts.contains(&"sort") && types.contains(&"f64") {
         let v64: Vec<Variant<f64>> = vec![
             variant("float_sort", |a: &mut [f64]| float_sort(a)),
             variant("std", |a: &mut [f64]| a.sort_unstable_by(|x, y| x.total_cmp(y))),
             variant("voracious", |a: &mut [f64]| a.voracious_sort()),
         ];
         sort_part(&cfg, "f64", &generators_f64(), &v64, f64_bits, f64_cmp);
+    }
+    if parts.contains(&"sort") && types.contains(&"f32") {
         let v32: Vec<Variant<f32>> = vec![
             variant("float_sort", |a: &mut [f32]| float_sort(a)),
             variant("std", |a: &mut [f32]| a.sort_unstable_by(|x, y| x.total_cmp(y))),
@@ -460,6 +472,22 @@ fn bench_portable() {
         ];
         sort_part(&cfg, "f32", &generators_f32(), &v32, f32_bits, f32_cmp);
     }
+    macro_rules! int_part {
+        ($t:ty, $name:expr, $gens:expr, $bits:expr) => {
+            if parts.contains(&"sort") && types.contains(&$name) {
+                let v: Vec<Variant<$t>> = vec![
+                    variant("int_sort", |a: &mut [$t]| int_sort(a)),
+                    variant("std", |a: &mut [$t]| a.sort_unstable()),
+                    variant("voracious", |a: &mut [$t]| a.voracious_sort()),
+                ];
+                sort_part(&cfg, $name, &$gens, &v, $bits, |a: &$t, b: &$t| a.cmp(b));
+            }
+        };
+    }
+    int_part!(u32, "u32", generators_u32(), |x: &u32| *x as u64);
+    int_part!(u64, "u64", generators_u64(), |x: &u64| *x);
+    int_part!(i32, "i32", generators_i32(), |x: &i32| *x as u32 as u64);
+    int_part!(i64, "i64", generators_i64(), |x: &i64| *x as u64);
     if parts.contains(&"knobs") {
         knobs_part(&cfg);
     }

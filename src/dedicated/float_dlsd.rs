@@ -574,6 +574,10 @@ macro_rules! dlsd_width {
 
 dlsd_width!(u64, w64, d64);
 dlsd_width!(u32, w32, d32);
+dlsd_width!(u64, wu64, du64);
+dlsd_width!(u32, wu32, du32);
+dlsd_width!(u64, wi64, di64);
+dlsd_width!(u32, wi32, di32);
 pub(crate) use d64::{dlsd as dlsd64, dlsd_with as dlsd64_with};
 #[allow(unused_imports)]
 pub(crate) use d32::{dlsd as dlsd32, dlsd_with as dlsd32_with};

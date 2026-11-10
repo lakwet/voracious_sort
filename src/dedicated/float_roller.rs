@@ -511,6 +511,10 @@ macro_rules! roller_width {
 
 roller_width!(u64, w64, d64, r64);
 roller_width!(u32, w32, d32, r32);
+roller_width!(u64, wu64, du64, ru64);
+roller_width!(u32, wu32, du32, ru32);
+roller_width!(u64, wi64, di64, ri64);
+roller_width!(u32, wi32, di32, ri32);
 pub(crate) use r64::roller as roller64;
 #[allow(unused_imports)]
 pub(crate) use r32::roller as roller32;

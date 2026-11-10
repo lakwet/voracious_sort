@@ -60,7 +60,7 @@ const SMALL_F64: usize = 700;
 /// per key) take a third of the L2 and its prefix needs 3 passes. Measured
 /// on Snapdragon X Elite (12 MiB L2: 256k keys), rollercoaster / DLSD over
 /// 36 distributions: 1.09 at 128k, 1.00 at 256k, 0.95 at 512k, 0.91 at 1M.
-fn roller_f64() -> usize {
+pub(crate) fn roller_f64() -> usize {
     super::cache_info::l2_bytes() / 48
 }
 
@@ -69,7 +69,7 @@ fn roller_f64() -> usize {
 /// LSD: its prefix needs as many passes): L2 / 12. Measured on Snapdragon X
 /// Elite (12 MiB L2: 1M keys), rollercoaster / LSD over 31 distributions:
 /// 1.13 at 512k, 1.00 at 1M, 0.73 from 2M to 8M.
-fn roller_f32() -> usize {
+pub(crate) fn roller_f32() -> usize {
     super::cache_info::l2_bytes() / 12
 }
 
@@ -213,7 +213,7 @@ fn float_sort_f64_rest(arr: &mut [f64]) {
 /// segments would cost more than sorting the whole array (several segments
 /// with unpredictable interleavings), `sort` is applied to the whole array,
 /// else to each chunk and the segments are merged.
-fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut [T]) -> bool, sort: &dyn Fn(&mut [T])) {
+pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut [T]) -> bool, sort: &dyn Fn(&mut [T])) {
     if repair_near_sorted(arr) || few(arr) {
         return;
     }

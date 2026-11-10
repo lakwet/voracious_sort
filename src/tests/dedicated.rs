@@ -256,3 +256,34 @@ fn test_ded_float_sort_tiny() {
         assert!(arr32.iter().map(|x| x.to_bits()).eq(expected32.iter().map(|x| x.to_bits())), "f32 specials size {}", size);
     }
 }
+
+fn check_int_sort<T: crate::IntSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
+    let sizes: Vec<usize> = (0..=70)
+        .chain([128, 129, 350, 351, 700, 701, 5_000, 100_000, 262_143, 262_144, 1_048_575, 1_048_576, 1_500_000].iter().copied())
+        .collect();
+    for &size in sizes.iter() {
+        for (gen, name) in gens.iter() {
+            let mut arr = gen(size);
+            let mut expected = arr.clone();
+            expected.sort_unstable();
+            crate::int_sort(&mut arr);
+            assert!(arr == expected, "{} {} size {}", ty, name, size);
+        }
+        let mut arr: Vec<T> = (0..size).map(|i| extremes[(i * 7919) % extremes.len()]).collect();
+        let mut expected = arr.clone();
+        expected.sort_unstable();
+        crate::int_sort(&mut arr);
+        assert!(arr == expected, "{} extremes size {}", ty, size);
+    }
+}
+
+#[test]
+fn test_ded_int_sort() {
+    use super::super::generators::signed_i32::generators_i32;
+    use super::super::generators::signed_i64::generators_i64;
+    use super::super::generators::unsigned_u64::generators_u64;
+    check_int_sort(generators_u32(), &[0u32, 1, u32::MAX, u32::MAX - 1, 1 << 31, (1 << 31) - 1, 12345], "u32");
+    check_int_sort(generators_u64(), &[0u64, 1, u64::MAX, u64::MAX - 1, 1 << 63, (1 << 63) - 1, 12345], "u64");
+    check_int_sort(generators_i32(), &[0i32, 1, -1, i32::MIN, i32::MAX, i32::MIN + 1, -12345], "i32");
+    check_int_sort(generators_i64(), &[0i64, 1, -1, i64::MIN, i64::MAX, i64::MIN + 1, -12345], "i64");
+}

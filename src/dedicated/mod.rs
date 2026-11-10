@@ -8,3 +8,4 @@ pub(crate) mod float_lsd;
 pub(crate) mod float_roller;
 pub(crate) mod small_sort;
 pub mod float_sort;
+pub mod int_sort;

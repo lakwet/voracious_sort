@@ -113,24 +113,57 @@ impl Counter for usize {
     }
 }
 
+/// The map from the stored bits to keys whose unsigned order is the wanted
+/// order (`encode`), and back (`decode`): floats (total order: flip every
+/// bit of negative values, the sign bit of the others), unsigned integers
+/// (identity), signed integers (flip the sign bit).
+macro_rules! key_codec {
+    (float, $uint:ty, $sint:ty) => {
+        #[inline(always)]
+        fn encode(bits: $uint) -> $uint {
+            const SIGN: $uint = 1 << (BITS - 1);
+            bits ^ ((((bits as $sint) >> (BITS - 1)) as $uint) | SIGN)
+        }
+
+        #[inline(always)]
+        fn decode(key: $uint) -> $uint {
+            const SIGN: $uint = 1 << (BITS - 1);
+            key ^ ((key >> (BITS - 1)).wrapping_sub(1) | SIGN)
+        }
+    };
+    (unsigned, $uint:ty, $sint:ty) => {
+        #[inline(always)]
+        fn encode(bits: $uint) -> $uint {
+            bits
+        }
+
+        #[inline(always)]
+        fn decode(key: $uint) -> $uint {
+            key
+        }
+    };
+    (signed, $uint:ty, $sint:ty) => {
+        #[inline(always)]
+        fn encode(bits: $uint) -> $uint {
+            bits ^ (1 << (BITS - 1))
+        }
+
+        #[inline(always)]
+        fn decode(key: $uint) -> $uint {
+            key ^ (1 << (BITS - 1))
+        }
+    };
+}
+
 macro_rules! fused_lsd {
-    ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr) => {
+    ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr, $codec:ident) => {
+        #[allow(dead_code)]
         pub(crate) mod $name {
             use super::{alias_fix_enabled, short_max, Counter, Digits, MaybeUninit, LSD_MIN, WIDE_MAX_32, WIDE_MIN};
 
             const BITS: u32 = <$uint>::BITS;
 
-            #[inline(always)]
-            fn encode(bits: $uint) -> $uint {
-                const SIGN: $uint = 1 << (BITS - 1);
-                bits ^ ((((bits as $sint) >> (BITS - 1)) as $uint) | SIGN)
-            }
-
-            #[inline(always)]
-            fn decode(key: $uint) -> $uint {
-                const SIGN: $uint = 1 << (BITS - 1);
-                key ^ ((key >> (BITS - 1)).wrapping_sub(1) | SIGN)
-            }
+            key_codec!($codec, $uint, $sint);
 
             #[inline(always)]
             fn digit<const R: usize>(key: $uint, shift: u32) -> usize {
@@ -737,5 +770,9 @@ macro_rules! fused_lsd {
     };
 }
 
-fused_lsd!(u32, i32, w32, 20);
-fused_lsd!(u64, i64, w64, 44);
+fused_lsd!(u32, i32, w32, 20, float);
+fused_lsd!(u64, i64, w64, 44, float);
+fused_lsd!(u32, i32, wu32, 20, unsigned);
+fused_lsd!(u64, i64, wu64, 44, unsigned);
+fused_lsd!(u32, i32, wi32, 20, signed);
+fused_lsd!(u64, i64, wi64, 44, signed);
