@@ -211,6 +211,68 @@ macro_rules! fused_lsd {
             ) -> Vec<[C; R]> {
                 let encode = |v: $uint| if ENC { encode(v) } else { v };
                 let mut lanes = vec![[[C::ZERO; R]; P]; L];
+                // Digits constant on 16 spread keys: tested for a shared digit
+                // by block of 8 keys (one addition of 8 instead of 8
+                // increments of the same counter, each waiting for the
+                // previous one); the others are counted key by key (a test
+                // failing at random would be mispredicted). Without such a
+                // digit, the plain loop below. u32 Aligned 2^16 (two
+                // constant low bytes) at 100k: 2.38 -> 1.52 ns per key.
+                let first = encode(bits[0]);
+                let diff = bits
+                    .iter()
+                    .step_by((bits.len() / 16).max(1))
+                    .take(16)
+                    .fold(0, |acc: $uint, &v| acc | (encode(v) ^ first));
+                let flat: [bool; P] = std::array::from_fn(|t| digit::<R>(diff, step * t as u32) == 0);
+                if L <= 8 && 8 % L == 0 && flat.iter().any(|&f| f) {
+                    let eight = {
+                        let mut e = C::ZERO;
+                        for _ in 0..8 {
+                            e += C::ONE;
+                        }
+                        e
+                    };
+                    let mut blocks = bits.chunks_exact(8);
+                    for b in &mut blocks {
+                        let keys: [$uint; 8] = std::array::from_fn(|i| encode(b[i]));
+                        for t in 0..P {
+                            let d: [usize; 8] = std::array::from_fn(|i| digit::<R>(keys[i], step * t as u32));
+                            if !flat[t] {
+                                for i in 0..8 {
+                                    lanes[i % L][t][d[i]] += C::ONE;
+                                }
+                                continue;
+                            }
+                            let mut same = true;
+                            for i in 1..8 {
+                                same &= d[i] == d[0];
+                            }
+                            if same {
+                                lanes[0][t][d[0]] += eight;
+                            } else {
+                                for i in 0..8 {
+                                    lanes[i % L][t][d[i]] += C::ONE;
+                                }
+                            }
+                        }
+                    }
+                    for &value in blocks.remainder() {
+                        let key = encode(value);
+                        for t in 0..P {
+                            lanes[0][t][digit::<R>(key, step * t as u32)] += C::ONE;
+                        }
+                    }
+                    let mut total = vec![[C::ZERO; R]; P];
+                    for lane in lanes.iter() {
+                        for t in 0..P {
+                            for b in 0..R {
+                                total[t][b] += lane[t][b];
+                            }
+                        }
+                    }
+                    return total;
+                }
                 let mut chunks = bits.chunks_exact(L);
                 for chunk in &mut chunks {
                     for l in 0..L {
