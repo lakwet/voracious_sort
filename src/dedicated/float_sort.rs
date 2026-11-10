@@ -8,11 +8,14 @@
 //! (`-0.0 < +0.0`, NaNs at both ends according to their sign).
 //!
 //! Steps:
-//! 1. low-cardinality detectors (integer range, power-of-two grid, few
-//!    values), see `float_detect`;
-//! 2. small arrays: encoded keys sorted with `sort_unstable`;
+//! 0. at most 32 keys: a sorting network (`small_sort`);
+//! 1. low-cardinality detectors (integer range, power-of-two grid), see
+//!    `float_detect`;
+//! 2. small arrays: encoded keys sorted with `sort_unstable` (blocks of 32
+//!    and a merge up to 64 keys);
 //! 3. repair of nearly sorted arrays (a few misplaced elements set aside,
-//!    sorted and inserted back), see `near_sorted`;
+//!    sorted and inserted back), see `near_sorted`; then few distinct
+//!    values (at most 256, counted in a hash table), see `float_detect`;
 //! 4. Verge sort pre-processing (already sorted parts are not radix sorted;
 //!    the faster `verge_sort_fast` and `k_way_merge_fast` variants),
 //!    then each unsorted chunk is radix sorted: f32 with the fused LSD of
@@ -34,7 +37,7 @@
 use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
-use super::float_detect::{detect32, detect64};
+use super::float_detect::{detect32, detect64, few32, few64};
 use super::float_dlsd::dlsd64_with;
 use super::float_lsd::w32;
 #[cfg(test)]
@@ -210,8 +213,8 @@ fn float_sort_f64_rest(arr: &mut [f64]) {
 /// segments would cost more than sorting the whole array (several segments
 /// with unpredictable interleavings), `sort` is applied to the whole array,
 /// else to each chunk and the segments are merged.
-fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], sort: &dyn Fn(&mut [T])) {
-    if repair_near_sorted(arr) {
+fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut [T]) -> bool, sort: &dyn Fn(&mut [T])) {
+    if repair_near_sorted(arr) || few(arr) {
         return;
     }
     let base = arr.as_ptr() as usize;
@@ -233,7 +236,7 @@ fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], sort: &dyn Fn(&mut [T])) {
 
 /// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
 pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
-    radix_path(arr, &|s: &mut [f32]| {
+    radix_path(arr, &few32, &|s: &mut [f32]| {
         #[cfg(test)]
         match F32_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             2 => return w32::lsd(bits32(s)),
@@ -314,7 +317,7 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
 /// buffer for all of them), the float rollercoaster the large ones.
 pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
     let scratch = std::cell::RefCell::new(Vec::new());
-    radix_path(arr, &|s: &mut [f64]| {
+    radix_path(arr, &few64, &|s: &mut [f64]| {
         #[cfg(test)]
         match F64_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             1 => return dlsd64_with(bits64(s), &mut scratch.borrow_mut()),

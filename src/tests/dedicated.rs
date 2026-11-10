@@ -112,6 +112,8 @@ fn test_ded_float_sort_special_values() {
 /// outliers, signed zeros and negative values, around the size limits.
 #[test]
 fn test_ded_float_sort_detectors() {
+    // Flush the detector lane counters often, to exercise the flush.
+    crate::dedicated::float_detect::FLUSH_OVERRIDE.store(4096, std::sync::atomic::Ordering::Relaxed);
     fn check64(mut arr: Vec<f64>, what: &str) {
         let mut expected: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
         expected.sort_unstable();

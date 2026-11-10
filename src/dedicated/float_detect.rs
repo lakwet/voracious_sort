@@ -3,7 +3,7 @@
 //!
 //! - integer-valued floats spanning at most 256 integers,
 //! - power-of-two grids (`low + i * 2^e`) spanning at most 256 points,
-//! - at most 16 distinct values.
+//! - few distinct values (at most `FEW_MAX`, counted in a hash table).
 //!
 //! A small sample only proposes a case. Every value is then verified (exact
 //! bit reconstruction / membership) before anything is written, so a failed
@@ -12,8 +12,11 @@
 
 /// From this size the detectors are tried.
 pub(crate) const DETECT_MIN: usize = 129;
-/// From this size up to 16 distinct values are detected (else at most 4).
-const SPARSE_MIN: usize = 4096;
+/// Most distinct values sorted by counting (`few`), and its hash table size
+/// (at most half full).
+const FEW_MAX: usize = 256;
+const FEW_TABLE_BITS: u32 = 9;
+const FEW_TABLE: usize = 1 << FEW_TABLE_BITS;
 
 /// Validation blocks: a short head rejects misleading samples early, then
 /// larger blocks amortize the checks.
@@ -24,9 +27,29 @@ fn validation_blocks<T>(values: &[T]) -> impl Iterator<Item = &[T]> {
 
 /// The lane counters of the range and grid detectors are `u32` (smaller and
 /// as fast as `usize` in the hot loop); they are added to `usize` totals at
-/// least every `FLUSH` keys, so that neither a lane nor a total can overflow
-/// on arrays of more than 4 billion keys. Small in tests, to exercise it.
-const FLUSH: usize = if cfg!(test) { 1 << 12 } else { 1 << 30 };
+/// least every `flush_every()` keys (2^30), so that neither a lane nor a
+/// total can overflow on arrays of more than 4 billion keys.
+const FLUSH: usize = 1 << 30;
+
+/// Tests: flush interval override (0: `FLUSH`), small to exercise the
+/// flush without billions of keys. Benchmarks keep the production value.
+#[cfg(test)]
+pub(crate) static FLUSH_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[inline(always)]
+fn flush_every() -> usize {
+    #[cfg(test)]
+    {
+        match FLUSH_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
+            0 => FLUSH,
+            v => v,
+        }
+    }
+    #[cfg(not(test))]
+    {
+        FLUSH
+    }
+}
 
 /// Adds the 4 lanes of `counts` to `totals` and clears them.
 fn flush(counts: &mut [[u32; 256]; 4], totals: &mut [usize; 256]) {
@@ -39,7 +62,7 @@ fn flush(counts: &mut [[u32; 256]; 4], totals: &mut [usize; 256]) {
 macro_rules! float_detect {
     (
         $float:ty, $uint:ty, $sint:ty, $mant:expr, $bias:expr,
-        $range:ident, $grid:ident, $sparse:ident, $sparse_k:ident, $detect:ident
+        $range:ident, $grid:ident, $few:ident, $constant:ident, $detect:ident
     ) => {
         /// Monotone key of the float bits (total order).
         #[inline(always)]
@@ -94,7 +117,7 @@ macro_rules! float_detect {
                     return false;
                 }
                 pending += block.len();
-                if pending >= FLUSH {
+                if pending >= flush_every() {
                     flush(&mut counts, &mut totals);
                     pending = 0;
                 }
@@ -173,7 +196,7 @@ macro_rules! float_detect {
                     return false;
                 }
                 pending += block.len();
-                if pending >= FLUSH {
+                if pending >= flush_every() {
                     flush(&mut counts, &mut totals);
                     pending = 0;
                 }
@@ -191,90 +214,122 @@ macro_rules! float_detect {
             true
         }
 
-        fn $sparse_k<const K: usize>(
-            values: &mut [$float],
-            reps: &[$uint; 16],
-            distinct: usize,
-        ) -> bool {
-            let keys: [$uint; K] = std::array::from_fn(|i| reps[i]);
-            let mut counts = [0usize; K];
-            for block in validation_blocks(values) {
-                let mut all_known = true;
-                for v in block {
-                    let b = v.to_bits();
-                    let mut known = false;
-                    for i in 0..K {
-                        let m = b == keys[i];
-                        counts[i] += usize::from(m);
-                        known |= m;
+        /// Few distinct values (at most `FEW_MAX`, any values): a spread
+        /// sample first rejects arrays whose sample is mostly distinct;
+        /// then one pass counts every value in a small open-addressing hash
+        /// table (4 lanes of counters, so that a value present in half of
+        /// the keys does not chain every increment on one counter), giving
+        /// up beyond `FEW_MAX` distinct values (nothing written yet); the
+        /// distinct values are sorted and the array rewritten from them. A
+        /// value appearing late costs one more entry, not a failed pass.
+        /// Constant array: first, middle and last keys equal (three loads
+        /// otherwise), then every key checked; nothing is rewritten.
+        fn $constant(values: &[$float]) -> bool {
+            let n = values.len();
+            let first = values[0].to_bits();
+            values[n / 2].to_bits() == first
+                && values[n - 1].to_bits() == first
+                && validation_blocks(values).all(|block| block.iter().fold(0, |d, v| d | (v.to_bits() ^ first)) == 0)
+        }
+
+        pub(crate) fn $few(values: &mut [$float]) -> bool {
+            let n = values.len();
+            if n < DETECT_MIN {
+                return false;
+            }
+            let hash = |b: $uint| (((b as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)) >> (64 - FEW_TABLE_BITS)) as usize;
+            // Sample: distinct values among s spread keys (golden ratio
+            // positions), counted in the table; stop as soon as half of
+            // them are distinct.
+            let s = (n / 32).clamp(16, 256);
+            let mut keys = [0 as $uint; FEW_TABLE];
+            let mut used = [false; FEW_TABLE];
+            let mut distinct = 0;
+            for i in 0..s as u64 {
+                let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
+                let b = values[pos as usize].to_bits();
+                let mut h = hash(b);
+                while used[h] && keys[h] != b {
+                    h = (h + 1) & (FEW_TABLE - 1);
+                }
+                if !used[h] {
+                    used[h] = true;
+                    keys[h] = b;
+                    distinct += 1;
+                    if distinct > s / 2 {
+                        return false;
                     }
-                    all_known &= known;
-                }
-                if !all_known {
-                    return false;
                 }
             }
+            // Counting pass (table restarted: exact counts of every key).
+            let mut keys = [0 as $uint; FEW_TABLE];
+            let mut used = [false; FEW_TABLE];
+            let mut counts = [[0usize; FEW_TABLE]; 4];
+            let mut distinct = 0;
+            let mut quads = values.chunks_exact(4);
+            let mut find = |b: $uint, distinct: &mut usize| -> Option<usize> {
+                let mut h = hash(b);
+                while used[h] && keys[h] != b {
+                    h = (h + 1) & (FEW_TABLE - 1);
+                }
+                if !used[h] {
+                    if *distinct == FEW_MAX {
+                        return None;
+                    }
+                    used[h] = true;
+                    keys[h] = b;
+                    *distinct += 1;
+                }
+                Some(h)
+            };
+            for q in &mut quads {
+                for lane in 0..4 {
+                    match find(q[lane].to_bits(), &mut distinct) {
+                        Some(h) => counts[lane][h] += 1,
+                        None => return false,
+                    }
+                }
+            }
+            for v in quads.remainder() {
+                match find(v.to_bits(), &mut distinct) {
+                    Some(h) => counts[0][h] += 1,
+                    None => return false,
+                }
+            }
+            // Distinct values in total order, then the rewrite.
+            let mut found: Vec<($uint, usize)> = (0..FEW_TABLE)
+                .filter(|&h| used[h])
+                .map(|h| (keys[h], counts[0][h] + counts[1][h] + counts[2][h] + counts[3][h]))
+                .collect();
+            found.sort_unstable_by_key(|&(b, _)| key(b));
             let mut start = 0;
-            for i in 0..distinct {
-                let end = start + counts[i];
-                values[start..end].fill(<$float>::from_bits(reps[i]));
-                start = end;
+            for (b, c) in found {
+                values[start..start + c].fill(<$float>::from_bits(b));
+                start += c;
             }
+            debug_assert_eq!(start, n);
             true
         }
 
-        fn $sparse(values: &mut [$float]) -> bool {
-            // Beyond 4 values the per-element cost (K comparisons) only pays
-            // on larger arrays (same limit as blazing).
-            let limit = if values.len() < SPARSE_MIN { 4 } else { 16 };
-            let mut reps = [values[0].to_bits(); 16];
-            let mut distinct = 1;
-            let head = values.len().min(64);
-            for v in values[..head].iter().chain(values.last()) {
-                let b = v.to_bits();
-                if !reps[..distinct].contains(&b) {
-                    if distinct == limit {
-                        return false;
-                    }
-                    reps[distinct] = b;
-                    distinct += 1;
-                }
-            }
-            if distinct == 1 {
-                // Constant array: verify without rewriting it.
-                let first = reps[0];
-                return validation_blocks(values)
-                    .all(|block| block.iter().fold(0, |d, v| d | (v.to_bits() ^ first)) == 0);
-            }
-            reps[..distinct].sort_unstable_by_key(|&b| key(b));
-            // Unused lanes duplicate the first key; they are never written.
-            let first = reps[0];
-            reps[distinct..].fill(first);
-            if distinct <= 4 {
-                $sparse_k::<4>(values, &reps, distinct)
-            } else if distinct <= 8 {
-                $sparse_k::<8>(values, &reps, distinct)
-            } else {
-                $sparse_k::<16>(values, &reps, distinct)
-            }
-        }
-
-        /// Tries the detectors; returns true if the array is now sorted.
+        /// Tries the integer-range and grid detectors; returns true if the
+        /// array is now sorted. (`few` runs later, in the radix path, after
+        /// the repair of nearly sorted arrays: sorted arrays then never pay
+        /// for its sample.)
         pub(crate) fn $detect(values: &mut [$float]) -> bool {
-            values.len() >= DETECT_MIN && ($range(values) || $sparse(values))
+            values.len() >= DETECT_MIN && ($constant(values) || $range(values))
         }
     };
 }
 
 mod w32 {
     use super::*;
-    float_detect!(f32, u32, i32, 23, 127, range, grid, sparse, sparse_k, detect);
+    float_detect!(f32, u32, i32, 23, 127, range, grid, few, constant, detect);
 }
 
 mod w64 {
     use super::*;
-    float_detect!(f64, u64, i64, 52, 1023, range, grid, sparse, sparse_k, detect);
+    float_detect!(f64, u64, i64, 52, 1023, range, grid, few, constant, detect);
 }
 
-pub(crate) use w32::detect as detect32;
-pub(crate) use w64::detect as detect64;
+pub(crate) use w32::{detect as detect32, few as few32};
+pub(crate) use w64::{detect as detect64, few as few64};
