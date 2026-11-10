@@ -18,22 +18,33 @@
 //!
 //! Thresholds start from those measured for floats of the same width.
 
-use super::float_dlsd::{di64, du64};
-use super::float_lsd::{wi32, wu32};
+#[cfg_attr(not(test), allow(unused_imports))]
+use super::float_dlsd::{di32, di64, du32, du64};
+#[cfg_attr(not(test), allow(unused_imports))]
+use super::float_lsd::{wi32, wi64, wu32, wu64};
 use super::float_roller::{ri32, ri64, ru32, ru64};
-use super::float_sort::{radix_path, roller_f32, roller_f64};
+use super::cache_info::l2_bytes;
+use super::float_sort::radix_path;
 use super::small_sort::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 
-/// Below these sizes, `sort_unstable` (as for floats of the same width).
-const SMALL_32: usize = 350;
-const SMALL_64: usize = 700;
+/// Up to these sizes, `sort_unstable`: where the median over the
+/// distributions of radix path / small path crosses 1 (in-process A/B,
+/// Snapdragon X Elite: u32 1.27 at 150, 1.00 at 200; i32 0.81 at 150; u64
+/// 1.01 at 150; i64 0.96 at 150). Much lower than for floats: the integer
+/// detectors (narrow range, few values) often apply.
+const SMALL_U32: usize = 200;
+const SMALL_I32: usize = 150;
+const SMALL_U64: usize = 150;
+const SMALL_I64: usize = 150;
 /// From this size the few-distinct-values counting is tried.
 const FEW_MIN: usize = 129;
 /// Narrow-range counting: at most this many integers spanned...
 const RANGE_MAX: usize = 1 << 16;
-/// ...and at most this many per key of the array (else the count table
-/// costs more than the sort).
-const RANGE_PER_KEY: usize = 4;
+/// ...and at most this many per key of the array: the counting costs the
+/// zeroing and the scan of the whole count table, on top of the keys. With
+/// 4 per key, u32 Normale(0, 2^13) at 10k keys (span ~35k) took 8.0 ns per
+/// key against 2.5 for a radix sort.
+const RANGE_PER_KEY: usize = 1;
 /// Sample keys checked before the full min / max pass.
 const RANGE_SAMPLE: usize = 64;
 /// Most distinct values counted, and the hash table size (at most half full).
@@ -73,7 +84,7 @@ pub fn int_sort<T: IntSort>(arr: &mut [T]) {
 }
 
 macro_rules! int_width {
-    ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident) => {
+    ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $alt_chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident) => {
         impl IntSort for $t {
             #[inline]
             fn int_sort_impl(arr: &mut [$t]) {
@@ -98,12 +109,26 @@ macro_rules! int_width {
             if arr[n / 2] == first && arr[n - 1] == first && arr.iter().all(|&v| v == first) {
                 return;
             }
-            if n <= $small {
+            #[cfg(test)]
+            let small = match INT_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
+                0 => $small,
+                v => v,
+            };
+            #[cfg(not(test))]
+            let small = $small;
+            if n <= small {
                 arr.sort_unstable();
                 return;
             }
             let scratch = std::cell::RefCell::new(Vec::new());
             radix_path(arr, &|a: &mut [$t]| $range(a) || $few(a), &|s: &mut [$t]| {
+                #[cfg(test)]
+                match INT_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+                    1 => return $chunk(bits_of(s), &mut scratch.borrow_mut()),
+                    2 => return $roller(bits_of(s)),
+                    3 => return $alt_chunk(bits_of(s), &mut scratch.borrow_mut()),
+                    _ => {}
+                }
                 if s.len() >= $roller_min() {
                     $roller(bits_of(s));
                 } else {
@@ -251,6 +276,36 @@ macro_rules! int_width {
     };
 }
 
+/// Tests / benchmarks: small-path limit override (0: default; 1: radix
+/// path from 65 keys).
+#[cfg(test)]
+pub(crate) static INT_SMALL_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Tests / benchmarks: chunk sort forced (0 default, 1 default engine (LSD
+/// for 32-bit keys, DLSD for 64-bit), 2 rollercoaster, 3 alternative
+/// engine (DLSD for 32-bit keys, fused LSD for 64-bit)).
+#[cfg(test)]
+pub(crate) static INT_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// From this chunk size (keys) 32-bit integers are sorted by the
+/// rollercoaster instead of the fused LSD: L2 (12M keys with 12 MiB), for
+/// its memory (n instead of 2n) on very large arrays. Measured on
+/// Snapdragon X Elite, rollercoaster / LSD (geometric mean over the
+/// generators): u32 1.14 at 250k, 1.05 at 1M, 0.94 at 4M, 1.03 at 10M;
+/// i32 1.19, 1.01, 0.98, 1.02; on uniform i32 at 10M the LSD is faster
+/// (5.6 vs 7.5 ns per key).
+fn roller_int32() -> usize {
+    l2_bytes()
+}
+
+/// From this chunk size 64-bit integers are sorted by the rollercoaster
+/// instead of the DLSD: L2 / 12 (1M keys with 12 MiB). Rollercoaster /
+/// DLSD: u64 1.07 at 250k, 1.00 at 1M, 0.82 at 4M, 0.84 at 10M; i64 1.05,
+/// 1.00, 0.91, 0.93.
+fn roller_int64() -> usize {
+    l2_bytes() / 12
+}
+
 /// Reinterprets integers as their unsigned bits (same size and alignment,
 /// every bit pattern valid for both).
 #[inline(always)]
@@ -293,7 +348,7 @@ fn flip64(k: u64) -> u64 {
     k ^ (1 << 63)
 }
 
-int_width!(u32, u32, id32, id32, SMALL_32, roller_f32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wu32::lsd(b), ru32::roller, rest_u32, few_u32, range_u32);
-int_width!(i32, u32, flip32, flip32, SMALL_32, roller_f32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), ri32::roller, rest_i32, few_i32, range_i32);
-int_width!(u64, u64, id64, id64, SMALL_64, roller_f64, du64::dlsd_with, ru64::roller, rest_u64, few_u64, range_u64);
-int_width!(i64, u64, flip64, flip64, SMALL_64, roller_f64, di64::dlsd_with, ri64::roller, rest_i64, few_i64, range_i64);
+int_width!(u32, u32, id32, id32, SMALL_U32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wu32::lsd(b), du32::dlsd_with, ru32::roller, rest_u32, few_u32, range_u32);
+int_width!(i32, u32, flip32, flip32, SMALL_I32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), di32::dlsd_with, ri32::roller, rest_i32, few_i32, range_i32);
+int_width!(u64, u64, id64, id64, SMALL_U64, roller_int64, du64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wu64::lsd(b), ru64::roller, rest_u64, few_u64, range_u64);
+int_width!(i64, u64, flip64, flip64, SMALL_I64, roller_int64, di64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wi64::lsd(b), ri64::roller, rest_i64, few_i64, range_i64);

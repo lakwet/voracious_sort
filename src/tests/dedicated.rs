@@ -259,7 +259,7 @@ fn test_ded_float_sort_tiny() {
 
 fn check_int_sort<T: crate::IntSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
     let sizes: Vec<usize> = (0..=70)
-        .chain([128, 129, 350, 351, 700, 701, 5_000, 100_000, 262_143, 262_144, 1_048_575, 1_048_576, 1_500_000].iter().copied())
+        .chain([128, 129, 350, 351, 700, 701, 149, 150, 151, 199, 200, 201, 5_000, 100_000, 1_048_575, 1_048_576, 1_500_000, 4_194_304, 12_582_911, 12_582_912].iter().copied())
         .collect();
     for &size in sizes.iter() {
         for (gen, name) in gens.iter() {
