@@ -15,8 +15,11 @@
 //!    sorted and inserted back), see `near_sorted`;
 //! 4. Verge sort pre-processing (already sorted parts are not radix sorted;
 //!    the faster `verge_sort_fast` and `k_way_merge_fast` variants),
-//!    then on each unsorted chunk the fused LSD of `float_lsd` (the encoding
-//!    is fused into the first scatter pass, the decoding into the last one);
+//!    then each unsorted chunk is radix sorted: f32 with the fused LSD of
+//!    `float_lsd` (the encoding is fused into the first scatter pass, the
+//!    decoding into the last one); f64 with the DLSD of `float_dlsd`, or
+//!    from `ROLLER_F64` keys the float rollercoaster of `float_roller`
+//!    (in-place MSD passes, then the DLSD on cache-sized buckets);
 //! 5. when merging the segments would cost more than radix sorting the
 //!    whole array (several segments with unpredictable interleavings), the
 //!    whole array is radix sorted instead.
@@ -31,7 +34,11 @@ use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::float_detect::{detect32, detect64};
-use super::float_lsd::{w32, w64};
+use super::float_dlsd::dlsd64_with;
+use super::float_lsd::w32;
+#[cfg(test)]
+use super::float_lsd::w64;
+use super::float_roller::roller64;
 #[cfg(test)]
 use super::float_lsd::Digits;
 
@@ -39,6 +46,11 @@ use super::float_lsd::Digits;
 /// encoded keys.
 const SMALL_F32: usize = 600;
 const SMALL_F64: usize = 3_000;
+/// From this chunk size f64 is sorted by the float rollercoaster instead of
+/// the DLSD alone: once the DLSD's keys and scratch buffer (16 bytes per key)
+/// no longer fit in L2. Measured crossover between 512k and 1M on Snapdragon
+/// X Elite (12 MiB L2); machine dependent, to derive from the L2 size.
+const ROLLER_F64: usize = 786_432;
 
 mod sealed {
     pub trait Sealed {}
@@ -220,9 +232,17 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     k_way_merge_fast(arr, &mut separators);
 }
 
-/// f64 radix path (see `radix_path`), the fused LSD sorting the chunks.
+/// f64 radix path (see `radix_path`): the DLSD sorts the chunks (one scratch
+/// buffer for all of them), the float rollercoaster the large ones.
 pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
-    radix_path(arr, &|s: &mut [f64]| w64::lsd(bits64(s)));
+    let scratch = std::cell::RefCell::new(Vec::new());
+    radix_path(arr, &|s: &mut [f64]| {
+        if s.len() >= ROLLER_F64 {
+            roller64(bits64(s));
+        } else {
+            dlsd64_with(bits64(s), &mut scratch.borrow_mut());
+        }
+    });
 }
 
 /// f64 radix path with a forced digit layout, fused LSD only (tests).
