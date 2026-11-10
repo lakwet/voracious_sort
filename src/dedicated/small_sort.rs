@@ -6,6 +6,9 @@
 //! compiled to conditional selects: no data-dependent branch. From 5 keys a
 //! branch-free order probe first returns ascending input as is and reverses
 //! descending input.
+//!
+//! Up to 64 keys: blocks of 32 sorted by their network, then one
+//! branch-free merge (`block_merge_sort`).
 
 use std::convert::TryFrom;
 
@@ -51,3 +54,94 @@ pub(crate) fn network_sort<K: Copy + Ord>(keys: &mut [K], encode: impl Fn(K) -> 
     }
     keys.iter_mut().for_each(|k| *k = decode(*k));
 }
+
+/// Largest length sorted by `block_merge_sort` (stack buffer size). The
+/// merges beat `sort_unstable` up to 64 keys only (one merge level; in-
+/// process A/B, geometric mean over 31 / 36 distributions: f32 2.86 vs
+/// 3.18 ns per key at 64, f64 3.42 vs 3.71; 3.48 vs 3.32 at 96).
+pub(crate) const MERGE_MAX: usize = 64;
+/// Block sorted by a network before the merges.
+const BLOCK: usize = 32;
+
+/// Merges the sorted runs `src[..mid]` and `src[mid..n]` into `dst[..n]`.
+/// The choice of the next key is a select (no data-dependent branch); the
+/// loop condition is predictable.
+///
+/// # Safety
+/// `src` and `dst` valid for `n` keys, not overlapping; `mid <= n`.
+#[inline(always)]
+unsafe fn merge<K: Copy + Ord>(src: *const K, dst: *mut K, mid: usize, n: usize) {
+    let (mut i, mut j, mut k) = (0usize, mid, 0usize);
+    unsafe {
+        while i < mid && j < n {
+            let (a, b) = (*src.add(i), *src.add(j));
+            let take_right = b < a;
+            *dst.add(k) = if take_right { b } else { a };
+            i += usize::from(!take_right);
+            j += usize::from(take_right);
+            k += 1;
+        }
+        std::ptr::copy_nonoverlapping(src.add(i), dst.add(k), mid - i);
+        k += mid - i;
+        std::ptr::copy_nonoverlapping(src.add(j), dst.add(k), n - j);
+    }
+}
+
+/// Sorts at most `MERGE_MAX` encoded keys: blocks of `BLOCK` keys by their
+/// network, then bottom-up merges between the keys and a stack buffer.
+#[inline(never)]
+pub(crate) fn block_merge_sort<K: Copy + Ord>(keys: &mut [K]) {
+    let n = keys.len();
+    assert!(n <= MERGE_MAX);
+    for block in keys.chunks_mut(BLOCK) {
+        if block.len() >= 2 {
+            network_any(block);
+        }
+    }
+    if n <= BLOCK {
+        return;
+    }
+    let mut buf = [std::mem::MaybeUninit::<K>::uninit(); MERGE_MAX];
+    let (a, b) = (keys.as_mut_ptr(), buf.as_mut_ptr() as *mut K);
+    let mut in_keys = true;
+    let mut width = BLOCK;
+    // SAFETY: each round reads the `n` keys of one side (all written: the
+    // keys at first, then the previous round's output) and writes all `n`
+    // slots of the other; runs are clipped to `n`.
+    unsafe {
+        while width < n {
+            let (src, dst) = if in_keys { (a as *const K, b) } else { (b as *const K, a) };
+            let mut start = 0;
+            while start < n {
+                let mid = (start + width).min(n);
+                let end = (start + 2 * width).min(n);
+                merge(src.add(start), dst.add(start), mid - start, end - start);
+                start = end;
+            }
+            in_keys = !in_keys;
+            width *= 2;
+        }
+        if !in_keys {
+            std::ptr::copy_nonoverlapping(b as *const K, a, n);
+        }
+    }
+}
+
+/// Sorts at most `MERGE_MAX` raw keys in place: encode, order probe,
+/// `block_merge_sort`, decode.
+#[inline]
+pub(crate) fn merge_sort<K: Copy + Ord>(keys: &mut [K], encode: impl Fn(K) -> K, decode: impl Fn(K) -> K) {
+    keys.iter_mut().for_each(|k| *k = encode(*k));
+    let (mut asc, mut desc) = (true, true);
+    for w in keys.windows(2) {
+        asc &= w[0] <= w[1];
+        desc &= w[0] >= w[1];
+    }
+    if desc && !asc {
+        keys.reverse();
+    } else if !asc {
+        block_merge_sort(keys);
+    }
+    keys.iter_mut().for_each(|k| *k = decode(*k));
+}
+

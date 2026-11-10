@@ -40,7 +40,7 @@ use super::float_lsd::w32;
 #[cfg(test)]
 use super::float_lsd::w64;
 use super::float_roller::{roller32, roller64};
-use super::small_sort::{network_sort, NETWORK_MAX};
+use super::small_sort::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 #[cfg(test)]
 use super::float_lsd::Digits;
 
@@ -126,6 +126,10 @@ macro_rules! float_width {
 
         /// Small arrays: encode, `sort_unstable` on integers, decode.
         fn $small(bits: &mut [$uint]) {
+            if bits.len() <= MERGE_MAX {
+                merge_sort(bits, $encode, $decode);
+                return;
+            }
             bits.iter_mut().for_each(|b| *b = $encode(*b));
             bits.sort_unstable();
             bits.iter_mut().for_each(|b| *b = $decode(*b));
