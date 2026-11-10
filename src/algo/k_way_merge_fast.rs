@@ -36,6 +36,12 @@ fn merge2_fast<T: Copy + PartialOrd>(
 
     let left = middle - start;
     let right = end - middle;
+    if arr[end - 1] < arr[start] {
+        // The right run lies entirely below the left one (e.g. a rotated
+        // sorted array): a block rotation, no merge.
+        arr[start..end].rotate_left(left);
+        return;
+    }
     if right <= INSERT_MAX {
         // Insert the right elements, in order, after the equal left ones.
         let mut lo = start;

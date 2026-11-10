@@ -22,6 +22,7 @@
 use super::float_dlsd::{di32, di64, du32, du64};
 #[cfg_attr(not(test), allow(unused_imports))]
 use super::float_lsd::{wi32, wi64, wu32, wu64};
+use super::float_lsd::{wi16, wi8, wu16, wu8};
 use super::float_roller::{ri32, ri64, ru32, ru64};
 use super::cache_info::l2_bytes;
 use super::float_sort::radix_path;
@@ -36,15 +37,21 @@ const SMALL_U32: usize = 200;
 const SMALL_I32: usize = 150;
 const SMALL_U64: usize = 150;
 const SMALL_I64: usize = 150;
+const SMALL_U16: usize = 150;
+const SMALL_I16: usize = 150;
+const SMALL_U8: usize = 150;
+const SMALL_I8: usize = 150;
 /// From this size the few-distinct-values counting is tried.
 const FEW_MIN: usize = 129;
 /// Narrow-range counting: at most this many integers spanned...
 const RANGE_MAX: usize = 1 << 16;
-/// ...and at most this many per key of the array: the counting costs the
-/// zeroing and the scan of the whole count table, on top of the keys. With
-/// 4 per key, u32 Normale(0, 2^13) at 10k keys (span ~35k) took 8.0 ns per
-/// key against 2.5 for a radix sort.
-const RANGE_PER_KEY: usize = 1;
+/// ...and at most one counter per this many keys: the counting costs the
+/// zeroing, the scan and the writes of the whole table on top of the keys.
+/// Measured: u32 Normale(0, 2^13) at 10k keys with 4 counters per key, 8.0
+/// ns per key against 2.5 for a radix sort; u16 random at 100k keys (1.5
+/// keys per counter) 21 % slower than the byte LSD, at 200k (3 keys per
+/// counter) 24 % faster; u32 neutral between 1 and 4.
+const RANGE_KEYS_PER_COUNTER: usize = 2;
 /// Sample keys checked before the full min / max pass.
 const RANGE_SAMPLE: usize = 64;
 /// Most distinct values counted, and the hash table size (at most half full).
@@ -58,6 +65,11 @@ mod sealed {
     impl Sealed for u64 {}
     impl Sealed for i32 {}
     impl Sealed for i64 {}
+    impl Sealed for u8 {}
+    impl Sealed for i8 {}
+    impl Sealed for u16 {}
+    impl Sealed for i16 {}
+    impl Sealed for char {}
 }
 
 /// Integer types sortable by [`int_sort`].
@@ -109,6 +121,12 @@ macro_rules! int_width {
             if arr[n / 2] == first && arr[n - 1] == first && all_equal(arr, first) {
                 return;
             }
+            // 8-bit keys from 256 on: counting over the 256 values is
+            // cheaper than any detection.
+            if <$uint>::BITS == 8 && n >= 256 && n <= u32::MAX as usize {
+                domain_count(bits_of(arr), $encode, $decode);
+                return;
+            }
             #[cfg(test)]
             let small = match INT_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
                 0 => $small,
@@ -138,7 +156,7 @@ macro_rules! int_width {
         }
 
         /// Narrow range: values spanning at most `RANGE_MAX` integers and
-        /// at most `RANGE_PER_KEY` times the array length are sorted by
+        /// at most one counter per `RANGE_KEYS_PER_COUNTER` keys are sorted by
         /// counting (one counting pass, then the values written in order).
         /// A spread sample rejects wide ranges first. A sample range narrow
         /// against the limit (ratings, small counters) is counted in one
@@ -152,7 +170,12 @@ macro_rules! int_width {
             if n < FEW_MIN {
                 return false;
             }
-            let limit = RANGE_MAX.min(RANGE_PER_KEY * n) as u64;
+            let limit = RANGE_MAX.min(n / RANGE_KEYS_PER_COUNTER) as u64;
+            // Whole domain within the limit (8- and 16-bit keys): direct count.
+            if n <= u32::MAX as usize && (<$uint>::MAX as u64) < limit {
+                domain_count(bits_of(values), $encode, $decode);
+                return true;
+            }
             let (mut lo, mut hi) = (values[0], values[0]);
             for i in 0..RANGE_SAMPLE as u64 {
                 let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
@@ -368,7 +391,7 @@ fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode
     // Centre the window on the sample range, inside the key domain.
     let pad = (width as u64 - (hi - lo + 1)) / 2;
     let mut base = lo.saturating_sub(pad).min(U::MAX_U64 - (width as u64 - 1));
-    let mut lanes = if 16 * width <= n { 4 } else { 1 };
+    let mut lanes = lanes_for(width, n);
     let mut counts = vec![0u32; width * lanes];
     let mut pos = 0;
     loop {
@@ -402,7 +425,7 @@ fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode
             return false;
         }
         let new_width = (new_hi - new_lo + 1) as usize;
-        let new_lanes = if 16 * new_width <= n - pos { 4 } else { 1 };
+        let new_lanes = lanes_for(new_width, n - pos);
         let mut new_counts = vec![0u32; new_width * new_lanes];
         for (d, &c) in counts[..width].iter().enumerate() {
             if c != 0 {
@@ -418,12 +441,104 @@ fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode
     for (d, &c) in counts[..width].iter().enumerate() {
         if c != 0 {
             let c = c as usize;
-            keys[start..start + c].fill(decode(U::from_u64(base + d as u64)));
+            fill_run(keys, start, c, decode(U::from_u64(base + d as u64)));
             start += c;
         }
     }
     debug_assert_eq!(start, n);
     true
+}
+
+/// Counter lanes of a count table of `width` counters for `n` keys: 4 lanes
+/// (repeated values would otherwise wait on the previous increment of their
+/// counter) when the 4 tables fit in an eighth of the L2 (12 MiB L2: up to
+/// ~98k counters; 256 KiB: 2048) and hold at most one counter per 2 keys;
+/// else 1 lane (keys spread over many counters rarely repeat, and 4 copies
+/// would leave the cache of small-L2 cores). Measured on 32- and 64-bit
+/// keys: a fixed 4096-counter cap was 1-2 % slower at 3M-10M (12 MiB L2).
+#[inline]
+fn lanes_for(width: usize, n: usize) -> usize {
+    if 4 * width * 4 <= l2_bytes() / 8 && 2 * width <= n {
+        4
+    } else {
+        1
+    }
+}
+
+/// Writes `c` copies of `v` from `start`, by fixed blocks of 16 copies (no
+/// call, no length-dependent loop for the many short runs of a wide table);
+/// the copies past `start + c` are overwritten by the following runs, written
+/// later in order. Near the end of the slice, a plain fill.
+#[inline(always)]
+fn fill_run<U: Copy>(keys: &mut [U], start: usize, c: usize, v: U) {
+    let end = start + c;
+    if end + 16 <= keys.len() {
+        let block = [v; 16];
+        let mut p = start;
+        while p < end {
+            keys[p..p + 16].copy_from_slice(&block);
+            p += 16;
+        }
+    } else {
+        keys[start..end].fill(v);
+    }
+}
+
+/// Counting sort over the whole key domain (`2^bits` encoded values), used
+/// when the domain is not wider than the narrow-range limit (8- and 16-bit
+/// keys): no sample, no min / max, no bound check. At most 2^32 - 1 keys.
+#[inline]
+fn domain_count<U: WindowKey>(keys: &mut [U], encode: fn(U) -> U, decode: fn(U) -> U) {
+    let n = keys.len();
+    let width = (U::MAX_U64 + 1) as usize;
+    let lanes = lanes_for(width, n);
+    let mut counts = vec![0u32; width * lanes];
+    let idx = |k: U| encode(k).to_u64() as usize;
+    let mut quads = keys.chunks_exact(4);
+    if lanes == 4 {
+        let (c0, rest) = counts.split_at_mut(width);
+        let (c1, rest) = rest.split_at_mut(width);
+        let (c2, c3) = rest.split_at_mut(width);
+        for q in &mut quads {
+            // SAFETY: an encoded key is below the domain size `width`.
+            unsafe {
+                *c0.get_unchecked_mut(idx(q[0])) += 1;
+                *c1.get_unchecked_mut(idx(q[1])) += 1;
+                *c2.get_unchecked_mut(idx(q[2])) += 1;
+                *c3.get_unchecked_mut(idx(q[3])) += 1;
+            }
+        }
+        for &k in quads.remainder() {
+            c0[idx(k)] += 1;
+        }
+        for l in 1..4 {
+            let (c0, rest) = counts.split_at_mut(width);
+            for (a, b) in c0.iter_mut().zip(rest[(l - 1) * width..l * width].iter()) {
+                *a += *b;
+            }
+        }
+    } else {
+        for q in &mut quads {
+            // SAFETY: as above.
+            unsafe {
+                *counts.get_unchecked_mut(idx(q[0])) += 1;
+                *counts.get_unchecked_mut(idx(q[1])) += 1;
+                *counts.get_unchecked_mut(idx(q[2])) += 1;
+                *counts.get_unchecked_mut(idx(q[3])) += 1;
+            }
+        }
+        for &k in quads.remainder() {
+            counts[idx(k)] += 1;
+        }
+    }
+    let mut start = 0;
+    for (d, &c) in counts[..width].iter().enumerate() {
+        if c != 0 {
+            fill_run(keys, start, c as usize, decode(U::from_u64(d as u64)));
+            start += c as usize;
+        }
+    }
+    debug_assert_eq!(start, n);
 }
 
 /// Counting sort of keys spanning `width` integers from `base` (encoded),
@@ -433,7 +548,7 @@ fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode
 fn exact_count<U: WindowKey>(keys: &mut [U], base: U, width: usize, encode: fn(U) -> U, decode: fn(U) -> U) {
     let n = keys.len();
     let base = base.to_u64();
-    let lanes = if 16 * width <= n { 4 } else { 1 };
+    let lanes = lanes_for(width, n);
     let mut counts = vec![0u32; width * lanes];
     let missed = count_window(keys, encode, base, width, lanes, &mut counts);
     debug_assert!(missed.is_none());
@@ -449,7 +564,7 @@ fn exact_count<U: WindowKey>(keys: &mut [U], base: U, width: usize, encode: fn(U
     for (d, &c) in counts[..width].iter().enumerate() {
         if c != 0 {
             let c = c as usize;
-            keys[start..start + c].fill(decode(U::from_u64(base + d as u64)));
+            fill_run(keys, start, c, decode(U::from_u64(base + d as u64)));
             start += c;
         }
     }
@@ -510,6 +625,30 @@ trait WindowKey: Copy {
     fn from_u64(v: u64) -> Self;
 }
 
+impl WindowKey for u8 {
+    const MAX_U64: u64 = u8::MAX as u64;
+    #[inline(always)]
+    fn to_u64(self) -> u64 {
+        self as u64
+    }
+    #[inline(always)]
+    fn from_u64(v: u64) -> Self {
+        v as u8
+    }
+}
+
+impl WindowKey for u16 {
+    const MAX_U64: u64 = u16::MAX as u64;
+    #[inline(always)]
+    fn to_u64(self) -> u64 {
+        self as u64
+    }
+    #[inline(always)]
+    fn from_u64(v: u64) -> Self {
+        v as u16
+    }
+}
+
 impl WindowKey for u32 {
     const MAX_U64: u64 = u32::MAX as u64;
     #[inline(always)]
@@ -558,6 +697,40 @@ impl BitsOf for i32 {
 impl BitsOf for i64 {
     type Bits = u64;
 }
+impl BitsOf for u8 {
+    type Bits = u8;
+}
+impl BitsOf for i8 {
+    type Bits = u8;
+}
+impl BitsOf for u16 {
+    type Bits = u16;
+}
+impl BitsOf for i16 {
+    type Bits = u16;
+}
+
+#[inline(always)]
+fn id8(k: u8) -> u8 {
+    k
+}
+#[inline(always)]
+fn flip8(k: u8) -> u8 {
+    k ^ (1 << 7)
+}
+#[inline(always)]
+fn id16(k: u16) -> u16 {
+    k
+}
+#[inline(always)]
+fn flip16(k: u16) -> u16 {
+    k ^ (1 << 15)
+}
+
+/// 8- and 16-bit keys never take the rollercoaster.
+fn no_roller() -> usize {
+    usize::MAX
+}
 
 #[inline(always)]
 fn id32(k: u32) -> u32 {
@@ -580,3 +753,23 @@ int_width!(u32, u32, id32, id32, SMALL_U32, roller_int32, |b: &mut [u32], _s: &m
 int_width!(i32, u32, flip32, flip32, SMALL_I32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), di32::dlsd_with, ri32::roller, rest_i32, few_i32, range_i32);
 int_width!(u64, u64, id64, id64, SMALL_U64, roller_int64, du64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wu64::lsd(b), ru64::roller, rest_u64, few_u64, range_u64);
 int_width!(i64, u64, flip64, flip64, SMALL_I64, roller_int64, di64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wi64::lsd(b), ri64::roller, rest_i64, few_i64, range_i64);
+// 8- and 16-bit keys: from 2^16 keys the narrow-range counting always
+// applies (the whole domain is at most 2^16 integers); below, the fused LSD
+// on bytes (one or two passes).
+int_width!(u16, u16, id16, id16, SMALL_U16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), wu16::lsd, rest_u16, few_u16, range_u16);
+int_width!(i16, u16, flip16, flip16, SMALL_I16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), wi16::lsd, rest_i16, few_i16, range_i16);
+int_width!(u8, u8, id8, id8, SMALL_U8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), wu8::lsd, rest_u8, few_u8, range_u8);
+int_width!(i8, u8, flip8, flip8, SMALL_I8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), wi8::lsd, rest_i8, few_i8, range_i8);
+
+/// `char`: sorted as its code point (`u32`; the order of `char` is the
+/// order of the code points, and sorting permutes valid values only).
+impl IntSort for char {
+    #[inline]
+    fn int_sort_impl(arr: &mut [char]) {
+        // SAFETY: `char` has the size and alignment of `u32` and every
+        // `char` is a valid `u32`; the slice holds the same values once
+        // sorted, all valid `char`s.
+        let codes = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
+        u32::int_sort_impl(codes);
+    }
+}

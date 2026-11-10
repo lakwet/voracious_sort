@@ -410,3 +410,38 @@ fn test_ded_repair_near_sorted() {
         }
     }
 }
+
+/// int_sort on 8- and 16-bit integers and char: every length up to 70,
+/// around the small-path, counting and domain limits, extremes.
+#[test]
+fn test_ded_int_sort_narrow_types() {
+    use super::super::generators::char::generators_char;
+    use super::super::generators::signed_i16::generators_i16;
+    use super::super::generators::signed_i8::generators_i8;
+    use super::super::generators::unsigned_u16::generators_u16;
+    use super::super::generators::unsigned_u8::generators_u8;
+    fn check<T: crate::IntSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
+        let sizes: Vec<usize> = (0..=70)
+            .chain([128, 129, 150, 151, 255, 256, 257, 1_000, 32_767, 32_768, 65_535, 65_536, 131_071, 131_072, 131_073, 300_000, 1_000_000].iter().copied())
+            .collect();
+        for &size in sizes.iter() {
+            for (gen, name) in gens.iter() {
+                let mut arr = gen(size);
+                let mut expected = arr.clone();
+                expected.sort_unstable();
+                crate::int_sort(&mut arr);
+                assert!(arr == expected, "{} {} size {}", ty, name, size);
+            }
+            let mut arr: Vec<T> = (0..size).map(|i| extremes[(i * 7919) % extremes.len()]).collect();
+            let mut expected = arr.clone();
+            expected.sort_unstable();
+            crate::int_sort(&mut arr);
+            assert!(arr == expected, "{} extremes size {}", ty, size);
+        }
+    }
+    check(generators_u8(), &[0u8, 1, 127, 128, 254, 255], "u8");
+    check(generators_i8(), &[0i8, 1, -1, i8::MIN, i8::MAX, i8::MIN + 1], "i8");
+    check(generators_u16(), &[0u16, 1, 255, 256, u16::MAX, u16::MAX - 1, 1 << 15], "u16");
+    check(generators_i16(), &[0i16, 1, -1, i16::MIN, i16::MAX, i16::MIN + 1, -12345], "i16");
+    check(generators_char(), &['\0', 'a', 'é', '\u{D7FF}', '\u{E000}', '\u{FFFF}', '\u{10000}', char::MAX], "char");
+}
