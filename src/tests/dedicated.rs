@@ -221,3 +221,36 @@ fn test_ded_float_sort_aliased_buckets() {
         assert!(a.iter().map(|x| x.to_bits()).eq(e.iter().map(|x| x.to_bits())), "f64 {}", n);
     }
 }
+
+/// Small arrays (sorting networks up to 32): every length up to 40, every
+/// generator, plus special values (signed zeros, infinities, NaN bits).
+#[test]
+fn test_ded_float_sort_tiny() {
+    for size in 0..=40usize {
+        for (gen, name) in generators_f64().iter() {
+            let mut arr = gen(size);
+            let mut expected = arr.clone();
+            expected.sort_unstable_by(|a, b| a.total_cmp(b));
+            float_sort(&mut arr);
+            assert!(arr.iter().map(|x| x.to_bits()).eq(expected.iter().map(|x| x.to_bits())), "f64 {} size {}", name, size);
+        }
+        for (gen, name) in generators_f32().iter() {
+            let mut arr = gen(size);
+            let mut expected = arr.clone();
+            expected.sort_unstable_by(|a, b| a.total_cmp(b));
+            float_sort(&mut arr);
+            assert!(arr.iter().map(|x| x.to_bits()).eq(expected.iter().map(|x| x.to_bits())), "f32 {} size {}", name, size);
+        }
+        let specials = [0.0f64, -0.0, 1.0, -1.0, f64::INFINITY, f64::NEG_INFINITY, f64::MAX, f64::MIN, 1e-310, -1e-310, 2.5];
+        let mut arr: Vec<f64> = (0..size).map(|i| specials[(i * 7) % specials.len()]).collect();
+        let mut expected = arr.clone();
+        expected.sort_unstable_by(|a, b| a.total_cmp(b));
+        float_sort(&mut arr);
+        assert!(arr.iter().map(|x| x.to_bits()).eq(expected.iter().map(|x| x.to_bits())), "f64 specials size {}", size);
+        let mut arr32: Vec<f32> = arr.iter().map(|&x| x as f32).collect();
+        let mut expected32 = arr32.clone();
+        expected32.sort_unstable_by(|a, b| a.total_cmp(b));
+        float_sort(&mut arr32);
+        assert!(arr32.iter().map(|x| x.to_bits()).eq(expected32.iter().map(|x| x.to_bits())), "f32 specials size {}", size);
+    }
+}

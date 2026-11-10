@@ -40,6 +40,7 @@ use super::float_lsd::w32;
 #[cfg(test)]
 use super::float_lsd::w64;
 use super::float_roller::{roller32, roller64};
+use super::small_sort::{network_sort, NETWORK_MAX};
 #[cfg(test)]
 use super::float_lsd::Digits;
 
@@ -93,6 +94,7 @@ pub trait FloatSort: sealed::Sealed + Copy + PartialOrd {
 /// float_sort(&mut v);
 /// assert_eq!(v, vec![-2.25, -0.5, 1.5, 3.0]);
 /// ```
+#[inline]
 pub fn float_sort<T: FloatSort>(arr: &mut [T]) {
     T::float_sort_impl(arr);
 }
@@ -135,36 +137,60 @@ float_width!(f32, u32, i32, bits32, encode32, decode32, small32);
 float_width!(f64, u64, i64, bits64, encode64, decode64, small64);
 
 impl FloatSort for f32 {
+    #[inline]
     fn float_sort_impl(arr: &mut [f32]) {
-        if detect32(arr) {
+        // Shortest arrays first: no other step pays off there.
+        if arr.len() <= NETWORK_MAX {
+            network_sort(bits32(arr), encode32, decode32);
             return;
         }
-        if arr.len() <= SMALL_F32 {
-            small32(bits32(arr));
-            return;
-        }
-        float_sort_f32_radix(arr);
+        float_sort_f32_rest(arr);
     }
 }
 
-impl FloatSort for f64 {
-    fn float_sort_impl(arr: &mut [f64]) {
-        if detect64(arr) {
-            return;
-        }
-        #[cfg(test)]
-        let small = match F64_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
-            0 => SMALL_F64,
-            v => v,
-        };
-        #[cfg(not(test))]
-        let small = SMALL_F64;
-        if arr.len() <= small {
-            small64(bits64(arr));
-            return;
-        }
-        float_sort_f64_radix(arr);
+/// f32 arrays longer than `NETWORK_MAX`: detectors, small path, radix path.
+#[inline(never)]
+fn float_sort_f32_rest(arr: &mut [f32]) {
+    if detect32(arr) {
+        return;
     }
+    if arr.len() <= SMALL_F32 {
+        small32(bits32(arr));
+        return;
+    }
+    float_sort_f32_radix(arr);
+}
+
+impl FloatSort for f64 {
+    #[inline]
+    fn float_sort_impl(arr: &mut [f64]) {
+        // Shortest arrays first: no other step pays off there.
+        if arr.len() <= NETWORK_MAX {
+            network_sort(bits64(arr), encode64, decode64);
+            return;
+        }
+        float_sort_f64_rest(arr);
+    }
+}
+
+/// f64 arrays longer than `NETWORK_MAX`: detectors, small path, radix path.
+#[inline(never)]
+fn float_sort_f64_rest(arr: &mut [f64]) {
+    if detect64(arr) {
+        return;
+    }
+    #[cfg(test)]
+    let small = match F64_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => SMALL_F64,
+        v => v,
+    };
+    #[cfg(not(test))]
+    let small = SMALL_F64;
+    if arr.len() <= small {
+        small64(bits64(arr));
+        return;
+    }
+    float_sort_f64_radix(arr);
 }
 
 /// Radix path shared by f32 and f64: repair of nearly sorted arrays, else
