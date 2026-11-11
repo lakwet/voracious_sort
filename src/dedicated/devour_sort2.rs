@@ -167,6 +167,9 @@ macro_rules! int_width {
                     3 => return $alt_chunk(bits_of(s), &mut scratch.borrow_mut()),
                     _ => {}
                 }
+                if <$uint>::BITS == 64 && on2(1) && narrow_chunk(bits_of(s), $encode, $decode) {
+                    return;
+                }
                 if s.len() >= $roller_min() {
                     $roller(bits_of(s));
                 } else if <$uint>::BITS == 64 && s.len() >= DENSE_MIN && !exp2(2) && clustered(bits_of(s)) {
@@ -595,6 +598,52 @@ fn exp(bit: usize) -> bool {
         let _ = bit;
         false
     }
+}
+
+/// Tests / benchmarks: experimental v2 features off by default (bit 1: key
+/// narrowing of each chunk after Verge).
+#[cfg(test)]
+pub(crate) static V2_ON: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[inline(always)]
+fn on2(bit: usize) -> bool {
+    #[cfg(test)]
+    {
+        V2_ON.load(std::sync::atomic::Ordering::Relaxed) & bit != 0
+    }
+    #[cfg(not(test))]
+    {
+        let _ = bit;
+        false
+    }
+}
+
+/// Experiment: a chunk of 64-bit keys (unsigned order, already encoded)
+/// whose `(key - min)`, without the low bits common to all keys, fits in
+/// 32 bits is sorted as `u32` (half the bytes moved), then shifted back.
+fn narrow_chunk<U: WindowKey, E: Fn(U) -> U, D: Fn(U) -> U>(keys: &mut [U], encode: E, decode: D) -> bool {
+    let n = keys.len();
+    if n < 1 << 16 || n > u32::MAX as usize {
+        return false;
+    }
+    let e0 = encode(keys[0]).to_u64();
+    let (mut lo, mut hi, mut diff) = (u64::MAX, 0u64, 0u64);
+    for &k in keys.iter() {
+        let v = encode(k).to_u64();
+        lo = lo.min(v);
+        hi = hi.max(v);
+        diff |= v ^ e0;
+    }
+    let t = diff.trailing_zeros().min(63);
+    if (hi - lo) >> t > u32::MAX as u64 {
+        return false;
+    }
+    let mut narrow: Vec<u32> = keys.iter().map(|&k| ((encode(k).to_u64() - lo) >> t) as u32).collect();
+    <u32 as DevourSort2>::devour_sort2_impl(&mut narrow);
+    for (k, &v) in keys.iter_mut().zip(narrow.iter()) {
+        *k = decode(U::from_u64(((v as u64) << t) + lo));
+    }
+    true
 }
 
 /// Tight clusters (many groups of nearby keys spread over the whole
