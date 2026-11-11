@@ -169,6 +169,8 @@ macro_rules! int_width {
                 }
                 if s.len() >= $roller_min() {
                     $roller(bits_of(s));
+                } else if <$uint>::BITS == 64 && s.len() >= DENSE_MIN && !exp2(2) && clustered(bits_of(s)) {
+                    $alt_chunk(bits_of(s), &mut scratch.borrow_mut());
                 } else {
                     $chunk(bits_of(s), &mut scratch.borrow_mut());
                 }
@@ -565,7 +567,7 @@ fn roller_int64() -> usize {
 #[cfg(test)]
 pub(crate) static INT_EXP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-/// Tests / benchmarks: switches of the v2 features (bit 1: no heavy hitters).
+/// Tests / benchmarks: switches of the v2 features (bit 1: no heavy hitters, bit 2: no cluster rule).
 #[cfg(test)]
 pub(crate) static V2_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -593,6 +595,44 @@ fn exp(bit: usize) -> bool {
         let _ = bit;
         false
     }
+}
+
+/// Tight clusters (many groups of nearby keys spread over the whole
+/// range): on a sorted spread sample, the bits that separate neighbours
+/// are few for most pairs (the cluster) and many for the pairs that fall
+/// in the same cluster. The DLSD sizes its prefix on the 95th percentile of
+/// those needs, so every key pays the passes that a few pairs need, and the
+/// groups left to its finish hold a whole cluster: when the 95th percentile
+/// needs more than two 11-bit digits above the median, the LSD is used
+/// instead (u64 Clusters at 10k-600k: 5.8-8.4 to 4.8-6.4 ns per key; every
+/// other generator: at most 7 bits between the two).
+fn clustered<U: WindowKey>(keys: &[U]) -> bool {
+    let n = keys.len();
+    let s = (n / 256).clamp(16, 256).min(n);
+    let mut sample = [0u64; 256];
+    for i in 0..s as u64 {
+        let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
+        sample[i as usize] = keys[pos as usize].to_u64();
+    }
+    let sample = &mut sample[..s];
+    sample.sort_unstable();
+    let mut need = [0u32; 256];
+    let mut m = 0;
+    for p in sample.windows(2) {
+        if p[0] != p[1] {
+            need[m] = (p[0] ^ p[1]).leading_zeros();
+            m += 1;
+        }
+    }
+    if m < 8 {
+        return false;
+    }
+    let need = &mut need[..m];
+    // `need` holds the bits each pair shares from the top (the bits it needs
+    // to be told apart, minus one): its 95th percentile against its median.
+    let shared_p95 = *need.select_nth_unstable(m * 95 / 100).1;
+    let shared_p50 = *need.select_nth_unstable(m / 2).1;
+    shared_p95 > shared_p50 + 22
 }
 
 /// Heavy hitters: a few values holding a large share of the keys (sparse
