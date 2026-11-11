@@ -61,6 +61,8 @@ const RANGE_SAMPLE: usize = 64;
 const WIDE_KEYS_PER_COUNTER: usize = 4;
 /// Offset sort: bytes saved at least (span against varying bytes).
 const OFFSET_BYTES: u32 = 1;
+/// Sample of the heavy-hitter detection.
+const HEAVY_SAMPLE: usize = 64;
 /// Shortest array tried for a dense range with outliers.
 const DENSE_MIN: usize = 4096;
 /// Most distinct values counted, and the hash table size (at most half full).
@@ -157,7 +159,7 @@ macro_rules! int_width {
                 return;
             }
             let scratch = std::cell::RefCell::new(Vec::new());
-            radix_path(arr, &|a: &mut [$t]| $range(a) || plateaus(a) || $few(a) || $dense(a), &|s: &mut [$t]| {
+            radix_path(arr, &|a: &mut [$t]| $range(a) || plateaus(a) || $few(a) || heavy(a, &|r: &mut [$t]| <$t as DevourSort2>::devour_sort2_impl(r)) || $dense(a), &|s: &mut [$t]| {
                 #[cfg(test)]
                 match INT_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
                     1 => return $chunk(bits_of(s), &mut scratch.borrow_mut()),
@@ -260,52 +262,7 @@ macro_rules! int_width {
                         }
                     }
                 }
-                if <$uint>::BITS == 64 && n <= u32::MAX as usize && narrow_sort(values) {
-                    return true;
-                }
                 return false;
-            }
-
-            /// 64-bit keys whose varying bits fit in 32 (a range of at most
-            /// 2^32 values after removing the low bits common to all keys:
-            /// identifiers, offsets, aligned values): `(key - min) >> t` is
-            /// sorted as `u32` (half the bytes moved by each pass), then
-            /// shifted back. Sample first (span and common low bits, 2 bits
-            /// of margin), then the exact min / max / common low bits in one
-            /// pass, nothing written when the keys do not fit.
-            fn narrow_sort(values: &mut [$t]) -> bool {
-                let n = values.len();
-                let keys = bits_of(values);
-                let e0 = $encode(keys[0]);
-                let (mut smin, mut smax, mut sdiff) = (e0, e0, 0 as $uint);
-                for i in 0..RANGE_SAMPLE as u64 {
-                    let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-                    let e = $encode(keys[pos as usize]);
-                    smin = smin.min(e);
-                    smax = smax.max(e);
-                    sdiff |= e ^ e0;
-                }
-                let st = sdiff.trailing_zeros().min(<$uint>::BITS - 1);
-                if ((smax - smin) >> st).checked_shr(30).unwrap_or(0) != 0 {
-                    return false;
-                }
-                let (mut kmin, mut kmax, mut diff) = (<$uint>::MAX, 0 as $uint, 0 as $uint);
-                for &k in keys.iter() {
-                    let e = $encode(k);
-                    kmin = kmin.min(e);
-                    kmax = kmax.max(e);
-                    diff |= e ^ e0;
-                }
-                let t = diff.trailing_zeros().min(<$uint>::BITS - 1);
-                if ((kmax - kmin) >> t).checked_shr(32).unwrap_or(0) != 0 {
-                    return false;
-                }
-                let mut narrow: Vec<u32> = keys.iter().map(|&k| (($encode(k) - kmin) >> t) as u32).collect();
-                <u32 as DevourSort2>::devour_sort2_impl(&mut narrow);
-                for (k, &v) in keys.iter_mut().zip(narrow.iter()) {
-                    *k = $decode(((v as $uint) << t) + kmin);
-                }
-                true
             }
 
             /// Keys at both ends of the domain (small values and values just
@@ -608,6 +565,23 @@ fn roller_int64() -> usize {
 #[cfg(test)]
 pub(crate) static INT_EXP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// Tests / benchmarks: switches of the v2 features (bit 1: no heavy hitters).
+#[cfg(test)]
+pub(crate) static V2_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[inline(always)]
+fn exp2(bit: usize) -> bool {
+    #[cfg(test)]
+    {
+        V2_OFF.load(std::sync::atomic::Ordering::Relaxed) & bit != 0
+    }
+    #[cfg(not(test))]
+    {
+        let _ = bit;
+        false
+    }
+}
+
 #[inline(always)]
 fn exp(bit: usize) -> bool {
     #[cfg(test)]
@@ -619,6 +593,87 @@ fn exp(bit: usize) -> bool {
         let _ = bit;
         false
     }
+}
+
+/// Heavy hitters: a few values holding a large share of the keys (sparse
+/// data full of zeros, default values, a few popular items among many
+/// others). From a sorted sample of `HEAVY_SAMPLE` keys, the values seen at
+/// least `HEAVY_SAMPLE / 8` times (at most 4) are taken when together they
+/// hold a quarter of the sample. One branch-free pass then moves the other
+/// keys to the front (in place, in order) and counts each heavy value; only
+/// those other keys are sorted (`sort`), and the runs of heavy values are
+/// inserted back from the end (block moves and fills). Wrong guesses (the
+/// sample over-represents them) still sort correctly, at the cost of the
+/// pass. Same idea as the equality buckets of IPS4o (Axtmann et al., 2017).
+fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
+    let n = arr.len();
+    if n < DENSE_MIN || exp2(1) {
+        return false;
+    }
+    let mut sample = [arr[0]; HEAVY_SAMPLE];
+    for i in 0..HEAVY_SAMPLE as u64 {
+        let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
+        sample[i as usize] = arr[pos as usize];
+    }
+    sample.sort_unstable();
+    let mut values = [arr[0]; 4];
+    let (mut h, mut held, mut i) = (0, 0, 0);
+    while i < HEAVY_SAMPLE {
+        let mut j = i + 1;
+        while j < HEAVY_SAMPLE && sample[j] == sample[i] {
+            j += 1;
+        }
+        if j - i >= HEAVY_SAMPLE / 8 && h < 4 {
+            values[h] = sample[i];
+            h += 1;
+            held += j - i;
+        }
+        i = j;
+    }
+    if 4 * held < HEAVY_SAMPLE {
+        return false;
+    }
+    let (rest, counts) = match h {
+        1 => compact::<T, 1>(arr, values),
+        2 => compact::<T, 2>(arr, values),
+        3 => compact::<T, 3>(arr, values),
+        _ => compact::<T, 4>(arr, values),
+    };
+    sort(&mut arr[..rest]);
+    // Heavy values in ascending order (the sample was sorted), inserted from
+    // the largest: the keys above it move to the end, then its run.
+    let (mut end, mut dst) = (rest, n);
+    for v in (0..h).rev() {
+        let value = values[v];
+        let p = arr[..end].partition_point(|x| *x < value);
+        arr.copy_within(p..end, dst - (end - p));
+        dst -= end - p;
+        arr[dst - counts[v]..dst].fill(value);
+        dst -= counts[v];
+        end = p;
+    }
+    debug_assert_eq!(dst, end);
+    true
+}
+
+/// Moves the keys not among `values[..H]` to the front (in order, in place)
+/// and counts each value: one pass without branches.
+#[inline]
+fn compact<T: Copy + Ord, const H: usize>(arr: &mut [T], values: [T; 4]) -> (usize, [usize; 4]) {
+    let mut counts = [0usize; 4];
+    let mut j = 0;
+    for i in 0..arr.len() {
+        let k = arr[i];
+        let mut hit = false;
+        for v in 0..H {
+            let e = k == values[v];
+            counts[v] += e as usize;
+            hit |= e;
+        }
+        arr[j] = k;
+        j += (!hit) as usize;
+    }
+    (j, counts)
 }
 
 /// Long runs of equal keys (values held for a while, repeated blocks): when
