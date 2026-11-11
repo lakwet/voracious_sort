@@ -394,6 +394,18 @@ macro_rules! fused_lsd {
                 }
             }
 
+            #[inline(always)]
+            fn single_digit_enabled() -> bool {
+                #[cfg(test)]
+                {
+                    !super::SINGLE_DIGIT_OFF.load(std::sync::atomic::Ordering::Relaxed)
+                }
+                #[cfg(not(test))]
+                {
+                    true
+                }
+            }
+
             /// From this size the bucket starts are checked for cache aliasing
             /// (below, the written data fits in L1 and conflicts are cheap;
             /// machine dependent, measured on ARM only). Byte digits only: the
@@ -523,6 +535,38 @@ macro_rules! fused_lsd {
                     if !ENC {
                         bits.iter_mut().for_each(|b| *b = decode(*b));
                     }
+                    return;
+                }
+                // One digit varying, the others equal in every key: each key
+                // is the first one with that digit replaced, so the counts
+                // alone give the output (no scatter, no copy back): e.g.
+                // 16-bit multiples of 256, or keys within one aligned byte.
+                if np == 1 && single_digit_enabled() {
+                    let (shift, t) = passes[0];
+                    let rest = first & !(((R - 1) as $uint) << shift);
+                    let mut start = 0;
+                    for b in 0..R {
+                        let c = tables[t][b].get();
+                        if c != 0 {
+                            let v = decode(rest | ((b as $uint) << shift));
+                            let end = start + c;
+                            if c <= 64 && end + 16 <= size {
+                                // Short runs by fixed blocks of 16 (the extra
+                                // copies are overwritten by the next runs):
+                                // a fill call per run costs more.
+                                let block = [v; 16];
+                                let mut p = start;
+                                while p < end {
+                                    bits[p..p + 16].copy_from_slice(&block);
+                                    p += 16;
+                                }
+                            } else {
+                                bits[start..end].fill(v);
+                            }
+                            start = end;
+                        }
+                    }
+                    debug_assert_eq!(start, size);
                     return;
                 }
                 // Exclusive prefix sums (of the digits sorted only).
@@ -833,6 +877,10 @@ macro_rules! fused_lsd {
         }
     };
 }
+
+/// Tests / benchmarks: no counting shortcut when one digit varies.
+#[cfg(test)]
+pub(crate) static SINGLE_DIGIT_OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fused_lsd!(u32, i32, w32, 20, float);
 fused_lsd!(u64, i64, w64, 44, float);
