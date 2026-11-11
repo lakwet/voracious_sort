@@ -30,11 +30,14 @@ fn test_ded_sort_counting_sort_u16() {
 }
 
 use super::super::dedicated::ravenous_sort::ravenous_sort;
+
+/// Array sizes of the benchmarks: every correctness test covers them too.
+const BENCH_SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000];
 use super::super::generators::float_64::*;
 
 /// ravenous_sort must give exactly (bit for bit) the `total_cmp` order.
 fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
-    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 350, 351, 600, 601, 5_000, 8_191, 8_192, 100_000, 1_048_575, 1_048_576].iter() {
+    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 350, 351, 600, 601, 5_000, 8_191, 8_192, 1_048_575, 1_048_576].iter().chain(BENCH_SIZES.iter()) {
         for (gen, name) in generators_f32().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();
@@ -48,7 +51,7 @@ fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
 }
 
 fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
-    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 700, 701, 800, 801, 3_000, 3_001, 8_192, 10_000, 100_000, 262_143, 262_144, 1_500_000].iter() {
+    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 700, 701, 800, 801, 3_000, 3_001, 8_192, 262_143, 262_144, 1_500_000].iter().chain(BENCH_SIZES.iter()) {
         for (gen, name) in generators_f64().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();
@@ -259,7 +262,8 @@ fn test_ded_ravenous_sort_tiny() {
 
 fn check_devour_sort<T: crate::DevourSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
     let sizes: Vec<usize> = (0..=70)
-        .chain([128, 129, 350, 351, 700, 701, 149, 150, 151, 199, 200, 201, 5_000, 100_000, 1_048_575, 1_048_576, 1_500_000, 4_194_304, 12_582_911, 12_582_912].iter().copied())
+        .chain([128, 129, 350, 351, 700, 701, 149, 150, 151, 199, 200, 201, 5_000, 1_048_575, 1_048_576, 1_500_000, 4_194_304, 12_582_911, 12_582_912].iter().copied())
+        .chain(BENCH_SIZES.iter().copied())
         .collect();
     for &size in sizes.iter() {
         for (gen, name) in gens.iter() {
@@ -422,7 +426,8 @@ fn test_ded_devour_sort_narrow_types() {
     use super::super::generators::unsigned_u8::generators_u8;
     fn check<T: crate::DevourSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
         let sizes: Vec<usize> = (0..=70)
-            .chain([128, 129, 150, 151, 255, 256, 257, 1_000, 32_767, 32_768, 65_535, 65_536, 131_071, 131_072, 131_073, 300_000, 1_000_000].iter().copied())
+            .chain([128, 129, 150, 151, 255, 256, 257, 32_767, 32_768, 65_535, 65_536, 131_071, 131_072, 131_073, 300_000, 524_287, 524_288].iter().copied())
+            .chain(BENCH_SIZES.iter().copied())
             .collect();
         for &size in sizes.iter() {
             for (gen, name) in gens.iter() {
