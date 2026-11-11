@@ -31,9 +31,10 @@
 //! sorts a fresh copy of the same batch; the order of the variants rotates
 //! between repetitions (no variant always runs first, after the generation or
 //! on a cold cache); the median of the repetitions is kept, in ns per key
-//! (the noise only adds time, the median ignores the outliers). In
-//! the first repetition every result is checked bit for bit against
-//! `sort_unstable_by(total_cmp)`.
+//! (the noise only adds time, the median ignores the outliers).
+//! Correctness belongs to the tests (`tests::dedicated`, every size of this
+//! bench); `BENCH_CHECK=1` also checks every result of the first repetition
+//! bit for bit against `sort_unstable_by(total_cmp)`.
 //!
 //! Parts:
 //! - `sort`: `ravenous_sort` against `sort_unstable_by(total_cmp)` (std),
@@ -88,6 +89,7 @@ struct Config {
     mem: usize,
     reps: usize,
     min_arrays: usize,
+    check: bool,
     out: std::path::PathBuf,
 }
 
@@ -101,6 +103,7 @@ fn config() -> Config {
         mem: env_usize("BENCH_MEM_MB", 2048) << 20,
         reps: env_usize("BENCH_REPS", 5).max(1),
         min_arrays: env_usize("BENCH_MIN_ARRAYS", 11),
+        check: env_usize("BENCH_CHECK", 0) != 0,
         out: std::env::var("BENCH_OUT").map(Into::into).unwrap_or_else(|_| "target/bench_portable".into()),
     }
 }
@@ -171,7 +174,7 @@ fn measure<T: Copy + PartialOrd>(
         let mut times: Vec<Vec<f64>> = vec![Vec::new(); nv];
         for rep in 0..rep_count(cfg, count) {
             let batch: Vec<Vec<T>> = (0..count).map(|_| gen(size)).collect();
-            let expected: Option<Vec<Vec<u64>>> = if rep == 0 {
+            let expected: Option<Vec<Vec<u64>>> = if rep == 0 && cfg.check {
                 Some(
                     batch
                         .iter()

@@ -119,6 +119,44 @@ macro_rules! int_extra {
                     .collect()
             }
 
+            // Sparse data: 90 % zeros, 10 % random values
+            pub fn sparse90(size: usize) -> Vec<$t> {
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| {
+                        let mut rng = rand::rng();
+                        if rng.random_range(0..10) == 0 { rng.random::<$t>() } else { 0 }
+                    })
+                    .collect()
+            }
+
+            // Heavy hitters: 60 % of the keys among 4 values, the rest random
+            pub fn heavy4(size: usize) -> Vec<$t> {
+                let mut rng = rand::rng();
+                let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
+                (0..size)
+                    .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random::<$t>() })
+                    .collect()
+            }
+
+            // Composite keys: high half among 64 values (tenant, category),
+            // low half random
+            pub fn composite(size: usize) -> Vec<$t> {
+                const HALF: u32 = <$t>::BITS / 2;
+                let mut rng = rand::rng();
+                let highs: Vec<$t> = (0..64).map(|_| rng.random::<$t>() >> HALF << HALF).collect();
+                (0..size).map(|_| highs[rng.random_range(0..64)] | rng.random_range(0..1u64 << HALF) as $t).collect()
+            }
+
+            // Narrow range across the half-width boundary: 2^(bits/4 + 2)
+            // values around 2^(bits/2)
+            pub fn straddle(size: usize) -> Vec<$t> {
+                const HALF: u32 = <$t>::BITS / 2;
+                let width = 1u64 << (<$t>::BITS / 4 + 2);
+                let base = ((1 as $t) << HALF).wrapping_sub((width / 2) as $t);
+                (0..size).into_par_iter().map(|_| base.wrapping_add(rand::rng().random_range(0..width) as $t)).collect()
+            }
+
             pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<$t>, &'static str)> {
                 vec![
                     (&int_narrow, "-- Int 0..100 :"),
@@ -134,6 +172,10 @@ macro_rules! int_extra {
                     (&aligned, "-- Aligned 2^16:"),
                     (&prefix20, "-- Prefix 20b :"),
                     (&bimodal, "-- Bimodal    :"),
+                    (&sparse90, "-- Sparse 90% :"),
+                    (&heavy4, "-- Heavy 4    :"),
+                    (&composite, "-- Composite  :"),
+                    (&straddle, "-- Straddle   :"),
                 ]
             }
         }

@@ -274,6 +274,26 @@ pub fn helper_random_array_few16_f32(size: usize) -> Vec<f32> {
     (0..size).map(|_| values[rng.random_range(0..16)]).collect::<Vec<f32>>()
 }
 
+// Sparse data: 90 % zeros, 10 % random values in [-1000, 1000)
+pub fn helper_random_array_sparse90_f32(size: usize) -> Vec<f32> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| {
+            let mut rng = rand::rng();
+            if rng.random_range(0..10) == 0 { rng.random_range(-1000.0..1000.0) } else { 0.0 }
+        })
+        .collect()
+}
+
+// Heavy hitters: 60 % of the keys among 4 values, the rest random
+pub fn helper_random_array_heavy4_f32(size: usize) -> Vec<f32> {
+    let mut rng = rand::rng();
+    let values: Vec<f32> = (0..4).map(|_| rng.random_range(-1000.0..1000.0)).collect();
+    (0..size)
+        .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random_range(-1000.0..1000.0) })
+        .collect()
+}
+
 // Detector worst case: narrow integers, one wide outlier late (at 95 %)
 pub fn helper_random_array_int_late_outlier_f32(size: usize) -> Vec<f32> {
     let mut array = helper_random_array_int_narrow_f32(size);
@@ -362,6 +382,8 @@ pub fn generators_f32(
         (&helper_random_array_grid_quarter_f32, "-- Grid 0.25  :"),
         (&helper_random_array_prices_f32, "-- Prices     :"),
         (&helper_random_array_few16_f32, "-- Few 16     :"),
+        (&helper_random_array_sparse90_f32, "-- Sparse 90% :"),
+        (&helper_random_array_heavy4_f32, "-- Heavy 4    :"),
         (&helper_random_array_int_late_outlier_f32, "-- Int late out:"),
         (&helper_random_array_few16_late_f32, "-- Few16 late :"),
         (&helper_random_array_asc_random_tail_f32, "-- Asc rnd tail:"),
