@@ -594,3 +594,36 @@ fn test_ded_devour_sort_both_ends() {
     check(&|v, i| if i % 2 == 0 { (v as i64).wrapping_add(i64::MIN) } else { i64::MAX - v as i64 }, "i64");
     check(&|v, i| if i % 2 == 0 { -(v as i64) } else { v as i64 }, "i64 around 0");
 }
+
+/// `usize` / `isize` (sorted as the integer of the same width): every
+/// generator, with the extremes.
+#[test]
+fn test_ded_devour_sort_pointer_width() {
+    use super::super::devour_sort;
+    use super::super::generators::signed_i64::generators_isize;
+    use super::super::generators::unsigned_u64::generators_usize;
+    for &size in &[0usize, 1, 33, 500, 10_000, 200_000] {
+        for (gen, name) in generators_usize().iter() {
+            let mut a = gen(size);
+            if size > 2 {
+                a[0] = usize::MAX;
+                a[1] = 0;
+            }
+            let mut e = a.clone();
+            e.sort_unstable();
+            devour_sort(&mut a);
+            assert!(a == e, "usize {} {}", name, size);
+        }
+        for (gen, name) in generators_isize().iter() {
+            let mut a = gen(size);
+            if size > 2 {
+                a[0] = isize::MAX;
+                a[1] = isize::MIN;
+            }
+            let mut e = a.clone();
+            e.sort_unstable();
+            devour_sort(&mut a);
+            assert!(a == e, "isize {} {}", name, size);
+        }
+    }
+}

@@ -74,6 +74,8 @@ mod sealed {
     impl Sealed for u16 {}
     impl Sealed for i16 {}
     impl Sealed for char {}
+    impl Sealed for usize {}
+    impl Sealed for isize {}
 }
 
 /// Integer types sortable by [`devour_sort`].
@@ -84,8 +86,9 @@ pub trait DevourSort: sealed::Sealed + Copy + Ord {
 
 /// # Devour sort
 ///
-/// Sorts `u32`, `u64`, `i32` or `i64` slices (unstable; for primitive
-/// integers stability makes no difference).
+/// Sorts slices of `u8`, `u16`, `u32`, `u64`, `usize`, `i8`, `i16`, `i32`,
+/// `i64`, `isize` or `char` (unstable; for primitive integers stability
+/// makes no difference).
 ///
 /// ```
 /// use voracious_radix_sort::devour_sort;
@@ -1131,3 +1134,32 @@ impl DevourSort for char {
         u32::devour_sort_impl(codes);
     }
 }
+
+/// `usize` / `isize`: sorted as the unsigned / signed integer of the same
+/// width (same size, alignment and representation).
+macro_rules! pointer_width {
+    ($t:ty, $as:ty) => {
+        impl DevourSort for $t {
+            #[inline]
+            fn devour_sort_impl(arr: &mut [$t]) {
+                const _: () = assert!(std::mem::size_of::<$t>() == std::mem::size_of::<$as>());
+                // SAFETY: same size, alignment and value representation.
+                let same = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $as, arr.len()) };
+                <$as as DevourSort>::devour_sort_impl(same);
+            }
+        }
+    };
+}
+
+#[cfg(target_pointer_width = "64")]
+pointer_width!(usize, u64);
+#[cfg(target_pointer_width = "64")]
+pointer_width!(isize, i64);
+#[cfg(target_pointer_width = "32")]
+pointer_width!(usize, u32);
+#[cfg(target_pointer_width = "32")]
+pointer_width!(isize, i32);
+#[cfg(target_pointer_width = "16")]
+pointer_width!(usize, u16);
+#[cfg(target_pointer_width = "16")]
+pointer_width!(isize, i16);
