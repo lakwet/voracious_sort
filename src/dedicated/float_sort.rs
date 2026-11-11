@@ -308,6 +308,10 @@ pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
 #[cfg(test)]
 pub(crate) static F32_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// Tests / benchmarks: previous merge rule for keys of at most 16 bits.
+#[cfg(test)]
+pub(crate) static NARROW_MERGE_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Tests / benchmarks: always merge the Verge segments (A/B comparisons).
 #[cfg(test)]
 pub(crate) static NO_MERGE_RULE: std::sync::atomic::AtomicBool =
@@ -338,7 +342,15 @@ fn unpredictable_merges<T: Copy + PartialOrd>(
     separators: &[usize],
     chunks: &[(usize, usize)],
 ) -> bool {
-    if separators.len() < 4 {
+    // Keys of at most 16 bits: the radix sort is 2 byte passes or one
+    // count, cheaper than a single unpredictable merge round, so 2 segments
+    // (1 round) are enough to check (u16 pipe organ 1k-100k: 3.0 to 1.5-2.0
+    // ns per key).
+    #[cfg(test)]
+    let narrow = std::mem::size_of::<T>() <= 2 && !NARROW_MERGE_OLD.load(std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(test))]
+    let narrow = std::mem::size_of::<T>() <= 2;
+    if separators.len() < if narrow { 3 } else { 4 } {
         return false;
     }
     let is_chunk = |s: usize| chunks.iter().any(|&(c, _)| c == s);

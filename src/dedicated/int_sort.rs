@@ -122,8 +122,14 @@ macro_rules! int_width {
                 return;
             }
             // 8-bit keys from 256 on: counting over the 256 values is
-            // cheaper than any detection.
+            // cheaper than any other detection; only a fully sorted array
+            // (either direction) is checked first, at the cost of 32 pairs
+            // when it is not (sorted u8: 0.46 to 0.04 ns per key; long runs
+            // of equal keys serialise the counters).
             if <$uint>::BITS == 8 && n >= 256 && n <= u32::MAX as usize {
+                if sorted_either(arr) {
+                    return;
+                }
                 domain_count(bits_of(arr), $encode, $decode);
                 return;
             }
@@ -490,11 +496,84 @@ fn fill_run<U: Copy>(keys: &mut [U], start: usize, c: usize, v: U) {
 /// keys): no sample, no min / max, no bound check. At most 2^32 - 1 keys.
 #[inline]
 fn domain_count<U: WindowKey>(keys: &mut [U], encode: fn(U) -> U, decode: fn(U) -> U) {
+    let width = (U::MAX_U64 + 1) as usize;
+    // Wide domains (16-bit keys): 4 lanes only when keys repeat nearby. One
+    // lane keeps a quarter of the table in cache (u16 at 1M-10M, against 4
+    // lanes: uniform 0.87 to 0.70 ns per key, Gaussian 0.58 to 0.37,
+    // sawtooth 0.47 to 0.34; Zipf keeps its 4 lanes).
+    let four = lanes_for(width, keys.len()) == 4 && (width <= 256 || repeats_near(keys));
+    match (U::MAX_U64 > 255, four) {
+        (true, true) => domain_count_with::<U, true, true>(keys, encode, decode),
+        (true, false) => domain_count_with::<U, true, false>(keys, encode, decode),
+        (false, true) => domain_count_with::<U, false, true>(keys, encode, decode),
+        (false, false) => domain_count_with::<U, false, false>(keys, encode, decode),
+    }
+}
+
+/// Whether keys repeat within a few positions (on 256 spread positions, at
+/// least 1 in 16 equal to one of the next 3 keys): the increments of one
+/// counter would then wait on each other, and 4 lanes of counters pay off;
+/// otherwise one lane (a quarter of the table, kept closer in cache).
+#[inline]
+fn repeats_near<U: WindowKey>(keys: &[U]) -> bool {
+    let n = keys.len();
+    if n < 1024 {
+        return true;
+    }
+    let mut hits = 0;
+    for i in 0..256u64 {
+        let p = (((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * (n - 4) as u64) >> 32) as usize;
+        let k = keys[p].to_u64();
+        hits += (k == keys[p + 1].to_u64() || k == keys[p + 2].to_u64() || k == keys[p + 3].to_u64()) as usize;
+    }
+    hits >= 16
+}
+
+/// Whether `arr` is sorted in either direction, a descending one being
+/// reversed: the direction from 32 spread adjacent pairs (a monotone array
+/// has none against it, so any mix gives up at once; with all pairs equal
+/// the two ends decide), then one scan, stopping at the first pair against
+/// it.
+#[inline]
+fn sorted_either<T: Copy + PartialOrd>(arr: &mut [T]) -> bool {
+    use super::super::algo::verge_sort_fast::{explore_forward_asc, explore_forward_desc};
+    let n = arr.len();
+    let step = (n - 1) / 32;
+    let (mut asc, mut desc) = (false, false);
+    for k in 0..32 {
+        let i = k * step;
+        asc |= arr[i] < arr[i + 1];
+        desc |= arr[i] > arr[i + 1];
+    }
+    if asc && desc {
+        return false;
+    }
+    if desc || (!asc && arr[0] > arr[n - 1]) {
+        if explore_forward_desc(arr, 0) == n {
+            arr.reverse();
+            return true;
+        }
+        return false;
+    }
+    explore_forward_asc(arr, 0) == n
+}
+
+#[inline(always)]
+fn domain_count_with<U: WindowKey, const MIX: bool, const FOUR: bool>(keys: &mut [U], encode: fn(U) -> U, decode: fn(U) -> U) {
     let n = keys.len();
     let width = (U::MAX_U64 + 1) as usize;
-    let lanes = lanes_for(width, n);
+    let lanes = if FOUR { 4 } else { 1 };
     let mut counts = vec![0u32; width * lanes];
-    let idx = |k: U| encode(k).to_u64() as usize;
+    // Wide domains (16-bit keys): counter of key k at k ^ (k >> 8) (low
+    // byte mixed with the high byte, a bijection within each block of 256
+    // counters). Keys sharing their low byte (multiples of 256) otherwise
+    // hit counters 1 KiB apart, all in the same few L1 sets (u16 multiples
+    // of 256 at 1M-10M: 4.3 to 0.35 ns per key).
+    let mix = MIX;
+    let idx = |k: U| {
+        let e = encode(k).to_u64() as usize;
+        if mix { e ^ ((e >> 8) & 0xFF) } else { e }
+    };
     let mut quads = keys.chunks_exact(4);
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(width);
@@ -560,7 +639,8 @@ fn domain_count<U: WindowKey>(keys: &mut [U], encode: fn(U) -> U, decode: fn(U) 
         }
     }
     let mut start = 0;
-    for (d, &c) in counts[..width].iter().enumerate() {
+    for d in 0..width {
+        let c = counts[if mix { d ^ ((d >> 8) & 0xFF) } else { d }];
         if c != 0 {
             fill_run(keys, start, c as usize, decode(U::from_u64(d as u64)));
             start += c as usize;

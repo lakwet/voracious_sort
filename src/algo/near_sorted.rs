@@ -151,11 +151,32 @@ pub fn repair_near_sorted<T: Copy + PartialOrd>(arr: &mut [T]) -> bool {
             desc += 1;
         }
     }
-    if desc > asc && desc >= 24 {
+    #[cfg(test)]
+    let old = ORIENT_OLD.load(std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(test))]
+    let old = false;
+    if old {
+        if desc > asc && desc >= 24 {
+            arr.reverse();
+        } else if asc + (32 - asc - desc) < 24 {
+            return false;
+        }
+        return repair_ascending(arr);
+    }
+    // At most 8 pairs against a direction. Equal pairs fit both: with many
+    // duplicates (narrow keys) the unequal pairs decide, and with none the
+    // two ends (a descending array with long runs of equal keys was taken
+    // for an ascending one, then sorted by radix).
+    let descending = asc <= 8 && (desc > asc || (desc == asc && arr[0] > arr[n - 1]));
+    if descending {
         arr.reverse();
-    } else if asc + (32 - asc - desc) < 24 {
+    } else if desc > 8 {
         // Neither clearly ascending nor descending: not nearly sorted.
         return false;
     }
     repair_ascending(arr)
 }
+
+/// Tests / benchmarks: previous orientation rule.
+#[cfg(test)]
+pub(crate) static ORIENT_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
