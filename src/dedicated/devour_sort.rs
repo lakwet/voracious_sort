@@ -1,4 +1,4 @@
-//! # Int sort
+//! # Devour sort
 //!
 //! Dedicated radix sort for `u32`, `u64`, `i32` and `i64`, built on the
 //! engines of [`ravenous_sort`](super::ravenous_sort) with an integer key map
@@ -80,7 +80,7 @@ pub trait DevourSort: sealed::Sealed + Copy + Ord {
     fn devour_sort_impl(arr: &mut [Self]);
 }
 
-/// # Int sort
+/// # Devour sort
 ///
 /// Sorts `u32`, `u64`, `i32` or `i64` slices (unstable; for primitive
 /// integers stability makes no difference).
