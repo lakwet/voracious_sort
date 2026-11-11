@@ -4,4 +4,6 @@ pub mod k_way_merge;
 pub mod verge_sort_heuristic;
 pub mod verge_sort_fast;
 pub mod k_way_merge_fast;
+#[allow(dead_code)]
+pub(crate) mod k_way_merge_fast2;
 pub mod near_sorted;

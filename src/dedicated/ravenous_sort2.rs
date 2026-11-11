@@ -34,7 +34,8 @@
 //! The Verge pre-processing compares floats with `<`: arrays containing NaN
 //! are not supported yet (it may panic), as for the generic float sorts.
 
-use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
+use super::super::algo::k_way_merge_fast::predictable_merge;
+use super::super::algo::k_way_merge_fast2::k_way_merge_fast2;
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::devour_sort2::heavy_by;
@@ -236,7 +237,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut 
     for &(start, len) in chunks.iter() {
         sort(&mut arr[start..start + len]);
     }
-    k_way_merge_fast(arr, &mut separators);
+    k_way_merge_fast2(arr, &mut separators);
 }
 
 /// Whether the Verge pre-processing can be skipped: it only keeps
@@ -375,7 +376,7 @@ pub(crate) fn ravenous_sort2_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
         w32::lsd_mode(bits32(chunk), mode)
     });
-    k_way_merge_fast(arr, &mut separators);
+    k_way_merge_fast2(arr, &mut separators);
 }
 
 /// f64 radix path (see `radix_path`): the DLSD sorts the chunks (one scratch
@@ -419,6 +420,6 @@ pub(crate) fn ravenous_sort2_f64_radix_mode(arr: &mut [f64], mode: Digits) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f64], _| {
         w64::lsd_mode(bits64(chunk), mode)
     });
-    k_way_merge_fast(arr, &mut separators);
+    k_way_merge_fast2(arr, &mut separators);
 }
 
