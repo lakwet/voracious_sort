@@ -606,6 +606,12 @@ fn exp(bit: usize) -> bool {
 /// sample over-represents them) still sort correctly, at the cost of the
 /// pass. Same idea as the equality buckets of IPS4o (Axtmann et al., 2017).
 fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
+    heavy_by(arr, sort, |a, b| a == b, |a, b| a < b)
+}
+
+/// `heavy` with an equality and an order of its own (floats: same bits,
+/// `total_cmp`, so that -0.0 and +0.0 stay apart).
+pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
     let n = arr.len();
     if n < DENSE_MIN || exp2(1) {
         return false;
@@ -615,12 +621,20 @@ fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
         let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
         sample[i as usize] = arr[pos as usize];
     }
-    sample.sort_unstable();
+    sample.sort_unstable_by(|a, b| {
+        if lt(*a, *b) {
+            std::cmp::Ordering::Less
+        } else if lt(*b, *a) {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    });
     let mut values = [arr[0]; 4];
     let (mut h, mut held, mut i) = (0, 0, 0);
     while i < HEAVY_SAMPLE {
         let mut j = i + 1;
-        while j < HEAVY_SAMPLE && sample[j] == sample[i] {
+        while j < HEAVY_SAMPLE && eq(sample[j], sample[i]) {
             j += 1;
         }
         if j - i >= HEAVY_SAMPLE / 8 && h < 4 {
@@ -634,10 +648,10 @@ fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
         return false;
     }
     let (rest, counts) = match h {
-        1 => compact::<T, 1>(arr, values),
-        2 => compact::<T, 2>(arr, values),
-        3 => compact::<T, 3>(arr, values),
-        _ => compact::<T, 4>(arr, values),
+        1 => compact::<T, E, 1>(arr, values, eq),
+        2 => compact::<T, E, 2>(arr, values, eq),
+        3 => compact::<T, E, 3>(arr, values, eq),
+        _ => compact::<T, E, 4>(arr, values, eq),
     };
     sort(&mut arr[..rest]);
     // Heavy values in ascending order (the sample was sorted), inserted from
@@ -645,7 +659,7 @@ fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
     let (mut end, mut dst) = (rest, n);
     for v in (0..h).rev() {
         let value = values[v];
-        let p = arr[..end].partition_point(|x| *x < value);
+        let p = arr[..end].partition_point(|x| lt(*x, value));
         arr.copy_within(p..end, dst - (end - p));
         dst -= end - p;
         arr[dst - counts[v]..dst].fill(value);
@@ -659,14 +673,14 @@ fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
 /// Moves the keys not among `values[..H]` to the front (in order, in place)
 /// and counts each value: one pass without branches.
 #[inline]
-fn compact<T: Copy + Ord, const H: usize>(arr: &mut [T], values: [T; 4]) -> (usize, [usize; 4]) {
+fn compact<T: Copy, E: Fn(T, T) -> bool, const H: usize>(arr: &mut [T], values: [T; 4], eq: E) -> (usize, [usize; 4]) {
     let mut counts = [0usize; 4];
     let mut j = 0;
     for i in 0..arr.len() {
         let k = arr[i];
         let mut hit = false;
         for v in 0..H {
-            let e = k == values[v];
+            let e = eq(k, values[v]);
             counts[v] += e as usize;
             hit |= e;
         }

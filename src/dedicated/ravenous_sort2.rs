@@ -37,6 +37,7 @@
 use super::super::algo::k_way_merge_fast::{k_way_merge_fast, predictable_merge};
 use super::super::algo::near_sorted::repair_near_sorted;
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
+use super::devour_sort2::heavy_by;
 use super::float_detect::{detect32, detect64, few32, few64};
 use super::float_dlsd::dlsd64_with;
 use super::float_lsd::w32;
@@ -288,7 +289,7 @@ pub(crate) static VERGE_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic:
 
 /// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
 pub(crate) fn ravenous_sort2_f32_radix(arr: &mut [f32]) {
-    radix_path(arr, &few32, &|s: &mut [f32]| {
+    radix_path(arr, &|a: &mut [f32]| few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), |x: f32, y: f32| x.to_bits() == y.to_bits(), |x: f32, y: f32| x.total_cmp(&y).is_lt()), &|s: &mut [f32]| {
         #[cfg(test)]
         match F32_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             2 => return w32::lsd(bits32(s)),
@@ -381,7 +382,7 @@ pub(crate) fn ravenous_sort2_f32_radix_mode(arr: &mut [f32], mode: Digits) {
 /// buffer for all of them), the float rollercoaster the large ones.
 pub(crate) fn ravenous_sort2_f64_radix(arr: &mut [f64]) {
     let scratch = std::cell::RefCell::new(Vec::new());
-    radix_path(arr, &few64, &|s: &mut [f64]| {
+    radix_path(arr, &|a: &mut [f64]| few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), |x: f64, y: f64| x.to_bits() == y.to_bits(), |x: f64, y: f64| x.total_cmp(&y).is_lt()), &|s: &mut [f64]| {
         #[cfg(test)]
         match F64_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             1 => return dlsd64_with(bits64(s), &mut scratch.borrow_mut()),
