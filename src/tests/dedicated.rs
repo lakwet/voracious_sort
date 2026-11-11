@@ -439,9 +439,14 @@ fn test_ded_int_sort_narrow_types() {
             assert!(arr == expected, "{} extremes size {}", ty, size);
         }
     }
-    check(generators_u8(), &[0u8, 1, 127, 128, 254, 255], "u8");
-    check(generators_i8(), &[0i8, 1, -1, i8::MIN, i8::MAX, i8::MIN + 1], "i8");
-    check(generators_u16(), &[0u16, 1, 255, 256, u16::MAX, u16::MAX - 1, 1 << 15], "u16");
-    check(generators_i16(), &[0i16, 1, -1, i16::MIN, i16::MAX, i16::MIN + 1, -12345], "i16");
-    check(generators_char(), &['\0', 'a', 'é', '\u{D7FF}', '\u{E000}', '\u{FFFF}', '\u{10000}', char::MAX], "char");
+    use super::super::generators::narrow_extra::*;
+    fn with<T>(mut g: Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>, extra: Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>) -> Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)> {
+        g.extend(extra);
+        g
+    }
+    check(with(generators_u8(), extra_u8::generators()), &[0u8, 1, 127, 128, 254, 255], "u8");
+    check(with(generators_i8(), extra_i8::generators()), &[0i8, 1, -1, i8::MIN, i8::MAX, i8::MIN + 1], "i8");
+    check(with(generators_u16(), extra_u16::generators()), &[0u16, 1, 255, 256, u16::MAX, u16::MAX - 1, 1 << 15], "u16");
+    check(with(generators_i16(), extra_i16::generators()), &[0i16, 1, -1, i16::MIN, i16::MAX, i16::MIN + 1, -12345], "i16");
+    check(with(generators_char(), extra_char::generators()), &['\0', 'a', 'é', '\u{D7FF}', '\u{E000}', '\u{FFFF}', '\u{10000}', char::MAX], "char");
 }
