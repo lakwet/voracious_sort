@@ -513,7 +513,7 @@ fn all_equal<T: Copy + PartialEq>(arr: &[T], first: T) -> bool {
 /// count on 4 lanes (repeated keys would otherwise wait on the previous
 /// increment of the same counter). At most 2^32 - 1 keys.
 #[inline]
-fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: fn(U) -> U, decode: fn(U) -> U) -> bool {
+fn window_count<U: WindowKey, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: E, decode: D) -> bool {
     window_count_split(keys, lo, hi, limit, encode, decode, 0)
 }
 
@@ -521,7 +521,7 @@ fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode
 /// the ones below it (keys counted rotated by half the domain: written back
 /// in their true order, no rotation of the array afterwards).
 #[inline]
-fn window_count_split<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: fn(U) -> U, decode: fn(U) -> U, split: u64) -> bool {
+fn window_count_split<U: WindowKey, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: E, decode: D, split: u64) -> bool {
     let n = keys.len();
     let (lo, hi) = (encode(lo).to_u64(), encode(hi).to_u64());
     let mut width = ((hi - lo + 1) as usize * 2).max(256).min(limit);
@@ -628,19 +628,31 @@ fn fill_run<U: Copy>(keys: &mut [U], start: usize, c: usize, v: U) {
 /// when the domain is not wider than the narrow-range limit (8- and 16-bit
 /// keys): no sample, no min / max, no bound check. At most 2^32 - 1 keys.
 #[inline]
-fn domain_count<U: WindowKey>(keys: &mut [U], encode: fn(U) -> U, decode: fn(U) -> U) {
+fn domain_count<U: WindowKey, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], encode: E, decode: D) {
     let width = (U::MAX_U64 + 1) as usize;
     // Wide domains (16-bit keys): 4 lanes only when keys repeat nearby. One
     // lane keeps a quarter of the table in cache (u16 at 1M-10M, against 4
     // lanes: uniform 0.87 to 0.70 ns per key, Gaussian 0.58 to 0.37,
     // sawtooth 0.47 to 0.34; Zipf keeps its 4 lanes).
     let four = lanes_for(width, keys.len()) == 4 && (width <= 256 || repeats_near(keys));
-    match (U::MAX_U64 > 255, four) {
-        (true, true) => domain_count_with::<U, true, true>(keys, encode, decode),
-        (true, false) => domain_count_with::<U, true, false>(keys, encode, decode),
-        (false, true) => domain_count_with::<U, false, true>(keys, encode, decode),
-        (false, false) => domain_count_with::<U, false, false>(keys, encode, decode),
+    // Mixed index only for keys sharing their low byte (the case it fixes;
+    // 3-6 % faster without it otherwise).
+    let mix = U::MAX_U64 > 255 && shared_low_byte(keys);
+    match (mix, four) {
+        (true, true) => domain_count_with::<U, E, D, true, true>(keys, encode, decode),
+        (true, false) => domain_count_with::<U, E, D, true, false>(keys, encode, decode),
+        (false, true) => domain_count_with::<U, E, D, false, true>(keys, encode, decode),
+        (false, false) => domain_count_with::<U, E, D, false, false>(keys, encode, decode),
     }
+}
+
+/// Whether 16 spread keys share their low byte (aligned values: their
+/// counters would alias in the cache without the mixed index).
+#[inline]
+fn shared_low_byte<U: WindowKey>(keys: &[U]) -> bool {
+    let n = keys.len();
+    let first = keys[0].to_u64() & 0xFF;
+    (1..16).all(|i| keys[i * (n / 16)].to_u64() & 0xFF == first)
 }
 
 /// Whether keys repeat within a few positions (on 256 spread positions, at
@@ -692,7 +704,7 @@ fn sorted_either<T: Copy + PartialOrd>(arr: &mut [T]) -> bool {
 }
 
 #[inline(always)]
-fn domain_count_with<U: WindowKey, const MIX: bool, const FOUR: bool>(keys: &mut [U], encode: fn(U) -> U, decode: fn(U) -> U) {
+fn domain_count_with<U: WindowKey, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy, const MIX: bool, const FOUR: bool>(keys: &mut [U], encode: E, decode: D) {
     let n = keys.len();
     let width = (U::MAX_U64 + 1) as usize;
     let lanes = if FOUR { 4 } else { 1 };
@@ -786,7 +798,7 @@ fn domain_count_with<U: WindowKey, const MIX: bool, const FOUR: bool>(keys: &mut
 /// at most 2^32 - 1 keys; 4 lanes of counters when the table is small
 /// against the keys.
 #[inline]
-fn exact_count<U: WindowKey>(keys: &mut [U], base: U, width: usize, encode: fn(U) -> U, decode: fn(U) -> U) {
+fn exact_count<U: WindowKey, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], base: U, width: usize, encode: E, decode: D) {
     let n = keys.len();
     let base = base.to_u64();
     let lanes = lanes_for(width, n);
@@ -816,7 +828,7 @@ fn exact_count<U: WindowKey>(keys: &mut [U], base: U, width: usize, encode: fn(U
 /// keys `base..base + width`); stops at the first group of keys holding one
 /// outside the window, uncounted, and returns its position.
 #[inline(always)]
-fn count_window<U: WindowKey>(keys: &[U], encode: fn(U) -> U, base: u64, width: usize, lanes: usize, counts: &mut [u32]) -> Option<usize> {
+fn count_window<U: WindowKey, E: Fn(U) -> U + Copy>(keys: &[U], encode: E, base: u64, width: usize, lanes: usize, counts: &mut [u32]) -> Option<usize> {
     let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize;
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(width);
