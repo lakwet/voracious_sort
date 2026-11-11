@@ -333,6 +333,14 @@ macro_rules! int_width {
             let width = (2 * (shi - slo + 1)).max(256).min(limit as i128);
             let lo = (slo - (width - (shi - slo + 1)) / 2).max(<$t>::MIN as i128);
             let hi = (lo + width - 1).min(<$t>::MAX as i128);
+            // The inside keys expected from the sample must fill the window
+            // as densely as a narrow range (`RANGE_KEYS_PER_COUNTER`):
+            // otherwise counting them costs more than a radix sort (u16
+            // Gaussian at 20k-30k keys, 85 % of them within n / 2 values:
+            // 2.1 against 1.3 ns per key).
+            if !exp(8) && (best * n) < RANGE_KEYS_PER_COUNTER * (hi - lo + 1) as usize * RANGE_SAMPLE {
+                return false;
+            }
             let (lo, hi) = (lo as $t, hi as $t);
             // 3-way partition, [0, a) below, [a, i) inside, [b, n) above
             // (branches: the inside keys are the predicted majority; a
