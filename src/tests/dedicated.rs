@@ -627,3 +627,37 @@ fn test_ded_devour_sort_pointer_width() {
         }
     }
 }
+
+/// Wide ranges counted (span beyond 65536 values, at least 4 keys per
+/// counter), and the failed bet (one outlier outside the sampled range).
+#[test]
+fn test_ded_devour_sort_wide_count() {
+    use super::super::devour_sort;
+    let mut seed = 0x0bad_5eed_1234_5678u64;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for &(n, span) in &[(300_000usize, 70_000u64), (1_200_000, 300_000)] {
+        for outlier in [false, true] {
+            let mut a: Vec<u32> = (0..n).map(|_| 1_000_000 + (next() % span) as u32).collect();
+            let mut b: Vec<i64> = (0..n).map(|_| (next() % span) as i64 - span as i64 / 2).collect();
+            let mut c: Vec<char> = (0..n).map(|_| std::char::from_u32(0x4E00 + (next() % span.min(0x5000)) as u32).unwrap()).collect();
+            if outlier {
+                a[n / 3] = u32::MAX;
+                b[n / 3] = i64::MIN;
+                c[n / 3] = '\u{10FFFF}';
+            }
+            let (mut ea, mut eb, mut ec) = (a.clone(), b.clone(), c.clone());
+            ea.sort_unstable();
+            eb.sort_unstable();
+            ec.sort_unstable();
+            devour_sort(&mut a);
+            devour_sort(&mut b);
+            devour_sort(&mut c);
+            assert!(a == ea && b == eb && c == ec, "n {} span {} outlier {}", n, span, outlier);
+        }
+    }
+}
