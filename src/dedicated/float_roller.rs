@@ -14,7 +14,7 @@
 //! - the leaves use the fused LSD (multi-lane histograms, 11-bit digits,
 //!   4-key scatter, cache-aliasing fix) with one scratch buffer reused for
 //!   every leaf, instead of a generic DLSD that allocates each time;
-//! - no Verge pass of its own (done once by `float_sort`).
+//! - no Verge pass of its own (done once by `ravenous_sort`).
 //!
 //! Memory: the array plus one leaf-sized scratch buffer (the MSD passes are
 //! in place), against twice the array for the LSD.

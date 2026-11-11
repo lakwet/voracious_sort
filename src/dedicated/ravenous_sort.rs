@@ -1,4 +1,4 @@
-//! # Float sort
+//! # Ravenous sort
 //!
 //! Dedicated radix sort for `f32` and `f64`.
 //!
@@ -79,28 +79,28 @@ mod sealed {
     impl Sealed for f64 {}
 }
 
-/// Float types sortable by [`float_sort`].
-pub trait FloatSort: sealed::Sealed + Copy + PartialOrd {
+/// Float types sortable by [`ravenous_sort`].
+pub trait RavenousSort: sealed::Sealed + Copy + PartialOrd {
     #[doc(hidden)]
-    fn float_sort_impl(arr: &mut [Self]);
+    fn ravenous_sort_impl(arr: &mut [Self]);
 }
 
-/// # Float sort
+/// # Ravenous sort
 ///
 /// Sorts `f32` or `f64` slices in [`f64::total_cmp`] order, with a dedicated
 /// radix sort (the float to integer conversion is fused into the first and
 /// last radix passes).
 ///
 /// ```
-/// use voracious_radix_sort::float_sort;
+/// use voracious_radix_sort::ravenous_sort;
 ///
 /// let mut v = vec![1.5f64, -0.5, 3.0, -2.25];
-/// float_sort(&mut v);
+/// ravenous_sort(&mut v);
 /// assert_eq!(v, vec![-2.25, -0.5, 1.5, 3.0]);
 /// ```
 #[inline]
-pub fn float_sort<T: FloatSort>(arr: &mut [T]) {
-    T::float_sort_impl(arr);
+pub fn ravenous_sort<T: RavenousSort>(arr: &mut [T]) {
+    T::ravenous_sort_impl(arr);
 }
 
 macro_rules! float_width {
@@ -144,21 +144,21 @@ macro_rules! float_width {
 float_width!(f32, u32, i32, bits32, encode32, decode32, small32);
 float_width!(f64, u64, i64, bits64, encode64, decode64, small64);
 
-impl FloatSort for f32 {
+impl RavenousSort for f32 {
     #[inline]
-    fn float_sort_impl(arr: &mut [f32]) {
+    fn ravenous_sort_impl(arr: &mut [f32]) {
         // Shortest arrays first: no other step pays off there.
         if arr.len() <= NETWORK_MAX {
             network_sort(bits32(arr), encode32, decode32);
             return;
         }
-        float_sort_f32_rest(arr);
+        ravenous_sort_f32_rest(arr);
     }
 }
 
 /// f32 arrays longer than `NETWORK_MAX`: detectors, small path, radix path.
 #[inline(never)]
-fn float_sort_f32_rest(arr: &mut [f32]) {
+fn ravenous_sort_f32_rest(arr: &mut [f32]) {
     if detect32(arr) {
         return;
     }
@@ -173,24 +173,24 @@ fn float_sort_f32_rest(arr: &mut [f32]) {
         small32(bits32(arr));
         return;
     }
-    float_sort_f32_radix(arr);
+    ravenous_sort_f32_radix(arr);
 }
 
-impl FloatSort for f64 {
+impl RavenousSort for f64 {
     #[inline]
-    fn float_sort_impl(arr: &mut [f64]) {
+    fn ravenous_sort_impl(arr: &mut [f64]) {
         // Shortest arrays first: no other step pays off there.
         if arr.len() <= NETWORK_MAX {
             network_sort(bits64(arr), encode64, decode64);
             return;
         }
-        float_sort_f64_rest(arr);
+        ravenous_sort_f64_rest(arr);
     }
 }
 
 /// f64 arrays longer than `NETWORK_MAX`: detectors, small path, radix path.
 #[inline(never)]
-fn float_sort_f64_rest(arr: &mut [f64]) {
+fn ravenous_sort_f64_rest(arr: &mut [f64]) {
     if detect64(arr) {
         return;
     }
@@ -205,7 +205,7 @@ fn float_sort_f64_rest(arr: &mut [f64]) {
         small64(bits64(arr));
         return;
     }
-    float_sort_f64_radix(arr);
+    ravenous_sort_f64_radix(arr);
 }
 
 /// Radix path shared by f32 and f64: repair of nearly sorted arrays, else
@@ -287,7 +287,7 @@ pub(crate) static VERGE_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic
 pub(crate) static VERGE_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
-pub(crate) fn float_sort_f32_radix(arr: &mut [f32]) {
+pub(crate) fn ravenous_sort_f32_radix(arr: &mut [f32]) {
     radix_path(arr, &few32, &|s: &mut [f32]| {
         #[cfg(test)]
         match F32_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
@@ -370,7 +370,7 @@ fn unpredictable_merges<T: Copy + PartialOrd>(
 
 /// f32 radix path with a forced digit layout (tests).
 #[cfg(test)]
-pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
+pub(crate) fn ravenous_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
         w32::lsd_mode(bits32(chunk), mode)
     });
@@ -379,7 +379,7 @@ pub(crate) fn float_sort_f32_radix_mode(arr: &mut [f32], mode: Digits) {
 
 /// f64 radix path (see `radix_path`): the DLSD sorts the chunks (one scratch
 /// buffer for all of them), the float rollercoaster the large ones.
-pub(crate) fn float_sort_f64_radix(arr: &mut [f64]) {
+pub(crate) fn ravenous_sort_f64_radix(arr: &mut [f64]) {
     let scratch = std::cell::RefCell::new(Vec::new());
     radix_path(arr, &few64, &|s: &mut [f64]| {
         #[cfg(test)]
@@ -414,7 +414,7 @@ pub(crate) static F64_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::at
 
 /// f64 radix path with a forced digit layout, fused LSD only (tests).
 #[cfg(test)]
-pub(crate) fn float_sort_f64_radix_mode(arr: &mut [f64], mode: Digits) {
+pub(crate) fn ravenous_sort_f64_radix_mode(arr: &mut [f64], mode: Digits) {
     let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f64], _| {
         w64::lsd_mode(bits64(chunk), mode)
     });

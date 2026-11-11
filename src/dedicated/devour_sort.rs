@@ -1,14 +1,14 @@
 //! # Int sort
 //!
 //! Dedicated radix sort for `u32`, `u64`, `i32` and `i64`, built on the
-//! engines of [`float_sort`](super::float_sort) with an integer key map
+//! engines of [`ravenous_sort`](super::ravenous_sort) with an integer key map
 //! (identity for unsigned integers, flipped sign bit for signed ones):
 //!
 //! 0. at most 32 keys: a sorting network (`small_sort`); up to 64 keys:
 //!    blocks of 32 and a merge;
 //! 1. constant array check;
 //! 2. small arrays: `sort_unstable`;
-//! 3. radix path (shared with `float_sort`): repair of nearly sorted
+//! 3. radix path (shared with `ravenous_sort`): repair of nearly sorted
 //!    arrays; narrow range (at most 2^16 integers, sorted by counting);
 //!    few distinct values (at most 256, counted in a hash table);
 //!    Verge pre-processing and merge-vs-radix rule; the chunks are sorted
@@ -25,7 +25,7 @@ use super::float_lsd::{wi32, wi64, wu32, wu64};
 use super::float_lsd::{wi16, wi8, wu16, wu8};
 use super::float_roller::{ri32, ri64, ru32, ru64};
 use super::cache_info::l2_bytes;
-use super::float_sort::radix_path;
+use super::ravenous_sort::radix_path;
 use super::small_sort::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 
 /// Up to these sizes, `sort_unstable`: where the median over the

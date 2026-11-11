@@ -7,5 +7,5 @@ pub(crate) mod float_dlsd;
 pub(crate) mod float_lsd;
 pub(crate) mod float_roller;
 pub(crate) mod small_sort;
-pub mod float_sort;
+pub mod ravenous_sort;
 pub mod devour_sort;

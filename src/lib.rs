@@ -431,6 +431,6 @@ pub use sorts::peeka_sort::peeka_sort;
 
 pub use dedicated::cs_u16::cs_u16;
 pub use dedicated::devour_sort::{devour_sort, DevourSort};
-pub use dedicated::float_sort::{float_sort, FloatSort};
 pub use dedicated::lsd_f32::lsd_f32;
 pub use dedicated::lsd_u32::lsd_u32;
+pub use dedicated::ravenous_sort::{ravenous_sort, RavenousSort};

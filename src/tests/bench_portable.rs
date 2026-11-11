@@ -1,4 +1,4 @@
-//! Portable benchmark of `float_sort`, meant to be run on several machines
+//! Portable benchmark of `ravenous_sort`, meant to be run on several machines
 //! (x86, ARM, Apple...) to check that what was tuned on one machine holds.
 //!
 //! Run it (release build, one test thread; ignored by a plain `cargo test`):
@@ -30,7 +30,7 @@
 //! `sort_unstable_by(total_cmp)`.
 //!
 //! Parts:
-//! - `sort`: `float_sort` against `sort_unstable_by(total_cmp)` (std),
+//! - `sort`: `ravenous_sort` against `sort_unstable_by(total_cmp)` (std),
 //!   `voracious_sort` (this crate's generic sort) and, for `f32`,
 //!   blazing-radix; integers: `devour_sort` against std, `voracious_sort` and
 //!   blazing-radix, on each type's generators plus the shared ones of
@@ -41,7 +41,7 @@
 //!   rollercoaster leaf size, the DLSD staged scatter, the fused LSD
 //!   cache-aliasing fix, the in-place permutation (ska swap or blocks). If
 //!   the best setting is the default one, the tuning holds on this machine.
-//! - `aa`: two identical variants of `float_sort`, to see the noise of the
+//! - `aa`: two identical variants of `ravenous_sort`, to see the noise of the
 //!   machine (any difference smaller than this is meaningless).
 //!
 //! Output: CSV files and `system.txt` in `BENCH_OUT`, summaries on stdout.
@@ -53,7 +53,7 @@ use super::super::dedicated::cache_info::{cache_info, L2_OVERRIDE};
 use super::super::dedicated::float_dlsd::{dlsd64, NO_STAGE};
 use super::super::dedicated::float_lsd::{w32, w64, NO_ALIAS_FIX};
 use super::super::dedicated::float_roller::{roller32, roller64, BLOCK_PERMUTE, LEAF_OVERRIDE};
-use super::super::dedicated::float_sort::float_sort;
+use super::super::dedicated::ravenous_sort::ravenous_sort;
 use super::super::generators::float_32::*;
 use super::super::generators::float_64::*;
 use super::super::generators::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
@@ -261,7 +261,7 @@ fn sort_part<T: Copy + PartialOrd>(
             line += &format!(" | {}/fs {:.2} (fs wins {}/{})", names[v], ratio, wins, rows.len());
         }
         println!("{}", line);
-        // Worst distributions: float_sort against the best other variant.
+        // Worst distributions: ravenous_sort against the best other variant.
         let mut worst: Vec<(f64, &str)> = rows
             .iter()
             .map(|r| {
@@ -361,19 +361,19 @@ fn knobs_part(cfg: &Config) {
         .zip(names.iter())
         .map(|(&l2, n)| {
             let o = if l2 == detected { 0 } else { l2 };
-            variant_with(n.as_str(), move || L2_OVERRIDE.store(o, Relaxed), |a: &mut [f64]| float_sort(a))
+            variant_with(n.as_str(), move || L2_OVERRIDE.store(o, Relaxed), |a: &mut [f64]| ravenous_sort(a))
         })
         .collect();
-    knob(cfg, &mut file, "L2 size (float_sort)", "f64", &g64, &[250_000, 1_000_000, 4_000_000], &v64, f64_bits, f64_cmp);
+    knob(cfg, &mut file, "L2 size (ravenous_sort)", "f64", &g64, &[250_000, 1_000_000, 4_000_000], &v64, f64_bits, f64_cmp);
     let v32: Vec<Variant<f32>> = l2s
         .iter()
         .zip(names.iter())
         .map(|(&l2, n)| {
             let o = if l2 == detected { 0 } else { l2 };
-            variant_with(n.as_str(), move || L2_OVERRIDE.store(o, Relaxed), |a: &mut [f32]| float_sort(a))
+            variant_with(n.as_str(), move || L2_OVERRIDE.store(o, Relaxed), |a: &mut [f32]| ravenous_sort(a))
         })
         .collect();
-    knob(cfg, &mut file, "L2 size (float_sort)", "f32", &g32, &[1_000_000, 4_000_000], &v32, f32_bits, f32_cmp);
+    knob(cfg, &mut file, "L2 size (ravenous_sort)", "f32", &g32, &[1_000_000, 4_000_000], &v32, f32_bits, f32_cmp);
 
     // Rollercoaster leaf size (keys).
     let leaves = [32_768usize, 8_192, 16_384, 65_536, 131_072];
@@ -420,11 +420,11 @@ fn knobs_part(cfg: &Config) {
 }
 
 fn aa_part(cfg: &Config) {
-    println!("\n== A/A noise (two identical float_sort variants)");
+    println!("\n== A/A noise (two identical ravenous_sort variants)");
     let mut file = std::fs::File::create(cfg.out.join("aa.csv")).unwrap();
     writeln!(file, "type,gen,size,a,b").unwrap();
     let g64 = generators_f64();
-    let v: Vec<Variant<f64>> = vec![variant("A", |a: &mut [f64]| float_sort(a)), variant("B", |a: &mut [f64]| float_sort(a))];
+    let v: Vec<Variant<f64>> = vec![variant("A", |a: &mut [f64]| ravenous_sort(a)), variant("B", |a: &mut [f64]| ravenous_sort(a))];
     for &size in [10_000usize, 1_000_000].iter().filter(|&&s| s <= cfg.max) {
         let rows = measure(cfg, &g64, size, &v, f64_bits, f64_cmp);
         if rows.is_empty() {
@@ -460,7 +460,7 @@ fn bench_portable() {
     let types: Vec<&str> = types.split(',').map(|t| t.trim()).collect();
     if parts.contains(&"sort") && types.contains(&"f64") {
         let v64: Vec<Variant<f64>> = vec![
-            variant("float_sort", |a: &mut [f64]| float_sort(a)),
+            variant("ravenous_sort", |a: &mut [f64]| ravenous_sort(a)),
             variant("std", |a: &mut [f64]| a.sort_unstable_by(|x, y| x.total_cmp(y))),
             variant("voracious", |a: &mut [f64]| a.voracious_sort()),
         ];
@@ -468,7 +468,7 @@ fn bench_portable() {
     }
     if parts.contains(&"sort") && types.contains(&"f32") {
         let v32: Vec<Variant<f32>> = vec![
-            variant("float_sort", |a: &mut [f32]| float_sort(a)),
+            variant("ravenous_sort", |a: &mut [f32]| ravenous_sort(a)),
             variant("std", |a: &mut [f32]| a.sort_unstable_by(|x, y| x.total_cmp(y))),
             variant("voracious", |a: &mut [f32]| a.voracious_sort()),
             variant("blazing", |a: &mut [f32]| blazing_radix::radix_sort::<f32>(a)),

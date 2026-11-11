@@ -29,10 +29,10 @@ fn test_ded_sort_counting_sort_u16() {
     }
 }
 
-use super::super::dedicated::float_sort::float_sort;
+use super::super::dedicated::ravenous_sort::ravenous_sort;
 use super::super::generators::float_64::*;
 
-/// float_sort must give exactly (bit for bit) the `total_cmp` order.
+/// ravenous_sort must give exactly (bit for bit) the `total_cmp` order.
 fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
     for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 350, 351, 600, 601, 5_000, 8_191, 8_192, 100_000, 1_048_575, 1_048_576].iter() {
         for (gen, name) in generators_f32().iter() {
@@ -62,20 +62,20 @@ fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
 }
 
 #[test]
-fn test_ded_float_sort_f32() {
-    check_total_order_f32(&|a| float_sort(a));
+fn test_ded_ravenous_sort_f32() {
+    check_total_order_f32(&|a| ravenous_sort(a));
 }
 
 #[test]
-fn test_ded_float_sort_f64() {
-    check_total_order_f64(&|a| float_sort(a));
+fn test_ded_ravenous_sort_f64() {
+    check_total_order_f64(&|a| ravenous_sort(a));
 }
 
 /// Special values: signed zeros, infinities, subnormals (no NaN: not
 /// supported yet). `-0.0 == +0.0` for `<`, so the check is "sorted for
 /// `partial_cmp` + same multiset of bits", not a bitwise `total_cmp` order.
 #[test]
-fn test_ded_float_sort_special_values() {
+fn test_ded_ravenous_sort_special_values() {
     let base_f64 = [
         0.0f64, -0.0, f64::INFINITY, f64::NEG_INFINITY, f64::MIN_POSITIVE, -f64::MIN_POSITIVE,
         f64::from_bits(1), f64::from_bits(1) * -1.0, f64::MAX, f64::MIN, 1.0, -1.0,
@@ -89,7 +89,7 @@ fn test_ded_float_sort_special_values() {
             .collect();
         let mut expected: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
         expected.sort_unstable();
-        float_sort(&mut arr);
+        ravenous_sort(&mut arr);
         assert!(arr.windows(2).all(|w| w[0] <= w[1]), "special f64 size {} not sorted", size);
         let mut a: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
         a.sort_unstable();
@@ -100,7 +100,7 @@ fn test_ded_float_sort_special_values() {
             .collect();
         let mut expected32: Vec<u32> = arr32.iter().map(|x| x.to_bits()).collect();
         expected32.sort_unstable();
-        float_sort(&mut arr32);
+        ravenous_sort(&mut arr32);
         assert!(arr32.windows(2).all(|w| w[0] <= w[1]), "special f32 size {} not sorted", size);
         let mut a: Vec<u32> = arr32.iter().map(|x| x.to_bits()).collect();
         a.sort_unstable();
@@ -111,13 +111,13 @@ fn test_ded_float_sort_special_values() {
 /// Low-cardinality detectors: integer ranges, grids, few values, with late
 /// outliers, signed zeros and negative values, around the size limits.
 #[test]
-fn test_ded_float_sort_detectors() {
+fn test_ded_ravenous_sort_detectors() {
     // Flush the detector lane counters often, to exercise the flush.
     crate::dedicated::float_detect::FLUSH_OVERRIDE.store(4096, std::sync::atomic::Ordering::Relaxed);
     fn check64(mut arr: Vec<f64>, what: &str) {
         let mut expected: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
         expected.sort_unstable();
-        float_sort(&mut arr);
+        ravenous_sort(&mut arr);
         assert!(arr.windows(2).all(|w| w[0] <= w[1]), "{} {} not sorted", what, arr.len());
         let mut got: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
         got.sort_unstable();
@@ -126,7 +126,7 @@ fn test_ded_float_sort_detectors() {
         let mut a32: Vec<f32> = arr.iter().map(|&x| x as f32).collect();
         let mut e32: Vec<u32> = a32.iter().map(|x| x.to_bits()).collect();
         e32.sort_unstable();
-        float_sort(&mut a32);
+        ravenous_sort(&mut a32);
         assert!(a32.windows(2).all(|w| w[0] <= w[1]), "{} {} f32 not sorted", what, a32.len());
         let mut g32: Vec<u32> = a32.iter().map(|x| x.to_bits()).collect();
         g32.sort_unstable();
@@ -176,10 +176,10 @@ fn test_ded_float_sort_detectors() {
 #[test]
 fn test_ded_float_lsd_layouts() {
     use super::super::dedicated::float_lsd::Digits;
-    use super::super::dedicated::float_sort::{float_sort_f32_radix_mode, float_sort_f64_radix_mode};
+    use super::super::dedicated::ravenous_sort::{ravenous_sort_f32_radix_mode, ravenous_sort_f64_radix_mode};
     for mode in [Digits::Auto, Digits::Bytes, Digits::Wide] {
-        check_total_order_f32(&|a| float_sort_f32_radix_mode(a, mode));
-        check_total_order_f64(&|a| float_sort_f64_radix_mode(a, mode));
+        check_total_order_f32(&|a| ravenous_sort_f32_radix_mode(a, mode));
+        check_total_order_f64(&|a| ravenous_sort_f64_radix_mode(a, mode));
     }
 }
 
@@ -204,7 +204,7 @@ fn test_ded_float_lsd_profile() {
 /// Integer-valued floats make bucket starts alias in the cache: the staged
 /// scatter is used for those passes. Check the result on such data.
 #[test]
-fn test_ded_float_sort_aliased_buckets() {
+fn test_ded_ravenous_sort_aliased_buckets() {
     for &n in [100_003usize, 1_000_003].iter() {
         let teeth: Vec<f32> = (0..n).map(|i| (i % (n / 4)) as f32).collect();
         let saw = helper_random_array_asc_sawtooth_f32(n);
@@ -213,13 +213,13 @@ fn test_ded_float_sort_aliased_buckets() {
             let mut a = v.clone();
             let mut e = v.clone();
             e.sort_unstable_by(|x, y| x.total_cmp(y));
-            float_sort(&mut a);
+            ravenous_sort(&mut a);
             assert!(a.iter().map(|x| x.to_bits()).eq(e.iter().map(|x| x.to_bits())), "f32 {}", n);
         }
         let mut a = ints.clone();
         let mut e = ints.clone();
         e.sort_unstable_by(|x, y| x.total_cmp(y));
-        float_sort(&mut a);
+        ravenous_sort(&mut a);
         assert!(a.iter().map(|x| x.to_bits()).eq(e.iter().map(|x| x.to_bits())), "f64 {}", n);
     }
 }
@@ -227,32 +227,32 @@ fn test_ded_float_sort_aliased_buckets() {
 /// Small arrays (sorting networks up to 32): every length up to 40, every
 /// generator, plus special values (signed zeros, infinities, NaN bits).
 #[test]
-fn test_ded_float_sort_tiny() {
+fn test_ded_ravenous_sort_tiny() {
     for size in 0..=40usize {
         for (gen, name) in generators_f64().iter() {
             let mut arr = gen(size);
             let mut expected = arr.clone();
             expected.sort_unstable_by(|a, b| a.total_cmp(b));
-            float_sort(&mut arr);
+            ravenous_sort(&mut arr);
             assert!(arr.iter().map(|x| x.to_bits()).eq(expected.iter().map(|x| x.to_bits())), "f64 {} size {}", name, size);
         }
         for (gen, name) in generators_f32().iter() {
             let mut arr = gen(size);
             let mut expected = arr.clone();
             expected.sort_unstable_by(|a, b| a.total_cmp(b));
-            float_sort(&mut arr);
+            ravenous_sort(&mut arr);
             assert!(arr.iter().map(|x| x.to_bits()).eq(expected.iter().map(|x| x.to_bits())), "f32 {} size {}", name, size);
         }
         let specials = [0.0f64, -0.0, 1.0, -1.0, f64::INFINITY, f64::NEG_INFINITY, f64::MAX, f64::MIN, 1e-310, -1e-310, 2.5];
         let mut arr: Vec<f64> = (0..size).map(|i| specials[(i * 7) % specials.len()]).collect();
         let mut expected = arr.clone();
         expected.sort_unstable_by(|a, b| a.total_cmp(b));
-        float_sort(&mut arr);
+        ravenous_sort(&mut arr);
         assert!(arr.iter().map(|x| x.to_bits()).eq(expected.iter().map(|x| x.to_bits())), "f64 specials size {}", size);
         let mut arr32: Vec<f32> = arr.iter().map(|&x| x as f32).collect();
         let mut expected32 = arr32.clone();
         expected32.sort_unstable_by(|a, b| a.total_cmp(b));
-        float_sort(&mut arr32);
+        ravenous_sort(&mut arr32);
         assert!(arr32.iter().map(|x| x.to_bits()).eq(expected32.iter().map(|x| x.to_bits())), "f32 specials size {}", size);
     }
 }
@@ -333,7 +333,7 @@ fn test_ded_devour_sort_window() {
 #[test]
 fn test_ded_skip_verge_exact() {
     use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
-    use super::super::dedicated::float_sort::skip_verge;
+    use super::super::dedicated::ravenous_sort::skip_verge;
     fn check<T: Copy + PartialOrd + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, ty: &str) {
         let mut skipped = 0;
         let mut total = 0;

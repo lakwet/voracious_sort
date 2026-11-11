@@ -1,4 +1,4 @@
-//! Low-cardinality detectors for [`float_sort`](super::float_sort), adapted
+//! Low-cardinality detectors for [`ravenous_sort`](super::ravenous_sort), adapted
 //! from blazing-radix (MIT License, Copyright (c) 2026 Max Tikhomirov):
 //!
 //! - integer-valued floats spanning at most 256 integers,
