@@ -17,7 +17,8 @@
 //! - `BENCH_TYPES`: types of the `sort` and `aa` parts among `f64`, `f32`,
 //!   `u32`, `u64`, `i32`, `i64`, `u8`, `i8`, `u16`, `i16`, `char` (all by
 //!   default);
-//! - `BENCH_MAX`: largest array size (default 10_000_000);
+//! - `BENCH_MAX`: largest array size (default 10_000_000; sizes 1k, 10k, 30k,
+//!   50k, 100k, 200k, 600k, 1M, 3M, 10M);
 //! - `BENCH_MEM_MB`: memory budget of one measurement in MiB (default 2048);
 //! - `BENCH_REPS`: minimum repetitions per measurement, the median is kept
 //!   (default 5);
@@ -268,7 +269,7 @@ fn system_info(cfg: &Config) -> String {
     )
 }
 
-const SIZES: [usize; 6] = [1_000, 10_000, 100_000, 1_000_000, 3_000_000, 10_000_000];
+const SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000];
 
 fn sort_part<T: Copy + PartialOrd>(
     cfg: &Config,
