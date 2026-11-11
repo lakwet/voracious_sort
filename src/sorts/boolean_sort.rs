@@ -1,62 +1,62 @@
-// use super::super::{RadixKey, Radixable};
+/// Bytes summed per lane before the 8-bit lanes are flushed (255 ones at
+/// most per lane).
+const LANES: usize = 32;
+const ROUNDS: usize = 255;
 
+/// Number of `true` among `bytes[..n]` and of descents (`true` followed by
+/// `false`) among the pairs `(bytes[i], bytes[i + 1])`, in one pass: the
+/// bytes (0 or 1) are added into 32 lanes of 8-bit counters, flushed every
+/// 255 rounds, which the compiler vectorizes.
 #[inline]
-fn boolean_sort_aux(arr: &mut [bool], shift: usize, count: usize, value: bool) {
-    let quotient = count / 4;
-    let remainder = count % 4;
-    for q in 0..quotient {
-        unsafe {
-            let i = shift + (q * 4);
-            *arr.get_unchecked_mut(i) = value;
-            *arr.get_unchecked_mut(i + 1) = value;
-            *arr.get_unchecked_mut(i + 2) = value;
-            *arr.get_unchecked_mut(i + 3) = value;
+fn count(bytes: &[u8]) -> (usize, usize) {
+    let n = bytes.len();
+    let (a, b) = (&bytes[..n - 1], &bytes[1..]);
+    let (mut ones, mut descents) = (0usize, 0usize);
+    let mut ca = a.chunks_exact(LANES);
+    let mut cb = b.chunks_exact(LANES);
+    loop {
+        let mut acc_one = [0u8; LANES];
+        let mut acc_desc = [0u8; LANES];
+        let mut rounds = 0;
+        while rounds < ROUNDS {
+            let (Some(x), Some(y)) = (ca.next(), cb.next()) else { break };
+            for k in 0..LANES {
+                acc_one[k] += x[k];
+                acc_desc[k] += x[k] & (y[k] ^ 1);
+            }
+            rounds += 1;
+        }
+        ones += acc_one.iter().map(|&v| v as usize).sum::<usize>();
+        descents += acc_desc.iter().map(|&v| v as usize).sum::<usize>();
+        if rounds < ROUNDS {
+            break;
         }
     }
-    let offset = quotient * 4;
-    for i in 0..remainder {
-        unsafe {
-            *arr.get_unchecked_mut(shift + offset + i) = value;
-        }
+    for (&x, &y) in ca.remainder().iter().zip(cb.remainder()) {
+        ones += x as usize;
+        descents += (x & (y ^ 1)) as usize;
     }
+    (ones + bytes[n - 1] as usize, descents)
 }
 
 /// # Boolean sort
 ///
-/// A dedicated sort for boolean.
+/// A dedicated sort for booleans: one vectorized pass counts the `true`
+/// values and the descents (`true` before `false`); a sorted array (no
+/// descent) is left untouched, otherwise the array is rewritten with two
+/// fills (`false` then `true`).
 pub fn boolean_sort(arr: &mut [bool]) {
-    let mut count_false = 0;
-
-    let quotient = arr.len() / 4;
-    let remainder = arr.len() % 4;
-
-    for q in 0..quotient {
-        unsafe {
-            let i = q * 4;
-            let b0 = arr.get_unchecked(i);
-            let b1 = arr.get_unchecked(i + 1);
-            let b2 = arr.get_unchecked(i + 2);
-            let b3 = arr.get_unchecked(i + 3);
-            count_false += if !b0 { 1 } else { 0 };
-            count_false += if !b1 { 1 } else { 0 };
-            count_false += if !b2 { 1 } else { 0 };
-            count_false += if !b3 { 1 } else { 0 };
-        }
-    }
-
-    let offset = quotient * 4;
-    for i in 0..remainder {
-        unsafe {
-            if !arr.get_unchecked(offset + i) {
-                count_false += 1;
-            }
-        }
-    }
-
-    if count_false == arr.len() || count_false == 0 {
+    let n = arr.len();
+    if n < 2 {
         return;
     }
-
-    boolean_sort_aux(arr, 0, count_false, false);
-    boolean_sort_aux(arr, count_false, arr.len() - count_false, true);
+    // SAFETY: a `bool` is one byte holding 0 or 1.
+    let bytes = unsafe { std::slice::from_raw_parts(arr.as_ptr() as *const u8, n) };
+    let (trues, descents) = count(bytes);
+    if descents == 0 {
+        return;
+    }
+    let falses = n - trues;
+    arr[..falses].fill(false);
+    arr[falses..].fill(true);
 }

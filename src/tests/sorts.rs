@@ -75,6 +75,25 @@ fn test_sort_boolean_sort() {
     }
 }
 
+/// Every length up to 300 and lengths around the counting blocks (32 bytes,
+/// 32 x 255 bytes), on every generator: same result as `sort_unstable`.
+#[test]
+fn test_sort_boolean_sort_lengths() {
+    let mut sizes: Vec<usize> = (0..300).collect();
+    for &base in &[32usize * 255, 2 * 32 * 255, 100_000] {
+        sizes.extend(base - 2..base + 3);
+    }
+    for &size in &sizes {
+        for (gen, name) in generators_bool().iter() {
+            let mut a = gen(size);
+            let mut e = a.clone();
+            e.sort_unstable();
+            boolean_sort(&mut a);
+            assert!(a == e, "{} {}", name, size);
+        }
+    }
+}
+
 #[test]
 fn test_sort_counting_sort() {
     for size in [0, 1, 10_000].iter() {
