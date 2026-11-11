@@ -713,3 +713,12 @@ fn test_ded_devour_sort2() {
     check(generators_i8(), extra_i8::generators(), &[0i8, -1, i8::MIN, i8::MAX], "i8");
     check(generators_char(), extra_char::generators(), &['\0', 'a', '\u{10FFFF}', '\u{D7FF}', '\u{E000}'], "char");
 }
+
+/// `ravenous_sort2` (algorithmic work copy): bit for bit `total_cmp` order,
+/// same sizes as `ravenous_sort`.
+#[test]
+fn test_ded_ravenous_sort2() {
+    use super::super::dedicated::ravenous_sort2::ravenous_sort2;
+    check_total_order_f32(&|a| ravenous_sort2(a));
+    check_total_order_f64(&|a| ravenous_sort2(a));
+}
