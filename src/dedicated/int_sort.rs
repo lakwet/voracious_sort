@@ -180,21 +180,71 @@ macro_rules! int_width {
             }
             let limit = RANGE_MAX.min(n / RANGE_KEYS_PER_COUNTER) as u64;
             // Whole domain within the limit (8- and 16-bit keys): direct count.
-            if n <= u32::MAX as usize && (<$uint>::MAX as u64) < limit {
+            let domain = n <= u32::MAX as usize && (<$uint>::MAX as u64) < limit;
+            // From 8 keys per domain counter on, the whole table is cheap
+            // against the keys: counted directly.
+            if domain && n as u64 >= (<$uint>::MAX as u64).saturating_add(1).saturating_mul(8) {
                 domain_count(bits_of(values), $encode, $decode);
                 return true;
             }
             let (mut lo, mut hi) = (values[0], values[0]);
+            // Same sample, keys rotated by half the domain (top encoded bit
+            // flipped): a range wrapping around the end of the domain
+            // (small values and values just below the maximum, e.g. signed
+            // offsets stored unsigned) becomes contiguous.
+            let rot = |v: $t| $encode(v as $uint) ^ ((1 as $uint) << (<$uint>::BITS - 1));
+            let (mut rlo, mut rhi) = (values[0], values[0]);
             for i in 0..RANGE_SAMPLE as u64 {
                 let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
                 let v = values[pos as usize];
                 lo = lo.min(v);
                 hi = hi.max(v);
+                if rot(v) < rot(rlo) {
+                    rlo = v;
+                }
+                if rot(v) > rot(rhi) {
+                    rhi = v;
+                }
+            }
+            if domain {
+                // Very narrow sample range (in either order): a window of
+                // at most 1/32 of the domain table, the whole domain when
+                // keys fall outside it (u16 at 131k-300k: 16 values 0.96
+                // to 0.48 ns per key, 0..255 0.70 to 0.44, values at both
+                // ends 0.67 to 0.37-0.44).
+                let span = (hi as i128 - lo as i128) as u64 + 1;
+                let rspan = (rot(rhi) - rot(rlo)) as u64 + 1;
+                let tiny = limit / 64;
+                if span <= tiny && window_count(bits_of(values), lo as $uint, hi as $uint, limit as usize, $encode, $decode) {
+                    return true;
+                }
+                if span > tiny && rspan <= tiny && wrapped_count(values, rlo, rhi, limit as usize) {
+                    return true;
+                }
+                domain_count(bits_of(values), $encode, $decode);
+                return true;
             }
             if (hi as i128 - lo as i128) as u64 >= limit {
+                let rspan = (rot(rhi) - rot(rlo)) as u64 + 1;
+                if n <= u32::MAX as usize && 2 * rspan < limit {
+                    return wrapped_count(values, rlo, rhi, limit as usize);
+                }
                 return false;
             }
 
+            /// Window count on keys rotated by half the domain, written back
+            /// from the rotated value `TOP` on (the keys of the bottom half
+            /// of the encoded domain first, their true order).
+            fn wrapped_count(values: &mut [$t], rlo: $t, rhi: $t, limit: usize) -> bool {
+                const TOP: $uint = (1 as $uint) << (<$uint>::BITS - 1);
+                fn renc(k: $uint) -> $uint {
+                    $encode(k) ^ TOP
+                }
+                fn rdec(k: $uint) -> $uint {
+                    $decode(k ^ TOP)
+                }
+                window_count_split(bits_of(values), rlo as $uint, rhi as $uint, limit, renc, rdec, TOP as u64)
+            }
 
             let small = n <= u32::MAX as usize;
             // Sample range narrow against the limit: count in a window
@@ -464,6 +514,14 @@ fn all_equal<T: Copy + PartialEq>(arr: &[T], first: T) -> bool {
 /// increment of the same counter). At most 2^32 - 1 keys.
 #[inline]
 fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: fn(U) -> U, decode: fn(U) -> U) -> bool {
+    window_count_split(keys, lo, hi, limit, encode, decode, 0)
+}
+
+/// `window_count` writing the encoded values from `split` on first, then
+/// the ones below it (keys counted rotated by half the domain: written back
+/// in their true order, no rotation of the array afterwards).
+#[inline]
+fn window_count_split<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: fn(U) -> U, decode: fn(U) -> U, split: u64) -> bool {
     let n = keys.len();
     let (lo, hi) = (encode(lo).to_u64(), encode(hi).to_u64());
     let mut width = ((hi - lo + 1) as usize * 2).max(256).min(limit);
@@ -516,8 +574,10 @@ fn window_count<U: WindowKey>(keys: &mut [U], lo: U, hi: U, limit: usize, encode
         width = new_width;
         lanes = new_lanes;
     }
+    let cut = (split.saturating_sub(base) as usize).min(width);
     let mut start = 0;
-    for (d, &c) in counts[..width].iter().enumerate() {
+    for d in (cut..width).chain(0..cut) {
+        let c = counts[d];
         if c != 0 {
             let c = c as usize;
             fill_run(keys, start, c, decode(U::from_u64(base + d as u64)));

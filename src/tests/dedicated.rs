@@ -495,3 +495,38 @@ fn test_ded_int_sort_dense_outliers() {
         assert!(arr == expected, "char n {}", n);
     }
 }
+
+/// int_sort on a range wrapping around the end of the domain (values near
+/// the minimum and near the maximum of the encoded domain).
+#[test]
+fn test_ded_int_sort_wrapped_range() {
+    use rand::RngExt;
+    macro_rules! check {
+        ($t:ty) => {
+            let mut rng = rand::rng();
+            for &n in [129usize, 1000, 4096, 10_000, 100_000, 300_000].iter() {
+                for &low_pct in [0usize, 1, 50, 99, 100].iter() {
+                    let mut arr: Vec<$t> = (0..n)
+                        .map(|_| {
+                            let d = rng.random_range(0..300) as $t;
+                            if rng.random_range(0..100) < low_pct { <$t>::MIN.wrapping_add(d) } else { <$t>::MAX.wrapping_sub(d) }
+                        })
+                        .collect();
+                    if n > 1000 {
+                        arr[n * 95 / 100] = <$t>::MAX / 2;
+                    }
+                    let mut expected = arr.clone();
+                    expected.sort_unstable();
+                    crate::int_sort(&mut arr);
+                    assert!(arr == expected, "{} n {} low {}", stringify!($t), n, low_pct);
+                }
+            }
+        };
+    }
+    check!(u16);
+    check!(i16);
+    check!(u32);
+    check!(i32);
+    check!(u64);
+    check!(i64);
+}
