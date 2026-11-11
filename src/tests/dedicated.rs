@@ -450,3 +450,48 @@ fn test_ded_int_sort_narrow_types() {
     check(with(generators_i16(), extra_i16::generators()), &[0i16, 1, -1, i16::MIN, i16::MAX, i16::MIN + 1, -12345], "i16");
     check(with(generators_char(), extra_char::generators()), &['\0', 'a', 'é', '\u{D7FF}', '\u{E000}', '\u{FFFF}', '\u{10000}', char::MAX], "char");
 }
+
+/// int_sort dense range with outliers: most keys in a narrow window, a
+/// minority spread below and above (all widths, signed and unsigned).
+#[test]
+fn test_ded_int_sort_dense_outliers() {
+    use rand::RngExt;
+    macro_rules! check {
+        ($t:ty, $centre:expr) => {
+            let mut rng = rand::rng();
+            for &n in [4095usize, 4096, 10_000, 100_000, 300_000].iter() {
+                for &inside in [50usize, 60, 75, 90, 99].iter() {
+                    let mut arr: Vec<$t> = (0..n)
+                        .map(|_| {
+                            if rng.random_range(0..100) < inside {
+                                ($centre as $t).wrapping_add(rng.random_range(0..200) as $t)
+                            } else {
+                                rng.random::<$t>()
+                            }
+                        })
+                        .collect();
+                    let mut expected = arr.clone();
+                    expected.sort_unstable();
+                    crate::int_sort(&mut arr);
+                    assert!(arr == expected, "{} n {} inside {}", stringify!($t), n, inside);
+                }
+            }
+        };
+    }
+    check!(u16, 30_000u16);
+    check!(i16, -100i16);
+    check!(u32, 1_000_000u32);
+    check!(i32, -5_000i32);
+    check!(u64, u64::MAX - 1000);
+    check!(i64, i64::MIN + 10);
+    let mut rng = rand::rng();
+    for &n in [5_000usize, 100_000].iter() {
+        let mut arr: Vec<char> = (0..n)
+            .map(|_| if rng.random_range(0..10) < 9 { (b'a' + rng.random_range(0..26u8)) as char } else { rng.random::<char>() })
+            .collect();
+        let mut expected = arr.clone();
+        expected.sort_unstable();
+        crate::int_sort(&mut arr);
+        assert!(arr == expected, "char n {}", n);
+    }
+}

@@ -54,6 +54,8 @@ const RANGE_MAX: usize = 1 << 16;
 const RANGE_KEYS_PER_COUNTER: usize = 2;
 /// Sample keys checked before the full min / max pass.
 const RANGE_SAMPLE: usize = 64;
+/// Shortest array tried for a dense range with outliers.
+const DENSE_MIN: usize = 4096;
 /// Most distinct values counted, and the hash table size (at most half full).
 const FEW_MAX: usize = 256;
 const FEW_TABLE_BITS: u32 = 9;
@@ -96,7 +98,7 @@ pub fn int_sort<T: IntSort>(arr: &mut [T]) {
 }
 
 macro_rules! int_width {
-    ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $alt_chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident) => {
+    ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $alt_chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident, $dense:ident) => {
         impl IntSort for $t {
             #[inline]
             fn int_sort_impl(arr: &mut [$t]) {
@@ -145,7 +147,7 @@ macro_rules! int_width {
                 return;
             }
             let scratch = std::cell::RefCell::new(Vec::new());
-            radix_path(arr, &|a: &mut [$t]| $range(a) || $few(a), &|s: &mut [$t]| {
+            radix_path(arr, &|a: &mut [$t]| $range(a) || $few(a) || $dense(a), &|s: &mut [$t]| {
                 #[cfg(test)]
                 match INT_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
                     1 => return $chunk(bits_of(s), &mut scratch.borrow_mut()),
@@ -192,6 +194,8 @@ macro_rules! int_width {
             if (hi as i128 - lo as i128) as u64 >= limit {
                 return false;
             }
+
+
             let small = n <= u32::MAX as usize;
             // Sample range narrow against the limit: count in a window
             // around it, in one pass.
@@ -235,6 +239,75 @@ macro_rules! int_width {
                 }
             }
             debug_assert_eq!(start, n);
+            true
+        }
+
+        /// Most keys in a narrow range, a minority spread (text with a
+        /// few rare characters, sparse data, sensors with outliers): when
+        /// 3 / 4 of the sample fit in a window of half the counting
+        /// limit, a 3-way partition (below / inside / above), the inside
+        /// counted, the two minorities sorted recursively: nothing to
+        /// merge. Tried after the few-values count (cheaper when it
+        /// applies). Gives up (array permuted, unsorted) when less than
+        /// half the keys fall inside. Mixed text (85 % ASCII, 10 % Latin,
+        /// 3 % CJK, 2 % emoji): 3.0-4.2 to 1.1-2.4 ns per key.
+        fn $dense(values: &mut [$t]) -> bool {
+            let n = values.len();
+            if n < DENSE_MIN || n > u32::MAX as usize {
+                return false;
+            }
+            let limit = RANGE_MAX.min(n / RANGE_KEYS_PER_COUNTER) as u64;
+            let mut sample = [values[0]; RANGE_SAMPLE];
+            for i in 0..RANGE_SAMPLE as u64 {
+                let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
+                sample[i as usize] = values[pos as usize];
+            }
+            sample.sort_unstable();
+            let w = limit as i128 / 2;
+            let (mut best, mut bi, mut bj, mut j) = (0, 0, 0, 0);
+            for i in 0..RANGE_SAMPLE {
+                j = j.max(i);
+                while j + 1 < RANGE_SAMPLE && (sample[j + 1] as i128 - sample[i] as i128) < w {
+                    j += 1;
+                }
+                if j + 1 - i > best {
+                    best = j + 1 - i;
+                    bi = i;
+                    bj = j;
+                }
+            }
+            if 4 * best < 3 * RANGE_SAMPLE {
+                return false;
+            }
+            let (slo, shi) = (sample[bi] as i128, sample[bj] as i128);
+            let width = (2 * (shi - slo + 1)).max(256).min(limit as i128);
+            let lo = (slo - (width - (shi - slo + 1)) / 2).max(<$t>::MIN as i128);
+            let hi = (lo + width - 1).min(<$t>::MAX as i128);
+            let (lo, hi) = (lo as $t, hi as $t);
+            // 3-way partition, [0, a) below, [a, i) inside, [b, n) above
+            // (branches: the inside keys are the predicted majority; a
+            // branch-free split into a buffer was slower, 1.3 to 2.2 ns
+            // per key on mixed text at 1M).
+            let (mut a, mut i, mut b) = (0, 0, n);
+            while i < b {
+                let v = values[i];
+                if v < lo {
+                    values.swap(a, i);
+                    a += 1;
+                    i += 1;
+                } else if v > hi {
+                    b -= 1;
+                    values.swap(i, b);
+                } else {
+                    i += 1;
+                }
+            }
+            if 2 * (b - a) < n {
+                return false;
+            }
+            exact_count(bits_of(&mut values[a..b]), $encode(lo as $uint), (hi as i128 - lo as i128 + 1) as usize, $encode, $decode);
+            <$t as IntSort>::int_sort_impl(&mut values[..a]);
+            <$t as IntSort>::int_sort_impl(&mut values[b..]);
             true
         }
 
@@ -857,17 +930,17 @@ fn flip64(k: u64) -> u64 {
     k ^ (1 << 63)
 }
 
-int_width!(u32, u32, id32, id32, SMALL_U32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wu32::lsd(b), du32::dlsd_with, ru32::roller, rest_u32, few_u32, range_u32);
-int_width!(i32, u32, flip32, flip32, SMALL_I32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), di32::dlsd_with, ri32::roller, rest_i32, few_i32, range_i32);
-int_width!(u64, u64, id64, id64, SMALL_U64, roller_int64, du64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wu64::lsd(b), ru64::roller, rest_u64, few_u64, range_u64);
-int_width!(i64, u64, flip64, flip64, SMALL_I64, roller_int64, di64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wi64::lsd(b), ri64::roller, rest_i64, few_i64, range_i64);
+int_width!(u32, u32, id32, id32, SMALL_U32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wu32::lsd(b), du32::dlsd_with, ru32::roller, rest_u32, few_u32, range_u32, dense_u32);
+int_width!(i32, u32, flip32, flip32, SMALL_I32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), di32::dlsd_with, ri32::roller, rest_i32, few_i32, range_i32, dense_i32);
+int_width!(u64, u64, id64, id64, SMALL_U64, roller_int64, du64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wu64::lsd(b), ru64::roller, rest_u64, few_u64, range_u64, dense_u64);
+int_width!(i64, u64, flip64, flip64, SMALL_I64, roller_int64, di64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wi64::lsd(b), ri64::roller, rest_i64, few_i64, range_i64, dense_i64);
 // 8- and 16-bit keys: from 2^16 keys the narrow-range counting always
 // applies (the whole domain is at most 2^16 integers); below, the fused LSD
 // on bytes (one or two passes).
-int_width!(u16, u16, id16, id16, SMALL_U16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), wu16::lsd, rest_u16, few_u16, range_u16);
-int_width!(i16, u16, flip16, flip16, SMALL_I16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), wi16::lsd, rest_i16, few_i16, range_i16);
-int_width!(u8, u8, id8, id8, SMALL_U8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), wu8::lsd, rest_u8, few_u8, range_u8);
-int_width!(i8, u8, flip8, flip8, SMALL_I8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), wi8::lsd, rest_i8, few_i8, range_i8);
+int_width!(u16, u16, id16, id16, SMALL_U16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), wu16::lsd, rest_u16, few_u16, range_u16, dense_u16);
+int_width!(i16, u16, flip16, flip16, SMALL_I16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), wi16::lsd, rest_i16, few_i16, range_i16, dense_i16);
+int_width!(u8, u8, id8, id8, SMALL_U8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), wu8::lsd, rest_u8, few_u8, range_u8, dense_u8);
+int_width!(i8, u8, flip8, flip8, SMALL_I8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), wi8::lsd, rest_i8, few_i8, range_i8, dense_i8);
 
 /// `char`: sorted as its code point (`u32`; the order of `char` is the
 /// order of the code points, and sorting permutes valid values only).
