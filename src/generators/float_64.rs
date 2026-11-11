@@ -82,6 +82,34 @@ pub fn helper_random_array_zipf_f64(size: usize) -> Vec<f64> {
     super::zipf(size, usize::MAX, || rand::rng().random::<f64>())
 }
 
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_f64(size: usize) -> Vec<f64> {
+    let mut array: Vec<f64> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut i = 0;
+    let mut value: f64 = 0.0;
+    while quantity > 2 {
+        value = rng.random();
+
+        for _ in 0..quantity {
+            array.push(value);
+            i += 1;
+        }
+
+        quantity = quantity / 2;
+    }
+    while i < size {
+        array.push(value);
+        i += 1;
+    }
+
+    array.as_mut_slice().shuffle(&mut rng);
+
+    array
+}
+
 fn helper_normal(size: usize, range: f64) -> Vec<f64> {
     let normal = Normal::new(0.0, range).unwrap();
     (0..size)
@@ -358,6 +386,7 @@ pub fn generators_f64(
         (&helper_random_array_desc_f64, "-- Desc       :"),
         (&helper_random_array_equal_f64, "-- Equal      :"),
         (&helper_random_array_zipf_f64, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_f64, "-- FakeZipf   :"),
         (&helper_random_array_almost_asc_f64, "-- Almost Asc :"),
         (&helper_random_array_almost_desc_f64, "-- Almost Desc:"),
         (&helper_random_array_asc_sawtooth_f64, "-- Asc Saw    :"),

@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
@@ -44,6 +45,34 @@ pub fn helper_random_array_alternating16_u32(size: usize) -> Vec<u32> {
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_u32(size: usize) -> Vec<u32> {
     super::zipf(size, usize::MAX, || rand::rng().random::<u32>())
+}
+
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_u32(size: usize) -> Vec<u32> {
+    let mut array: Vec<u32> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut i = 0;
+    let mut value: u32 = 0;
+    while quantity > 2 {
+        value = rng.random();
+
+        for _ in 0..quantity {
+            array.push(value);
+            i += 1;
+        }
+
+        quantity = quantity / 2;
+    }
+    while i < size {
+        array.push(value);
+        i += 1;
+    }
+
+    array.as_mut_slice().shuffle(&mut rng);
+
+    array
 }
 
 fn helper_small(size: usize, range: u32) -> Vec<u32> {
@@ -258,6 +287,7 @@ pub fn generators_u32(
         (&helper_random_array_allequals_u32, "-- Equal      :"),
         (&helper_random_array_alternating16_u32, "-- Alt16      :"),
         (&helper_random_array_zipf_u32, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_u32, "-- FakeZipf   :"),
         (&helper_random_array_almost_asc_u32, "-- Almost Asc :"),
         (&helper_random_array_almost_desc_u32, "-- Almost Desc:"),
         (&helper_random_array_asc_sawtooth_u32, "-- Asc Saw    :"),

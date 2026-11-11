@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
@@ -30,6 +31,34 @@ pub fn helper_random_array_zipf_u8(size: usize) -> Vec<u8> {
     super::zipf(size, 1 << 8, || rand::rng().random::<u8>())
 }
 
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_u8(size: usize) -> Vec<u8> {
+    let mut array: Vec<u8> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut i = 0;
+    let mut value: u8 = 0;
+    while quantity > 2 {
+        value = rng.random();
+
+        for _ in 0..quantity {
+            array.push(value);
+            i += 1;
+        }
+
+        quantity = quantity / 2;
+    }
+    while i < size {
+        array.push(value);
+        i += 1;
+    }
+
+    array.as_mut_slice().shuffle(&mut rng);
+
+    array
+}
+
 // Normale(0, 2^10)
 pub fn helper_random_array_normale_10_u8(size: usize) -> Vec<u8> {
     let normal = Normal::new(0.0, 1024.0).unwrap();
@@ -47,6 +76,7 @@ pub fn generators_u8() -> Vec<(&'static dyn Fn(usize) -> Vec<u8>, &'static str)>
         (&helper_random_array_desc_sawtooth_u8, "-- Desc Saw   :"),
         (&helper_random_array_allequals_u8, "-- Equal      :"),
         (&helper_random_array_zipf_u8, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_u8, "-- FakeZipf   :"),
         (&helper_random_array_normale_10_u8, "-- Normale 10 :"),
     ]
 }

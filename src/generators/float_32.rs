@@ -215,6 +215,27 @@ pub fn helper_random_array_zipf_f32(size: usize) -> Vec<f32> {
     super::zipf(size, usize::MAX, || rand::rng().random::<f32>())
 }
 
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_f32(size: usize) -> Vec<f32> {
+    let mut array: Vec<f32> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut value: f32 = 0.0;
+    while quantity > 2 {
+        value = rng.random();
+        for _ in 0..quantity {
+            array.push(value);
+        }
+        quantity /= 2;
+    }
+    while array.len() < size {
+        array.push(value);
+    }
+    array.as_mut_slice().shuffle(&mut rng);
+    array
+}
+
 // Integer-valued floats in a narrow range (ratings, ages, counters): 0..=100
 pub fn helper_random_array_int_narrow_f32(size: usize) -> Vec<f32> {
     (0..size)
@@ -335,6 +356,7 @@ pub fn generators_f32(
         (&helper_random_array_normale_20_f32, "-- Normale 20 :"),
         (&helper_random_array_normale_30_f32, "-- Normale 30 :"),
         (&helper_random_array_zipf_f32, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_f32, "-- FakeZipf   :"),
         (&helper_random_array_int_narrow_f32, "-- Int 0..100 :"),
         (&helper_random_array_int_wide_f32, "-- Int 0..n   :"),
         (&helper_random_array_grid_quarter_f32, "-- Grid 0.25  :"),

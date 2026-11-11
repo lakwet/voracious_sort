@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use rand::RngExt;
 use rayon::prelude::*;
 
@@ -40,6 +41,34 @@ pub fn helper_random_array_zipf_u16(size: usize) -> Vec<u16> {
     super::zipf(size, 1 << 16, || rand::rng().random::<u16>())
 }
 
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_u16(size: usize) -> Vec<u16> {
+    let mut array: Vec<u16> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut i = 0;
+    let mut value: u16 = 0;
+    while quantity > 2 {
+        value = rng.random();
+
+        for _ in 0..quantity {
+            array.push(value);
+            i += 1;
+        }
+
+        quantity = quantity / 2;
+    }
+    while i < size {
+        array.push(value);
+        i += 1;
+    }
+
+    array.as_mut_slice().shuffle(&mut rng);
+
+    array
+}
+
 pub fn generators_u16(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<u16>, &'static str)> {
     vec![
@@ -49,6 +78,7 @@ pub fn generators_u16(
         (&helper_random_array_desc_sawtooth_u16, "-- Desc Saw   :"),
         (&helper_random_array_allequals_u16, "-- Equal      :"),
         (&helper_random_array_zipf_u16, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_u16, "-- FakeZipf   :"),
     ]
 }
 

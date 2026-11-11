@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
@@ -58,6 +59,34 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_i32(size: usize) -> Vec<i32> {
     super::zipf(size, usize::MAX, || rand::rng().random::<i32>())
+}
+
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_i32(size: usize) -> Vec<i32> {
+    let mut array: Vec<i32> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut i = 0;
+    let mut value: i32 = 0;
+    while quantity > 2 {
+        value = rng.random();
+
+        for _ in 0..quantity {
+            array.push(value);
+            i += 1;
+        }
+
+        quantity = quantity / 2;
+    }
+    while i < size {
+        array.push(value);
+        i += 1;
+    }
+
+    array.as_mut_slice().shuffle(&mut rng);
+
+    array
 }
 
 // Sqrt
@@ -219,6 +248,7 @@ pub fn generators_i32(
         (&helper_random_array_allequals_i32, "-- Equal      :"),
         (&helper_random_array_alternating16_i32, "-- Alt16      :"),
         (&helper_random_array_zipf_i32, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_i32, "-- FakeZipf   :"),
         (&helper_random_array_almost_asc_i32, "-- Almost Asc :"),
         (&helper_random_array_almost_desc_i32, "-- Almost Desc:"),
         (&helper_random_array_asc_sawtooth_i32, "-- Asc Saw    :"),

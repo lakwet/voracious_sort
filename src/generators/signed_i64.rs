@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
@@ -106,6 +107,34 @@ pub fn helper_random_array_alternating16_i64(size: usize) -> Vec<i64> {
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_i64(size: usize) -> Vec<i64> {
     super::zipf(size, usize::MAX, || rand::rng().random::<i64>())
+}
+
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_i64(size: usize) -> Vec<i64> {
+    let mut array: Vec<i64> = Vec::with_capacity(size);
+    let mut rng = rand::rng();
+    let mut quantity = size / 2;
+    let mut i = 0;
+    let mut value: i64 = 0;
+    while quantity > 2 {
+        value = rng.random();
+
+        for _ in 0..quantity {
+            array.push(value);
+            i += 1;
+        }
+
+        quantity = quantity / 2;
+    }
+    while i < size {
+        array.push(value);
+        i += 1;
+    }
+
+    array.as_mut_slice().shuffle(&mut rng);
+
+    array
 }
 
 // Sqrt
@@ -289,6 +318,7 @@ pub fn generators_i64(
         (&helper_random_array_allequals_i64, "-- Equal      :"),
         (&helper_random_array_alternating16_i64, "-- Alt16      :"),
         (&helper_random_array_zipf_i64, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_i64, "-- FakeZipf   :"),
         (&helper_random_array_almost_asc_i64, "-- Almost Asc :"),
         (&helper_random_array_almost_desc_i64, "-- Almost Desc:"),
         (&helper_random_array_asc_sawtooth_i64, "-- Asc Saw    :"),
