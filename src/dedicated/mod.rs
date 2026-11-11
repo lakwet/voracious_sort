@@ -9,3 +9,5 @@ pub(crate) mod float_roller;
 pub(crate) mod small_sort;
 pub mod ravenous_sort;
 pub mod devour_sort;
+#[allow(dead_code)]
+pub(crate) mod devour_sort2;

@@ -666,3 +666,50 @@ fn test_ded_devour_sort_wide_count() {
         }
     }
 }
+
+/// `devour_sort2` (algorithmic work copy): same coverage as `devour_sort`,
+/// every type, every generator, every benchmark size and the thresholds.
+#[test]
+fn test_ded_devour_sort2() {
+    use super::super::dedicated::devour_sort2::{devour_sort2, DevourSort2};
+    use super::super::generators::char::generators_char;
+    use super::super::generators::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
+    use super::super::generators::narrow_extra::{extra_char, extra_i16, extra_i8, extra_u16, extra_u8};
+    use super::super::generators::signed_i16::generators_i16;
+    use super::super::generators::signed_i32::generators_i32;
+    use super::super::generators::signed_i64::generators_i64;
+    use super::super::generators::signed_i8::generators_i8;
+    use super::super::generators::unsigned_u16::generators_u16;
+    use super::super::generators::unsigned_u64::generators_u64;
+    use super::super::generators::unsigned_u8::generators_u8;
+    fn check<T: DevourSort2 + std::fmt::Debug>(mut gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extra: Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>, extremes: &[T], ty: &str) {
+        gens.extend(extra);
+        let sizes: Vec<usize> = (0..=70)
+            .chain([128, 129, 150, 151, 199, 200, 201, 255, 256, 257, 350, 351, 700, 701, 5_000, 65_535, 65_536, 131_072, 524_288, 1_048_576, 4_194_304].iter().copied())
+            .chain(BENCH_SIZES.iter().copied())
+            .collect();
+        for &size in sizes.iter() {
+            for (gen, name) in gens.iter() {
+                let mut arr = gen(size);
+                let mut expected = arr.clone();
+                expected.sort_unstable();
+                devour_sort2(&mut arr);
+                assert!(arr == expected, "{} {} size {}", ty, name, size);
+            }
+            let mut arr: Vec<T> = (0..size).map(|i| extremes[(i * 7919) % extremes.len()]).collect();
+            let mut expected = arr.clone();
+            expected.sort_unstable();
+            devour_sort2(&mut arr);
+            assert!(arr == expected, "{} extremes size {}", ty, size);
+        }
+    }
+    check(generators_u32(), extra_u32::generators(), &[0u32, 1, u32::MAX, u32::MAX - 1, 1 << 31, (1 << 31) - 1], "u32");
+    check(generators_u64(), extra_u64::generators(), &[0u64, 1, u64::MAX, u64::MAX - 1, 1 << 63, (1 << 32) - 1, 1 << 32], "u64");
+    check(generators_i32(), extra_i32::generators(), &[0i32, -1, 1, i32::MIN, i32::MAX], "i32");
+    check(generators_i64(), extra_i64::generators(), &[0i64, -1, 1, i64::MIN, i64::MAX, 1 << 32, -(1 << 32)], "i64");
+    check(generators_u16(), extra_u16::generators(), &[0u16, 1, u16::MAX], "u16");
+    check(generators_i16(), extra_i16::generators(), &[0i16, -1, i16::MIN, i16::MAX], "i16");
+    check(generators_u8(), extra_u8::generators(), &[0u8, 1, u8::MAX], "u8");
+    check(generators_i8(), extra_i8::generators(), &[0i8, -1, i8::MIN, i8::MAX], "i8");
+    check(generators_char(), extra_char::generators(), &['\0', 'a', '\u{10FFFF}', '\u{D7FF}', '\u{E000}'], "char");
+}
