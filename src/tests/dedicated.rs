@@ -562,3 +562,35 @@ fn test_ded_devour_sort_plateaus() {
     check!(u64);
     check!(i64);
 }
+
+/// Values at both ends of the domain (offset sort on rotated keys), with and
+/// without keys in the middle, every 32/64-bit type.
+#[test]
+fn test_ded_devour_sort_both_ends() {
+    use super::super::devour_sort;
+    fn check<T: crate::DevourSort + std::fmt::Debug + Copy>(make: &dyn Fn(u64, usize) -> T, ty: &str) {
+        let mut seed = 0x1234_5678_9abc_def1u64;
+        for &n in &[200usize, 1000, 5000, 70_000] {
+            for &width in &[1u64 << 12, 1 << 20, 1 << 28] {
+                let mut v: Vec<T> = (0..n)
+                    .map(|i| {
+                        seed ^= seed << 13;
+                        seed ^= seed >> 7;
+                        seed ^= seed << 17;
+                        make(seed % width, i)
+                    })
+                    .collect();
+                let mut e = v.clone();
+                e.sort_unstable();
+                devour_sort(&mut v);
+                assert!(v == e, "{} n {} width {}", ty, n, width);
+            }
+        }
+    }
+    check(&|v, i| if i % 2 == 0 { v as u32 } else { u32::MAX - v as u32 }, "u32");
+    check(&|v, i| if i % 2 == 0 { v } else { u64::MAX - v }, "u64");
+    check(&|v, i| if i % 3 == 0 { v as u32 } else if i % 3 == 1 { u32::MAX - v as u32 } else { (v as u32) | 0x8000_0000 }, "u32 three");
+    check(&|v, i| if i % 2 == 0 { (v as i32).wrapping_add(i32::MIN) } else { i32::MAX - v as i32 }, "i32");
+    check(&|v, i| if i % 2 == 0 { (v as i64).wrapping_add(i64::MIN) } else { i64::MAX - v as i64 }, "i64");
+    check(&|v, i| if i % 2 == 0 { -(v as i64) } else { v as i64 }, "i64 around 0");
+}
