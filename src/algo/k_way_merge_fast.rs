@@ -61,12 +61,98 @@ fn merge2_fast<T: Copy + PartialOrd>(
             hi = pos - 1;
         }
     } else {
+        // Balanced runs (the shorter at least a quarter) within half the L2:
+        // two-ended merge into the scratch, copied back. Skewed runs keep the
+        // merge below (shorter run copied, long predictable stretches), and
+        // so do merges beyond the cache, where the extra copy costs more.
+        let len = end - start;
+        if bidir_enabled()
+            && 4 * left.min(right) >= len
+            && len * std::mem::size_of::<T>() <= super::super::dedicated::cache_info::l2_bytes() / 2
+        {
+            if copy.len() < len {
+                copy.resize(len, arr[0]);
+            }
+            merge_bidir(&arr[start..end], middle - start, &mut copy[..len]);
+            arr[start..end].copy_from_slice(&copy[..len]);
+            return;
+        }
         let needed = left.min(right);
         if copy.len() < needed {
             copy.resize(needed, arr[0]);
         }
         merge2(arr, copy, start, middle, end);
     }
+}
+
+/// Tests / benchmarks: previous merge for balanced runs.
+#[cfg(test)]
+pub(crate) static BIDIR_OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[inline(always)]
+fn bidir_enabled() -> bool {
+    #[cfg(test)]
+    {
+        !BIDIR_OFF.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
+
+/// Stable merge of `src[..mid]` and `src[mid..]` into `dst`, from both ends
+/// at once and without branches: each step writes the smallest remaining
+/// element at the front and the largest at the back, two independent
+/// chains of loads and selects (a single branch-free chain waits on each
+/// load; a branchy merge mispredicts on irregular interleavings). The
+/// two-ended phase lasts as many steps as the shorter run has elements, so
+/// no read leaves a run; the middle that remains is merged forward.
+#[inline]
+fn merge_bidir<T: Copy + PartialOrd>(src: &[T], mid: usize, dst: &mut [T]) {
+    let len = src.len();
+    debug_assert!(dst.len() == len && mid > 0 && mid < len);
+    let steps = mid.min(len - mid);
+    // Left run [lf, le), right run [rf, re); output [df, de).
+    let (mut lf, mut le, mut rf, mut re) = (0usize, mid, mid, len);
+    let (mut df, mut de) = (0usize, len);
+    // SAFETY: before each of the `steps` two-ended steps each end has taken
+    // fewer than `steps` elements from each run, so the reads stay inside
+    // the runs; each output slot is written once (df < de).
+    unsafe {
+        let s = src.as_ptr();
+        let d = dst.as_mut_ptr();
+        for _ in 0..steps {
+            let (x, y) = (*s.add(lf), *s.add(rf));
+            let take_right = y < x;
+            *d.add(df) = if take_right { y } else { x };
+            rf += take_right as usize;
+            lf += (!take_right) as usize;
+            df += 1;
+            let (x, y) = (*s.add(le - 1), *s.add(re - 1));
+            let take_left = y < x;
+            de -= 1;
+            *d.add(de) = if take_left { x } else { y };
+            le -= take_left as usize;
+            re -= (!take_left) as usize;
+        }
+    }
+    // Middle: what is left of both runs, between df and de.
+    while lf < le && rf < re {
+        let (x, y) = (src[lf], src[rf]);
+        if y < x {
+            dst[df] = y;
+            rf += 1;
+        } else {
+            dst[df] = x;
+            lf += 1;
+        }
+        df += 1;
+    }
+    dst[df..df + (le - lf)].copy_from_slice(&src[lf..le]);
+    df += le - lf;
+    dst[df..df + (re - rf)].copy_from_slice(&src[rf..re]);
+    debug_assert_eq!(df + (re - rf), de);
 }
 
 /// Whether a branchy merge of the sorted runs `run[..mid]` and `run[mid..]`
