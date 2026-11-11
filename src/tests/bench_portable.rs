@@ -14,18 +14,23 @@
 //!
 //! Environment variables (all optional):
 //! - `BENCH_PARTS`: comma-separated parts among `sort`, `knobs`, `aa` (all by default);
-//! - `BENCH_TYPES`: types of the `sort` part among `f64`, `f32`, `u32`, `u64`,
-//!   `i32`, `i64` (all by default; integers: `devour_sort` against std and
-//!   `voracious_sort`);
+//! - `BENCH_TYPES`: types of the `sort` and `aa` parts among `f64`, `f32`,
+//!   `u32`, `u64`, `i32`, `i64`, `u8`, `i8`, `u16`, `i16`, `char` (all by
+//!   default);
 //! - `BENCH_MAX`: largest array size (default 10_000_000);
 //! - `BENCH_MEM_MB`: memory budget of one measurement in MiB (default 2048);
-//! - `BENCH_REPS`: repetitions per measurement, the median is kept (default 3);
+//! - `BENCH_REPS`: minimum repetitions per measurement, the median is kept
+//!   (default 5);
+//! - `BENCH_MIN_ARRAYS`: minimum number of arrays sorted per measurement over
+//!   all repetitions (default 11): large sizes, where a batch holds one or
+//!   a few arrays, get more repetitions (11 at 3M and 10M keys);
 //! - `BENCH_OUT`: output directory (default `target/bench_portable`).
 //!
 //! Method: for each size, batches of arrays from each generator; each variant
 //! sorts a fresh copy of the same batch; the order of the variants rotates
 //! between repetitions (no variant always runs first, after the generation or
-//! on a cold cache); the median of the repetitions is kept, in ns per key. In
+//! on a cold cache); the median of the repetitions is kept, in ns per key
+//! (the noise only adds time, the median ignores the outliers). In
 //! the first repetition every result is checked bit for bit against
 //! `sort_unstable_by(total_cmp)`.
 //!
@@ -33,16 +38,21 @@
 //! - `sort`: `ravenous_sort` against `sort_unstable_by(total_cmp)` (std),
 //!   `voracious_sort` (this crate's generic sort) and, for `f32`,
 //!   blazing-radix; integers: `devour_sort` against std, `voracious_sort` and
-//!   blazing-radix, on each type's generators plus the shared ones of
-//!   `generators::int_extra`; summary per size: geometric mean of
-//!   the ratios, distributions won, worst distributions.
+//!   blazing-radix (char: no blazing), on each type's generators plus the
+//!   shared ones of `generators::int_extra` / `narrow_extra`; summary per
+//!   size, for each other sort, of the ratios other / first sort (> 1: the
+//!   first sort is faster): geometric mean, median, p10 (the worst tenth),
+//!   distributions won, and the worst distributions.
 //! - `knobs`: the machine-dependent settings, each varied while the others
 //!   keep their value: the L2 size the thresholds are derived from, the
 //!   rollercoaster leaf size, the DLSD staged scatter, the fused LSD
 //!   cache-aliasing fix, the in-place permutation (ska swap or blocks). If
 //!   the best setting is the default one, the tuning holds on this machine.
-//! - `aa`: two identical variants of `ravenous_sort`, to see the noise of the
-//!   machine (any difference smaller than this is meaningless).
+//! - `aa`: two identical variants (`ravenous_sort` on f64, `devour_sort` on
+//!   u64 and u16) at every size, to see the noise of the machine: geometric
+//!   mean, median, p10, p90 and worst distribution of B / A. Run it on each
+//!   machine before comparing: a difference within this noise is
+//!   meaningless.
 //!
 //! Output: CSV files and `system.txt` in `BENCH_OUT`, summaries on stdout.
 
@@ -56,11 +66,17 @@ use super::super::dedicated::float_roller::{roller32, roller64, BLOCK_PERMUTE, L
 use super::super::dedicated::ravenous_sort::ravenous_sort;
 use super::super::generators::float_32::*;
 use super::super::generators::float_64::*;
+use super::super::generators::char::generators_char;
 use super::super::generators::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
+use super::super::generators::narrow_extra::{extra_char, extra_i16, extra_i8, extra_u16, extra_u8};
+use super::super::generators::signed_i16::generators_i16;
 use super::super::generators::signed_i32::generators_i32;
 use super::super::generators::signed_i64::generators_i64;
+use super::super::generators::signed_i8::generators_i8;
+use super::super::generators::unsigned_u16::generators_u16;
 use super::super::generators::unsigned_u32::generators_u32;
 use super::super::generators::unsigned_u64::generators_u64;
+use super::super::generators::unsigned_u8::generators_u8;
 use super::super::devour_sort;
 use super::super::RadixSort;
 
@@ -70,6 +86,7 @@ struct Config {
     max: usize,
     mem: usize,
     reps: usize,
+    min_arrays: usize,
     out: std::path::PathBuf,
 }
 
@@ -81,7 +98,8 @@ fn config() -> Config {
     Config {
         max: env_usize("BENCH_MAX", 10_000_000),
         mem: env_usize("BENCH_MEM_MB", 2048) << 20,
-        reps: env_usize("BENCH_REPS", 3).max(1),
+        reps: env_usize("BENCH_REPS", 5).max(1),
+        min_arrays: env_usize("BENCH_MIN_ARRAYS", 11),
         out: std::env::var("BENCH_OUT").map(Into::into).unwrap_or_else(|_| "target/bench_portable".into()),
     }
 }
@@ -126,6 +144,12 @@ fn batch_count(cfg: &Config, size: usize, bytes: usize) -> usize {
     (4_000_000 / size).max(1).min(cfg.mem / per_array)
 }
 
+/// Repetitions of a measurement whose batch holds `count` arrays: at least
+/// `reps`, and at least `min_arrays` arrays sorted in all.
+fn rep_count(cfg: &Config, count: usize) -> usize {
+    cfg.reps.max((cfg.min_arrays + count - 1) / count)
+}
+
 /// Median ns per key of each variant, for each generator, at `size`.
 /// Returns (generator, medians) rows.
 fn measure<T: Copy + PartialOrd>(
@@ -144,7 +168,7 @@ fn measure<T: Copy + PartialOrd>(
     let mut rows = Vec::new();
     for (gen, name) in gens.iter() {
         let mut times: Vec<Vec<f64>> = vec![Vec::new(); nv];
-        for rep in 0..cfg.reps {
+        for rep in 0..rep_count(cfg, count) {
             let batch: Vec<Vec<T>> = (0..count).map(|_| gen(size)).collect();
             let expected: Option<Vec<Vec<u64>>> = if rep == 0 {
                 Some(
@@ -204,6 +228,14 @@ fn geo(values: impl Iterator<Item = f64>) -> f64 {
     (sum / n.max(1) as f64).exp()
 }
 
+/// Summary of ratios: geometric mean, median, p10, p90.
+fn stats(ratios: &[f64]) -> (f64, f64, f64, f64) {
+    let mut r = ratios.to_vec();
+    r.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let at = |q: f64| r[((r.len() - 1) as f64 * q).round() as usize];
+    (geo(r.iter().cloned()), at(0.5), at(0.1), at(0.9))
+}
+
 fn write_rows(file: &mut std::fs::File, ty: &str, size: usize, rows: &[(String, Vec<f64>)]) {
     for (g, med) in rows {
         let vals: Vec<String> = med.iter().map(|v| format!("{:.3}", v)).collect();
@@ -221,7 +253,7 @@ fn system_info(cfg: &Config) -> String {
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .unwrap_or_else(|| "unknown".into());
     format!(
-        "arch {}\nos {}\nthreads {}\nL2 {} KiB (detected: {})\npage {} B\nrustc {}\nmax size {}\nmemory budget {} MiB\nrepetitions {}\n",
+        "arch {}\nos {}\nthreads {}\nL2 {} KiB (detected: {})\npage {} B\nrustc {}\nmax size {}\nmemory budget {} MiB\nrepetitions at least {}, at least {} arrays per measurement\n",
         std::env::consts::ARCH,
         std::env::consts::OS,
         std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0),
@@ -231,9 +263,12 @@ fn system_info(cfg: &Config) -> String {
         rustc.trim(),
         cfg.max,
         cfg.mem >> 20,
-        cfg.reps
+        cfg.reps,
+        cfg.min_arrays
     )
 }
+
+const SIZES: [usize; 6] = [1_000, 10_000, 100_000, 1_000_000, 3_000_000, 10_000_000];
 
 fn sort_part<T: Copy + PartialOrd>(
     cfg: &Config,
@@ -247,20 +282,29 @@ fn sort_part<T: Copy + PartialOrd>(
     let mut file = std::fs::File::create(cfg.out.join(format!("sort_{}.csv", ty))).unwrap();
     writeln!(file, "type,gen,size,{}", names.join(",")).unwrap();
     println!("\n== sort {} (ns per key; ratios > 1: {} faster)", ty, names[0]);
-    for &size in [1_000usize, 10_000, 100_000, 1_000_000, 10_000_000].iter().filter(|&&s| s <= cfg.max) {
+    for &size in SIZES.iter().filter(|&&s| s <= cfg.max) {
         let rows = measure(cfg, gens, size, variants, to_bits, total_cmp);
         if rows.is_empty() {
             println!("{:>9}: skipped (memory budget)", size);
             continue;
         }
         write_rows(&mut file, ty, size, &rows);
-        let mut line = format!("{:>9}: {} {:.2} ns", size, names[0], geo(rows.iter().map(|r| r.1[0])));
-        for v in 1..variants.len() {
-            let ratio = geo(rows.iter().map(|r| r.1[v] / r.1[0]));
-            let wins = rows.iter().filter(|r| r.1[0] < r.1[v]).count();
-            line += &format!(" | {}/fs {:.2} (fs wins {}/{})", names[v], ratio, wins, rows.len());
-        }
+        let line = format!("{:>9}: {} {:.2} ns", size, names[0], geo(rows.iter().map(|r| r.1[0])));
         println!("{}", line);
+        for v in 1..variants.len() {
+            let ratios: Vec<f64> = rows.iter().map(|r| r.1[v] / r.1[0]).collect();
+            let (g, med, p10, _) = stats(&ratios);
+            let wins = ratios.iter().filter(|&&x| x > 1.0).count();
+            println!(
+                "           {:>10}/first: geo {:.2} med {:.2} p10 {:.2} wins {}/{}",
+                names[v],
+                g,
+                med,
+                p10,
+                wins,
+                rows.len()
+            );
+        }
         // Worst distributions: ravenous_sort against the best other variant.
         let mut worst: Vec<(f64, &str)> = rows
             .iter()
@@ -419,26 +463,47 @@ fn knobs_part(cfg: &Config) {
     reset_knobs();
 }
 
-fn aa_part(cfg: &Config) {
-    println!("\n== A/A noise (two identical ravenous_sort variants)");
-    let mut file = std::fs::File::create(cfg.out.join("aa.csv")).unwrap();
-    writeln!(file, "type,gen,size,a,b").unwrap();
-    let g64 = generators_f64();
-    let v: Vec<Variant<f64>> = vec![variant("A", |a: &mut [f64]| ravenous_sort(a)), variant("B", |a: &mut [f64]| ravenous_sort(a))];
-    for &size in [10_000usize, 1_000_000].iter().filter(|&&s| s <= cfg.max) {
-        let rows = measure(cfg, &g64, size, &v, f64_bits, f64_cmp);
+/// A/A noise of one type: two identical variants of `sort` at every size.
+fn aa_type<T: Copy + PartialOrd>(
+    cfg: &Config,
+    file: &mut std::fs::File,
+    ty: &str,
+    gens: &Gens<T>,
+    sort: fn(&mut [T]),
+    to_bits: fn(&T) -> u64,
+    total_cmp: fn(&T, &T) -> std::cmp::Ordering,
+) {
+    let v: Vec<Variant<T>> = vec![variant("A", sort), variant("B", sort)];
+    println!("-- {}", ty);
+    for &size in SIZES.iter().filter(|&&s| s <= cfg.max) {
+        let rows = measure(cfg, gens, size, &v, to_bits, total_cmp);
         if rows.is_empty() {
             continue;
         }
-        write_rows(&mut file, "f64", size, &rows);
+        write_rows(file, ty, size, &rows);
         let ratios: Vec<f64> = rows.iter().map(|r| r.1[1] / r.1[0]).collect();
+        let (g, med, p10, p90) = stats(&ratios);
         let worst = ratios.iter().map(|r| if *r > 1.0 { *r } else { 1.0 / r }).fold(1.0, f64::max);
-        println!(
-            "{:>9}: B/A geometric mean {:.3}, worst single distribution {:.2}x (differences below this are noise)",
-            size,
-            geo(ratios.iter().cloned()),
-            worst
-        );
+        println!("{:>9}: B/A geo {:.3} med {:.3} p10 {:.2} p90 {:.2} worst {:.2}x", size, g, med, p10, p90, worst);
+    }
+}
+
+fn aa_part(cfg: &Config, types: &[&str]) {
+    println!("\n== A/A noise (two identical variants; differences below this are noise)");
+    let mut file = std::fs::File::create(cfg.out.join("aa.csv")).unwrap();
+    writeln!(file, "type,gen,size,a,b").unwrap();
+    if types.contains(&"f64") {
+        aa_type(cfg, &mut file, "f64", &generators_f64(), |a: &mut [f64]| ravenous_sort(a), f64_bits, f64_cmp);
+    }
+    if types.contains(&"u64") {
+        let mut g = generators_u64();
+        g.extend(extra_u64::generators());
+        aa_type(cfg, &mut file, "u64", &g, |a: &mut [u64]| devour_sort(a), |x: &u64| *x, |a: &u64, b: &u64| a.cmp(b));
+    }
+    if types.contains(&"u16") {
+        let mut g = generators_u16();
+        g.extend(extra_u16::generators());
+        aa_type(cfg, &mut file, "u16", &g, |a: &mut [u16]| devour_sort(a), |x: &u16| *x as u64, |a: &u16, b: &u16| a.cmp(b));
     }
 }
 
@@ -453,11 +518,11 @@ fn bench_portable() {
     std::fs::write(cfg.out.join("system.txt"), &info).unwrap();
     let parts = std::env::var("BENCH_PARTS").unwrap_or_else(|_| "sort,knobs,aa".into());
     let parts: Vec<&str> = parts.split(',').map(|p| p.trim()).collect();
-    if parts.contains(&"aa") {
-        aa_part(&cfg);
-    }
-    let types = std::env::var("BENCH_TYPES").unwrap_or_else(|_| "f64,f32,u32,u64,i32,i64".into());
+    let types = std::env::var("BENCH_TYPES").unwrap_or_else(|_| "f64,f32,u32,u64,i32,i64,u8,i8,u16,i16,char".into());
     let types: Vec<&str> = types.split(',').map(|t| t.trim()).collect();
+    if parts.contains(&"aa") {
+        aa_part(&cfg, &types);
+    }
     if parts.contains(&"sort") && types.contains(&"f64") {
         let v64: Vec<Variant<f64>> = vec![
             variant("ravenous_sort", |a: &mut [f64]| ravenous_sort(a)),
@@ -492,6 +557,20 @@ fn bench_portable() {
     int_part!(u64, "u64", { let mut g = generators_u64(); g.extend(extra_u64::generators()); g }, |x: &u64| *x);
     int_part!(i32, "i32", { let mut g = generators_i32(); g.extend(extra_i32::generators()); g }, |x: &i32| *x as u32 as u64);
     int_part!(i64, "i64", { let mut g = generators_i64(); g.extend(extra_i64::generators()); g }, |x: &i64| *x as u64);
+    int_part!(u8, "u8", { let mut g = generators_u8(); g.extend(extra_u8::generators()); g }, |x: &u8| *x as u64);
+    int_part!(i8, "i8", { let mut g = generators_i8(); g.extend(extra_i8::generators()); g }, |x: &i8| *x as u8 as u64);
+    int_part!(u16, "u16", { let mut g = generators_u16(); g.extend(extra_u16::generators()); g }, |x: &u16| *x as u64);
+    int_part!(i16, "i16", { let mut g = generators_i16(); g.extend(extra_i16::generators()); g }, |x: &i16| *x as u16 as u64);
+    if parts.contains(&"sort") && types.contains(&"char") {
+        let v: Vec<Variant<char>> = vec![
+            variant("devour_sort", |a: &mut [char]| devour_sort(a)),
+            variant("std", |a: &mut [char]| a.sort_unstable()),
+            variant("voracious", |a: &mut [char]| a.voracious_sort()),
+        ];
+        let mut g = generators_char();
+        g.extend(extra_char::generators());
+        sort_part(&cfg, "char", &g, &v, |x: &char| *x as u64, |a: &char, b: &char| a.cmp(b));
+    }
     if parts.contains(&"knobs") {
         knobs_part(&cfg);
     }
