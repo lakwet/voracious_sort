@@ -1,4 +1,3 @@
-use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
@@ -56,31 +55,9 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
         .collect::<Vec<i32>>()
 }
 
-// Zipf
+// Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_i32(size: usize) -> Vec<i32> {
-    let mut array: Vec<i32> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
-    let mut quantity = size / 2;
-    let mut i = 0;
-    let mut value: i32 = 0;
-    while quantity > 2 {
-        value = rng.random();
-
-        for _ in 0..quantity {
-            array.push(value);
-            i += 1;
-        }
-
-        quantity = quantity / 2;
-    }
-    while i < size {
-        array.push(value);
-        i += 1;
-    }
-
-    array.as_mut_slice().shuffle(&mut rng);
-
-    array
+    super::zipf(size, usize::MAX, || rand::rng().random::<i32>())
 }
 
 // Sqrt

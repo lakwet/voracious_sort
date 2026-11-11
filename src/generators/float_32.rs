@@ -210,24 +210,9 @@ pub fn helper_random_array_push_middle_f32(size: usize) -> Vec<f32> {
     array
 }
 
-// Zipf
+// Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_f32(size: usize) -> Vec<f32> {
-    let mut array: Vec<f32> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
-    let mut quantity = size / 2;
-    let mut value: f32 = 0.0;
-    while quantity > 2 {
-        value = rng.random();
-        for _ in 0..quantity {
-            array.push(value);
-        }
-        quantity /= 2;
-    }
-    while array.len() < size {
-        array.push(value);
-    }
-    array.as_mut_slice().shuffle(&mut rng);
-    array
+    super::zipf(size, usize::MAX, || rand::rng().random::<f32>())
 }
 
 // Integer-valued floats in a narrow range (ratings, ages, counters): 0..=100
