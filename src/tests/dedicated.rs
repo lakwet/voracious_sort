@@ -530,3 +530,35 @@ fn test_ded_int_sort_wrapped_range() {
     check!(u64);
     check!(i64);
 }
+
+/// int_sort on long runs of equal keys (plateaus), around the thresholds of
+/// the run compression.
+#[test]
+fn test_ded_int_sort_plateaus() {
+    use rand::RngExt;
+    macro_rules! check {
+        ($t:ty) => {
+            let mut rng = rand::rng();
+            for &n in [1023usize, 1024, 5_000, 100_000].iter() {
+                for &run in [1usize, 16, 31, 32, 33, 100, 1000].iter() {
+                    let mut arr: Vec<$t> = Vec::with_capacity(n);
+                    while arr.len() < n {
+                        let v = rng.random::<$t>();
+                        let len = (rng.random_range(1..=2 * run)).min(n - arr.len());
+                        arr.extend(std::iter::repeat(v).take(len));
+                    }
+                    let mut expected = arr.clone();
+                    expected.sort_unstable();
+                    crate::int_sort(&mut arr);
+                    assert!(arr == expected, "{} n {} run {}", stringify!($t), n, run);
+                }
+            }
+        };
+    }
+    check!(u8);
+    check!(i16);
+    check!(u32);
+    check!(i32);
+    check!(u64);
+    check!(i64);
+}

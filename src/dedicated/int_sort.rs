@@ -147,7 +147,7 @@ macro_rules! int_width {
                 return;
             }
             let scratch = std::cell::RefCell::new(Vec::new());
-            radix_path(arr, &|a: &mut [$t]| $range(a) || $few(a) || $dense(a), &|s: &mut [$t]| {
+            radix_path(arr, &|a: &mut [$t]| $range(a) || plateaus(a) || $few(a) || $dense(a), &|s: &mut [$t]| {
                 #[cfg(test)]
                 match INT_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
                     1 => return $chunk(bits_of(s), &mut scratch.borrow_mut()),
@@ -488,6 +488,49 @@ fn exp(bit: usize) -> bool {
         let _ = bit;
         false
     }
+}
+
+/// Long runs of equal keys (values held for a while, repeated blocks): when
+/// at least 31 of 32 spread adjacent pairs are equal, one scan lists the
+/// runs (giving up beyond n / 32 of them, nothing written), the (value,
+/// length) pairs are sorted and the array rewritten: one read and one write
+/// instead of a sort of n keys.
+fn plateaus<T: Copy + Ord>(arr: &mut [T]) -> bool {
+    let n = arr.len();
+    if n < 1024 {
+        return false;
+    }
+    let step = (n - 1) / 32;
+    let equal = (0..32).filter(|&k| arr[k * step] == arr[k * step + 1]).count();
+    if equal < 31 {
+        return false;
+    }
+    let max = n / 32;
+    let mut runs: Vec<(T, usize)> = Vec::with_capacity(max.min(4096));
+    let mut start = 0;
+    while start < n {
+        let v = arr[start];
+        let mut end = start + 1;
+        // Blocks of 16 compared without exit inside (vectorized).
+        while end + 16 <= n && arr[end..end + 16].iter().fold(true, |acc, &x| acc & (x == v)) {
+            end += 16;
+        }
+        while end < n && arr[end] == v {
+            end += 1;
+        }
+        if runs.len() == max {
+            return false;
+        }
+        runs.push((v, end - start));
+        start = end;
+    }
+    runs.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    let mut pos = 0;
+    for &(v, len) in runs.iter() {
+        arr[pos..pos + len].fill(v);
+        pos += len;
+    }
+    true
 }
 
 /// Whether every key equals `first`: blocks of 64 compared without early
