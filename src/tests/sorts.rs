@@ -14,7 +14,7 @@ use super::super::sorts::msd_stable_sort::msd_stable_radixsort;
 use super::super::sorts::msd_sort::msd_radixsort;
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::ska_sort::ska_sort;
-use super::super::sorts::thiel_sort::thiel_radixsort;
+use super::super::sorts::awardofthesky_sort::awardofthesky_sort;
 use super::super::sorts::voracious_sort::voracious_sort;
 
 use super::super::generators::boolean::*;
@@ -570,63 +570,63 @@ fn test_sort_ska_sort_f64_inf() {
 }
 
 #[test]
-fn test_sort_thiel_radixsort() {
+fn test_sort_awardofthesky_sort() {
     // This sort is not used and not fully implemented, no need to test other radix.
     // It won't work for 128bits key.
     for size in [0, 1, 200, 20_000].iter() { for radix in [8].iter() {
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_bool(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_char(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_f32(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_f64(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_u8(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_u16(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_u32(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_u64(), *size);
-        // helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_u128(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_usize(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_i8(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_i16(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_i32(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_i64(), *size);
-        // helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_i128(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_isize(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structbool(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structchar(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structf32(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structf64(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structu8(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structu16(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structu32(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structu64(), *size);
-        // helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structu128(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structusize(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structi8(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structi16(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structi32(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structi64(), *size);
-        // helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structi128(), *size);
-        helper_sort(false, &|a| thiel_radixsort(a, *radix), generators_structisize(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_bool(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_char(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_f32(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_f64(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_u8(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_u16(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_u32(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_u64(), *size);
+        // helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_u128(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_usize(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_i8(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_i16(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_i32(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_i64(), *size);
+        // helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_i128(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_isize(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structbool(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structchar(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structf32(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structf64(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structu8(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structu16(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structu32(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structu64(), *size);
+        // helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structu128(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structusize(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structi8(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structi16(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structi32(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structi64(), *size);
+        // helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structi128(), *size);
+        helper_sort(false, &|a| awardofthesky_sort(a, *radix), generators_structisize(), *size);
     } }
 }
 
 #[test]
-fn test_sort_thiel_radixsort_f32_inf() {
+fn test_sort_awardofthesky_sort_f32_inf() {
     let mut a = helper_random_array_uniform_f32(2000);
     a[1999] = std::f32::NEG_INFINITY;
     a[0] = std::f32::INFINITY;
     let mut check = a.to_vec();
-    thiel_radixsort(&mut a, 8);
+    awardofthesky_sort(&mut a, 8);
     check.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(a, check);
 }
 
 #[test]
-fn test_sort_thiel_radixsort_f64_inf() {
+fn test_sort_awardofthesky_sort_f64_inf() {
     let mut a = helper_random_array_uniform_f64(2000);
     a[1999] = std::f64::NEG_INFINITY;
     a[0] = std::f64::INFINITY;
     let mut check = a.to_vec();
-    thiel_radixsort(&mut a, 8);
+    awardofthesky_sort(&mut a, 8);
     check.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(a, check);
 }

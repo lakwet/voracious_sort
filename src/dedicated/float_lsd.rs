@@ -888,7 +888,7 @@ fused_lsd!(u32, i32, wu32, 20, unsigned);
 fused_lsd!(u64, i64, wu64, 44, unsigned);
 fused_lsd!(u32, i32, wi32, 20, signed);
 fused_lsd!(u64, i64, wi64, 44, signed);
-// 8- and 16-bit integers (int_sort): byte digits only (never wide).
+// 8- and 16-bit integers (devour_sort): byte digits only (never wide).
 fused_lsd!(u16, i16, wu16, 17, unsigned);
 fused_lsd!(u16, i16, wi16, 17, signed);
 fused_lsd!(u8, i8, wu8, 9, unsigned);

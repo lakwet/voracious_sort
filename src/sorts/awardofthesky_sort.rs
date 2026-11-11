@@ -379,7 +379,7 @@ where
     histograms
 }
 
-pub fn thiel_radixsort_body<T, K>(arr: &mut [T], p: Params)
+pub fn awardofthesky_sort_body<T, K>(arr: &mut [T], p: Params)
 where
     T: Radixable<K>,
     K: RadixKey,
@@ -513,7 +513,7 @@ where
     }
 }
 
-fn thiel_radixsort_aux<T, K>(arr: &mut [T], radix: usize)
+fn awardofthesky_sort_aux<T, K>(arr: &mut [T], radix: usize)
 where
     T: Radixable<K>,
     K: RadixKey,
@@ -536,11 +536,11 @@ where
     if params.max_level < 2 {
         lsd_radixsort_body(arr, params);
     } else {
-        thiel_radixsort_body(arr, params);
+        awardofthesky_sort_body(arr, params);
     }
 }
 
-/// # Thiel sort
+/// # AwardOfSky sort
 ///
 /// An implementation of the
 /// [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort)
@@ -552,13 +552,13 @@ where
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///
-/// The Thiel sort is an out of place unstable radix sort. The original sort
+/// The AwardOfSky sort is an out of place unstable radix sort. The original sort
 /// is stable, but because the fallback has been replaced by an unstable sort,
 /// the entire algorithm is then unstable.
 ///
 /// Since this sort is not used in this crate, it is not fully optimized and
 /// implemented. It won't work for u128 and i128.
-pub fn thiel_radixsort<T, K>(arr: &mut [T], radix: usize)
+pub fn awardofthesky_sort<T, K>(arr: &mut [T], radix: usize)
 where
     T: Radixable<K>,
     K: RadixKey,
@@ -569,7 +569,7 @@ where
     }
 
     let mut separators =
-        verge_sort_preprocessing(arr, radix, &thiel_radixsort_aux);
+        verge_sort_preprocessing(arr, radix, &awardofthesky_sort_aux);
     k_way_merge(arr, &mut separators);
 }
 

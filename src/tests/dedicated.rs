@@ -257,7 +257,7 @@ fn test_ded_float_sort_tiny() {
     }
 }
 
-fn check_int_sort<T: crate::IntSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
+fn check_devour_sort<T: crate::DevourSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
     let sizes: Vec<usize> = (0..=70)
         .chain([128, 129, 350, 351, 700, 701, 149, 150, 151, 199, 200, 201, 5_000, 100_000, 1_048_575, 1_048_576, 1_500_000, 4_194_304, 12_582_911, 12_582_912].iter().copied())
         .collect();
@@ -266,38 +266,38 @@ fn check_int_sort<T: crate::IntSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize)
             let mut arr = gen(size);
             let mut expected = arr.clone();
             expected.sort_unstable();
-            crate::int_sort(&mut arr);
+            crate::devour_sort(&mut arr);
             assert!(arr == expected, "{} {} size {}", ty, name, size);
         }
         let mut arr: Vec<T> = (0..size).map(|i| extremes[(i * 7919) % extremes.len()]).collect();
         let mut expected = arr.clone();
         expected.sort_unstable();
-        crate::int_sort(&mut arr);
+        crate::devour_sort(&mut arr);
         assert!(arr == expected, "{} extremes size {}", ty, size);
     }
 }
 
 #[test]
-fn test_ded_int_sort() {
+fn test_ded_devour_sort() {
     use super::super::generators::signed_i32::generators_i32;
     use super::super::generators::signed_i64::generators_i64;
     use super::super::generators::unsigned_u64::generators_u64;
-    check_int_sort(generators_u32(), &[0u32, 1, u32::MAX, u32::MAX - 1, 1 << 31, (1 << 31) - 1, 12345], "u32");
-    check_int_sort(generators_u64(), &[0u64, 1, u64::MAX, u64::MAX - 1, 1 << 63, (1 << 63) - 1, 12345], "u64");
-    check_int_sort(generators_i32(), &[0i32, 1, -1, i32::MIN, i32::MAX, i32::MIN + 1, -12345], "i32");
-    check_int_sort(generators_i64(), &[0i64, 1, -1, i64::MIN, i64::MAX, i64::MIN + 1, -12345], "i64");
+    check_devour_sort(generators_u32(), &[0u32, 1, u32::MAX, u32::MAX - 1, 1 << 31, (1 << 31) - 1, 12345], "u32");
+    check_devour_sort(generators_u64(), &[0u64, 1, u64::MAX, u64::MAX - 1, 1 << 63, (1 << 63) - 1, 12345], "u64");
+    check_devour_sort(generators_i32(), &[0i32, 1, -1, i32::MIN, i32::MAX, i32::MIN + 1, -12345], "i32");
+    check_devour_sort(generators_i64(), &[0i64, 1, -1, i64::MIN, i64::MAX, i64::MIN + 1, -12345], "i64");
     use super::super::generators::int_extra::*;
-    check_int_sort(extra_u32::generators(), &[0u32], "u32 extra");
-    check_int_sort(extra_u64::generators(), &[0u64], "u64 extra");
-    check_int_sort(extra_i32::generators(), &[0i32], "i32 extra");
-    check_int_sort(extra_i64::generators(), &[0i64], "i64 extra");
+    check_devour_sort(extra_u32::generators(), &[0u32], "u32 extra");
+    check_devour_sort(extra_u64::generators(), &[0u64], "u64 extra");
+    check_devour_sort(extra_i32::generators(), &[0i32], "i32 extra");
+    check_devour_sort(extra_i64::generators(), &[0i64], "i64 extra");
 }
 
 /// Narrow-range counting window: ranges at the ends of the key domain, keys
 /// outside the sample window early, late, below and above it (count
 /// resumed in a wider window, or given up beyond the limit).
 #[test]
-fn test_ded_int_sort_window() {
+fn test_ded_devour_sort_window() {
     use rand::RngExt;
     macro_rules! window {
         ($t:ty) => {
@@ -315,7 +315,7 @@ fn test_ded_int_sort_window() {
                         }
                         let mut expected = arr.clone();
                         expected.sort_unstable();
-                        crate::int_sort(&mut arr);
+                        crate::devour_sort(&mut arr);
                         assert!(arr == expected, "{} n {} base {} case {}", stringify!($t), n, base, case);
                     }
                 }
@@ -411,16 +411,16 @@ fn test_ded_repair_near_sorted() {
     }
 }
 
-/// int_sort on 8- and 16-bit integers and char: every length up to 70,
+/// devour_sort on 8- and 16-bit integers and char: every length up to 70,
 /// around the small-path, counting and domain limits, extremes.
 #[test]
-fn test_ded_int_sort_narrow_types() {
+fn test_ded_devour_sort_narrow_types() {
     use super::super::generators::char::generators_char;
     use super::super::generators::signed_i16::generators_i16;
     use super::super::generators::signed_i8::generators_i8;
     use super::super::generators::unsigned_u16::generators_u16;
     use super::super::generators::unsigned_u8::generators_u8;
-    fn check<T: crate::IntSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
+    fn check<T: crate::DevourSort + std::fmt::Debug>(gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extremes: &[T], ty: &str) {
         let sizes: Vec<usize> = (0..=70)
             .chain([128, 129, 150, 151, 255, 256, 257, 1_000, 32_767, 32_768, 65_535, 65_536, 131_071, 131_072, 131_073, 300_000, 1_000_000].iter().copied())
             .collect();
@@ -429,13 +429,13 @@ fn test_ded_int_sort_narrow_types() {
                 let mut arr = gen(size);
                 let mut expected = arr.clone();
                 expected.sort_unstable();
-                crate::int_sort(&mut arr);
+                crate::devour_sort(&mut arr);
                 assert!(arr == expected, "{} {} size {}", ty, name, size);
             }
             let mut arr: Vec<T> = (0..size).map(|i| extremes[(i * 7919) % extremes.len()]).collect();
             let mut expected = arr.clone();
             expected.sort_unstable();
-            crate::int_sort(&mut arr);
+            crate::devour_sort(&mut arr);
             assert!(arr == expected, "{} extremes size {}", ty, size);
         }
     }
@@ -451,10 +451,10 @@ fn test_ded_int_sort_narrow_types() {
     check(with(generators_char(), extra_char::generators()), &['\0', 'a', 'é', '\u{D7FF}', '\u{E000}', '\u{FFFF}', '\u{10000}', char::MAX], "char");
 }
 
-/// int_sort dense range with outliers: most keys in a narrow window, a
+/// devour_sort dense range with outliers: most keys in a narrow window, a
 /// minority spread below and above (all widths, signed and unsigned).
 #[test]
-fn test_ded_int_sort_dense_outliers() {
+fn test_ded_devour_sort_dense_outliers() {
     use rand::RngExt;
     macro_rules! check {
         ($t:ty, $centre:expr) => {
@@ -472,7 +472,7 @@ fn test_ded_int_sort_dense_outliers() {
                         .collect();
                     let mut expected = arr.clone();
                     expected.sort_unstable();
-                    crate::int_sort(&mut arr);
+                    crate::devour_sort(&mut arr);
                     assert!(arr == expected, "{} n {} inside {}", stringify!($t), n, inside);
                 }
             }
@@ -491,15 +491,15 @@ fn test_ded_int_sort_dense_outliers() {
             .collect();
         let mut expected = arr.clone();
         expected.sort_unstable();
-        crate::int_sort(&mut arr);
+        crate::devour_sort(&mut arr);
         assert!(arr == expected, "char n {}", n);
     }
 }
 
-/// int_sort on a range wrapping around the end of the domain (values near
+/// devour_sort on a range wrapping around the end of the domain (values near
 /// the minimum and near the maximum of the encoded domain).
 #[test]
-fn test_ded_int_sort_wrapped_range() {
+fn test_ded_devour_sort_wrapped_range() {
     use rand::RngExt;
     macro_rules! check {
         ($t:ty) => {
@@ -517,7 +517,7 @@ fn test_ded_int_sort_wrapped_range() {
                     }
                     let mut expected = arr.clone();
                     expected.sort_unstable();
-                    crate::int_sort(&mut arr);
+                    crate::devour_sort(&mut arr);
                     assert!(arr == expected, "{} n {} low {}", stringify!($t), n, low_pct);
                 }
             }
@@ -531,10 +531,10 @@ fn test_ded_int_sort_wrapped_range() {
     check!(i64);
 }
 
-/// int_sort on long runs of equal keys (plateaus), around the thresholds of
+/// devour_sort on long runs of equal keys (plateaus), around the thresholds of
 /// the run compression.
 #[test]
-fn test_ded_int_sort_plateaus() {
+fn test_ded_devour_sort_plateaus() {
     use rand::RngExt;
     macro_rules! check {
         ($t:ty) => {
@@ -549,7 +549,7 @@ fn test_ded_int_sort_plateaus() {
                     }
                     let mut expected = arr.clone();
                     expected.sort_unstable();
-                    crate::int_sort(&mut arr);
+                    crate::devour_sort(&mut arr);
                     assert!(arr == expected, "{} n {} run {}", stringify!($t), n, run);
                 }
             }

@@ -61,7 +61,7 @@ fn alias_min_bytes() -> usize {
 /// MiB L2). Integer sequences (permutations, saw teeth, timestamps) give
 /// regular bucket sizes whose aliased streams cost even inside L2 (u64
 /// Int 0..n at 250k: 12.4 -> 4.9 ns per key staged, Asc Saw 14.5 -> 6.8);
-/// int_sort over all generators, 100k to 1M: 1 to 4 % faster. Floats keep
+/// devour_sort over all generators, 100k to 1M: 1 to 4 % faster. Floats keep
 /// `alias_min_bytes` (staged earlier, f64 float_sort 1 % slower, Int 0..n
 /// 17 %).
 fn alias_min_bytes_int() -> usize {

@@ -74,10 +74,10 @@ mod sealed {
     impl Sealed for char {}
 }
 
-/// Integer types sortable by [`int_sort`].
-pub trait IntSort: sealed::Sealed + Copy + Ord {
+/// Integer types sortable by [`devour_sort`].
+pub trait DevourSort: sealed::Sealed + Copy + Ord {
     #[doc(hidden)]
-    fn int_sort_impl(arr: &mut [Self]);
+    fn devour_sort_impl(arr: &mut [Self]);
 }
 
 /// # Int sort
@@ -86,22 +86,22 @@ pub trait IntSort: sealed::Sealed + Copy + Ord {
 /// integers stability makes no difference).
 ///
 /// ```
-/// use voracious_radix_sort::int_sort;
+/// use voracious_radix_sort::devour_sort;
 ///
 /// let mut v = vec![5i64, -3, 12, 0, -40];
-/// int_sort(&mut v);
+/// devour_sort(&mut v);
 /// assert_eq!(v, vec![-40, -3, 0, 5, 12]);
 /// ```
 #[inline]
-pub fn int_sort<T: IntSort>(arr: &mut [T]) {
-    T::int_sort_impl(arr);
+pub fn devour_sort<T: DevourSort>(arr: &mut [T]) {
+    T::devour_sort_impl(arr);
 }
 
 macro_rules! int_width {
     ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $alt_chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident, $dense:ident) => {
-        impl IntSort for $t {
+        impl DevourSort for $t {
             #[inline]
-            fn int_sort_impl(arr: &mut [$t]) {
+            fn devour_sort_impl(arr: &mut [$t]) {
                 if arr.len() <= NETWORK_MAX {
                     network_sort(bits_of(arr), $encode, $decode);
                     return;
@@ -356,8 +356,8 @@ macro_rules! int_width {
                 return false;
             }
             exact_count(bits_of(&mut values[a..b]), $encode(lo as $uint), (hi as i128 - lo as i128 + 1) as usize, $encode, $decode);
-            <$t as IntSort>::int_sort_impl(&mut values[..a]);
-            <$t as IntSort>::int_sort_impl(&mut values[b..]);
+            <$t as DevourSort>::devour_sort_impl(&mut values[..a]);
+            <$t as DevourSort>::devour_sort_impl(&mut values[b..]);
             true
         }
 
@@ -1059,13 +1059,13 @@ int_width!(i8, u8, flip8, flip8, SMALL_I8, no_roller, |b: &mut [u8], _s: &mut Ve
 
 /// `char`: sorted as its code point (`u32`; the order of `char` is the
 /// order of the code points, and sorting permutes valid values only).
-impl IntSort for char {
+impl DevourSort for char {
     #[inline]
-    fn int_sort_impl(arr: &mut [char]) {
+    fn devour_sort_impl(arr: &mut [char]) {
         // SAFETY: `char` has the size and alignment of `u32` and every
         // `char` is a valid `u32`; the slice holds the same values once
         // sorted, all valid `char`s.
         let codes = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
-        u32::int_sort_impl(codes);
+        u32::devour_sort_impl(codes);
     }
 }

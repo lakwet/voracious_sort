@@ -8,7 +8,7 @@
 //!   also restores the order of equal elements, which needs one more pass).
 //!
 //! The original module is kept unchanged for the sorts that use it (stable
-//! sorts and reference ports such as thiel_sort).
+//! sorts and reference ports such as awardofthesky_sort).
 
 use super::verge_sort_heuristic::{
     compute_big_enough_run, get_growth_pattern, jump, BackwardGrowth, ForwardGrowth,

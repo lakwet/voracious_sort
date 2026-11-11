@@ -15,7 +15,7 @@
 //! Environment variables (all optional):
 //! - `BENCH_PARTS`: comma-separated parts among `sort`, `knobs`, `aa` (all by default);
 //! - `BENCH_TYPES`: types of the `sort` part among `f64`, `f32`, `u32`, `u64`,
-//!   `i32`, `i64` (all by default; integers: `int_sort` against std and
+//!   `i32`, `i64` (all by default; integers: `devour_sort` against std and
 //!   `voracious_sort`);
 //! - `BENCH_MAX`: largest array size (default 10_000_000);
 //! - `BENCH_MEM_MB`: memory budget of one measurement in MiB (default 2048);
@@ -32,7 +32,7 @@
 //! Parts:
 //! - `sort`: `float_sort` against `sort_unstable_by(total_cmp)` (std),
 //!   `voracious_sort` (this crate's generic sort) and, for `f32`,
-//!   blazing-radix; integers: `int_sort` against std, `voracious_sort` and
+//!   blazing-radix; integers: `devour_sort` against std, `voracious_sort` and
 //!   blazing-radix, on each type's generators plus the shared ones of
 //!   `generators::int_extra`; summary per size: geometric mean of
 //!   the ratios, distributions won, worst distributions.
@@ -61,7 +61,7 @@ use super::super::generators::signed_i32::generators_i32;
 use super::super::generators::signed_i64::generators_i64;
 use super::super::generators::unsigned_u32::generators_u32;
 use super::super::generators::unsigned_u64::generators_u64;
-use super::super::int_sort;
+use super::super::devour_sort;
 use super::super::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -479,7 +479,7 @@ fn bench_portable() {
         ($t:ty, $name:expr, $gens:expr, $bits:expr) => {
             if parts.contains(&"sort") && types.contains(&$name) {
                 let v: Vec<Variant<$t>> = vec![
-                    variant("int_sort", |a: &mut [$t]| int_sort(a)),
+                    variant("devour_sort", |a: &mut [$t]| devour_sort(a)),
                     variant("std", |a: &mut [$t]| a.sort_unstable()),
                     variant("voracious", |a: &mut [$t]| a.voracious_sort()),
                     variant("blazing", |a: &mut [$t]| blazing_radix::radix_sort::<$t>(a)),

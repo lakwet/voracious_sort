@@ -29,7 +29,7 @@ use super::super::sorts::ska_sort::ska_sort;
 #[allow(unused_imports)]
 use super::super::sorts::peeka_sort::peeka_sort;
 #[allow(unused_imports)]
-use super::super::sorts::thiel_sort::thiel_radixsort;
+use super::super::sorts::awardofthesky_sort::awardofthesky_sort;
 #[allow(unused_imports)]
 use super::super::sorts::voracious_sort::{voracious_sort, voracious_sort_heu};
 
@@ -96,7 +96,7 @@ fn helper_sort<T, K>(
         // "DLSD",
         // "Ska Sort",
         // "American",
-        // "Thiel",
+        // "AwardOfSky",
         "Blazing",
         // "Raw Voracious sort",
         // "Raw Regions sort",
@@ -158,7 +158,7 @@ fn helper_sort<T, K>(
             // helper_sort_aux(&|arr: &mut [T]| dlsd_radixsort(arr, 8),runs,*size,generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| ska_sort(arr, 8), runs, *size, generator, with_check);
             // helper_sort_aux(&|arr: &mut [T]| american_flag_sort(arr, 8), runs, *size, generator, with_check);
-            // helper_sort_aux(&|arr: &mut [T]| thiel_radixsort(arr, 8), runs, *size, generator, with_check);
+            // helper_sort_aux(&|arr: &mut [T]| awardofthesky_sort(arr, 8), runs, *size, generator, with_check);
             if let Some(blazing_sort) = blazing {
                 helper_sort_aux(blazing_sort, runs, *size, generator, with_check);
             }

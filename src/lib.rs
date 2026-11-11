@@ -413,6 +413,7 @@ pub use traits::radixable::Radixable;
 pub use traits::radixsort::RadixSort;
 
 pub use sorts::american_flag_sort::american_flag_sort;
+pub use sorts::awardofthesky_sort::awardofthesky_sort;
 pub use sorts::boolean_sort::boolean_sort;
 pub use sorts::comparative_sort::insertion_sort;
 pub use sorts::counting_sort::counting_sort;
@@ -423,14 +424,13 @@ pub use sorts::msd_sort::msd_radixsort;
 pub use sorts::msd_stable_sort::msd_stable_radixsort;
 pub use sorts::rollercoaster_sort::rollercoaster_sort;
 pub use sorts::ska_sort::ska_sort;
-pub use sorts::thiel_sort::thiel_radixsort;
 pub use sorts::voracious_sort::voracious_sort;
 
 #[cfg(feature = "voracious_multithread")]
 pub use sorts::peeka_sort::peeka_sort;
 
 pub use dedicated::cs_u16::cs_u16;
+pub use dedicated::devour_sort::{devour_sort, DevourSort};
 pub use dedicated::float_sort::{float_sort, FloatSort};
-pub use dedicated::int_sort::{int_sort, IntSort};
 pub use dedicated::lsd_f32::lsd_f32;
 pub use dedicated::lsd_u32::lsd_u32;
