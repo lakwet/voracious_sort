@@ -79,7 +79,7 @@ impl SortKey for f64 {
 
 /// Tests / benchmarks: switches (bit 1: no presorted check, bit 2: no
 /// few-keys count, bit 4: gather through a buffer instead of the in-place
-/// permutation).
+/// permutation, bit 8: no Verge on the elements).
 #[cfg(test)]
 pub(crate) static BY_KEY_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -98,19 +98,35 @@ fn off(bit: usize) -> bool {
 
 /// Sorts `arr` by `key`, stably.
 pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) {
+    sort_enc(arr, &|x: &T| key(x).encode());
+}
+
+/// Direction of a pair of keys: -1 descending, 0 equal, 1 ascending.
+#[inline(always)]
+fn direction(a: u128, b: u128) -> i8 {
+    (b > a) as i8 - (b < a) as i8
+}
+
+fn sort_enc<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     let n = arr.len();
     if n < 2 {
         return;
     }
-    let enc = |x: &T| key(x).encode();
     // Elements no larger than a packed (key, index) and beyond the cache:
     // the LSD on the elements, its byte histograms taken in this read.
     let size = std::mem::size_of::<T>();
-    let lsd_regime = lsd_forced() || (size <= 8 && n.saturating_mul(size) > super::cache_info::l2_bytes() / 2);
+    // Beyond half the L2: the moves of the elements dominate (LSD on small
+    // elements, Verge on the elements, both counted in this read).
+    let beyond = n.saturating_mul(size) > super::cache_info::l2_bytes() / 2;
+    let lsd_regime = lsd_forced() || (size <= 8 && beyond);
     let mut hist = if lsd_regime { vec![[0usize; 256]; 8] } else { Vec::new() };
     let first = enc(&arr[0]);
     let (mut lo, mut hi, mut prev) = (first, first, first);
     let (mut asc, mut desc) = (true, true);
+    // Turns: changes of direction between neighbouring pairs (equal keys
+    // keep the direction): about 2n/3 on random keys, one per tooth on
+    // sawtooth data, one on a pipe organ.
+    let (mut turns, mut last) = (0usize, 0i8);
     if lsd_regime {
         let count = |hist: &mut [[usize; 256]], k: u128| {
             for (d, h) in hist.iter_mut().enumerate() {
@@ -124,10 +140,26 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
             hi = hi.max(k);
             asc &= prev <= k;
             desc &= prev > k;
+            let d = direction(prev, k);
+            turns += (d != 0 && d != last && last != 0) as usize;
+            last = if d != 0 { d } else { last };
             prev = k;
             count(&mut hist, k);
         }
+    } else if beyond {
+        for x in arr[1..].iter() {
+            let k = enc(x);
+            lo = lo.min(k);
+            hi = hi.max(k);
+            asc &= prev <= k;
+            desc &= prev > k;
+            let d = direction(prev, k);
+            turns += (d != 0 && d != last && last != 0) as usize;
+            last = if d != 0 { d } else { last };
+            prev = k;
+        }
     } else {
+        // In cache: the turns are not used (no Verge on the elements).
         for x in arr[1..].iter() {
             let k = enc(x);
             lo = lo.min(k);
@@ -146,16 +178,25 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
             return;
         }
     }
-    if !off(2) && few_keys(arr, &enc) {
+    if !off(2) && few_keys(arr, enc) {
+        return;
+    }
+    // Few turns: long runs likely; Verge on the elements (runs kept, the
+    // gaps sorted, everything merged).
+    if !off(8) && beyond && n >= VERGE_MIN && 8 * turns <= n && verge(arr, enc) {
         return;
     }
     let key_bits = u128::BITS - (hi - lo).leading_zeros();
     if lsd_regime && hi <= u64::MAX as u128 {
-        lsd(arr, &enc, &hist);
+        lsd(arr, enc, &hist);
         return;
     }
-    if !off(4) {
-        if !sort_in_place(arr, &enc, lo, key_bits) {
+    // In the cache the gather through a buffer is cheaper than scanning the
+    // permutation first (8-byte records at 10k-100k: 0.65-0.68 against
+    // 0.75-0.77 of the stable std sort); beyond it, the in-place
+    // permutation (see `permute`).
+    if !off(4) && beyond {
+        if !sort_in_place(arr, enc, lo, key_bits) {
             arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
         }
         return;
@@ -165,7 +206,7 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
     // buffer copied back over the array (see `sort_into`).
     unsafe {
         let dst = buf.as_mut_ptr() as *mut T;
-        if !sort_into(arr.as_ptr(), dst, n, &enc, lo, key_bits) {
+        if !sort_into(arr.as_ptr(), dst, n, enc, lo, key_bits) {
             arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
             return;
         }
@@ -433,4 +474,222 @@ fn few_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
         std::ptr::copy_nonoverlapping(dst, arr.as_mut_ptr(), n);
     }
     true
+}
+
+/// Shortest array tried for Verge on the elements.
+const VERGE_MIN: usize = 4096;
+
+/// Verge on the elements: runs of at least n / log2(n) keys (ascending, or
+/// strictly descending and then reversed: still stable) are kept, the gaps
+/// between them sorted, and all the segments merged stably. Returns false
+/// (nothing done) without such a run.
+fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+    let n = arr.len();
+    let long = super::super::algo::verge_sort_heuristic::compute_big_enough_run(n).max(2);
+    // Runs: (start, end, descending).
+    let mut runs: Vec<(usize, usize, bool)> = Vec::new();
+    let mut i = 0;
+    while i + 1 < n {
+        let start = i;
+        let desc = enc(&arr[i + 1]) < enc(&arr[i]);
+        let mut j = i + 1;
+        if desc {
+            while j < n && enc(&arr[j]) < enc(&arr[j - 1]) {
+                j += 1;
+            }
+        } else {
+            while j < n && enc(&arr[j]) >= enc(&arr[j - 1]) {
+                j += 1;
+            }
+        }
+        if j - start >= long {
+            runs.push((start, j, desc));
+        }
+        i = j;
+    }
+    if runs.is_empty() {
+        return false;
+    }
+    // Two long runs interleaving unpredictably (sorted random sources):
+    // merging costs more than sorting by key (the merge rule of the radix
+    // path, on the first 64 steps of their merge).
+    if runs.len() >= 2 && !predictable(arr, runs[0], runs[1], enc) {
+        return false;
+    }
+    // Segments: the runs and the gaps between them, in order.
+    let mut bounds = vec![0];
+    for &(s, e, desc) in runs.iter() {
+        let at = *bounds.last().unwrap();
+        if s > at {
+            sort_enc(&mut arr[at..s], enc);
+            bounds.push(s);
+        }
+        if desc {
+            arr[s..e].reverse();
+        }
+        bounds.push(e);
+    }
+    let at = *bounds.last().unwrap();
+    if at < n {
+        sort_enc(&mut arr[at..], enc);
+        bounds.push(n);
+    }
+    if bounds.len() == 3 {
+        merge_two(arr, bounds[1], enc);
+    } else {
+        merge_all(arr, &bounds, enc);
+    }
+    true
+}
+
+/// Whether merging two runs would be predictable (same rule as
+/// `predictable_merge`): on the first 64 steps of their merge (runs read in
+/// increasing order), at most 16 switches between the two runs, or a
+/// pattern periodic with a period of at most 16 (pipe organs alternate one
+/// by one).
+fn predictable<T, E: Fn(&T) -> u128>(arr: &[T], a: (usize, usize, bool), b: (usize, usize, bool), enc: &E) -> bool {
+    let at = |r: (usize, usize, bool), i: usize| if r.2 { enc(&arr[r.1 - 1 - i]) } else { enc(&arr[r.0 + i]) };
+    let (la, lb) = (a.1 - a.0, b.1 - b.0);
+    let (mut i, mut j, mut bits) = (0, 0, 0u64);
+    for step in 0..64 {
+        if i == la || j == lb {
+            return true;
+        }
+        let left = at(a, i) <= at(b, j);
+        bits |= (left as u64) << step;
+        if left {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+    if (bits ^ (bits << 1)).count_ones() - (bits & 1) as u32 <= 16 {
+        return true;
+    }
+    (1..=16).any(|p| ((bits ^ (bits << p)) >> p).count_ones() <= 4)
+}
+
+/// Stable merge of `arr[..m]` and `arr[m..]` with a buffer the size of the
+/// shorter one: each element moved once (the shorter run copied out, the
+/// merge writing from the end or the start into the array).
+fn merge_two<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E) {
+    let n = arr.len();
+    if m == 0 || m == n || enc(&arr[m - 1]) <= enc(&arr[m]) {
+        return;
+    }
+    let a = arr.as_mut_ptr();
+    // SAFETY: the shorter run is moved out to the buffer; the merge then
+    // fills the array from the side where the moved-out run was, never
+    // overtaking the unread elements of the other run (the write position
+    // is always at least as far from that side as the read position), and
+    // every element is moved once; nothing is dropped or duplicated. `enc`
+    // already ran on every element.
+    unsafe {
+        if n - m <= m {
+            // Right run out; merge from the end.
+            let len = n - m;
+            let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(len);
+            let b = buf.as_mut_ptr() as *mut T;
+            std::ptr::copy_nonoverlapping(a.add(m), b, len);
+            let (mut i, mut j, mut k) = (m, len, n);
+            while i > 0 && j > 0 {
+                // Stable: on equal keys the right element goes last.
+                let take_left = enc(&*a.add(i - 1)) > enc(&*b.add(j - 1));
+                k -= 1;
+                if take_left {
+                    i -= 1;
+                    a.add(k).write(std::ptr::read(a.add(i)));
+                } else {
+                    j -= 1;
+                    a.add(k).write(std::ptr::read(b.add(j)));
+                }
+            }
+            std::ptr::copy_nonoverlapping(b, a.add(k - j), j);
+        } else {
+            // Left run out; merge from the start.
+            let len = m;
+            let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(len);
+            let b = buf.as_mut_ptr() as *mut T;
+            std::ptr::copy_nonoverlapping(a, b, len);
+            let (mut i, mut j, mut k) = (0, m, 0);
+            while i < len && j < n {
+                // Stable: on equal keys the left element goes first.
+                let take_right = enc(&*a.add(j)) < enc(&*b.add(i));
+                if take_right {
+                    a.add(k).write(std::ptr::read(a.add(j)));
+                    j += 1;
+                } else {
+                    a.add(k).write(std::ptr::read(b.add(i)));
+                    i += 1;
+                }
+                k += 1;
+            }
+            std::ptr::copy_nonoverlapping(b.add(i), a.add(k), len - i);
+        }
+    }
+}
+
+/// Stable merge of the sorted segments `bounds[i]..bounds[i + 1]`, pairs of
+/// neighbours per round, alternating between the array and a buffer.
+fn merge_all<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], enc: &E) {
+    let n = arr.len();
+    if bounds.len() <= 2 {
+        return;
+    }
+    let mut bounds = bounds.to_vec();
+    let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
+    let mut in_buf = false;
+    // SAFETY: each round moves every element exactly once from one side to
+    // the other (each segment pair merged or copied into the same range);
+    // at the end the elements are copied back if they are in the buffer.
+    // Nothing is dropped or duplicated; `enc` already ran on every element.
+    unsafe {
+        let a = arr.as_mut_ptr();
+        let b = buf.as_mut_ptr() as *mut T;
+        while bounds.len() > 2 {
+            let (src, dst) = if in_buf { (b as *const T, a) } else { (a as *const T, b) };
+            let mut next = vec![0];
+            let mut i = 0;
+            while i + 2 < bounds.len() {
+                let (s, m, e) = (bounds[i], bounds[i + 1], bounds[i + 2]);
+                merge_into(src, dst, s, m, e, enc);
+                next.push(e);
+                i += 2;
+            }
+            if i + 1 < bounds.len() {
+                let (s, e) = (bounds[i], bounds[i + 1]);
+                std::ptr::copy_nonoverlapping(src.add(s), dst.add(s), e - s);
+                next.push(e);
+            }
+            bounds = next;
+            in_buf = !in_buf;
+        }
+        if in_buf {
+            std::ptr::copy_nonoverlapping(b, a, n);
+        }
+    }
+}
+
+/// Stable merge of `src[s..m]` and `src[m..e]` into `dst[s..e]`.
+///
+/// # Safety
+/// The ranges are valid in both, `src` and `dst` do not overlap; the
+/// elements are moved (bitwise).
+unsafe fn merge_into<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, s: usize, m: usize, e: usize, enc: &E) {
+    if m > s && m < e && enc(&*src.add(m - 1)) <= enc(&*src.add(m)) {
+        std::ptr::copy_nonoverlapping(src.add(s), dst.add(s), e - s);
+        return;
+    }
+    let (mut i, mut j, mut k) = (s, m, s);
+    while i < m && j < e {
+        let right = enc(&*src.add(j)) < enc(&*src.add(i));
+        let from = if right { j } else { i };
+        dst.add(k).write(std::ptr::read(src.add(from)));
+        j += right as usize;
+        i += (!right) as usize;
+        k += 1;
+    }
+    std::ptr::copy_nonoverlapping(src.add(i), dst.add(k), m - i);
+    k += m - i;
+    std::ptr::copy_nonoverlapping(src.add(j), dst.add(k), e - j);
 }
