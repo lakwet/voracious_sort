@@ -748,13 +748,15 @@ fn test_ded_devour_sort2_128() {
 }
 
 /// `devour_sort_by_key`: same result as the stable `sort_by` on the key
-/// (records carry their original index), every record size and key type.
+/// (records carry their original index): keys of 16 to 64 bits and char,
+/// records of 8 to 128 bytes, key first or last, a `String` record, a
+/// composite key.
 #[test]
 fn test_ded_sort_by_key() {
     use super::super::dedicated::by_key::{devour_sort_by_key, SortKey};
     use super::super::generators::records::*;
-    fn check<T: Copy + PartialEq + std::fmt::Debug, K: SortKey>(gens: Gens<T>, key: fn(&T) -> K, ty: &str) {
-        let sizes: Vec<usize> = (0..=40).chain([64, 65, 255, 256, 1_000, 4_096, 65_536, 100_000, 1_000_000].iter().copied()).collect();
+    fn check<T: Clone + PartialEq + std::fmt::Debug, K: SortKey>(gens: Gens<T>, key: fn(&T) -> K, ty: &str) {
+        let sizes: Vec<usize> = (0..=40).chain([64, 65, 127, 128, 255, 256, 1_000, 4_096, 65_536, 100_000, 1_000_000].iter().copied()).collect();
         for &size in sizes.iter() {
             for (gen, name) in gens.iter() {
                 let mut arr = gen(size);
@@ -765,15 +767,27 @@ fn test_ded_sort_by_key() {
             }
         }
     }
-    check(generators_rec8(), |r| r.key, "rec8");
-    check(generators_rec16(), |r| r.key, "rec16");
-    check(generators_rec32(), |r| r.key, "rec32");
-    check(generators_rec128(), |r| r.key, "rec128");
-    check(generators_rec_f64(), |r| r.key, "rec f64");
-    check(generators_rec_u128(), |r| r.key, "rec u128");
-    // signed and narrow keys through a field projection
-    check(generators_rec16(), |r| r.key as i64, "rec16 as i64");
-    check(generators_rec16(), |r| (r.key >> 48) as u16, "rec16 top 16 bits");
+    macro_rules! sizes {
+        ($keys:expr, $k:ty, $w8:literal, $w32:literal, $w128:literal, $name:literal) => {{
+            if $w8 > 0 {
+                check(wrap($keys, rec::<$k, $w8>), |r| r.key, concat!($name, " 8 B"));
+            }
+            check(wrap($keys, rec::<$k, $w32>), |r| r.key, concat!($name, " 32 B"));
+            check(wrap($keys, rec::<$k, $w128>), |r| r.key, concat!($name, " 128 B"));
+            check(wrap($keys, rec_end::<$k, 3>), |r| r.key, concat!($name, " key last"));
+        }};
+    }
+    sizes!(keys_u16(), u16, 1, 7, 31, "u16");
+    sizes!(keys_i16(), i16, 1, 7, 31, "i16");
+    sizes!(keys_u32(), u32, 1, 7, 31, "u32");
+    sizes!(keys_i32(), i32, 1, 7, 31, "i32");
+    sizes!(keys_f32(), f32, 1, 7, 31, "f32");
+    sizes!(keys_char(), char, 1, 7, 31, "char");
+    sizes!(keys_u64(), u64, 0, 6, 30, "u64");
+    sizes!(keys_i64(), i64, 0, 6, 30, "i64");
+    sizes!(keys_f64(), f64, 0, 6, 30, "f64");
+    check(wrap(keys_u64(), rec_string), |r| r.key, "string");
+    check(wrap(keys_u64(), rec_pair), |r| r.key(), "pair");
 }
 
 /// `ravenous_sort2` (algorithmic work copy): bit for bit `total_cmp` order,

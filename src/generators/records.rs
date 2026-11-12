@@ -1,31 +1,98 @@
-//! Records (structs) to sort by a key: a key field and a payload of `P`
-//! words, from 8 bytes (u32 key, u32 value) to 128 bytes. The keys come from
-//! the distributions of the key type; the payload holds the record's
-//! original index (stability checks) and filler.
+//! Records (structs) to sort by a key: keys of 16 to 64 bits (u16, i16,
+//! u32, i32, f32, u64, i64, f64, char) in records of 8 to 128 bytes, the
+//! key first or last; a record holding a `String` (not `Copy`); a composite
+//! key from two fields. The keys follow the distributions of their type;
+//! the payload's first word is the record's original index (stability
+//! checks).
 
-use super::int_extra::{extra_u32, extra_u64};
-use super::unsigned_u32::generators_u32;
-use super::unsigned_u64::generators_u64;
-
-/// A record: `key` and `P` payload words (the first one: original index).
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-#[repr(C)]
-pub struct Rec<K, const P: usize> {
-    pub key: K,
-    pub pay: [u64; P],
-}
-
-/// 8-byte record: u32 key, u32 value (original index).
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-#[repr(C)]
-pub struct Rec8 {
-    pub key: u32,
-    pub val: u32,
-}
+use super::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
+use super::narrow_extra::{extra_char, extra_i16, extra_u16};
 
 pub type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
-fn wrap<K: Copy + 'static, T: 'static>(keys: Gens<K>, make: &'static (dyn Fn(Vec<K>) -> Vec<T> + Sync)) -> Gens<T> {
+/// Key first, then `W` payload words (the first: original index).
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[repr(C)]
+pub struct Rec<K, const W: usize> {
+    pub key: K,
+    pub pay: [u32; W],
+}
+
+/// Payload first, key last.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[repr(C)]
+pub struct RecEnd<K, const W: usize> {
+    pub pay: [u32; W],
+    pub key: K,
+}
+
+/// A record that is not `Copy`: u64 key, a heap string (32 bytes).
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub struct RecString {
+    pub key: u64,
+    pub name: String,
+}
+
+/// Composite key: (`hi`, `lo`) compared as `(hi << 32) | lo` (16 bytes).
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[repr(C)]
+pub struct RecPair {
+    pub hi: u32,
+    pub lo: u32,
+    pub index: u64,
+}
+
+impl RecPair {
+    pub fn key(&self) -> u64 {
+        ((self.hi as u64) << 32) | self.lo as u64
+    }
+}
+
+/// Key generators of each key type (own list + extras).
+pub fn keys_u16() -> Gens<u16> {
+    let mut g = super::unsigned_u16::generators_u16();
+    g.extend(extra_u16::generators());
+    g
+}
+pub fn keys_i16() -> Gens<i16> {
+    let mut g = super::signed_i16::generators_i16();
+    g.extend(extra_i16::generators());
+    g
+}
+pub fn keys_u32() -> Gens<u32> {
+    let mut g = super::unsigned_u32::generators_u32();
+    g.extend(extra_u32::generators());
+    g
+}
+pub fn keys_i32() -> Gens<i32> {
+    let mut g = super::signed_i32::generators_i32();
+    g.extend(extra_i32::generators());
+    g
+}
+pub fn keys_u64() -> Gens<u64> {
+    let mut g = super::unsigned_u64::generators_u64();
+    g.extend(extra_u64::generators());
+    g
+}
+pub fn keys_i64() -> Gens<i64> {
+    let mut g = super::signed_i64::generators_i64();
+    g.extend(extra_i64::generators());
+    g
+}
+pub fn keys_f32() -> Gens<f32> {
+    super::float_32::generators_f32()
+}
+pub fn keys_f64() -> Gens<f64> {
+    super::float_64::generators_f64()
+}
+pub fn keys_char() -> Gens<char> {
+    let mut g = super::char::generators_char();
+    g.extend(extra_char::generators());
+    g
+}
+
+/// Records built from a list of key generators.
+pub fn wrap<K: Copy + 'static, T: 'static>(keys: Gens<K>, make: fn(Vec<K>) -> Vec<T>) -> Gens<T> {
     keys.into_iter()
         .map(|(g, name)| {
             let f = move |n: usize| make(g(n));
@@ -34,60 +101,34 @@ fn wrap<K: Copy + 'static, T: 'static>(keys: Gens<K>, make: &'static (dyn Fn(Vec
         .collect()
 }
 
-fn records<K: Copy, const P: usize>(keys: Vec<K>) -> Vec<Rec<K, P>> {
+/// Key first, `W` words of payload, index in the first.
+pub fn rec<K: Copy, const W: usize>(keys: Vec<K>) -> Vec<Rec<K, W>> {
     keys.into_iter()
         .enumerate()
         .map(|(i, key)| {
-            let mut pay = [0x5A5A_5A5A_5A5A_5A5Au64; P];
-            if P > 0 {
-                pay[0] = i as u64;
-            }
+            let mut pay = [0x5A5A_5A5Au32; W];
+            pay[0] = i as u32;
             Rec { key, pay }
         })
         .collect()
 }
 
-fn u64_keys() -> Gens<u64> {
-    let mut g = generators_u64();
-    g.extend(extra_u64::generators());
-    g
+/// Key last.
+pub fn rec_end<K: Copy, const W: usize>(keys: Vec<K>) -> Vec<RecEnd<K, W>> {
+    keys.into_iter()
+        .enumerate()
+        .map(|(i, key)| {
+            let mut pay = [0x5A5A_5A5Au32; W];
+            pay[0] = i as u32;
+            RecEnd { pay, key }
+        })
+        .collect()
 }
 
-/// u32 key, u32 value: 8 bytes.
-pub fn generators_rec8() -> Gens<Rec8> {
-    let mut g = generators_u32();
-    g.extend(extra_u32::generators());
-    wrap(g, &|keys: Vec<u32>| keys.into_iter().enumerate().map(|(i, key)| Rec8 { key, val: i as u32 }).collect())
+pub fn rec_string(keys: Vec<u64>) -> Vec<RecString> {
+    keys.into_iter().enumerate().map(|(i, key)| RecString { key, name: format!("#{i}") }).collect()
 }
 
-/// u64 key, one word: 16 bytes.
-pub fn generators_rec16() -> Gens<Rec<u64, 1>> {
-    wrap(u64_keys(), &|k| records::<u64, 1>(k))
-}
-
-/// u64 key, three words: 32 bytes.
-pub fn generators_rec32() -> Gens<Rec<u64, 3>> {
-    wrap(u64_keys(), &|k| records::<u64, 3>(k))
-}
-
-/// u64 key, seven words: 64 bytes.
-pub fn generators_rec64() -> Gens<Rec<u64, 7>> {
-    wrap(u64_keys(), &|k| records::<u64, 7>(k))
-}
-
-/// u64 key, fifteen words: 128 bytes.
-pub fn generators_rec128() -> Gens<Rec<u64, 15>> {
-    wrap(u64_keys(), &|k| records::<u64, 15>(k))
-}
-
-/// f64 key, three words: 32 bytes.
-pub fn generators_rec_f64() -> Gens<Rec<f64, 3>> {
-    wrap(super::float_64::generators_f64(), &|k| records::<f64, 3>(k))
-}
-
-/// u128 key, two words: 32 bytes.
-pub fn generators_rec_u128() -> Gens<Rec<u128, 2>> {
-    let mut g = super::unsigned_u128::generators_u128();
-    g.extend(super::int128_extra::extra_u128::generators());
-    wrap(g, &|k| records::<u128, 2>(k))
+pub fn rec_pair(keys: Vec<u64>) -> Vec<RecPair> {
+    keys.into_iter().enumerate().map(|(i, k)| RecPair { hi: (k >> 32) as u32, lo: k as u32, index: i as u64 }).collect()
 }
