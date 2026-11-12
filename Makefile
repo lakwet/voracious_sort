@@ -50,12 +50,12 @@ $(BENCH_ARGS):
 endif
 
 # CPU benchmark of the v2 sorts against the other sorts: writes one file,
-# bench-cpu-<host>-<date>.txt, at the repository root (several hours).
+# bench-cpu-<host>-<date>.txt, at the repository root (about a night).
 # Compiled for the CPU of the machine (every sort alike).
 BENCH_CPU_RUSTFLAGS = $(BENCH_RUSTFLAGS) -C target-cpu=native
 
 bench-cpu: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-bench-cpu: ## CPU benchmark (one output file bench-cpu-*.txt, several hours)
+bench-cpu: ## CPU benchmark (one output file bench-cpu-*.txt, about a night)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
 bench-cpu-quick: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)

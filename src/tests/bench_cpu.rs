@@ -24,9 +24,15 @@
 //!   the fastest, the tuning holds on this machine (four times: whether a
 //!   small L2 backed by a large L3 should count for more).
 //!
-//! Settings: `BENCH_MAX` (largest size, default 10M), `BENCH_REPS`
-//! (repetitions, the median is kept, default 3), `BENCH_TYPES` (filter),
-//! `BENCH_OUT` (output directory, default the repository root).
+//! Sizes: 1k to 10M for everything; 30M and 100M for the main types only
+//! (`BIG_LABELS`), and only when an array, its copy and a buffer fit in the
+//! memory budget.
+//!
+//! Settings: `BENCH_MAX` (largest size, default 100M), `BENCH_REPS`
+//! (repetitions, the median is kept, default 3; at least 5 arrays sorted
+//! per measurement), `BENCH_MEM_MB` (memory budget, default 16384),
+//! `BENCH_TYPES` (filter), `BENCH_OUT` (output directory, default the
+//! repository root).
 
 use std::io::Write;
 use std::sync::atomic::Ordering::Relaxed;
@@ -41,7 +47,10 @@ use super::super::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
-const SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000];
+const SIZES: [usize; 12] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000, 30_000_000, 100_000_000];
+/// Beyond this size only the types of `BIG_LABELS` are measured.
+const BIG: usize = 10_000_000;
+const BIG_LABELS: [&str; 11] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u128", "records u32 8B", "records u64 32B", "l2 u64", "l2 f64"];
 /// Keys per batch of arrays (small sizes: many arrays per measurement).
 const BATCH_KEYS: usize = 4_000_000;
 /// Most bytes in a batch (large records).
@@ -54,6 +63,7 @@ struct Config {
     reps: usize,
     parts: Vec<String>,
     types: Option<Vec<String>>,
+    memory: usize,
 }
 
 impl Config {
@@ -61,10 +71,11 @@ impl Config {
         let list = |name: &str| std::env::var(name).ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect::<Vec<_>>());
         let number = |name: &str, default: usize| std::env::var(name).ok().and_then(|s| s.replace('_', "").parse().ok()).unwrap_or(default);
         Config {
-            max: number("BENCH_MAX", 10_000_000),
+            max: number("BENCH_MAX", 100_000_000),
             reps: number("BENCH_REPS", 3).max(1),
             parts: list("BENCH_PARTS").unwrap_or_else(|| ["aa", "int", "float", "wide", "records", "l2"].iter().map(|s| s.to_string()).collect()),
             types: list("BENCH_TYPES"),
+            memory: number("BENCH_MEM_MB", 16_384) << 20,
         }
     }
 
@@ -153,6 +164,14 @@ fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T
     report.line(&format!("== {} ({} distributions; ns per key; ratios other / {}, > 1: {} faster)", label, gens.len(), names[0], names[0]));
     report.line(&format!("cols,{},size,gen,{}", label, names.join(",")));
     for &size in SIZES.iter().filter(|&&s| s <= cfg.max && s >= min_size) {
+        if size > BIG && !BIG_LABELS.contains(&label) {
+            continue;
+        }
+        // The batch, its working copy and a buffer of the same size.
+        if size > BIG && size.saturating_mul(std::mem::size_of::<T>()).saturating_mul(4) > cfg.memory {
+            report.line(&format!("skip,{},{},memory budget (BENCH_MEM_MB)", label, size));
+            continue;
+        }
         let started = std::time::Instant::now();
         let rows = measure(report, cfg, label, gens, size, variants, ordered);
         for (gen, ns) in rows.iter() {
@@ -290,7 +309,7 @@ fn machine(report: &mut Report, cfg: &Config) {
         format!("target features,{}", target_features()),
         format!("rustc,{}", command("rustc", &["--version"]).unwrap_or_else(|| "unknown".into())),
         format!("commit,{}", command("git", &["describe", "--always", "--dirty"]).unwrap_or_else(|| "unknown".into())),
-        format!("settings,max {} reps {} parts {}", cfg.max, cfg.reps, cfg.parts.join(" ")),
+        format!("settings,max {} reps {} memory {} MiB parts {}", cfg.max, cfg.reps, cfg.memory >> 20, cfg.parts.join(" ")),
     ];
     report.line("== machine");
     for l in lines.iter() {
