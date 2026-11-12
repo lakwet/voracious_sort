@@ -177,7 +177,7 @@ macro_rules! int_width {
             radix_path(arr, prefix, probes, !exp2(8), &|a: &mut [$t], equal: usize| {
                 if old {
                     // Before: each detector its own sample and probes.
-                    return $range(a, &spread(a)) || plateaus(a, if a.len() >= 1024 { probe_equal(a) } else { 0 }) || $few(a, &spread(a)) || heavy_sorted_by(a, &sorted(spread(a)), &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sorted(spread(a)));
+                    return $range(a, &spread(a)) || plateaus(a, if a.len() >= 1024 { probe_equal(a) } else { 0 }) || $few(a, &spread(a)) || heavy_sorted_by(a, &sorted(spread(a)), DENSE_MIN, &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sorted(spread(a)));
                 }
                 // One spread sample for every detector, sorted once (only
                 // when the detectors that need it in order are reached), and
@@ -185,7 +185,7 @@ macro_rules! int_width {
                 let mut sample = spread(a);
                 $range(a, &sample) || plateaus(a, equal) || $few(a, &sample) || (a.len() >= DENSE_MIN && {
                     sample.sort_unstable();
-                    heavy_sorted_by(a, &sample, &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sample)
+                    heavy_sorted_by(a, &sample, DENSE_MIN, &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sample)
                 })
             }, &|s: &mut [$t]| {
                 #[cfg(test)]
@@ -722,7 +722,13 @@ fn clustered<U: WindowKey>(sample: &[U]) -> bool {
 /// `heavy` with an equality and an order of its own (floats: same bits,
 /// `total_cmp`, so that -0.0 and +0.0 stay apart).
 pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
-    if arr.len() < DENSE_MIN || exp2(1) {
+    heavy_from(arr, DENSE_MIN, sort, eq, lt)
+}
+
+/// `heavy_by` from `min` keys (wider keys: each comparison and move costs
+/// more, the extraction pays off on shorter arrays).
+pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], min: usize, sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
+    if arr.len() < min || exp2(1) {
         return false;
     }
     let mut sample = spread(arr);
@@ -735,13 +741,13 @@ pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool 
             std::cmp::Ordering::Equal
         }
     });
-    heavy_sorted_by(arr, &sample, sort, eq, lt)
+    heavy_sorted_by(arr, &sample, min, sort, eq, lt)
 }
 
 /// `heavy_by` on a spread sample already sorted (by `lt`).
-fn heavy_sorted_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sample: &[T; HEAVY_SAMPLE], sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
+fn heavy_sorted_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sample: &[T; HEAVY_SAMPLE], min: usize, sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
     let n = arr.len();
-    if n < DENSE_MIN || exp2(1) {
+    if n < min || exp2(1) {
         return false;
     }
     let mut values = [arr[0]; 4];

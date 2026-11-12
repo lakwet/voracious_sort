@@ -14,13 +14,17 @@
 //!   apart there), then the small groups sharing that prefix finished; the
 //!   rollercoaster above the cache.
 
-use super::devour_sort2::{devour_sort2, heavy_by, presorted, DevourSort2};
+use super::devour_sort2::{devour_sort2, heavy_from, presorted, DevourSort2};
 use super::float_dlsd::{di128, du128};
 use super::float_roller::{ri128, ru128};
 use super::ravenous_sort2::radix_path;
 
 /// Up to this size: `sort_unstable`.
 const SMALL: usize = 64;
+/// From this size the heavy hitters are extracted (4096 for narrower keys:
+/// 16-byte keys cost more to compare and move, the extraction pays off on
+/// shorter arrays; Sparse 90 % at 1k-3k: 6.6-7.7 ns per key without it).
+const HEAVY_MIN: usize = 512;
 
 /// A 128-bit key: its bits and their encoding (unsigned order = key order).
 pub(crate) trait Key128: Copy + Ord {
@@ -90,7 +94,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         prefix,
         probes,
         true,
-        &|a: &mut [T], _| few(a) || heavy_by(a, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y),
+        &|a: &mut [T], _| few(a) || heavy_from(a, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y),
         &|chunk: &mut [T]| {
             if chunk.len() >= roller_min() {
                 T::roller(bits_of(chunk));
@@ -201,57 +205,72 @@ const FEW_MIN: usize = 129;
 /// scheme as the other integer widths).
 fn few<T: Key128>(arr: &mut [T]) -> bool {
     let n = arr.len();
-    if n < FEW_MIN {
+    if n < FEW_MIN || n > u32::MAX as usize {
         return false;
     }
     let hash = |v: T| {
         let e = v.enc();
         (((e as u64) ^ ((e >> 64) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize
     };
-    let mut keys = [arr[0]; FEW_TABLE];
+    // One table for the sample and the count: only the occupancy is
+    // initialised (keys of 16 bytes: 8 KiB per table otherwise).
+    let mut keys = [std::mem::MaybeUninit::<T>::uninit(); FEW_TABLE];
     let mut used = [false; FEW_TABLE];
-    let s = (n / 32).clamp(16, 256);
-    let mut distinct = 0;
-    for i in 0..s as u64 {
-        let v = arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize];
+    let mut find = |v: T, used: &mut [bool; FEW_TABLE]| -> (usize, bool) {
         let mut h = hash(v);
-        while used[h] && keys[h] != v {
+        // SAFETY: `keys[h]` is read only where `used[h]`, set with it.
+        while used[h] && unsafe { keys[h].assume_init() } != v {
             h = (h + 1) & (FEW_TABLE - 1);
         }
-        if !used[h] {
+        let new = !used[h];
+        if new {
             used[h] = true;
-            keys[h] = v;
+            keys[h].write(v);
+        }
+        (h, new)
+    };
+    let s = (n / 32).clamp(16, 256);
+    let mut distinct = 0;
+    let mut seen = [0u8; FEW_TABLE];
+    for i in 0..s as u64 {
+        let v = arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize];
+        let (h, new) = find(v, &mut used);
+        seen[h] = seen[h].saturating_add(1);
+        if new {
             distinct += 1;
             if distinct > s / 2 {
                 return false;
             }
         }
     }
-    let mut keys = [arr[0]; FEW_TABLE];
-    let mut used = [false; FEW_TABLE];
-    let mut counts = [0usize; FEW_TABLE];
-    let mut distinct = 0;
+    // One value over a quarter of the sample: left to the heavy-hitter
+    // extraction, cheaper than sorting and rewriting every distinct value
+    // (sparse data: 5.0 against 2.5 ns per key at 1k).
+    if seen.iter().any(|&c| 4 * c as usize >= s) {
+        return false;
+    }
+    // The sampled values stay in the table, with no count yet.
+    let mut counts = [0u32; FEW_TABLE];
     for &v in arr.iter() {
-        let mut h = hash(v);
-        while used[h] && keys[h] != v {
-            h = (h + 1) & (FEW_TABLE - 1);
-        }
-        if !used[h] {
-            if distinct == FEW_MAX {
+        let (h, new) = find(v, &mut used);
+        if new {
+            distinct += 1;
+            if distinct > FEW_MAX {
                 return false;
             }
-            used[h] = true;
-            keys[h] = v;
-            distinct += 1;
         }
         counts[h] += 1;
     }
-    let mut found: Vec<(T, usize)> = (0..FEW_TABLE).filter(|&h| used[h]).map(|h| (keys[h], counts[h])).collect();
+    let mut found: Vec<(T, u32)> = (0..FEW_TABLE)
+        .filter(|&h| counts[h] != 0)
+        // SAFETY: a counted slot holds a key.
+        .map(|h| (unsafe { keys[h].assume_init() }, counts[h]))
+        .collect();
     found.sort_unstable_by(|a, b| a.0.cmp(&b.0));
     let mut start = 0;
     for (v, c) in found {
-        arr[start..start + c].fill(v);
-        start += c;
+        arr[start..start + c as usize].fill(v);
+        start += c as usize;
     }
     true
 }
