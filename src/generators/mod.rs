@@ -7,6 +7,7 @@
 #[allow(dead_code)] pub mod int_extra;
 #[allow(dead_code)] pub mod int128_extra;
 #[allow(dead_code)] pub mod narrow_extra;
+#[allow(dead_code)] pub mod records;
 #[allow(dead_code)] pub mod signed_i128;
 #[allow(dead_code)] pub mod signed_i16;
 #[allow(dead_code)] pub mod signed_i32;

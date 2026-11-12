@@ -747,6 +747,35 @@ fn test_ded_devour_sort2_128() {
     check(generators_i128(), extra_i128::generators(), &[0i128, -1, 1, i128::MIN, i128::MAX, 1 << 64, -(1 << 64), i64::MIN as i128, i64::MAX as i128], "i128");
 }
 
+/// `devour_sort_by_key`: same result as the stable `sort_by` on the key
+/// (records carry their original index), every record size and key type.
+#[test]
+fn test_ded_sort_by_key() {
+    use super::super::dedicated::by_key::{devour_sort_by_key, SortKey};
+    use super::super::generators::records::*;
+    fn check<T: Copy + PartialEq + std::fmt::Debug, K: SortKey>(gens: Gens<T>, key: fn(&T) -> K, ty: &str) {
+        let sizes: Vec<usize> = (0..=40).chain([64, 65, 255, 256, 1_000, 4_096, 65_536, 100_000, 1_000_000].iter().copied()).collect();
+        for &size in sizes.iter() {
+            for (gen, name) in gens.iter() {
+                let mut arr = gen(size);
+                let mut expected = arr.clone();
+                expected.sort_by(|a, b| key(a).encode().cmp(&key(b).encode()));
+                devour_sort_by_key(&mut arr, key);
+                assert!(arr == expected, "{} {} size {}", ty, name, size);
+            }
+        }
+    }
+    check(generators_rec8(), |r| r.key, "rec8");
+    check(generators_rec16(), |r| r.key, "rec16");
+    check(generators_rec32(), |r| r.key, "rec32");
+    check(generators_rec128(), |r| r.key, "rec128");
+    check(generators_rec_f64(), |r| r.key, "rec f64");
+    check(generators_rec_u128(), |r| r.key, "rec u128");
+    // signed and narrow keys through a field projection
+    check(generators_rec16(), |r| r.key as i64, "rec16 as i64");
+    check(generators_rec16(), |r| (r.key >> 48) as u16, "rec16 top 16 bits");
+}
+
 /// `ravenous_sort2` (algorithmic work copy): bit for bit `total_cmp` order,
 /// same sizes as `ravenous_sort`.
 #[test]
