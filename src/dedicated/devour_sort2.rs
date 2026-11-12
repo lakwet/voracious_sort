@@ -172,7 +172,7 @@ macro_rules! int_width {
             let scratch = std::cell::RefCell::new(Vec::new());
             let recurse = |r: &mut [$t]| <$t as DevourSort2>::devour_sort2_impl(r);
             let old = pre_old();
-            radix_path(arr, prefix, probes, &|a: &mut [$t], equal: usize| {
+            radix_path(arr, prefix, probes, !exp2(8), &|a: &mut [$t], equal: usize| {
                 if old {
                     // Before: each detector its own sample and probes.
                     return $range(a, &spread(a)) || plateaus(a, if a.len() >= 1024 { probe_equal(a) } else { 0 }) || $few(a, &spread(a)) || heavy_sorted_by(a, &sorted(spread(a)), &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sorted(spread(a)));
@@ -599,7 +599,7 @@ fn roller_int64() -> usize {
 pub(crate) static INT_EXP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// Tests / benchmarks: switches of the v2 features (bit 1: no heavy hitters, bit 2: no cluster rule,
-/// bit 4: no `presorted` first, constant-array check instead).
+/// bit 4: no `presorted` first, constant-array check instead; bit 8: no early random-runs check).
 #[cfg(test)]
 pub(crate) static V2_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
