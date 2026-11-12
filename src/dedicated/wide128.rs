@@ -255,3 +255,30 @@ fn few<T: Key128>(arr: &mut [T]) -> bool {
     }
     true
 }
+
+/// Narrowing inside the DLSD (a group whose range fits in 64 bits): `keys`
+/// read through `enc`, sorted as `key - min` on 64 or 32 bits, written back
+/// through `dec`.
+pub(crate) fn narrow_keys(keys: &mut [u128], min: u128, range: u128, enc: impl Fn(u128) -> u128, dec: impl Fn(u128) -> u128) {
+    if range <= u32::MAX as u128 {
+        narrow_with::<u32>(keys, min, &enc, &dec);
+    } else {
+        narrow_with::<u64>(keys, min, &enc, &dec);
+    }
+}
+
+fn narrow_with<U: Narrow>(keys: &mut [u128], min: u128, enc: &impl Fn(u128) -> u128, dec: &impl Fn(u128) -> u128) {
+    let n = keys.len();
+    let wide = keys.as_mut_ptr();
+    let small = wide as *mut U;
+    // SAFETY: as in `narrow_to`.
+    unsafe {
+        for i in 0..n {
+            small.add(i).write(U::from128(enc(wide.add(i).read()) - min));
+        }
+        devour_sort2(std::slice::from_raw_parts_mut(small, n));
+        for i in (0..n).rev() {
+            wide.add(i).write(dec(min + small.add(i).read().to128()));
+        }
+    }
+}

@@ -106,6 +106,43 @@ fn count(i: usize, v: u64) {
     PROF[i].fetch_add(v, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Keys narrowed to 64 or 32 bits when their range fits (128-bit keys
+/// only; the narrower widths never are).
+pub(crate) trait WideNarrow: Copy {
+    /// `keys` encoded (raw bits if `raw`), `min` and `range` of the encoded
+    /// keys. Returns whether the keys were sorted (and decoded).
+    fn narrow(keys: &mut [Self], min: Self, range: Self, raw: bool, enc: fn(Self) -> Self, dec: fn(Self) -> Self) -> bool;
+}
+
+impl WideNarrow for u32 {
+    #[inline(always)]
+    fn narrow(_: &mut [Self], _: Self, _: Self, _: bool, _: fn(Self) -> Self, _: fn(Self) -> Self) -> bool {
+        false
+    }
+}
+
+impl WideNarrow for u64 {
+    #[inline(always)]
+    fn narrow(_: &mut [Self], _: Self, _: Self, _: bool, _: fn(Self) -> Self, _: fn(Self) -> Self) -> bool {
+        false
+    }
+}
+
+impl WideNarrow for u128 {
+    #[inline]
+    fn narrow(keys: &mut [Self], min: Self, range: Self, raw: bool, enc: fn(Self) -> Self, dec: fn(Self) -> Self) -> bool {
+        if range > u64::MAX as u128 {
+            return false;
+        }
+        if raw {
+            super::wide128::narrow_keys(keys, min, range, enc, dec);
+        } else {
+            super::wide128::narrow_keys(keys, min, range, |k| k, dec);
+        }
+        true
+    }
+}
+
 /// Tests: 128-bit keys keep the full prefix (A/B of the one-digit cap).
 #[cfg(test)]
 pub(crate) static NO_WIDE_CAP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -222,6 +259,17 @@ macro_rules! dlsd_width {
                     // histograms, passes) outweigh `sort_unstable` up to a few
                     // hundred keys (groups left by a one-digit prefix).
                     let small = if <$uint>::BITS == 128 && wide_cap_enabled() { SMALL_128 } else { SMALL };
+                    // Small groups of 128-bit keys within a 64-bit range (one
+                    // cluster, one tenant): narrowed before `sort_unstable`.
+                    if <$uint>::BITS == 128 && wide_cap_enabled() && n > GROUP_INSERTION && n <= small {
+                        let (min, max) = keys.iter().fold((<$uint>::MAX, 0 as $uint), |(lo, hi), &v| {
+                            let k = enc::<RAW>(v);
+                            (lo.min(k), hi.max(k))
+                        });
+                        if <$uint as WideNarrow>::narrow(keys, min, max - min, RAW, w::encode_key, w::decode_key) {
+                            return;
+                        }
+                    }
                     if n <= small {
                         if RAW {
                             keys.iter_mut().for_each(|k| *k = w::encode_key(*k));
@@ -246,6 +294,12 @@ macro_rules! dlsd_width {
                         if !RAW {
                             keys.iter_mut().for_each(|k| *k = w::decode_key(*k));
                         }
+                        return;
+                    }
+                    // 128-bit keys within a 64-bit range (a group of clusters,
+                    // one network prefix, one tenant): sorted as 64- or 32-bit
+                    // keys (see `wide128`).
+                    if wide_cap_enabled() && <$uint as WideNarrow>::narrow(keys, min, range, RAW, w::encode_key, w::decode_key) {
                         return;
                     }
                     let top = <$uint>::BITS - range.leading_zeros();
