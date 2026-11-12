@@ -103,16 +103,39 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
         return;
     }
     let enc = |x: &T| key(x).encode();
+    // Elements no larger than a packed (key, index) and beyond the cache:
+    // the LSD on the elements, its byte histograms taken in this read.
+    let size = std::mem::size_of::<T>();
+    let lsd_regime = lsd_forced() || (size <= 8 && n.saturating_mul(size) > super::cache_info::l2_bytes() / 2);
+    let mut hist = if lsd_regime { vec![[0usize; 256]; 8] } else { Vec::new() };
     let first = enc(&arr[0]);
     let (mut lo, mut hi, mut prev) = (first, first, first);
     let (mut asc, mut desc) = (true, true);
-    for x in arr[1..].iter() {
-        let k = enc(x);
-        lo = lo.min(k);
-        hi = hi.max(k);
-        asc &= prev <= k;
-        desc &= prev > k;
-        prev = k;
+    if lsd_regime {
+        let count = |hist: &mut [[usize; 256]], k: u128| {
+            for (d, h) in hist.iter_mut().enumerate() {
+                h[((k as u64 >> (8 * d)) & 0xFF) as usize] += 1;
+            }
+        };
+        count(&mut hist, first);
+        for x in arr[1..].iter() {
+            let k = enc(x);
+            lo = lo.min(k);
+            hi = hi.max(k);
+            asc &= prev <= k;
+            desc &= prev > k;
+            prev = k;
+            count(&mut hist, k);
+        }
+    } else {
+        for x in arr[1..].iter() {
+            let k = enc(x);
+            lo = lo.min(k);
+            hi = hi.max(k);
+            asc &= prev <= k;
+            desc &= prev > k;
+            prev = k;
+        }
     }
     if !off(1) {
         if asc {
@@ -127,8 +150,8 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
         return;
     }
     let key_bits = u128::BITS - (hi - lo).leading_zeros();
-    if lsd_mode() && key_bits <= 64 {
-        lsd(arr, &enc, lo, key_bits);
+    if lsd_regime && hi <= u64::MAX as u128 {
+        lsd(arr, &enc, &hist);
         return;
     }
     if !off(4) {
@@ -251,7 +274,7 @@ fn permute<T, P: Copy>(arr: &mut [T], perm: &mut [P], index: impl Fn(P) -> usize
 pub(crate) static BY_KEY_ENGINE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 #[inline(always)]
-fn lsd_mode() -> bool {
+fn lsd_forced() -> bool {
     #[cfg(test)]
     {
         BY_KEY_ENGINE.load(std::sync::atomic::Ordering::Relaxed) == 1
@@ -262,20 +285,12 @@ fn lsd_mode() -> bool {
     }
 }
 
-/// Stable LSD on the elements themselves: byte digits of `key - lo`
-/// (`key_bits` bits), all histograms from one read, the digits equal in
-/// every key skipped, each pass moving the elements between the array and
-/// a buffer (the key read again from each element).
-fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32) {
+/// Stable LSD on the elements themselves: byte digits of the encoded key
+/// (histograms `hist` taken in the first read), the digits equal in every
+/// key skipped, each pass moving the elements between the array and a
+/// buffer (the key read again from each element).
+fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 256]]) {
     let n = arr.len();
-    let digits = key_bits.div_ceil(8).max(1) as usize;
-    let mut hist = vec![[0usize; 256]; digits];
-    for x in arr.iter() {
-        let k = (enc(x) - lo) as u64;
-        for (d, h) in hist.iter_mut().enumerate() {
-            h[((k >> (8 * d)) & 0xFF) as usize] += 1;
-        }
-    }
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     let mut in_buf = false;
     // SAFETY: each pass moves every element once from one side to the
@@ -299,7 +314,7 @@ fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32) {
             let (src, dst) = if in_buf { (b as *const T, a) } else { (a as *const T, b) };
             for i in 0..n {
                 let x = &*src.add(i);
-                let digit = (((enc(x) - lo) as u64 >> (8 * d)) & 0xFF) as usize;
+                let digit = ((enc(x) as u64 >> (8 * d)) & 0xFF) as usize;
                 dst.add(heads[digit]).write(std::ptr::read(x));
                 heads[digit] += 1;
             }
