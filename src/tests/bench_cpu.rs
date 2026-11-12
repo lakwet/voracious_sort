@@ -28,11 +28,12 @@
 //! (`BIG_LABELS`), and only when an array, its copy and a buffer fit in the
 //! memory budget.
 //!
-//! Settings: `BENCH_MAX` (largest size, default 100M), `BENCH_REPS`
-//! (repetitions, the median is kept, default 3; at least 5 arrays sorted
-//! per measurement), `BENCH_MEM_MB` (memory budget, default 16384),
-//! `BENCH_TYPES` (filter), `BENCH_OUT` (output directory, default the
-//! repository root).
+//! Settings: `BENCH_MIN` / `BENCH_MAX` (smallest / largest size, default
+//! 1k / 100M), `BENCH_REPS` (repetitions, the median is kept, default 3; at
+//! least 5 arrays sorted per measurement), `BENCH_MEM_MB` (memory budget,
+//! default half the RAM), `BENCH_TYPES` (filter), `BENCH_OUT` (output
+//! directory, default the repository root). A panic is written to the
+//! file before the run stops.
 
 use std::io::Write;
 use std::sync::atomic::Ordering::Relaxed;
@@ -59,6 +60,7 @@ const BATCH_BYTES: usize = 256 << 20;
 const MIN_ARRAYS: usize = 5;
 
 struct Config {
+    min: usize,
     max: usize,
     reps: usize,
     parts: Vec<String>,
@@ -71,11 +73,12 @@ impl Config {
         let list = |name: &str| std::env::var(name).ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect::<Vec<_>>());
         let number = |name: &str, default: usize| std::env::var(name).ok().and_then(|s| s.replace('_', "").parse().ok()).unwrap_or(default);
         Config {
+            min: number("BENCH_MIN", 0),
             max: number("BENCH_MAX", 100_000_000),
             reps: number("BENCH_REPS", 3).max(1),
             parts: list("BENCH_PARTS").unwrap_or_else(|| ["aa", "int", "float", "wide", "records", "l2"].iter().map(|s| s.to_string()).collect()),
             types: list("BENCH_TYPES"),
-            memory: number("BENCH_MEM_MB", 16_384) << 20,
+            memory: number("BENCH_MEM_MB", (total_ram().unwrap_or(16 << 30) / 2) >> 20) << 20,
         }
     }
 
@@ -136,8 +139,16 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
                 let v = (k + rep) % nv;
                 let mut work = batch.clone();
                 let start = std::time::Instant::now();
-                for a in work.iter_mut() {
-                    (variants[v].sort)(a);
+                // A sort that panics loses its measurement, not the run.
+                let sorted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    for a in work.iter_mut() {
+                        (variants[v].sort)(a);
+                    }
+                }));
+                if sorted.is_err() {
+                    report.line(&format!("SORT PANICKED,{},{},{},{}", label, size, short_name(name), variants[v].name));
+                    times[v].push(f64::NAN);
+                    continue;
                 }
                 times[v].push(start.elapsed().as_nanos() as f64 / (count * size) as f64);
                 if rep == 0 && !work.iter().all(|a| a.windows(2).all(|p| ordered(&p[0], &p[1]))) {
@@ -148,7 +159,7 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
         let medians = times
             .iter_mut()
             .map(|t| {
-                t.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                t.sort_by(|a, b| a.total_cmp(b));
                 t[t.len() / 2]
             })
             .collect();
@@ -163,7 +174,7 @@ fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T
     report.line("");
     report.line(&format!("== {} ({} distributions; ns per key; ratios other / {}, > 1: {} faster)", label, gens.len(), names[0], names[0]));
     report.line(&format!("cols,{},size,gen,{}", label, names.join(",")));
-    for &size in SIZES.iter().filter(|&&s| s <= cfg.max && s >= min_size) {
+    for &size in SIZES.iter().filter(|&&s| s <= cfg.max && s >= min_size.max(cfg.min)) {
         if size > BIG && !BIG_LABELS.contains(&label) {
             continue;
         }
@@ -183,7 +194,7 @@ fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T
         for v in 1..variants.len() {
             let mut ratios: Vec<f64> = rows.iter().map(|r| r.1[v] / r.1[0]).collect();
             let wins = ratios.iter().filter(|&&x| x > 1.0).count();
-            ratios.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            ratios.sort_by(|a, b| a.total_cmp(b));
             report.line(&format!(
                 "sum,{},{},{} geo {:.2} med {:.2} p10 {:.2} wins {}/{}",
                 label,
@@ -295,6 +306,20 @@ fn target_features() -> String {
     }
 }
 
+/// Physical memory in bytes.
+fn total_ram() -> Option<usize> {
+    if let Ok(info) = std::fs::read_to_string("/proc/meminfo") {
+        let line = info.lines().find(|l| l.starts_with("MemTotal:"))?;
+        let kib: usize = line.split_whitespace().nth(1)?.parse().ok()?;
+        return Some(kib << 10);
+    }
+    if cfg!(windows) {
+        let out = command("powershell", &["-NoProfile", "-Command", "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"])?;
+        return out.trim().parse().ok();
+    }
+    command("sysctl", &["-n", "hw.memsize"])?.trim().parse().ok()
+}
+
 fn machine(report: &mut Report, cfg: &Config) {
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0);
     let reported = reported_l2().map_or("not read".to_string(), |b| format!("{} KiB", b >> 10));
@@ -303,13 +328,14 @@ fn machine(report: &mut Report, cfg: &Config) {
         format!("arch,{}", std::env::consts::ARCH),
         format!("os,{}", std::env::consts::OS),
         format!("threads,{}", threads),
+        format!("ram,{}", total_ram().map_or("unknown".to_string(), |b| format!("{:.1} GiB", b as f64 / (1u64 << 30) as f64))),
         format!("l2,{} KiB used (reported: {})", l2_bytes() >> 10, reported),
         format!("caches,{}", cache_levels()),
         format!("page,{} B", page_bytes()),
         format!("target features,{}", target_features()),
         format!("rustc,{}", command("rustc", &["--version"]).unwrap_or_else(|| "unknown".into())),
         format!("commit,{}", command("git", &["describe", "--always", "--dirty"]).unwrap_or_else(|| "unknown".into())),
-        format!("settings,max {} reps {} memory {} MiB parts {}", cfg.max, cfg.reps, cfg.memory >> 20, cfg.parts.join(" ")),
+        format!("settings,sizes {} to {} reps {} memory budget {} MiB parts {}", cfg.min, cfg.max, cfg.reps, cfg.memory >> 20, cfg.parts.join(" ")),
     ];
     report.line("== machine");
     for l in lines.iter() {
@@ -339,6 +365,15 @@ fn bench_cpu() {
     let dir: std::path::PathBuf = std::env::var("BENCH_OUT").map(Into::into).unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").into());
     let path = dir.join(format!("bench-cpu-{}-{}.txt", host_name(), utc_stamp()));
     let mut report = Report { file: std::fs::File::create(&path).unwrap() };
+    // A panic (a sort failing, out of memory...) is written to the file too.
+    let panic_path = path.clone();
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        if let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&panic_path) {
+            let _ = writeln!(f, "PANIC,{}", info.to_string().replace('\n', " "));
+        }
+        default_hook(info);
+    }));
     let started = std::time::Instant::now();
     machine(&mut report, &cfg);
     let r = &mut report;
