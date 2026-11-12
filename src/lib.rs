@@ -406,6 +406,7 @@ mod sorts;
 mod tests;
 mod traits;
 mod types;
+pub mod v2;
 
 pub use traits::dispatcher::Dispatcher;
 pub use traits::radix_key::RadixKey;

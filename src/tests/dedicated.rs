@@ -36,12 +36,12 @@ const BENCH_SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_00
 use super::super::generators::float_64::*;
 
 /// ravenous_sort must give exactly (bit for bit) the `total_cmp` order.
-fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
-    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 350, 351, 600, 601, 5_000, 8_191, 8_192, 1_048_575, 1_048_576].iter().chain(BENCH_SIZES.iter()) {
+pub(super) fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
+    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 350, 351, 600, 601, 5_000, 8_191, 8_192, 1_048_575, 1_048_576].iter().chain(BENCH_SIZES.iter()).filter(|&&n| std::env::var("V2_QUICK").is_err() || n <= 100_000) {
         for (gen, name) in generators_f32().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();
-            expected.sort_unstable_by(|a, b| a.total_cmp(b));
+            rayon::slice::ParallelSliceMut::par_sort_unstable_by(&mut expected[..], |a, b| a.total_cmp(b));
             sort(&mut arr);
             let a: Vec<u32> = arr.iter().map(|x| x.to_bits()).collect();
             let e: Vec<u32> = expected.iter().map(|x| x.to_bits()).collect();
@@ -50,12 +50,12 @@ fn check_total_order_f32(sort: &dyn Fn(&mut [f32])) {
     }
 }
 
-fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
-    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 700, 701, 800, 801, 3_000, 3_001, 8_192, 262_143, 262_144, 1_500_000].iter().chain(BENCH_SIZES.iter()) {
+pub(super) fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
+    for size in [0, 1, 2, 33, 50, 64, 65, 100, 128, 129, 700, 701, 800, 801, 3_000, 3_001, 8_192, 262_143, 262_144, 1_500_000].iter().chain(BENCH_SIZES.iter()).filter(|&&n| std::env::var("V2_QUICK").is_err() || n <= 100_000) {
         for (gen, name) in generators_f64().iter() {
             let mut arr = gen(*size);
             let mut expected = arr.clone();
-            expected.sort_unstable_by(|a, b| a.total_cmp(b));
+            rayon::slice::ParallelSliceMut::par_sort_unstable_by(&mut expected[..], |a, b| a.total_cmp(b));
             sort(&mut arr);
             let a: Vec<u64> = arr.iter().map(|x| x.to_bits()).collect();
             let e: Vec<u64> = expected.iter().map(|x| x.to_bits()).collect();
