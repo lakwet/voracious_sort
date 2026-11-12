@@ -142,7 +142,39 @@ macro_rules! dlsd_width {
                         w::lsd(bits);
                         return;
                     }
-                    dlsd_rec::<true>(bits, scratch);
+                    dlsd_rec::<true>(bits, scratch, None);
+                }
+
+                /// `dlsd_with`, unless `reject` refuses the sorted spread
+                /// sample of the encoded keys that sizes the prefix (a
+                /// decision of the caller read on the same sample: one
+                /// sample taken and sorted instead of two). Returns whether
+                /// the keys were sorted.
+                pub(crate) fn dlsd_unless<F: FnOnce(&[$uint]) -> bool>(bits: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, reject: F) -> bool {
+                    let n = bits.len();
+                    if n > u32::MAX as usize || n <= SMALL {
+                        dlsd_with(bits, scratch);
+                        return true;
+                    }
+                    let s = (n / SAMPLE_DIV).max(SAMPLE_MIN).min(n);
+                    let mut sample_stack = [0 as $uint; STACK_SAMPLE];
+                    let mut sample_heap: Vec<$uint> = Vec::new();
+                    let sample: &mut [$uint] = if s <= STACK_SAMPLE {
+                        &mut sample_stack[..s]
+                    } else {
+                        sample_heap.resize(s, 0);
+                        &mut sample_heap
+                    };
+                    for (i, slot) in sample.iter_mut().enumerate() {
+                        let pos = (((i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
+                        *slot = w::encode_key(bits[pos as usize]);
+                    }
+                    sample.sort_unstable();
+                    if reject(sample) {
+                        return false;
+                    }
+                    dlsd_rec::<true>(bits, scratch, Some(sample));
+                    true
                 }
 
                 /// Sorts already encoded keys and writes them back decoded.
@@ -151,7 +183,7 @@ macro_rules! dlsd_width {
                         w::lsd_encoded(keys, scratch);
                         return;
                     }
-                    dlsd_rec::<false>(keys, scratch);
+                    dlsd_rec::<false>(keys, scratch, None);
                 }
 
                 #[inline(always)]
@@ -164,7 +196,9 @@ macro_rules! dlsd_width {
                 }
 
                 /// `RAW`: `keys` holds raw bits, else encoded keys. Output: raw bits.
-                fn dlsd_rec<const RAW: bool>(keys: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>) {
+                /// `pre`: the sorted spread sample of the encoded keys, when
+                /// the caller already took it (`dlsd_unless`).
+                fn dlsd_rec<const RAW: bool>(keys: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, pre: Option<&mut [$uint]>) {
                     let n = keys.len();
                     if n <= SMALL {
                         if RAW {
@@ -196,7 +230,7 @@ macro_rules! dlsd_width {
                     let log_n = usize::BITS - n.leading_zeros();
                     // Prefix length: bits needed to tell apart most neighbouring keys,
                     // estimated on a spread sample (see `prefix_bits`).
-                    let bits = prefix_bits::<RAW>(keys, min, top);
+                    let bits = prefix_bits::<RAW>(keys, min, top, pre);
                     let passes = bits.div_ceil(MAX_DIGIT_BITS);
                     // Digit width: the prefix split evenly, at most ~n/16 digit values.
                     let w = bits.div_ceil(passes).min(log_n.saturating_sub(4).max(8)).max(1);
@@ -424,7 +458,7 @@ macro_rules! dlsd_width {
                             insertion(g);
                             g.iter_mut().for_each(|k| *k = w::decode_key(*k));
                         } else {
-                            dlsd_rec::<false>(&mut keys[i..j], scratch);
+                            dlsd_rec::<false>(&mut keys[i..j], scratch, None);
                         }
                         i = j;
                     }
@@ -440,28 +474,50 @@ macro_rules! dlsd_width {
                 /// correlated digits (tight clusters: the top bits name the cluster, the
                 /// keys of a cluster differ much lower) and isolated extremes. Equal keys
                 /// need no prefix and are ignored.
-                fn prefix_bits<const RAW: bool>(keys: &[$uint], min: $uint, top: u32) -> u32 {
+                fn prefix_bits<const RAW: bool>(keys: &[$uint], min: $uint, top: u32, pre: Option<&mut [$uint]>) -> u32 {
                     let n = keys.len();
                     let s = (n / SAMPLE_DIV).max(SAMPLE_MIN).min(n);
+                    let mut sample_stack = [0 as $uint; STACK_SAMPLE];
+                    let mut sample_heap: Vec<$uint> = Vec::new();
+                    let sample: &mut [$uint] = match pre {
+                        // Sorted encoded keys, all >= min: `key - min` keeps the order.
+                        Some(p) => {
+                            p.iter_mut().for_each(|k| *k = k.wrapping_sub(min));
+                            p
+                        }
+                        None => {
+                            let sample: &mut [$uint] = if s <= STACK_SAMPLE {
+                                &mut sample_stack[..s]
+                            } else {
+                                sample_heap.resize(s, 0);
+                                &mut sample_heap
+                            };
+                            prefix_sample::<RAW>(keys, min, sample);
+                            sample
+                        }
+                    };
+                    prefix_from_sample(sample, n, top)
+                }
+
+                /// Sorted spread sample of `key - min` (positions frac(i x
+                /// golden ratio) x n).
+                fn prefix_sample<const RAW: bool>(keys: &[$uint], min: $uint, sample: &mut [$uint]) {
+                    let n = keys.len();
                     // Positions frac(i * golden ratio) * n: spread like a stride but in
                     // resonance with no period of the data (a stride of n / S on periodic
                     // data, e.g. sawtooth teeth, samples near-duplicates and asks for every
                     // bit).
                     const PHI: u64 = 0x9E37_79B9_7F4A_7C15;
-                    // Sample and needs on the stack up to `STACK_SAMPLE` keys.
-                    let mut sample_stack = [0 as $uint; STACK_SAMPLE];
-                    let mut sample_heap: Vec<$uint> = Vec::new();
-                    let sample: &mut [$uint] = if s <= STACK_SAMPLE {
-                        &mut sample_stack[..s]
-                    } else {
-                        sample_heap.resize(s, 0);
-                        &mut sample_heap
-                    };
                     for (i, slot) in sample.iter_mut().enumerate() {
                         let pos = (((i as u64).wrapping_mul(PHI) >> 32) * n as u64) >> 32;
                         *slot = enc::<RAW>(keys[pos as usize]).wrapping_sub(min);
                     }
                     sample.sort_unstable();
+                }
+
+                /// Prefix length from the sorted sample of `key - min`.
+                fn prefix_from_sample(sample: &mut [$uint], n: usize, top: u32) -> u32 {
+                    let s = sample.len();
                     // Bits shared from the top of the range, plus one: bits that separate.
                     let mut need_stack = [0u32; STACK_SAMPLE];
                     let mut need_heap: Vec<u32> = Vec::new();

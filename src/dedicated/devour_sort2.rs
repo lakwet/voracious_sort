@@ -25,7 +25,7 @@ use super::float_lsd::{wi32, wi64, wu32, wu64};
 use super::float_lsd::{wi16, wi8, wu16, wu8};
 use super::float_roller::{ri32, ri64, ru32, ru64};
 use super::cache_info::l2_bytes;
-use super::ravenous_sort2::radix_path;
+use super::ravenous_sort2::{pre_old, radix_path};
 use super::small_sort::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 
 /// Up to these sizes, `sort_unstable`: where the median over the
@@ -63,6 +63,7 @@ const WIDE_KEYS_PER_COUNTER: usize = 4;
 const OFFSET_BYTES: u32 = 1;
 /// Sample of the heavy-hitter detection.
 const HEAVY_SAMPLE: usize = 64;
+const _: () = assert!(RANGE_SAMPLE == HEAVY_SAMPLE);
 /// Shortest array tried for a dense range with outliers.
 const DENSE_MIN: usize = 4096;
 /// Most distinct values counted, and the hash table size (at most half full).
@@ -110,7 +111,7 @@ pub fn devour_sort2<T: DevourSort2>(arr: &mut [T]) {
 }
 
 macro_rules! int_width {
-    ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $alt_chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident, $dense:ident) => {
+    ($t:ty, $uint:ty, $encode:expr, $decode:expr, $small:expr, $roller_min:path, $chunk:expr, $alt_chunk:expr, $shared_chunk:expr, $roller:path, $rest:ident, $few:ident, $range:ident, $dense:ident) => {
         impl DevourSort2 for $t {
             #[inline]
             fn devour_sort2_impl(arr: &mut [$t]) {
@@ -159,7 +160,22 @@ macro_rules! int_width {
                 return;
             }
             let scratch = std::cell::RefCell::new(Vec::new());
-            radix_path(arr, &|a: &mut [$t]| $range(a) || plateaus(a) || $few(a) || heavy(a, &|r: &mut [$t]| <$t as DevourSort2>::devour_sort2_impl(r)) || $dense(a), &|s: &mut [$t]| {
+            let recurse = |r: &mut [$t]| <$t as DevourSort2>::devour_sort2_impl(r);
+            let old = pre_old();
+            radix_path(arr, &|a: &mut [$t], equal: usize| {
+                if old {
+                    // Before: each detector its own sample and probes.
+                    return $range(a, &spread(a)) || plateaus(a, if a.len() >= 1024 { probe_equal(a) } else { 0 }) || $few(a, &spread(a)) || heavy_sorted_by(a, &sorted(spread(a)), &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sorted(spread(a)));
+                }
+                // One spread sample for every detector, sorted once (only
+                // when the detectors that need it in order are reached), and
+                // the equal pairs counted by the near-sorted repair.
+                let mut sample = spread(a);
+                $range(a, &sample) || plateaus(a, equal) || $few(a, &sample) || (a.len() >= DENSE_MIN && {
+                    sample.sort_unstable();
+                    heavy_sorted_by(a, &sample, &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sample)
+                })
+            }, &|s: &mut [$t]| {
                 #[cfg(test)]
                 match INT_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
                     1 => return $chunk(bits_of(s), &mut scratch.borrow_mut()),
@@ -172,8 +188,13 @@ macro_rules! int_width {
                 }
                 if s.len() >= $roller_min() {
                     $roller(bits_of(s));
-                } else if <$uint>::BITS == 64 && s.len() >= DENSE_MIN && !exp2(2) && clustered(bits_of(s)) {
+                } else if <$uint>::BITS == 64 && s.len() >= DENSE_MIN && !exp2(2) && old && clustered(&sorted_sample(bits_of(s))) {
                     $alt_chunk(bits_of(s), &mut scratch.borrow_mut());
+                } else if <$uint>::BITS == 64 && s.len() >= DENSE_MIN && !old {
+                    // The cluster rule reads the DLSD's own sorted sample.
+                    if !$shared_chunk(bits_of(s), &mut scratch.borrow_mut()) {
+                        $alt_chunk(bits_of(s), &mut scratch.borrow_mut());
+                    }
                 } else {
                     $chunk(bits_of(s), &mut scratch.borrow_mut());
                 }
@@ -190,7 +211,7 @@ macro_rules! int_width {
         /// X Elite, against min / max then a 1-lane count): u32 0..100 0.54
         /// to 0.35 ns per key at 1M, Alt16 0.60 to 0.38; one wide outlier
         /// late in narrow keys costs a wasted counting pass (0.58 to 0.75).
-        fn $range(values: &mut [$t]) -> bool {
+        fn $range(values: &mut [$t], sample: &[$t; RANGE_SAMPLE]) -> bool {
             let n = values.len();
             if n < FEW_MIN {
                 return false;
@@ -211,9 +232,7 @@ macro_rules! int_width {
             // offsets stored unsigned) becomes contiguous.
             let rot = |v: $t| $encode(v as $uint) ^ ((1 as $uint) << (<$uint>::BITS - 1));
             let (mut rlo, mut rhi) = (values[0], values[0]);
-            for i in 0..RANGE_SAMPLE as u64 {
-                let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-                let v = values[pos as usize];
+            for &v in sample.iter() {
                 lo = lo.min(v);
                 hi = hi.max(v);
                 if rot(v) < rot(rlo) {
@@ -386,18 +405,13 @@ macro_rules! int_width {
         /// applies). Gives up (array permuted, unsorted) when less than
         /// half the keys fall inside. Mixed text (85 % ASCII, 10 % Latin,
         /// 3 % CJK, 2 % emoji): 3.0-4.2 to 1.1-2.4 ns per key.
-        fn $dense(values: &mut [$t]) -> bool {
+        fn $dense(values: &mut [$t], sample: &[$t; RANGE_SAMPLE]) -> bool {
             let n = values.len();
             if n < DENSE_MIN || n > u32::MAX as usize {
                 return false;
             }
             let limit = RANGE_MAX.min(n / RANGE_KEYS_PER_COUNTER) as u64;
-            let mut sample = [values[0]; RANGE_SAMPLE];
-            for i in 0..RANGE_SAMPLE as u64 {
-                let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-                sample[i as usize] = values[pos as usize];
-            }
-            sample.sort_unstable();
+            // `sample`: the spread sample, sorted.
             let w = limit as i128 / 2;
             let (mut best, mut bi, mut bj, mut j) = (0, 0, 0, 0);
             for i in 0..RANGE_SAMPLE {
@@ -460,7 +474,7 @@ macro_rules! int_width {
         /// giving up beyond `FEW_MAX` values with nothing written; the
         /// distinct values are sorted and the array rewritten (same scheme
         /// as `float_detect::few`).
-        fn $few(values: &mut [$t]) -> bool {
+        fn $few(values: &mut [$t], sample: &[$t; RANGE_SAMPLE]) -> bool {
             let n = values.len();
             if n < FEW_MIN {
                 return false;
@@ -470,9 +484,13 @@ macro_rules! int_width {
             let mut keys = [0 as $t; FEW_TABLE];
             let mut used = [false; FEW_TABLE];
             let mut distinct = 0;
+            // Its first keys are the shared spread sample (same positions).
             for i in 0..s as u64 {
-                let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-                let v = values[pos as usize];
+                let v = if (i as usize) < RANGE_SAMPLE {
+                    sample[i as usize]
+                } else {
+                    values[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize]
+                };
                 let mut h = hash(v);
                 while used[h] && keys[h] != v {
                     h = (h + 1) & (FEW_TABLE - 1);
@@ -655,28 +673,22 @@ fn narrow_chunk<U: WindowKey, E: Fn(U) -> U, D: Fn(U) -> U>(keys: &mut [U], enco
 /// needs more than two 11-bit digits above the median, the LSD is used
 /// instead (u64 Clusters at 10k-600k: 5.8-8.4 to 4.8-6.4 ns per key; every
 /// other generator: at most 7 bits between the two).
-fn clustered<U: WindowKey>(keys: &[U]) -> bool {
-    let n = keys.len();
-    let s = (n / 256).clamp(16, 256).min(n);
-    let mut sample = [0u64; 256];
-    for i in 0..s as u64 {
-        let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-        sample[i as usize] = keys[pos as usize].to_u64();
-    }
-    let sample = &mut sample[..s];
-    sample.sort_unstable();
-    let mut need = [0u32; 256];
-    let mut m = 0;
+/// `sample`: sorted spread sample of the keys (encoded or raw: flipping the
+/// sign bit of both keys of a pair leaves their XOR unchanged), the one the
+/// DLSD sizes its prefix on (`dlsd_unless`).
+fn clustered<U: WindowKey>(sample: &[U]) -> bool {
+    let mut need: Vec<u32> = Vec::with_capacity(sample.len());
     for p in sample.windows(2) {
-        if p[0] != p[1] {
-            need[m] = (p[0] ^ p[1]).leading_zeros();
-            m += 1;
+        let (a, b) = (p[0].to_u64(), p[1].to_u64());
+        if a != b {
+            need.push((a ^ b).leading_zeros());
         }
     }
+    let m = need.len();
     if m < 8 {
         return false;
     }
-    let need = &mut need[..m];
+    let need = &mut need[..];
     // `need` holds the bits each pair shares from the top (the bits it needs
     // to be told apart, minus one): its 95th percentile against its median.
     let shared_p95 = *need.select_nth_unstable(m * 95 / 100).1;
@@ -694,22 +706,13 @@ fn clustered<U: WindowKey>(keys: &[U]) -> bool {
 /// inserted back from the end (block moves and fills). Wrong guesses (the
 /// sample over-represents them) still sort correctly, at the cost of the
 /// pass. Same idea as the equality buckets of IPS4o (Axtmann et al., 2017).
-fn heavy<T: Copy + Ord>(arr: &mut [T], sort: &dyn Fn(&mut [T])) -> bool {
-    heavy_by(arr, sort, |a, b| a == b, |a, b| a < b)
-}
-
 /// `heavy` with an equality and an order of its own (floats: same bits,
 /// `total_cmp`, so that -0.0 and +0.0 stay apart).
 pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
-    let n = arr.len();
-    if n < DENSE_MIN || exp2(1) {
+    if arr.len() < DENSE_MIN || exp2(1) {
         return false;
     }
-    let mut sample = [arr[0]; HEAVY_SAMPLE];
-    for i in 0..HEAVY_SAMPLE as u64 {
-        let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-        sample[i as usize] = arr[pos as usize];
-    }
+    let mut sample = spread(arr);
     sample.sort_unstable_by(|a, b| {
         if lt(*a, *b) {
             std::cmp::Ordering::Less
@@ -719,6 +722,15 @@ pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool 
             std::cmp::Ordering::Equal
         }
     });
+    heavy_sorted_by(arr, &sample, sort, eq, lt)
+}
+
+/// `heavy_by` on a spread sample already sorted (by `lt`).
+fn heavy_sorted_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sample: &[T; HEAVY_SAMPLE], sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
+    let n = arr.len();
+    if n < DENSE_MIN || exp2(1) {
+        return false;
+    }
     let mut values = [arr[0]; 4];
     let (mut h, mut held, mut i) = (0, 0, 0);
     while i < HEAVY_SAMPLE {
@@ -759,6 +771,41 @@ pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool 
     true
 }
 
+/// Spread sample of `RANGE_SAMPLE` keys at the positions frac(i x golden
+/// ratio) x n, shared by the detectors.
+#[inline]
+fn spread<T: Copy>(arr: &[T]) -> [T; RANGE_SAMPLE] {
+    let n = arr.len() as u64;
+    let mut sample = [arr[0]; RANGE_SAMPLE];
+    for (i, slot) in sample.iter_mut().enumerate() {
+        *slot = arr[((((i as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n) >> 32) as usize];
+    }
+    sample
+}
+
+/// `a` sorted (the old pre-processing path, tests).
+fn sorted<T: Copy + Ord>(mut a: [T; RANGE_SAMPLE]) -> [T; RANGE_SAMPLE] {
+    a.sort_unstable();
+    a
+}
+
+/// Equal pairs among the 32 spread adjacent pairs (the old pre-processing
+/// path: `plateaus` probing on its own).
+fn probe_equal<T: Copy + PartialEq>(arr: &[T]) -> usize {
+    let step = (arr.len() - 1) / 32;
+    (0..32).filter(|&k| arr[k * step] == arr[k * step + 1]).count()
+}
+
+/// Old path of the cluster rule: its own sorted sample (n / 256 keys, 16 to
+/// 256).
+fn sorted_sample<U: WindowKey>(keys: &[U]) -> Vec<U> {
+    let n = keys.len();
+    let s = (n / 256).clamp(16, 256).min(n);
+    let mut sample: Vec<U> = (0..s as u64).map(|i| keys[((((i.wrapping_mul(0x9E37_79B9_7F4A_7C15)) >> 32) * n as u64) >> 32) as usize]).collect();
+    sample.sort_unstable_by_key(|k| k.to_u64());
+    sample
+}
+
 /// Moves the keys not among `values[..H]` to the front (in order, in place)
 /// and counts each value: one pass without branches.
 #[inline]
@@ -784,13 +831,13 @@ fn compact<T: Copy, E: Fn(T, T) -> bool, const H: usize>(arr: &mut [T], values: 
 /// runs (giving up beyond n / 32 of them, nothing written), the (value,
 /// length) pairs are sorted and the array rewritten: one read and one write
 /// instead of a sort of n keys.
-fn plateaus<T: Copy + Ord>(arr: &mut [T]) -> bool {
+/// `equal`: how many of the 32 spread adjacent pairs of the near-sorted
+/// repair are equal.
+fn plateaus<T: Copy + Ord>(arr: &mut [T], equal: usize) -> bool {
     let n = arr.len();
     if n < 1024 {
         return false;
     }
-    let step = (n - 1) / 32;
-    let equal = (0..32).filter(|&k| arr[k * step] == arr[k * step + 1]).count();
     if equal < 31 {
         return false;
     }
@@ -1334,17 +1381,17 @@ fn flip64(k: u64) -> u64 {
     k ^ (1 << 63)
 }
 
-int_width!(u32, u32, id32, id32, SMALL_U32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wu32::lsd(b), du32::dlsd_with, ru32::roller, rest_u32, few_u32, range_u32, dense_u32);
-int_width!(i32, u32, flip32, flip32, SMALL_I32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), di32::dlsd_with, ri32::roller, rest_i32, few_i32, range_i32, dense_i32);
-int_width!(u64, u64, id64, id64, SMALL_U64, roller_int64, du64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wu64::lsd(b), ru64::roller, rest_u64, few_u64, range_u64, dense_u64);
-int_width!(i64, u64, flip64, flip64, SMALL_I64, roller_int64, di64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wi64::lsd(b), ri64::roller, rest_i64, few_i64, range_i64, dense_i64);
+int_width!(u32, u32, id32, id32, SMALL_U32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wu32::lsd(b), du32::dlsd_with, |_b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| true, ru32::roller, rest_u32, few_u32, range_u32, dense_u32);
+int_width!(i32, u32, flip32, flip32, SMALL_I32, roller_int32, |b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| wi32::lsd(b), di32::dlsd_with, |_b: &mut [u32], _s: &mut Vec<std::mem::MaybeUninit<u32>>| true, ri32::roller, rest_i32, few_i32, range_i32, dense_i32);
+int_width!(u64, u64, id64, id64, SMALL_U64, roller_int64, du64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wu64::lsd(b), |b: &mut [u64], s: &mut Vec<std::mem::MaybeUninit<u64>>| du64::dlsd_unless(b, s, |smp: &[u64]| !exp2(2) && clustered(smp)), ru64::roller, rest_u64, few_u64, range_u64, dense_u64);
+int_width!(i64, u64, flip64, flip64, SMALL_I64, roller_int64, di64::dlsd_with, |b: &mut [u64], _s: &mut Vec<std::mem::MaybeUninit<u64>>| wi64::lsd(b), |b: &mut [u64], s: &mut Vec<std::mem::MaybeUninit<u64>>| di64::dlsd_unless(b, s, |smp: &[u64]| !exp2(2) && clustered(smp)), ri64::roller, rest_i64, few_i64, range_i64, dense_i64);
 // 8- and 16-bit keys: from 2^16 keys the narrow-range counting always
 // applies (the whole domain is at most 2^16 integers); below, the fused LSD
 // on bytes (one or two passes).
-int_width!(u16, u16, id16, id16, SMALL_U16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), wu16::lsd, rest_u16, few_u16, range_u16, dense_u16);
-int_width!(i16, u16, flip16, flip16, SMALL_I16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), wi16::lsd, rest_i16, few_i16, range_i16, dense_i16);
-int_width!(u8, u8, id8, id8, SMALL_U8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), wu8::lsd, rest_u8, few_u8, range_u8, dense_u8);
-int_width!(i8, u8, flip8, flip8, SMALL_I8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), wi8::lsd, rest_i8, few_i8, range_i8, dense_i8);
+int_width!(u16, u16, id16, id16, SMALL_U16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wu16::lsd(b), |_b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| true, wu16::lsd, rest_u16, few_u16, range_u16, dense_u16);
+int_width!(i16, u16, flip16, flip16, SMALL_I16, no_roller, |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), |b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| wi16::lsd(b), |_b: &mut [u16], _s: &mut Vec<std::mem::MaybeUninit<u16>>| true, wi16::lsd, rest_i16, few_i16, range_i16, dense_i16);
+int_width!(u8, u8, id8, id8, SMALL_U8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wu8::lsd(b), |_b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| true, wu8::lsd, rest_u8, few_u8, range_u8, dense_u8);
+int_width!(i8, u8, flip8, flip8, SMALL_I8, no_roller, |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), |b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| wi8::lsd(b), |_b: &mut [u8], _s: &mut Vec<std::mem::MaybeUninit<u8>>| true, wi8::lsd, rest_i8, few_i8, range_i8, dense_i8);
 
 /// `char`: sorted as its code point (`u32`; the order of `char` is the
 /// order of the code points, and sorting permutes valid values only).

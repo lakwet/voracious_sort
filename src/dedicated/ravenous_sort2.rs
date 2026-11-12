@@ -36,7 +36,7 @@
 
 use super::super::algo::k_way_merge_fast::predictable_merge;
 use super::super::algo::k_way_merge_fast2::k_way_merge_fast2;
-use super::super::algo::near_sorted::repair_near_sorted;
+use super::super::algo::near_sorted::{repair_ascending, repair_near_sorted};
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::devour_sort2::heavy_by;
 use super::float_detect::{detect32, detect64, few32, few64};
@@ -215,8 +215,9 @@ fn ravenous_sort2_f64_rest(arr: &mut [f64]) {
 /// segments would cost more than sorting the whole array (several segments
 /// with unpredictable interleavings), `sort` is applied to the whole array,
 /// else to each chunk and the segments are merged.
-pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut [T]) -> bool, sort: &dyn Fn(&mut [T])) {
-    if repair_near_sorted(arr) || few(arr) {
+pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut [T], usize) -> bool, sort: &dyn Fn(&mut [T])) {
+    let (sorted, equal) = if pre_old() { (repair_near_sorted(arr), usize::MAX) } else { repair_probed(arr) };
+    if sorted || few(arr, equal) {
         return;
     }
     if skip_verge(arr) {
@@ -238,6 +239,53 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], few: &dyn Fn(&mut 
         sort(&mut arr[start..start + len]);
     }
     k_way_merge_fast2(arr, &mut separators);
+}
+
+/// `repair_near_sorted` that also returns how many of its 32 spread
+/// adjacent pairs are equal (the long-runs detector `plateaus` reads the
+/// same pairs): the pairs are compared once. Below 64 keys: no repair, 0.
+pub(crate) fn repair_probed<T: Copy + PartialOrd>(arr: &mut [T]) -> (bool, usize) {
+    let n = arr.len();
+    if n < 64 {
+        return (false, 0);
+    }
+    let step = (n - 1) / 32;
+    let (mut asc, mut desc) = (0, 0);
+    for k in 0..32 {
+        let i = k * step;
+        if arr[i] < arr[i + 1] {
+            asc += 1;
+        } else if arr[i] > arr[i + 1] {
+            desc += 1;
+        }
+    }
+    let equal = 32 - asc - desc;
+    // Same decision as `repair_near_sorted`.
+    let descending = asc <= 8 && (desc > asc || (desc == asc && arr[0] > arr[n - 1]));
+    if descending {
+        arr.reverse();
+    } else if desc > 8 {
+        return (false, equal);
+    }
+    (repair_ascending(arr), equal)
+}
+
+/// Tests / benchmarks: the pre-processing as before its rationalisation
+/// (each detector takes its own sample, the DLSD its own after the cluster
+/// rule): A/B in one process.
+#[cfg(test)]
+pub(crate) static PRE_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[inline(always)]
+pub(crate) fn pre_old() -> bool {
+    #[cfg(test)]
+    {
+        PRE_OLD.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    #[cfg(not(test))]
+    {
+        false
+    }
 }
 
 /// Whether the Verge pre-processing can be skipped: it only keeps
@@ -290,7 +338,7 @@ pub(crate) static VERGE_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic:
 
 /// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
 pub(crate) fn ravenous_sort2_f32_radix(arr: &mut [f32]) {
-    radix_path(arr, &|a: &mut [f32]| few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), |x: f32, y: f32| x.to_bits() == y.to_bits(), |x: f32, y: f32| x.total_cmp(&y).is_lt()), &|s: &mut [f32]| {
+    radix_path(arr, &|a: &mut [f32], _| few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), |x: f32, y: f32| x.to_bits() == y.to_bits(), |x: f32, y: f32| x.total_cmp(&y).is_lt()), &|s: &mut [f32]| {
         #[cfg(test)]
         match F32_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             2 => return w32::lsd(bits32(s)),
@@ -383,7 +431,7 @@ pub(crate) fn ravenous_sort2_f32_radix_mode(arr: &mut [f32], mode: Digits) {
 /// buffer for all of them), the float rollercoaster the large ones.
 pub(crate) fn ravenous_sort2_f64_radix(arr: &mut [f64]) {
     let scratch = std::cell::RefCell::new(Vec::new());
-    radix_path(arr, &|a: &mut [f64]| few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), |x: f64, y: f64| x.to_bits() == y.to_bits(), |x: f64, y: f64| x.total_cmp(&y).is_lt()), &|s: &mut [f64]| {
+    radix_path(arr, &|a: &mut [f64], _| few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), |x: f64, y: f64| x.to_bits() == y.to_bits(), |x: f64, y: f64| x.total_cmp(&y).is_lt()), &|s: &mut [f64]| {
         #[cfg(test)]
         match F64_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
             1 => return dlsd64_with(bits64(s), &mut scratch.borrow_mut()),
