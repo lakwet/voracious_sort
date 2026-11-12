@@ -45,10 +45,24 @@ fn short_max() -> usize {
 
 /// From this size 11-bit digits may be used.
 const WIDE_MIN: usize = 8192;
-/// Up to this size 11-bit digits may be used on 32-bit keys: beyond, the
-/// 2048 write streams of a scatter pass cost more than the saved pass
-/// (measured on Snapdragon X Elite, to check on x86).
-const WIDE_MAX_32: usize = 4_000_000;
+/// Up to this size 11-bit digits may be used on 32-bit keys: while the
+/// keys and the buffer fit in half the L2 (786k keys with 12 MiB). Beyond,
+/// the 2048 write streams of a scatter pass leave the cache and cost more
+/// than the saved pass (u32 random, bytes / 11-bit: 1M-6M 0.70-0.80 on
+/// Snapdragon X Elite; at 600k mixed; was 4M keys).
+fn wide_max_32() -> usize {
+    #[cfg(test)]
+    {
+        if WIDE_OLD.load(std::sync::atomic::Ordering::Relaxed) {
+            return 4_000_000;
+        }
+    }
+    super::cache_info::l2_bytes() / 2 / (2 * 4)
+}
+
+/// Tests / benchmarks: the former 11-bit limit (4M keys), A/B.
+#[cfg(test)]
+pub(crate) static WIDE_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Digit layout forced for experiments (`Auto` in production).
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -159,7 +173,7 @@ macro_rules! fused_lsd {
     ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr, $codec:ident) => {
         #[allow(dead_code)]
         pub(crate) mod $name {
-            use super::{alias_fix_enabled, short_max, Counter, Digits, MaybeUninit, LSD_MIN, WIDE_MAX_32, WIDE_MIN};
+            use super::{alias_fix_enabled, short_max, wide_max_32, Counter, Digits, MaybeUninit, LSD_MIN, WIDE_MIN};
 
             const BITS: u32 = <$uint>::BITS;
 
@@ -777,7 +791,7 @@ macro_rules! fused_lsd {
                     // Encoded input (leaves of the float rollercoaster, whose
                     // top bits are equal): exact count of the passes.
                     Digits::Auto if !ENC => {
-                        bits.len() >= WIDE_MIN && (BITS == 64 || bits.len() <= WIDE_MAX_32) && {
+                        bits.len() >= WIDE_MIN && (BITS == 64 || bits.len() <= wide_max_32()) && {
                             let first = bits[0];
                             let diff = bits.iter().fold(0, |acc: $uint, &k| acc | (k ^ first));
                             let passes = |step: u32| {
@@ -788,7 +802,7 @@ macro_rules! fused_lsd {
                     }
                     Digits::Auto => {
                         bits.len() >= WIDE_MIN
-                            && (BITS == 64 || bits.len() <= WIDE_MAX_32)
+                            && (BITS == 64 || bits.len() <= wide_max_32())
                             && variation(bits) >= $wide_bits
                     }
                 };
