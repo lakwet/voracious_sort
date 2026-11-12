@@ -28,7 +28,30 @@ static SIZES: OnceLock<CacheSizes> = OnceLock::new();
 /// L2 size in bytes.
 #[inline]
 pub(crate) fn l2_bytes() -> usize {
+    #[cfg(test)]
+    {
+        let forced = L2_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+        if forced != 0 {
+            return forced;
+        }
+    }
     sizes().l2
+}
+
+/// Benchmarks: L2 size forced (0: the detected one), to check on a machine
+/// that the thresholds derived from it hold.
+#[cfg(test)]
+pub(crate) static L2_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// The L2 size as the OS reports it (`None`: not read, the default is used).
+pub(crate) fn reported_l2() -> Option<usize> {
+    os::query().0
+}
+
+/// L1 data, L2 and L3 sizes as the OS reports them (smallest of each level;
+/// for reports: the sorts read the L2 alone).
+pub(crate) fn reported_levels() -> [Option<usize>; 3] {
+    os::levels()
 }
 
 /// Page size in bytes.

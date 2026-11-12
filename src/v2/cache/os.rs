@@ -29,7 +29,11 @@ mod imp {
     }
 
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
-        (l2(), page())
+        (smallest(2), page())
+    }
+
+    pub(crate) fn levels() -> [Option<usize>; 3] {
+        [smallest(1), smallest(2), smallest(3)]
     }
 
     fn page() -> Option<usize> {
@@ -43,7 +47,8 @@ mod imp {
         Some(info.page_size as usize)
     }
 
-    fn l2() -> Option<usize> {
+    /// Smallest data or unified cache of `wanted` level.
+    fn smallest(wanted: u8) -> Option<usize> {
         let mut len: u32 = 0;
         // SAFETY: a null buffer with length 0 only asks for the needed size.
         unsafe { GetLogicalProcessorInformationEx(RELATION_CACHE, std::ptr::null_mut(), &mut len) };
@@ -73,7 +78,7 @@ mod imp {
                 let level = bytes[off + 8];
                 let cache_size = u32_at(off + 12)? as usize;
                 let kind = u32_at(off + 16)?;
-                if level == 2 && (kind == CACHE_DATA || kind == CACHE_UNIFIED) {
+                if level == wanted && (kind == CACHE_DATA || kind == CACHE_UNIFIED) {
                     smallest = Some(smallest.map_or(cache_size, |s| s.min(cache_size)));
                 }
             }
@@ -94,7 +99,11 @@ mod imp {
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         // SAFETY: sysconf has no preconditions.
         let page = unsafe { sysconf(SC_PAGESIZE) };
-        (l2(), if page > 0 { Some(page as usize) } else { None })
+        (smallest(2), if page > 0 { Some(page as usize) } else { None })
+    }
+
+    pub(crate) fn levels() -> [Option<usize>; 3] {
+        [smallest(1), smallest(2), smallest(3)]
     }
 
     /// Sizes like "1024K" or "12M".
@@ -109,7 +118,8 @@ mod imp {
         num.parse::<usize>().ok().map(|v| v * mult)
     }
 
-    fn l2() -> Option<usize> {
+    /// Smallest data or unified cache of `wanted` level over the CPUs.
+    fn smallest(wanted: u32) -> Option<usize> {
         let mut smallest: Option<usize> = None;
         let cpus = std::fs::read_dir("/sys/devices/system/cpu").ok()?;
         for cpu in cpus.flatten() {
@@ -124,7 +134,7 @@ mod imp {
                 let (Some(level), Some(kind), Some(size)) = (read("level"), read("type"), read("size")) else {
                     continue;
                 };
-                if level.trim() == "2" && matches!(kind.trim(), "Data" | "Unified") {
+                if level.trim().parse::<u32>().ok() == Some(wanted) && matches!(kind.trim(), "Data" | "Unified") {
                     if let Some(v) = parse_size(&size) {
                         smallest = Some(smallest.map_or(v, |s| s.min(v)));
                     }
@@ -163,6 +173,10 @@ mod imp {
         let l2 = levels.into_iter().min().or_else(|| sysctl(b"hw.l2cachesize\0"));
         (l2, sysctl(b"hw.pagesize\0"))
     }
+
+    pub(crate) fn levels() -> [Option<usize>; 3] {
+        [sysctl(b"hw.l1dcachesize\0"), query().0, sysctl(b"hw.l3cachesize\0")]
+    }
 }
 
 #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
@@ -170,6 +184,10 @@ mod imp {
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         (None, None)
     }
+
+    pub(crate) fn levels() -> [Option<usize>; 3] {
+        [None, None, None]
+    }
 }
 
-pub(super) use imp::query;
+pub(super) use imp::{levels, query};

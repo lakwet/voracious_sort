@@ -42,6 +42,29 @@ pub struct RecPair {
     pub index: u64,
 }
 
+/// Competitors that sort records through a trait on the record: rdst
+/// (`RadixKey`) and voracious 1.x (`Radixable`).
+impl<K: rdst::RadixKey, const W: usize> rdst::RadixKey for Rec<K, W> {
+    const LEVELS: usize = K::LEVELS;
+    #[inline]
+    fn get_level(&self, level: usize) -> u8 {
+        self.key.get_level(level)
+    }
+}
+
+macro_rules! v1_rec {
+    ($($k:ty),*) => {$(
+        impl<const W: usize> crate::Radixable<$k> for Rec<$k, W> {
+            type Key = $k;
+            #[inline]
+            fn key(&self) -> $k {
+                self.key
+            }
+        }
+    )*};
+}
+v1_rec!(u16, u32, u64, i64);
+
 impl RecPair {
     pub fn key(&self) -> u64 {
         ((self.hi as u64) << 32) | self.lo as u64
