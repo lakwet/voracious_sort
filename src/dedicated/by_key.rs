@@ -12,13 +12,8 @@
 //!   4.29 billion elements), in a u64 when key and index fit, else a u128;
 //!   the packed integers are sorted by `devour_sort2` (equal keys keep their
 //!   index order: stable) and the elements gathered in that order.
-//! - Arrays of elements larger than the cache first go through one MSD pass
-//!   on the top bits of the key, which moves the elements in streams into
-//!   buckets that fit in the cache; each bucket is then sorted as above, its
-//!   gather reading the cache instead of random places in memory.
 //! Keys too wide for a u128 with their index fall back to `sort_by`.
 
-use super::cache_info::l2_bytes;
 use super::devour_sort2::devour_sort2;
 use std::mem::MaybeUninit;
 
@@ -83,7 +78,7 @@ impl SortKey for f64 {
 }
 
 /// Tests / benchmarks: switches (bit 1: no presorted check, bit 2: no
-/// few-keys count, bit 4: no MSD pass).
+/// few-keys count).
 #[cfg(test)]
 pub(crate) static BY_KEY_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -131,11 +126,6 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
         return;
     }
     let key_bits = u128::BITS - (hi - lo).leading_zeros();
-    let bytes = n.saturating_mul(std::mem::size_of::<T>());
-    if !off(4) && key_bits > MSD_BITS && bytes > l2_bytes() / 2 {
-        msd(arr, &enc, lo, key_bits, bytes);
-        return;
-    }
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     // SAFETY: the elements are moved into the buffer in key order, then the
     // buffer copied back over the array (see `sort_into`).
@@ -146,68 +136,6 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
             return;
         }
         std::ptr::copy_nonoverlapping(dst, arr.as_mut_ptr(), n);
-    }
-}
-
-/// Digit of the MSD pass at most this many bits.
-const MSD_BITS: u32 = 12;
-
-/// One MSD pass on the top `bits` of `key - lo` (buckets of about a quarter
-/// of the L2), moving the elements into a buffer in streams; then each
-/// bucket sorted from the buffer straight into its place in `arr`.
-fn msd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32, bytes: usize) {
-    let n = arr.len();
-    let want = (bytes / (l2_bytes() / 4).max(1)).next_power_of_two().max(2);
-    let bits = (want.trailing_zeros()).clamp(1, MSD_BITS).min(key_bits);
-    let shift = key_bits - bits;
-    let digit = |x: &T| ((enc(x) - lo) >> shift) as usize;
-    let mut counts = vec![0usize; 1 << bits];
-    for x in arr.iter() {
-        counts[digit(x)] += 1;
-    }
-    let mut heads = vec![0usize; 1 << bits];
-    let mut s = 0;
-    for (h, &c) in heads.iter_mut().zip(counts.iter()) {
-        *h = s;
-        s += c;
-    }
-    let starts = heads.clone();
-    let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
-    // SAFETY: every element is moved once into the buffer at its bucket's
-    // next slot (a stable scatter: the heads cover 0..n exactly), then each
-    // bucket is moved back into the same range of `arr` by `sort_into`
-    // (every element once). Nothing is dropped or duplicated; no code that
-    // can panic runs between the moves except `enc`, called on keys that
-    // were already encoded without panicking in the read before.
-    unsafe {
-        let src = arr.as_ptr();
-        let dst = buf.as_mut_ptr() as *mut T;
-        for i in 0..n {
-            let x = &*src.add(i);
-            let d = digit(x);
-            dst.add(heads[d]).write(std::ptr::read(x));
-            heads[d] += 1;
-        }
-        let out = arr.as_mut_ptr();
-        for d in 0..1 << bits {
-            let (s, c) = (starts[d], counts[d]);
-            if c == 0 {
-                continue;
-            }
-            let bucket = dst.add(s);
-            let (mut blo, mut bhi) = (u128::MAX, 0u128);
-            for i in 0..c {
-                let k = enc(&*bucket.add(i));
-                blo = blo.min(k);
-                bhi = bhi.max(k);
-            }
-            let bk = u128::BITS - (bhi - blo).leading_zeros();
-            if !sort_into(bucket, out.add(s), c, enc, blo, bk) {
-                // Too wide to pack: back in place, then a comparison sort.
-                std::ptr::copy_nonoverlapping(bucket, out.add(s), c);
-                std::slice::from_raw_parts_mut(out.add(s), c).sort_by(|a, b| enc(a).cmp(&enc(b)));
-            }
-        }
     }
 }
 
