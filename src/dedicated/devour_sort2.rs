@@ -25,7 +25,7 @@ use super::float_lsd::{wi32, wi64, wu32, wu64};
 use super::float_lsd::{wi16, wi8, wu16, wu8};
 use super::float_roller::{ri32, ri64, ru32, ru64};
 use super::cache_info::l2_bytes;
-use super::ravenous_sort2::{pre_old, radix_path};
+use super::ravenous_sort2::{pre_old, probe_pairs, radix_path, Probes};
 use super::small_sort::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 
 /// Up to these sizes, `sort_unstable`: where the median over the
@@ -131,10 +131,20 @@ macro_rules! int_width {
                 merge_sort(bits_of(arr), $encode, $decode);
                 return;
             }
-            // Constant array: first, middle and last keys equal, then all.
-            let first = arr[0];
-            if arr[n / 2] == first && arr[n - 1] == first && all_equal(arr, first) {
-                return;
+            // Already sorted, either way (constant arrays included).
+            let fast = !exp2(4);
+            let (mut prefix, mut probes) = (0, None);
+            if fast {
+                match presorted(arr) {
+                    Ok(()) => return,
+                    Err((p, q)) => (prefix, probes) = (p, q),
+                }
+            } else {
+                // Before: constant array (first, middle and last keys equal, then all).
+                let first = arr[0];
+                if arr[n / 2] == first && arr[n - 1] == first && all_equal(arr, first) {
+                    return;
+                }
             }
             // 8-bit keys from 256 on: counting over the 256 values is
             // cheaper than any other detection; only a fully sorted array
@@ -142,7 +152,7 @@ macro_rules! int_width {
             // when it is not (sorted u8: 0.46 to 0.04 ns per key; long runs
             // of equal keys serialise the counters).
             if <$uint>::BITS == 8 && n >= 256 && n <= u32::MAX as usize {
-                if sorted_either(arr) {
+                if !fast && sorted_either(arr) {
                     return;
                 }
                 domain_count(bits_of(arr), $encode, $decode);
@@ -162,7 +172,7 @@ macro_rules! int_width {
             let scratch = std::cell::RefCell::new(Vec::new());
             let recurse = |r: &mut [$t]| <$t as DevourSort2>::devour_sort2_impl(r);
             let old = pre_old();
-            radix_path(arr, &|a: &mut [$t], equal: usize| {
+            radix_path(arr, prefix, probes, &|a: &mut [$t], equal: usize| {
                 if old {
                     // Before: each detector its own sample and probes.
                     return $range(a, &spread(a)) || plateaus(a, if a.len() >= 1024 { probe_equal(a) } else { 0 }) || $few(a, &spread(a)) || heavy_sorted_by(a, &sorted(spread(a)), &recurse, |x, y| x == y, |x, y| x < y) || $dense(a, &sorted(spread(a)));
@@ -588,7 +598,8 @@ fn roller_int64() -> usize {
 #[cfg(test)]
 pub(crate) static INT_EXP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-/// Tests / benchmarks: switches of the v2 features (bit 1: no heavy hitters, bit 2: no cluster rule).
+/// Tests / benchmarks: switches of the v2 features (bit 1: no heavy hitters, bit 2: no cluster rule,
+/// bit 4: no `presorted` first, constant-array check instead).
 #[cfg(test)]
 pub(crate) static V2_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -867,6 +878,48 @@ fn plateaus<T: Copy + Ord>(arr: &mut [T], equal: usize) -> bool {
         pos += len;
     }
     true
+}
+
+/// Already sorted either way, constant arrays included: one scan.
+/// - Constant: three keys, then one read per key.
+/// - Ends in ascending order: an ascending scan (random keys fail in the
+///   first block; a failed scan leaves the repair its ascending prefix).
+/// - Ends in descending order: below `PROBE_MIN` keys a descending scan,
+///   the array reversed once found sorted; from `PROBE_MIN` keys 32 spread
+///   pairs first (any ascending one: no scan), then the array reversed and
+///   scanned ascending, so that a failed scan leaves the repair a known
+///   ascending prefix. Spread probes are avoided before long ascending
+///   scans: read just before, they slow the scan down from ~1M keys.
+/// `Err`: the ascending prefix found and the probes, passed to the repair.
+/// Idea from turbosort's presorted check.
+#[inline]
+fn presorted<T: Copy + PartialOrd>(arr: &mut [T]) -> Result<(), (usize, Option<Probes>)> {
+    use super::super::algo::verge_sort_fast::{explore_forward_asc, explore_forward_desc};
+    const PROBE_MIN: usize = 2048;
+    let n = arr.len();
+    let scan = |arr: &mut [T], probes| {
+        let p = explore_forward_asc(arr, 0);
+        if p == n { Ok(()) } else { Err((p, probes)) }
+    };
+    if arr[0] == arr[n - 1] && arr[0] == arr[n / 2] && all_equal(arr, arr[0]) {
+        return Ok(());
+    }
+    if arr[0] <= arr[n - 1] {
+        return scan(arr, None);
+    }
+    if n < PROBE_MIN {
+        if explore_forward_desc(arr, 0) == n {
+            arr.reverse();
+            return Ok(());
+        }
+        return Err((0, None));
+    }
+    let p = probe_pairs(arr);
+    if p.asc > 0 {
+        return Err((0, Some(p)));
+    }
+    arr.reverse();
+    scan(arr, Some(Probes { asc: p.desc, desc: p.asc }))
 }
 
 /// Whether every key equals `first`: blocks of 64 compared without early

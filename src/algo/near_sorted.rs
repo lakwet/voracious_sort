@@ -51,11 +51,16 @@ fn misplaced_tail<T: Copy + PartialOrd>(arr: &[T], kept: usize, i: usize, x: T) 
 /// Returns `true` if `arr` is sorted, `false` if the repair gave up (`arr`
 /// is then a permutation of the input).
 pub fn repair_ascending<T: Copy + PartialOrd>(arr: &mut [T]) -> bool {
+    repair_ascending_from(arr, 0)
+}
+
+/// `repair_ascending` when `arr[..sorted]` is already known to be ascending.
+pub fn repair_ascending_from<T: Copy + PartialOrd>(arr: &mut [T], sorted: usize) -> bool {
     let n = arr.len();
     let mut aside: Vec<T> = Vec::new();
     // The sorted prefix is found by the fast (vectorizable) scan: nothing is
     // written there.
-    let mut kept = explore_forward_asc(arr, 0);
+    let mut kept = explore_forward_asc(arr, sorted.saturating_sub(1));
     let mut i = kept;
     // Indices of the last 8 elements set aside (ring), for the density test.
     let mut recent = [0usize; 8];
