@@ -110,8 +110,8 @@ fn record_sizes(record: usize, max: usize) -> Vec<usize> {
 /// `devour_sort_by_key` checked against the stable `sort_by` on the key
 /// (records carry their original index, so any reordering of equal keys
 /// fails).
-fn check_by_key<T: Clone + PartialEq + std::fmt::Debug + Send, K: super::super::v2::by_key::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
-    use super::super::v2::by_key::{devour_sort_by_key, SortKey};
+fn check_by_key<T: Clone + PartialEq + std::fmt::Debug + Send, K: super::super::v2::records::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
+    use super::super::v2::records::{devour_sort_by_key, SortKey};
     for &size in sizes.iter().filter(|&&n| n <= quick_max()) {
         for (gen, name) in gens.iter() {
             let mut arr = gen(size);
@@ -151,13 +151,13 @@ fn test_v2_sort_by_key() {
     check_by_key(&wrap(keys_u64(), rec_string), |r| r.key, &record_sizes(32, 1_000_000), "string");
     check_by_key(&wrap(keys_u64(), rec_pair), |r| r.key(), &record_sizes(16, 1_000_000), "pair");
     // The LSD on the elements, forced.
-    use super::super::v2::by_key::BY_KEY_ENGINE;
-    BY_KEY_ENGINE.store(1, std::sync::atomic::Ordering::Relaxed);
+    use super::super::v2::records::FORCE_LSD;
+    FORCE_LSD.store(true, std::sync::atomic::Ordering::Relaxed);
     sizes!(keys_u16(), u16, 1, 7, 31, "lsd u16");
     sizes!(keys_i32(), i32, 1, 7, 31, "lsd i32");
     sizes!(keys_f64(), f64, 0, 6, 30, "lsd f64");
     check_by_key(&wrap(keys_u64(), rec_string), |r| r.key, &record_sizes(32, 1_000_000), "lsd string");
-    BY_KEY_ENGINE.store(0, std::sync::atomic::Ordering::Relaxed);
+    FORCE_LSD.store(false, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// Stability on keys built for it (many equal keys in every shape the sort

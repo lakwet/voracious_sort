@@ -1,77 +1,41 @@
-//! # Ravenous sort 2 (algorithmic work copy of `ravenous_sort`, see the journal)
+//! # Ravenous sort: radix sort for `f32` and `f64`
 //!
-//! Dedicated radix sort for `f32` and `f64`.
+//! Floats are sorted through their bits, encoded so that unsigned order is
+//! the [`f64::total_cmp`] order (`key = bits ^ (sign ? 0xFF..FF : 0x80..00)`;
+//! `-0.0 < +0.0`). The arrays are only reinterpreted, never copied.
 //!
-//! Floats are sorted through their bits, with the monotone encoding
-//! `key = bits ^ (sign ? 0xFF..FF : 0x80..00)`: comparing the encoded keys as
-//! unsigned integers gives the [`f32::total_cmp`] / [`f64::total_cmp`] order
-//! (`-0.0 < +0.0`, NaNs at both ends according to their sign).
+//! 1. at most 32 keys: a sorting network;
+//! 2. detectors: constant array, integer range, power-of-two grid;
+//! 3. small arrays: `sort_unstable` on the encoded keys;
+//! 4. the radix path (`pipeline`), with few distinct values and heavy
+//!    hitters as detectors; chunks sorted by the fused LSD (f32) or the DLSD
+//!    (f64), the rollercoaster beyond the cache.
 //!
-//! Steps:
-//! 0. at most 32 keys: a sorting network (`small_sort`);
-//! 1. low-cardinality detectors (integer range, power-of-two grid), see
-//!    `float_detect`;
-//! 2. small arrays: encoded keys sorted with `sort_unstable` (blocks of 32
-//!    and a merge up to 64 keys);
-//! 3. repair of nearly sorted arrays (a few misplaced elements set aside,
-//!    sorted and inserted back), see `near_sorted`; then few distinct
-//!    values (at most 256, counted in a hash table), see `float_detect`;
-//! 4. Verge sort pre-processing (already sorted parts are not radix sorted;
-//!    the faster `verge_sort_fast` and `k_way_merge_fast` variants),
-//!    then each unsorted chunk is radix sorted: f32 with the fused LSD of
-//!    `float_lsd` (the encoding is fused into the first scatter pass, the
-//!    decoding into the last one), f64 with the DLSD of `float_dlsd`; from
-//!    a size derived from the L2 size with the float rollercoaster of
-//!    `float_roller` (in-place MSD passes, then the DLSD on cache-sized
-//!    buckets);
-//! 5. when merging the segments would cost more than radix sorting the
-//!    whole array (several segments with unpredictable interleavings), the
-//!    whole array is radix sorted instead.
-//!
-//! The arrays are only reinterpreted (`f32` <-> `u32`, `f64` <-> `u64`), never
-//! copied, so bit patterns are preserved.
-//!
-//! The Verge pre-processing compares floats with `<`: arrays containing NaN
-//! are not supported yet (it may panic), as for the generic float sorts.
+//! NaN is not supported yet (the Verge step compares with `<`).
 
-use super::merge::predictable_merge;
-use super::merge::k_way_merge_fast2;
-use super::near_sorted::{repair_ascending, repair_ascending_from, repair_near_sorted};
-use super::verge::verge_sort_preprocessing_fast;
-use super::integers::heavy_by;
-use super::float_detect::{signed_zeros32, signed_zeros64, detect32, detect64, few32, few64};
-use super::dlsd::dlsd64_with;
-use super::lsd::w32;
-#[cfg(test)]
-use super::lsd::w64;
-use super::roller::{roller32, roller64};
-use super::small_sort::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-#[cfg(test)]
-use super::lsd::Digits;
+use super::detect::floats::{detect32, detect64, few32, few64};
+use super::detect::heavy::heavy_by;
+use super::engines::dlsd::d64;
+use super::engines::lsd::w32;
+use super::engines::roller::{r32, r64};
+use super::pipeline::presorted::Unsorted;
+use super::pipeline::radix_path;
+use super::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 
-/// Below these sizes, the whole array is sorted with `sort_unstable` on the
-/// encoded keys: where the median over the distributions of radix path /
-/// small path crosses 1 (f32 against the fused LSD: 1.04 at 300, 0.94 at
-/// 400; f64 against the DLSD: 1.05 at 600, 0.96 at 800, 0.89 at 1000,
-/// Snapdragon X Elite).
+/// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
+/// the radix path, median over the distributions, Snapdragon X Elite).
 const SMALL_F32: usize = 350;
 const SMALL_F64: usize = 700;
-/// From this chunk size (keys) f64 is sorted by the float rollercoaster
-/// (in-place MSD pass, then the DLSD on leaves of 2^15 keys) instead of the
-/// DLSD alone: L2 / 48, where the DLSD's keys and scratch buffer (16 bytes
-/// per key) take a third of the L2 and its prefix needs 3 passes. Measured
-/// on Snapdragon X Elite (12 MiB L2: 256k keys), rollercoaster / DLSD over
-/// 36 distributions: 1.09 at 128k, 1.00 at 256k, 0.95 at 512k, 0.91 at 1M.
-pub(crate) fn roller_f64() -> usize {
+
+/// From this chunk size f64 goes to the rollercoaster instead of the DLSD:
+/// L2 / 48, where the DLSD's keys and buffer take a third of the L2.
+fn roller_min_f64() -> usize {
     super::cache::l2_bytes() / 48
 }
 
-/// From this chunk size (keys) f32 is sorted by the float rollercoaster
-/// instead of the fused LSD (on 32-bit keys the DLSD alone does not beat the
-/// LSD: its prefix needs as many passes): L2 / 12. Measured on Snapdragon X
-/// Elite (12 MiB L2: 1M keys), rollercoaster / LSD over 31 distributions:
-/// 1.13 at 512k, 1.00 at 1M, 0.73 from 2M to 8M.
-pub(crate) fn roller_f32() -> usize {
+/// From this chunk size f32 goes to the rollercoaster instead of the fused
+/// LSD: L2 / 12.
+fn roller_min_f32() -> usize {
     super::cache::l2_bytes() / 12
 }
 
@@ -87,11 +51,7 @@ pub trait RavenousSort2: sealed::Sealed + Copy + PartialOrd {
     fn ravenous_sort2_impl(arr: &mut [Self]);
 }
 
-/// # Ravenous sort
-///
-/// Sorts `f32` or `f64` slices in [`f64::total_cmp`] order, with a dedicated
-/// radix sort (the float to integer conversion is fused into the first and
-/// last radix passes).
+/// Sorts `f32` or `f64` slices in [`f64::total_cmp`] order.
 ///
 /// ```text
 /// use voracious_radix_sort::ravenous_sort2;
@@ -106,419 +66,135 @@ pub fn ravenous_sort2<T: RavenousSort2>(arr: &mut [T]) {
 }
 
 macro_rules! float_width {
-    ($float:ty, $uint:ty, $sint:ty, $bits:ident, $encode:ident, $decode:ident, $small:ident) => {
-        /// Reinterprets the floats as their raw bits.
-        #[inline(always)]
-        fn $bits(arr: &mut [$float]) -> &mut [$uint] {
-            // SAFETY: the float and the unsigned integer have the same size
-            // and alignment, every bit pattern is valid for both, and the
-            // returned slice reborrows `arr` exclusively for its lifetime.
-            unsafe {
-                std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $uint, arr.len())
+    ($float:ty, $uint:ty, $sint:ty, $m:ident) => {
+        mod $m {
+            /// The floats as their raw bits.
+            #[inline(always)]
+            pub(super) fn bits(arr: &mut [$float]) -> &mut [$uint] {
+                // SAFETY: same size and alignment, every bit pattern valid
+                // for both; the slice reborrows `arr` exclusively.
+                unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $uint, arr.len()) }
             }
-        }
 
-        #[inline(always)]
-        fn $encode(bits: $uint) -> $uint {
-            const SIGN: $uint = 1 << (<$uint>::BITS - 1);
-            bits ^ ((((bits as $sint) >> (<$uint>::BITS - 1)) as $uint) | SIGN)
-        }
-
-        #[inline(always)]
-        fn $decode(key: $uint) -> $uint {
-            const SIGN: $uint = 1 << (<$uint>::BITS - 1);
-            key ^ ((key >> (<$uint>::BITS - 1)).wrapping_sub(1) | SIGN)
-        }
-
-        /// Small arrays: encode, `sort_unstable` on integers, decode.
-        fn $small(bits: &mut [$uint]) {
-            if bits.len() <= MERGE_MAX {
-                merge_sort(bits, $encode, $decode);
-                return;
+            #[inline(always)]
+            pub(super) fn encode(bits: $uint) -> $uint {
+                const SIGN: $uint = 1 << (<$uint>::BITS - 1);
+                bits ^ ((((bits as $sint) >> (<$uint>::BITS - 1)) as $uint) | SIGN)
             }
-            bits.iter_mut().for_each(|b| *b = $encode(*b));
-            bits.sort_unstable();
-            bits.iter_mut().for_each(|b| *b = $decode(*b));
+
+            #[inline(always)]
+            pub(super) fn decode(key: $uint) -> $uint {
+                const SIGN: $uint = 1 << (<$uint>::BITS - 1);
+                key ^ ((key >> (<$uint>::BITS - 1)).wrapping_sub(1) | SIGN)
+            }
+
+            /// Small arrays: encode, sort as integers, decode.
+            pub(super) fn sort_small(bits: &mut [$uint]) {
+                if bits.len() <= super::MERGE_MAX {
+                    super::merge_sort(bits, encode, decode);
+                    return;
+                }
+                bits.iter_mut().for_each(|b| *b = encode(*b));
+                bits.sort_unstable();
+                bits.iter_mut().for_each(|b| *b = decode(*b));
+            }
+
+            /// -0.0 and +0.0 compare equal in the generic steps of the radix
+            /// path (repair, Verge, merges): they come out together but
+            /// mixed. Their block is found by two binary searches and
+            /// rewritten, -0.0 first.
+            pub(super) fn order_signed_zeros(arr: &mut [$float]) {
+                let lo = arr.partition_point(|x| *x < 0.0);
+                let hi = lo + arr[lo..].partition_point(|x| *x <= 0.0);
+                if hi - lo < 2 {
+                    return;
+                }
+                let negative = arr[lo..hi].iter().filter(|x| x.is_sign_negative()).count();
+                arr[lo..lo + negative].fill(-0.0);
+                arr[lo + negative..hi].fill(0.0);
+            }
+
+            /// Total order on the floats (for the heavy hitters detector).
+            #[inline(always)]
+            pub(super) fn less(x: $float, y: $float) -> bool {
+                x.total_cmp(&y).is_lt()
+            }
+
+            #[inline(always)]
+            pub(super) fn same(x: $float, y: $float) -> bool {
+                x.to_bits() == y.to_bits()
+            }
         }
     };
 }
 
-float_width!(f32, u32, i32, bits32, encode32, decode32, small32);
-float_width!(f64, u64, i64, bits64, encode64, decode64, small64);
+float_width!(f32, u32, i32, f32_bits);
+float_width!(f64, u64, i64, f64_bits);
 
 impl RavenousSort2 for f32 {
     #[inline]
     fn ravenous_sort2_impl(arr: &mut [f32]) {
-        // Shortest arrays first: no other step pays off there.
         if arr.len() <= NETWORK_MAX {
-            network_sort(bits32(arr), encode32, decode32);
-            return;
+            network_sort(f32_bits::bits(arr), f32_bits::encode, f32_bits::decode);
+        } else {
+            sort_f32(arr);
         }
-        ravenous_sort2_f32_rest(arr);
     }
-}
-
-/// f32 arrays longer than `NETWORK_MAX`: detectors, small path, radix path.
-#[inline(never)]
-fn ravenous_sort2_f32_rest(arr: &mut [f32]) {
-    if detect32(arr) {
-        return;
-    }
-    #[cfg(test)]
-    let small = match F32_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
-        0 => SMALL_F32,
-        v => v,
-    };
-    #[cfg(not(test))]
-    let small = SMALL_F32;
-    if arr.len() <= small {
-        small32(bits32(arr));
-        return;
-    }
-    ravenous_sort2_f32_radix(arr);
 }
 
 impl RavenousSort2 for f64 {
     #[inline]
     fn ravenous_sort2_impl(arr: &mut [f64]) {
-        // Shortest arrays first: no other step pays off there.
         if arr.len() <= NETWORK_MAX {
-            network_sort(bits64(arr), encode64, decode64);
-            return;
+            network_sort(f64_bits::bits(arr), f64_bits::encode, f64_bits::decode);
+        } else {
+            sort_f64(arr);
         }
-        ravenous_sort2_f64_rest(arr);
     }
 }
 
-/// f64 arrays longer than `NETWORK_MAX`: detectors, small path, radix path.
+/// f32 arrays beyond the network: detectors, small path, radix path.
 #[inline(never)]
-fn ravenous_sort2_f64_rest(arr: &mut [f64]) {
+fn sort_f32(arr: &mut [f32]) {
+    if detect32(arr) {
+        return;
+    }
+    if arr.len() <= SMALL_F32 {
+        f32_bits::sort_small(f32_bits::bits(arr));
+        return;
+    }
+    let detect = |a: &mut [f32], _| few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less);
+    let sort_chunk = |chunk: &mut [f32]| {
+        if chunk.len() >= roller_min_f32() {
+            r32::roller(f32_bits::bits(chunk));
+        } else {
+            w32::lsd(f32_bits::bits(chunk));
+        }
+    };
+    radix_path(arr, Unsorted::default(), false, &detect, &sort_chunk);
+    f32_bits::order_signed_zeros(arr);
+}
+
+/// f64 arrays beyond the network: detectors, small path, radix path (one
+/// DLSD buffer for all the chunks).
+#[inline(never)]
+fn sort_f64(arr: &mut [f64]) {
     if detect64(arr) {
         return;
     }
-    #[cfg(test)]
-    let small = match F64_SMALL_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
-        0 => SMALL_F64,
-        v => v,
-    };
-    #[cfg(not(test))]
-    let small = SMALL_F64;
-    if arr.len() <= small {
-        small64(bits64(arr));
+    if arr.len() <= SMALL_F64 {
+        f64_bits::sort_small(f64_bits::bits(arr));
         return;
     }
-    ravenous_sort2_f64_radix(arr);
-}
-
-/// Radix path shared by f32 and f64: repair of nearly sorted arrays, else
-/// the Verge pre-processing records the unsorted chunks; when merging the
-/// segments would cost more than sorting the whole array (several segments
-/// with unpredictable interleavings), `sort` is applied to the whole array,
-/// else to each chunk and the segments are merged.
-/// `sorted`: length of a prefix already known to be ascending (0: unknown);
-/// `probes`: the spread pairs, when already compared; `runs`: the early
-/// random-runs check (`random_runs`) on.
-pub(crate) fn radix_path<T: Copy + PartialOrd>(arr: &mut [T], sorted: usize, probes: Option<Probes>, runs: bool, few: &dyn Fn(&mut [T], usize) -> bool, sort: &dyn Fn(&mut [T])) {
-    let random = runs && random_runs(arr, sorted);
-    let (sorted, equal) = if pre_old() {
-        (repair_near_sorted(arr), usize::MAX)
-    } else if random {
-        (false, probes.map_or(0, |p| 32 - p.asc - p.desc))
-    } else {
-        repair_probed(arr, sorted, probes)
-    };
-    if sorted || few(arr, equal) {
-        return;
-    }
-    if random || skip_verge(arr) {
-        sort(arr);
-        return;
-    }
-    let base = arr.as_ptr() as usize;
-    let chunks: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
-    let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [T], _| {
-        let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<T>();
-        chunks.borrow_mut().push((start, chunk.len()));
-    });
-    let chunks = chunks.into_inner();
-    if merge_rule_enabled() && unpredictable_merges(arr, &separators, &chunks) {
-        sort(arr);
-        return;
-    }
-    for &(start, len) in chunks.iter() {
-        sort(&mut arr[start..start + len]);
-    }
-    k_way_merge_fast2(arr, &mut separators);
-}
-
-/// `repair_near_sorted` that also returns how many of its 32 spread
-/// adjacent pairs are equal (the long-runs detector `plateaus` reads the
-/// same pairs): the pairs are compared once. Below 64 keys: no repair, 0.
-/// `sorted`: known ascending prefix, not scanned again; `probes`: the
-/// pairs, when already compared.
-pub(crate) fn repair_probed<T: Copy + PartialOrd>(arr: &mut [T], sorted: usize, probes: Option<Probes>) -> (bool, usize) {
-    let n = arr.len();
-    if n < 64 {
-        return (false, 0);
-    }
-    let Probes { asc, desc } = probes.unwrap_or_else(|| probe_pairs(arr));
-    let equal = 32 - asc - desc;
-    // Same decision as `repair_near_sorted`.
-    let descending = asc <= 8 && (desc > asc || (desc == asc && arr[0] > arr[n - 1]));
-    if descending {
-        arr.reverse();
-        return (repair_ascending(arr), equal);
-    }
-    if desc > 8 {
-        return (false, equal);
-    }
-    (repair_ascending_from(arr, sorted), equal)
-}
-
-/// The array starts with two long ascending runs (the first, `sorted`
-/// keys, already scanned) whose merge would be unpredictable: Verge would
-/// find long runs and the merge rule would then sort the whole array
-/// anyway (sorted logs from several sources, interleaved), so the
-/// near-sorted repair and Verge are skipped. Long: Verge's own length
-/// (n / log2 n). A nearly sorted array has a short second run or a
-/// predictable merge.
-fn random_runs<T: Copy + PartialOrd>(arr: &[T], sorted: usize) -> bool {
-    use super::verge::explore_forward_asc;
-    let n = arr.len();
-    let long = super::verge::compute_big_enough_run(n);
-    if sorted < long || sorted >= n || !merge_rule_enabled() {
-        return false;
-    }
-    let end = explore_forward_asc(arr, sorted);
-    end - sorted >= long && !predictable_merge(&arr[..end], sorted)
-}
-
-/// Directions of 32 spread adjacent pairs (ascending, descending; the
-/// others are equal).
-#[derive(Clone, Copy)]
-pub(crate) struct Probes {
-    pub(crate) asc: usize,
-    pub(crate) desc: usize,
-}
-
-/// Compares the 32 spread adjacent pairs (at least 64 keys).
-#[inline]
-pub(crate) fn probe_pairs<T: PartialOrd>(arr: &[T]) -> Probes {
-    let step = (arr.len() - 1) / 32;
-    let (mut asc, mut desc) = (0, 0);
-    for k in 0..32 {
-        let i = k * step;
-        if arr[i] < arr[i + 1] {
-            asc += 1;
-        } else if arr[i] > arr[i + 1] {
-            desc += 1;
-        }
-    }
-    Probes { asc, desc }
-}
-
-/// Tests / benchmarks: the pre-processing as before its rationalisation
-/// (each detector takes its own sample, the DLSD its own after the cluster
-/// rule): A/B in one process.
-#[cfg(test)]
-pub(crate) static PRE_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-#[inline(always)]
-pub(crate) fn pre_old() -> bool {
-    #[cfg(test)]
-    {
-        PRE_OLD.load(std::sync::atomic::Ordering::Relaxed)
-    }
-    #[cfg(not(test))]
-    {
-        false
-    }
-}
-
-/// Whether the Verge pre-processing can be skipped: it only keeps
-/// monotone runs (non-decreasing or non-increasing) of at least `n /
-/// log2(n)` keys, and without one it leaves the array untouched and sorts
-/// it whole. Such a run contains a point of a grid of step half that length
-/// followed by `RUN_PROBE` monotone pairs (the run is longer than the step
-/// plus the window); if no grid point has them, there is no such run and
-/// the result is the same without Verge. Random keys fail each probe within
-/// a couple of pairs: about 2 log2(n) probes instead of Verge's
-/// explorations and allocations (0.45 ns per key at 1k u64).
-pub(crate) fn skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
-    #[cfg(test)]
-    match VERGE_MODE.load(std::sync::atomic::Ordering::Relaxed) {
-        1 => return false,
-        2 => {
-            let min = VERGE_MIN.load(std::sync::atomic::Ordering::Relaxed);
-            if arr.len() < min {
-                return true;
-            }
-        }
-        _ => {}
-    }
-    const RUN_PROBE: usize = 8;
-    let n = arr.len();
-    let big_enough = super::verge::compute_big_enough_run(n);
-    let step = big_enough / 2;
-    if step <= RUN_PROBE {
-        return false;
-    }
-    let mut p = 0;
-    while p + RUN_PROBE < n {
-        let w = &arr[p..=p + RUN_PROBE];
-        let asc = w.windows(2).all(|x| x[0] <= x[1]);
-        let desc = w.windows(2).all(|x| x[0] >= x[1]);
-        if asc || desc {
-            return false;
-        }
-        p += step;
-    }
-    true
-}
-
-/// Tests / benchmarks: Verge skipping (0 default; 1 never skipped, as
-/// before; 2 default plus skipped below `VERGE_MIN` keys).
-#[cfg(test)]
-pub(crate) static VERGE_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-#[cfg(test)]
-pub(crate) static VERGE_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// f32 radix path (see `radix_path`), the fused LSD sorting the chunks.
-pub(crate) fn ravenous_sort2_f32_radix(arr: &mut [f32]) {
-    radix_path(arr, 0, None, false, &|a: &mut [f32], _| few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), |x: f32, y: f32| x.to_bits() == y.to_bits(), |x: f32, y: f32| x.total_cmp(&y).is_lt()), &|s: &mut [f32]| {
-        #[cfg(test)]
-        match F32_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
-            2 => return w32::lsd(bits32(s)),
-            3 => return roller32(bits32(s)),
-            _ => {}
-        }
-        if s.len() >= roller_f32() {
-            roller32(bits32(s));
+    let buffer = std::cell::RefCell::new(Vec::new());
+    let detect = |a: &mut [f64], _| few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less);
+    let sort_chunk = |chunk: &mut [f64]| {
+        if chunk.len() >= roller_min_f64() {
+            r64::roller(f64_bits::bits(chunk));
         } else {
-            w32::lsd(bits32(s));
+            d64::dlsd_with(f64_bits::bits(chunk), &mut buffer.borrow_mut());
         }
-    });
-    signed_zeros32(arr);
+    };
+    radix_path(arr, Unsorted::default(), false, &detect, &sort_chunk);
+    f64_bits::order_signed_zeros(arr);
 }
-
-/// Tests / benchmarks: f32 chunk sort forced (0 default, 2 fused LSD, 3
-/// rollercoaster).
-#[cfg(test)]
-pub(crate) static F32_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// Tests / benchmarks: previous merge rule for keys of at most 16 bits.
-#[cfg(test)]
-pub(crate) static NARROW_MERGE_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-/// Tests / benchmarks: always merge the Verge segments (A/B comparisons).
-#[cfg(test)]
-pub(crate) static NO_MERGE_RULE: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-#[inline(always)]
-fn merge_rule_enabled() -> bool {
-    #[cfg(test)]
-    {
-        !NO_MERGE_RULE.load(std::sync::atomic::Ordering::Relaxed)
-    }
-    #[cfg(not(test))]
-    {
-        true
-    }
-}
-
-/// Whether merging the Verge segments would cost more than radix sorting
-/// the whole array: at least 3 segments (2 merge rounds or more) and most
-/// first-round merges between two runs unpredictable for a branchy merge. A
-/// merge round with an irregular interleaving (e.g. concatenated sorted
-/// sources with random values) costs about as much as a whole radix sort,
-/// while a predictable one (long stretches, runs holding the same values)
-/// costs much less. Chunks are not sorted yet, so only run-run pairs are
-/// sampled.
-fn unpredictable_merges<T: Copy + PartialOrd>(
-    arr: &[T],
-    separators: &[usize],
-    chunks: &[(usize, usize)],
-) -> bool {
-    // Keys of at most 16 bits: the radix sort is 2 byte passes or one
-    // count, cheaper than a single unpredictable merge round, so 2 segments
-    // (1 round) are enough to check (u16 pipe organ 1k-100k: 3.0 to 1.5-2.0
-    // ns per key).
-    #[cfg(test)]
-    let narrow = std::mem::size_of::<T>() <= 2 && !NARROW_MERGE_OLD.load(std::sync::atomic::Ordering::Relaxed);
-    #[cfg(not(test))]
-    let narrow = std::mem::size_of::<T>() <= 2;
-    if separators.len() < if narrow { 3 } else { 4 } {
-        return false;
-    }
-    let is_chunk = |s: usize| chunks.iter().any(|&(c, _)| c == s);
-    let (mut sampled, mut unpredictable) = (0, 0);
-    for w in separators.windows(3).step_by(2) {
-        let (s, m, e) = (w[0], w[1], w[2]);
-        if is_chunk(s) || is_chunk(m) || arr[m - 1] <= arr[m] {
-            continue;
-        }
-        sampled += 1;
-        if !predictable_merge(&arr[s..e], m - s) {
-            unpredictable += 1;
-        }
-    }
-    sampled > 0 && 2 * unpredictable > sampled
-}
-
-/// f32 radix path with a forced digit layout (tests).
-#[cfg(test)]
-pub(crate) fn ravenous_sort2_f32_radix_mode(arr: &mut [f32], mode: Digits) {
-    let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f32], _| {
-        w32::lsd_mode(bits32(chunk), mode)
-    });
-    k_way_merge_fast2(arr, &mut separators);
-    signed_zeros32(arr);
-}
-
-/// f64 radix path (see `radix_path`): the DLSD sorts the chunks (one scratch
-/// buffer for all of them), the float rollercoaster the large ones.
-pub(crate) fn ravenous_sort2_f64_radix(arr: &mut [f64]) {
-    let scratch = std::cell::RefCell::new(Vec::new());
-    radix_path(arr, 0, None, false, &|a: &mut [f64], _| few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), |x: f64, y: f64| x.to_bits() == y.to_bits(), |x: f64, y: f64| x.total_cmp(&y).is_lt()), &|s: &mut [f64]| {
-        #[cfg(test)]
-        match F64_CHUNK_MODE.load(std::sync::atomic::Ordering::Relaxed) {
-            1 => return dlsd64_with(bits64(s), &mut scratch.borrow_mut()),
-            2 => return w64::lsd(bits64(s)),
-            3 => return roller64(bits64(s)),
-            _ => {}
-        }
-        if s.len() >= roller_f64() {
-            roller64(bits64(s));
-        } else {
-            dlsd64_with(bits64(s), &mut scratch.borrow_mut());
-        }
-    });
-    signed_zeros64(arr);
-}
-
-/// Tests / benchmarks: f32 small-path limit override (0: `SMALL_F32`; 1:
-/// radix path from 2 keys).
-#[cfg(test)]
-pub(crate) static F32_SMALL_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// Tests / benchmarks: f64 small-path limit override (0: `SMALL_F64`; 1:
-/// radix path from 2 keys).
-#[cfg(test)]
-pub(crate) static F64_SMALL_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// Tests / benchmarks: f64 chunk sort forced (0 default, 1 DLSD, 2 fused
-/// LSD, 3 rollercoaster).
-#[cfg(test)]
-pub(crate) static F64_CHUNK_MODE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// f64 radix path with a forced digit layout, fused LSD only (tests).
-#[cfg(test)]
-pub(crate) fn ravenous_sort2_f64_radix_mode(arr: &mut [f64], mode: Digits) {
-    let mut separators = verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [f64], _| {
-        w64::lsd_mode(bits64(chunk), mode)
-    });
-    k_way_merge_fast2(arr, &mut separators);
-    signed_zeros64(arr);
-}
-

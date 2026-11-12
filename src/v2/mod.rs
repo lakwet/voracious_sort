@@ -1,18 +1,22 @@
-//! Voracious 2: the new sorts (integers, floats, 128-bit keys, records by
-//! key), beside the 1.x library which stays unchanged.
+//! Version 2: the radix sorts with all the improvements, beside the 1.x
+//! library.
+//!
+//! - `integers`, `floats`, `records`: the sorts (entry points);
+//! - `pipeline`: the steps shared by every key type (presorted check,
+//!   near-sorted repair, Verge, merges);
+//! - `detect`: distributions sorted faster than by a radix sort;
+//! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
+//! - `small`: sorting networks and merges for short arrays;
+//! - `cache`: cache sizes detected at run time.
 
 #![allow(dead_code)]
 
-pub(crate) mod by_key;
 pub(crate) mod cache;
-pub(crate) mod dlsd;
-pub(crate) mod float_detect;
+#[macro_use]
+pub(crate) mod detect;
+pub(crate) mod engines;
 pub(crate) mod floats;
 pub(crate) mod integers;
-pub(crate) mod lsd;
-pub(crate) mod merge;
-pub(crate) mod near_sorted;
-pub(crate) mod roller;
-pub(crate) mod small_sort;
-pub(crate) mod verge;
-pub(crate) mod wide128;
+pub(crate) mod pipeline;
+pub(crate) mod records;
+pub(crate) mod small;

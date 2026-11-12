@@ -1,81 +1,8 @@
-//! Cache sizes read once at run time, for the cache-linked sizes of the
-//! float sorts (leaf size, rollercoaster thresholds, staging threshold,
-//! aliasing criterion).
-//!
-//! - L2: the smallest level-2 data or unified cache reported by the system
-//!   (on hybrid processors the efficiency cores may have another size:
-//!   the smallest is the safe choice). Snapdragon X Elite: 12 MiB per
-//!   cluster of 4 cores; recent x86 cores: 1-2 MiB.
-//! - Page: the virtual memory page size (4 KiB on x86 and most ARM
-//!   systems, 16 KiB on Apple Silicon, 64 KiB on some ARM Linux).
-//!
-//! Sources: Windows `GetLogicalProcessorInformationEx` / `GetSystemInfo`,
-//! Linux `/sys/devices/system/cpu/cpu0/cache` / `sysconf`, macOS
-//! `sysctlbyname`. Elsewhere, or when the query fails: `DEFAULT_L2` and
-//! `DEFAULT_PAGE`, conservative values.
-
-use std::sync::OnceLock;
-
-/// L2 size assumed when it cannot be read: small, as on many x86 cores.
-const DEFAULT_L2: usize = 1 << 20;
-/// Page size assumed when it cannot be read.
-const DEFAULT_PAGE: usize = 4096;
-/// Values read outside these bounds are ignored (bad report).
-const L2_RANGE: (usize, usize) = (128 << 10, 256 << 20);
-const PAGE_RANGE: (usize, usize) = (4096, 1 << 20);
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct CacheInfo {
-    /// L2 size in bytes.
-    pub l2: usize,
-    /// Page size in bytes.
-    pub page: usize,
-    /// Whether the L2 size was read from the system (diagnostics, tests).
-    #[allow(dead_code)]
-    pub l2_detected: bool,
-}
-
-static INFO: OnceLock<CacheInfo> = OnceLock::new();
-
-/// Tests / benchmarks: L2 size override in bytes (0: detected).
-#[cfg(test)]
-pub(crate) static L2_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// Cache sizes of this machine (read on the first call).
-pub(crate) fn cache_info() -> CacheInfo {
-    #[allow(unused_mut)]
-    let mut info = *INFO.get_or_init(detect);
-    #[cfg(test)]
-    {
-        let o = L2_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
-        if o != 0 {
-            info.l2 = o;
-        }
-    }
-    info
-}
-
-/// L2 size in bytes.
-#[inline]
-pub(crate) fn l2_bytes() -> usize {
-    cache_info().l2
-}
-
-/// Page size in bytes.
-#[inline]
-pub(crate) fn page_bytes() -> usize {
-    cache_info().page
-}
-
-fn detect() -> CacheInfo {
-    let (l2, page) = os::query();
-    let l2 = l2.filter(|&v| v >= L2_RANGE.0 && v <= L2_RANGE.1);
-    let page = page.filter(|&v| v >= PAGE_RANGE.0 && v <= PAGE_RANGE.1 && v.is_power_of_two());
-    CacheInfo { l2: l2.unwrap_or(DEFAULT_L2), page: page.unwrap_or(DEFAULT_PAGE), l2_detected: l2.is_some() }
-}
+//! Cache and page sizes asked to the system (Windows, Linux, macOS);
+//! `None` elsewhere or when the query fails.
 
 #[cfg(windows)]
-mod os {
+mod imp {
     // Layouts from the Windows SDK (winnt.h, sysinfoapi.h).
     const RELATION_CACHE: u32 = 2;
     const CACHE_UNIFIED: u32 = 0;
@@ -101,7 +28,7 @@ mod os {
         fn GetSystemInfo(info: *mut SystemInfo);
     }
 
-    pub(super) fn query() -> (Option<usize>, Option<usize>) {
+    pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         (l2(), page())
     }
 
@@ -157,14 +84,14 @@ mod os {
 }
 
 #[cfg(target_os = "linux")]
-mod os {
+mod imp {
     extern "C" {
         fn sysconf(name: i32) -> i64;
     }
     /// `_SC_PAGESIZE` (glibc and musl).
     const SC_PAGESIZE: i32 = 30;
 
-    pub(super) fn query() -> (Option<usize>, Option<usize>) {
+    pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         // SAFETY: sysconf has no preconditions.
         let page = unsafe { sysconf(SC_PAGESIZE) };
         (l2(), if page > 0 { Some(page as usize) } else { None })
@@ -209,7 +136,7 @@ mod os {
 }
 
 #[cfg(target_os = "macos")]
-mod os {
+mod imp {
     extern "C" {
         fn sysctlbyname(name: *const u8, oldp: *mut u8, oldlenp: *mut usize, newp: *mut u8, newlen: usize) -> i32;
     }
@@ -227,7 +154,7 @@ mod os {
         Some(if len == 4 { v as u32 as usize } else { v as usize })
     }
 
-    pub(super) fn query() -> (Option<usize>, Option<usize>) {
+    pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         // Apple Silicon: one value per performance level, else the global one.
         let levels: Vec<usize> = [&b"hw.perflevel0.l2cachesize\0"[..], &b"hw.perflevel1.l2cachesize\0"[..]]
             .iter()
@@ -239,67 +166,10 @@ mod os {
 }
 
 #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
-mod os {
-    pub(super) fn query() -> (Option<usize>, Option<usize>) {
+mod imp {
+    pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         (None, None)
     }
 }
 
-/// Whether the write streams of a scatter pass (bucket start and length,
-/// in bytes) crowd on a few cache-line positions inside a page: they then
-/// map to the same cache sets and evict each other (integer-valued or grid
-/// keys, permutations, saw teeth and timestamps give bucket sizes that are
-/// multiples of powers of two). Only buckets of at least `STREAM_MIN` bytes
-/// count as streams: smaller ones (the rare values of a top digit) share
-/// their lines instead of competing for sets. Criterion: one of the page's
-/// line positions holds more than 8 streams (more than an L1 set has ways
-/// on many cores: 6 to 12) and more than 4 times the average. The page
-/// stands for the L1 way size (equal on x86 and Apple Silicon); lines of
-/// 64 bytes. Measured on ARM only: u32 permutation of 0..2^20, bytes, the
-/// 16 buckets of 256 KiB of the top pass: 10.8 ns per key for this pass,
-/// 15.4 -> 6.4 for the sort once staged (16 was the limit before).
-pub(crate) fn crowded(streams: impl Iterator<Item = (usize, usize)>) -> bool {
-    const LINE: usize = 64;
-    const MAX_LINES: usize = 1024;
-    const STREAM_MIN: usize = 1024;
-    let lines = (page_bytes() / LINE).clamp(1, MAX_LINES);
-    let period = lines * LINE;
-    let mut classes = [0u32; MAX_LINES];
-    let mut nonempty = 0u32;
-    for (b, len) in streams {
-        if len >= STREAM_MIN {
-            classes[(b % period) / LINE] += 1;
-            nonempty += 1;
-        }
-    }
-    if nonempty == 0 {
-        return false;
-    }
-    let max = *classes[..lines].iter().max().unwrap();
-    let r = max > crowd_min() && max > 4 * nonempty.div_ceil(lines as u32);
-    #[cfg(test)]
-    if r {
-        CROWD_HITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }
-    r
-}
-
-/// Tests: number of crowded passes seen.
-#[cfg(test)]
-pub(crate) static CROWD_HITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-/// Tests: stream count threshold of `crowded` (0: default).
-#[cfg(test)]
-pub(crate) static CROWD_OVERRIDE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-
-#[inline(always)]
-fn crowd_min() -> u32 {
-    #[cfg(test)]
-    {
-        let v = CROWD_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
-        if v != 0 {
-            return v;
-        }
-    }
-    8
-}
+pub(super) use imp::query;

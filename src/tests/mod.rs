@@ -1,6 +1,7 @@
 mod bench_portable;
 mod comparative_sort;
 mod dedicated;
+mod v2;
 mod regions_graph;
 #[rustfmt::skip] mod sorts;
 mod stable_sort;

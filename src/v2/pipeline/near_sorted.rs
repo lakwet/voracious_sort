@@ -21,16 +21,11 @@ use super::verge::explore_forward_asc;
 const TAIL_MAX: usize = 8;
 
 /// When `x = arr[i]` is below the last two kept elements: either `x` is
-/// misplaced (too small), or several of the last kept ones are (too large,
-/// e.g. two large elements moved next to each other). In the second case
-/// the next element is below the last kept one too: then the number `k` of
-/// last kept elements above `x` (at most `TAIL_MAX`, with a kept element
-/// <= `x` before them, or none), else `None`. Random swaps of `m` elements
-/// put about m^2 / n pairs of them side by side (4 for the sqrt(n) swaps of
-/// "almost sorted" inputs, whatever n): without this the repair gave up on
-/// about half of them (then sorted by radix: i32 almost sorted at 10M
-/// 5.5 ns per key instead of 1.1). Out of line: it runs on misplaced
-/// elements only.
+/// misplaced (too small), or several of the last kept ones are (too large:
+/// two large elements moved side by side, frequent in random swaps). In the
+/// second case the next element is below the last kept one too; returns the
+/// number of last kept elements above `x` (at most `TAIL_MAX`), else `None`.
+/// Out of line: it runs on misplaced elements only.
 #[cold]
 #[inline(never)]
 fn misplaced_tail<T: Copy + PartialOrd>(arr: &[T], kept: usize, i: usize, x: T) -> Option<usize> {
@@ -93,14 +88,11 @@ pub fn repair_ascending_from<T: Copy + PartialOrd>(arr: &mut [T], sorted: usize)
             recent[recent_count % 8] = i;
             recent_count = aside.len();
             if recent_count >= 8 && i - recent[recent_count % 8] < 64 {
-                arr[kept..kept + aside.len()].copy_from_slice(&aside);
-                return false;
+                return give_up(arr, kept, &aside);
             }
         }
         if aside.len() > 8 + (i + 1) / 32 {
-            // Give up: put the elements set aside back behind the kept ones.
-            arr[kept..kept + aside.len()].copy_from_slice(&aside);
-            return false;
+            return give_up(arr, kept, &aside);
         }
         i += 1;
         if keep && i < n {
@@ -115,73 +107,33 @@ pub fn repair_ascending_from<T: Copy + PartialOrd>(arr: &mut [T], sorted: usize)
             }
         }
     }
-    if aside.is_empty() {
-        return true;
+    if !aside.is_empty() {
+        aside.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        insert_from_end(arr, kept, &aside);
     }
-    aside.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-    // Insert from the end: each element set aside goes after the kept
-    // elements <= it; the kept elements greater than it move once.
-    let mut end = kept;
-    let mut write = n;
+    true
+}
+
+/// The repair gives up: the elements set aside go back behind the kept ones
+/// (the array is a permutation of the input, to be sorted as usual).
+#[cold]
+fn give_up<T: Copy>(arr: &mut [T], kept: usize, aside: &[T]) -> bool {
+    arr[kept..kept + aside.len()].copy_from_slice(aside);
+    false
+}
+
+/// Inserts the sorted `aside` into the sorted `arr[..kept]` (the array has
+/// room for them after it), from the end: each element set aside goes after
+/// the kept elements <= it, the kept elements above it move once.
+fn insert_from_end<T: Copy + PartialOrd>(arr: &mut [T], kept: usize, aside: &[T]) {
+    let (mut end, mut write) = (kept, arr.len());
     for &x in aside.iter().rev() {
         let p = arr[..end].partition_point(|y| *y <= x);
         let len = end - p;
         arr.copy_within(p..end, write - len);
-        write -= len;
-        write -= 1;
+        write -= len + 1;
         arr[write] = x;
         end = p;
     }
     debug_assert_eq!(write, end);
-    true
 }
-
-/// Repairs `arr` if it is nearly sorted in either direction (a descending
-/// array, as seen on a sample of pairs, is reversed first). Returns `true`
-/// if `arr` is sorted (ascending), `false` otherwise (`arr` is then a
-/// permutation of the input).
-pub fn repair_near_sorted<T: Copy + PartialOrd>(arr: &mut [T]) -> bool {
-    let n = arr.len();
-    if n < 64 {
-        return false;
-    }
-    // Orientation from 32 spread adjacent pairs.
-    let step = (n - 1) / 32;
-    let (mut asc, mut desc) = (0, 0);
-    for k in 0..32 {
-        let i = k * step;
-        if arr[i] < arr[i + 1] {
-            asc += 1;
-        } else if arr[i] > arr[i + 1] {
-            desc += 1;
-        }
-    }
-    #[cfg(test)]
-    let old = ORIENT_OLD.load(std::sync::atomic::Ordering::Relaxed);
-    #[cfg(not(test))]
-    let old = false;
-    if old {
-        if desc > asc && desc >= 24 {
-            arr.reverse();
-        } else if asc + (32 - asc - desc) < 24 {
-            return false;
-        }
-        return repair_ascending(arr);
-    }
-    // At most 8 pairs against a direction. Equal pairs fit both: with many
-    // duplicates (narrow keys) the unequal pairs decide, and with none the
-    // two ends (a descending array with long runs of equal keys was taken
-    // for an ascending one, then sorted by radix).
-    let descending = asc <= 8 && (desc > asc || (desc == asc && arr[0] > arr[n - 1]));
-    if descending {
-        arr.reverse();
-    } else if desc > 8 {
-        // Neither clearly ascending nor descending: not nearly sorted.
-        return false;
-    }
-    repair_ascending(arr)
-}
-
-/// Tests / benchmarks: previous orientation rule.
-#[cfg(test)]
-pub(crate) static ORIENT_OLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);

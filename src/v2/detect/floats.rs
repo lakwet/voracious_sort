@@ -1,14 +1,13 @@
-//! Low-cardinality detectors for [`ravenous_sort`](super::ravenous_sort), adapted
-//! from blazing-radix (MIT License, Copyright (c) 2026 Max Tikhomirov):
+//! Float detectors, ideas from blazing-radix (MIT License, Copyright (c)
+//! 2026 Max Tikhomirov):
 //!
-//! - integer-valued floats spanning at most 256 integers,
-//! - power-of-two grids (`low + i * 2^e`) spanning at most 256 points,
+//! - constant array;
+//! - integer-valued floats spanning at most 256 integers;
+//! - power-of-two grids (`low + i * 2^e`) spanning at most 256 points;
 //! - few distinct values (at most `FEW_MAX`, counted in a hash table).
 //!
-//! A small sample only proposes a case. Every value is then verified (exact
-//! bit reconstruction / membership) before anything is written, so a failed
-//! detection leaves the array untouched. The worst case is a detection that
-//! fails late (one extra read pass).
+//! A small sample only proposes a case; every value is verified before
+//! anything is written, so a failed detection leaves the array untouched.
 
 /// From this size the detectors are tried.
 pub(crate) const DETECT_MIN: usize = 129;
@@ -25,31 +24,9 @@ fn validation_blocks<T>(values: &[T]) -> impl Iterator<Item = &[T]> {
     std::iter::once(head).chain(tail.chunks(1024))
 }
 
-/// The lane counters of the range and grid detectors are `u32` (smaller and
-/// as fast as `usize` in the hot loop); they are added to `usize` totals at
-/// least every `flush_every()` keys (2^30), so that neither a lane nor a
-/// total can overflow on arrays of more than 4 billion keys.
+/// The lane counters of the range and grid detectors are `u32`, added to
+/// `usize` totals at least every `FLUSH` keys: no overflow beyond 4G keys.
 const FLUSH: usize = 1 << 30;
-
-/// Tests: flush interval override (0: `FLUSH`), small to exercise the
-/// flush without billions of keys. Benchmarks keep the production value.
-#[cfg(test)]
-pub(crate) static FLUSH_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-
-#[inline(always)]
-fn flush_every() -> usize {
-    #[cfg(test)]
-    {
-        match FLUSH_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed) {
-            0 => FLUSH,
-            v => v,
-        }
-    }
-    #[cfg(not(test))]
-    {
-        FLUSH
-    }
-}
 
 /// Adds the 4 lanes of `counts` to `totals` and clears them.
 fn flush(counts: &mut [[u32; 256]; 4], totals: &mut [usize; 256]) {
@@ -71,6 +48,8 @@ macro_rules! float_detect {
             bits ^ ((((bits as $sint) >> (<$uint>::BITS - 1)) as $uint) | SIGN)
         }
 
+        /// Integer-valued floats spanning at most 256 integers: counted by
+        /// their low byte, then rewritten. Else the grid detector.
         fn $range(values: &mut [$float]) -> bool {
             let n = values.len();
             let exact = |v: $float| ((v as $sint) as $float).to_bits() == v.to_bits();
@@ -117,7 +96,7 @@ macro_rules! float_detect {
                     return false;
                 }
                 pending += block.len();
-                if pending >= flush_every() {
+                if pending >= FLUSH {
                     flush(&mut counts, &mut totals);
                     pending = 0;
                 }
@@ -139,6 +118,8 @@ macro_rules! float_detect {
             true
         }
 
+        /// Floats on a power-of-two grid of at most 256 points: counted by
+        /// grid index, then rewritten.
         fn $grid(values: &mut [$float]) -> bool {
             let n = values.len();
             let sample = || values[..16].iter().chain(values.last()).chain(values.get(n / 2));
@@ -196,7 +177,7 @@ macro_rules! float_detect {
                     return false;
                 }
                 pending += block.len();
-                if pending >= flush_every() {
+                if pending >= FLUSH {
                     flush(&mut counts, &mut totals);
                     pending = 0;
                 }
@@ -214,16 +195,8 @@ macro_rules! float_detect {
             true
         }
 
-        /// Few distinct values (at most `FEW_MAX`, any values): a spread
-        /// sample first rejects arrays whose sample is mostly distinct;
-        /// then one pass counts every value in a small open-addressing hash
-        /// table (4 lanes of counters, so that a value present in half of
-        /// the keys does not chain every increment on one counter), giving
-        /// up beyond `FEW_MAX` distinct values (nothing written yet); the
-        /// distinct values are sorted and the array rewritten from them. A
-        /// value appearing late costs one more entry, not a failed pass.
-        /// Constant array: first, middle and last keys equal (three loads
-        /// otherwise), then every key checked; nothing is rewritten.
+        /// Constant array: first, middle and last keys equal, then every
+        /// key checked; nothing is rewritten.
         fn $constant(values: &[$float]) -> bool {
             let n = values.len();
             let first = values[0].to_bits();
@@ -232,6 +205,10 @@ macro_rules! float_detect {
                 && validation_blocks(values).all(|block| block.iter().fold(0, |d, v| d | (v.to_bits() ^ first)) == 0)
         }
 
+        /// Few distinct values (at most `FEW_MAX`): a spread sample rejects
+        /// arrays mostly distinct; one pass counts every value in a small
+        /// open-addressing hash table (4 lanes of counters), giving up beyond
+        /// `FEW_MAX` values; the array is rewritten from the sorted values.
         pub(crate) fn $few(values: &mut [$float]) -> bool {
             let n = values.len();
             if n < DETECT_MIN {
@@ -311,10 +288,9 @@ macro_rules! float_detect {
             true
         }
 
-        /// Tries the integer-range and grid detectors; returns true if the
-        /// array is now sorted. (`few` runs later, in the radix path, after
-        /// the repair of nearly sorted arrays: sorted arrays then never pay
-        /// for its sample.)
+        /// Constant, integer range or grid; whether the array is now sorted.
+        /// (`few` runs later, in the radix path, after the repair of nearly
+        /// sorted arrays: sorted arrays never pay for its sample.)
         pub(crate) fn $detect(values: &mut [$float]) -> bool {
             values.len() >= DETECT_MIN && ($constant(values) || $range(values))
         }
@@ -333,25 +309,3 @@ mod w64 {
 
 pub(crate) use w32::{detect as detect32, few as few32};
 pub(crate) use w64::{detect as detect64, few as few64};
-
-/// Signed zeros after the generic steps of the radix path (near-sorted
-/// repair, Verge, merges), which compare with `<=`: there -0.0 and +0.0 are
-/// equal, so they come out together but mixed. The block of zeros is found
-/// by two binary searches and rewritten, -0.0 first (total order). O(log n)
-/// plus the zeros. NaN is not handled.
-macro_rules! signed_zeros {
-    ($name:ident, $float:ty) => {
-        pub(crate) fn $name(arr: &mut [$float]) {
-            let lo = arr.partition_point(|x| *x < 0.0);
-            let hi = lo + arr[lo..].partition_point(|x| *x <= 0.0);
-            if hi - lo < 2 {
-                return;
-            }
-            let neg = arr[lo..hi].iter().filter(|x| x.is_sign_negative()).count();
-            arr[lo..lo + neg].fill(-0.0);
-            arr[lo + neg..hi].fill(0.0);
-        }
-    };
-}
-signed_zeros!(signed_zeros32, f32);
-signed_zeros!(signed_zeros64, f64);
