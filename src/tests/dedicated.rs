@@ -788,6 +788,14 @@ fn test_ded_sort_by_key() {
     sizes!(keys_f64(), f64, 0, 6, 30, "f64");
     check(wrap(keys_u64(), rec_string), |r| r.key, "string");
     check(wrap(keys_u64(), rec_pair), |r| r.key(), "pair");
+    // The LSD on the elements, forced.
+    use super::super::dedicated::by_key::BY_KEY_ENGINE;
+    BY_KEY_ENGINE.store(1, std::sync::atomic::Ordering::Relaxed);
+    sizes!(keys_u16(), u16, 1, 7, 31, "lsd u16");
+    sizes!(keys_i32(), i32, 1, 7, 31, "lsd i32");
+    sizes!(keys_f64(), f64, 0, 6, 30, "lsd f64");
+    check(wrap(keys_u64(), rec_string), |r| r.key, "lsd string");
+    BY_KEY_ENGINE.store(0, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// `ravenous_sort2` (algorithmic work copy): bit for bit `total_cmp` order,

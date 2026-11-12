@@ -78,7 +78,8 @@ impl SortKey for f64 {
 }
 
 /// Tests / benchmarks: switches (bit 1: no presorted check, bit 2: no
-/// few-keys count).
+/// few-keys count, bit 4: gather through a buffer instead of the in-place
+/// permutation).
 #[cfg(test)]
 pub(crate) static BY_KEY_OFF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -126,6 +127,16 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
         return;
     }
     let key_bits = u128::BITS - (hi - lo).leading_zeros();
+    if lsd_mode() && key_bits <= 64 {
+        lsd(arr, &enc, lo, key_bits);
+        return;
+    }
+    if !off(4) {
+        if !sort_in_place(arr, &enc, lo, key_bits) {
+            arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
+        }
+        return;
+    }
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     // SAFETY: the elements are moved into the buffer in key order, then the
     // buffer copied back over the array (see `sort_into`).
@@ -136,6 +147,167 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
             return;
         }
         std::ptr::copy_nonoverlapping(dst, arr.as_mut_ptr(), n);
+    }
+}
+
+/// The packed (key, index) sort, then the permutation applied in place by
+/// following its cycles: an element already at its place is not touched,
+/// the others are moved once (each write lands on the slot just read). No
+/// buffer of elements. Returns false (nothing moved) when key and index do
+/// not fit in a u128.
+fn sort_in_place<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32) -> bool {
+    let n = arr.len();
+    let index_bits = usize::BITS - n.saturating_sub(1).leading_zeros();
+    if key_bits + index_bits <= 64 {
+        let mut packed: Vec<u64> = arr.iter().enumerate().map(|(i, x)| (((enc(x) - lo) << index_bits) as u64) | i as u64).collect();
+        devour_sort2(&mut packed);
+        let mask = (1u64 << index_bits).wrapping_sub(1);
+        permute(arr, &mut packed, |p| (p & mask) as usize, |p, i| *p = (*p & !mask) | i as u64);
+        true
+    } else if key_bits + index_bits <= 128 {
+        let mut packed: Vec<u128> = arr.iter().enumerate().map(|(i, x)| ((enc(x) - lo) << index_bits) | i as u128).collect();
+        devour_sort2(&mut packed);
+        let mask = (1u128 << index_bits).wrapping_sub(1);
+        permute(arr, &mut packed, |p| (p & mask) as usize, |p, i| *p = (*p & !mask) | i as u128);
+        true
+    } else {
+        false
+    }
+}
+
+/// A move within this many slots counts as near.
+const NEAR: usize = 64;
+
+/// Puts `arr[index(perm[j])]` at position `j` for every `j`. Few elements
+/// moving far (at most a quarter beyond `NEAR` slots): in place, cycle by
+/// cycle, an element at its place not touched, near moves read nearly in
+/// sequence (nearly sorted data, shifted blocks). Else gathered through a
+/// buffer over the span that moves: following a cycle chains its random
+/// reads one after another, while the gather issues them independently
+/// (random records of 32 bytes at 1M: 103 against 27 ns per key).
+fn permute<T, P: Copy>(arr: &mut [T], perm: &mut [P], index: impl Fn(P) -> usize, set: impl Fn(&mut P, usize)) {
+    let n = arr.len();
+    let (mut far, mut first, mut last) = (0usize, n, 0usize);
+    for (j, &p) in perm.iter().enumerate() {
+        let src = index(p);
+        if src != j {
+            far += (src.abs_diff(j) > NEAR) as usize;
+            first = first.min(j);
+            last = j;
+        }
+    }
+    if first == n {
+        return;
+    }
+    let a = arr.as_mut_ptr();
+    if 4 * far > n {
+        // The span [first, last] is closed under the permutation (the
+        // slots outside it are fixed points).
+        let span = last + 1 - first;
+        let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(span);
+        // SAFETY: every element of the span is read once (a permutation of
+        // the span) into the buffer, then the buffer is copied back over the
+        // span: each element moved once there and back, none dropped.
+        unsafe {
+            let b = buf.as_mut_ptr() as *mut T;
+            for j in first..=last {
+                b.add(j - first).write(std::ptr::read(a.add(index(perm[j]))));
+            }
+            std::ptr::copy_nonoverlapping(b, a.add(first), span);
+        }
+        return;
+    }
+    for start in first..=last {
+        if index(perm[start]) == start {
+            continue;
+        }
+        // SAFETY: `perm` is a permutation of 0..n. Along a cycle, the
+        // element taken out of `start` is held in `held`; each slot `k`
+        // receives the element of `src = index(perm[k])` (still unmoved:
+        // a cycle visits each slot once), then is marked done; the cycle
+        // closes when `src` comes back to `start`, which receives `held`.
+        // Every element is moved exactly once, none dropped or duplicated;
+        // no code that can panic runs while `held` is out.
+        unsafe {
+            let held = std::ptr::read(a.add(start));
+            let mut k = start;
+            loop {
+                let src = index(perm[k]);
+                set(&mut perm[k], k);
+                if src == start {
+                    a.add(k).write(held);
+                    break;
+                }
+                a.add(k).write(std::ptr::read(a.add(src)));
+                k = src;
+            }
+        }
+    }
+}
+
+/// Tests / benchmarks: the LSD on the elements forced (1) or the packed
+/// sort forced (2); 0: the rule.
+#[cfg(test)]
+pub(crate) static BY_KEY_ENGINE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[inline(always)]
+fn lsd_mode() -> bool {
+    #[cfg(test)]
+    {
+        BY_KEY_ENGINE.load(std::sync::atomic::Ordering::Relaxed) == 1
+    }
+    #[cfg(not(test))]
+    {
+        false
+    }
+}
+
+/// Stable LSD on the elements themselves: byte digits of `key - lo`
+/// (`key_bits` bits), all histograms from one read, the digits equal in
+/// every key skipped, each pass moving the elements between the array and
+/// a buffer (the key read again from each element).
+fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32) {
+    let n = arr.len();
+    let digits = key_bits.div_ceil(8).max(1) as usize;
+    let mut hist = vec![[0usize; 256]; digits];
+    for x in arr.iter() {
+        let k = (enc(x) - lo) as u64;
+        for (d, h) in hist.iter_mut().enumerate() {
+            h[((k >> (8 * d)) & 0xFF) as usize] += 1;
+        }
+    }
+    let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
+    let mut in_buf = false;
+    // SAFETY: each pass moves every element once from one side to the
+    // other (the heads cover 0..n exactly); at the end the elements are
+    // copied back if they ended in the buffer. Nothing is dropped twice
+    // (the buffer is MaybeUninit); `enc` was already called on every
+    // element without panicking.
+    unsafe {
+        let a = arr.as_mut_ptr();
+        let b = buf.as_mut_ptr() as *mut T;
+        for (d, h) in hist.iter().enumerate() {
+            if h.iter().any(|&c| c == n) {
+                continue;
+            }
+            let mut heads = [0usize; 256];
+            let mut s = 0;
+            for (hd, &c) in heads.iter_mut().zip(h.iter()) {
+                *hd = s;
+                s += c;
+            }
+            let (src, dst) = if in_buf { (b as *const T, a) } else { (a as *const T, b) };
+            for i in 0..n {
+                let x = &*src.add(i);
+                let digit = (((enc(x) - lo) as u64 >> (8 * d)) & 0xFF) as usize;
+                dst.add(heads[digit]).write(std::ptr::read(x));
+                heads[digit] += 1;
+            }
+            in_buf = !in_buf;
+        }
+        if in_buf {
+            std::ptr::copy_nonoverlapping(b, a, n);
+        }
     }
 }
 
