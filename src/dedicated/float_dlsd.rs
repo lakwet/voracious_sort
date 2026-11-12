@@ -21,6 +21,8 @@ use std::mem::MaybeUninit;
 
 /// Up to this size: `sort_unstable` on the encoded keys.
 const SMALL: usize = 64;
+/// Up to this size on 128-bit keys: `sort_unstable`.
+const SMALL_128: usize = 256;
 /// Widest digit (4096 buckets: their write streams still fit in L1/L2).
 const MAX_DIGIT_BITS: u32 = 12;
 /// Sample for the prefix length: n / `SAMPLE_DIV` keys (at least
@@ -216,7 +218,11 @@ macro_rules! dlsd_width {
                 /// the caller already took it (`dlsd_unless`).
                 fn dlsd_rec<const RAW: bool>(keys: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, pre: Option<&mut [$uint]>) {
                     let n = keys.len();
-                    if n <= SMALL {
+                    // 128-bit keys: the fixed costs of a DLSD call (sample,
+                    // histograms, passes) outweigh `sort_unstable` up to a few
+                    // hundred keys (groups left by a one-digit prefix).
+                    let small = if <$uint>::BITS == 128 && wide_cap_enabled() { SMALL_128 } else { SMALL };
+                    if n <= small {
                         if RAW {
                             keys.iter_mut().for_each(|k| *k = w::encode_key(*k));
                         }
@@ -246,7 +252,15 @@ macro_rules! dlsd_width {
                     let log_n = usize::BITS - n.leading_zeros();
                     // Prefix length: bits needed to tell apart most neighbouring keys,
                     // estimated on a spread sample (see `prefix_bits`).
-                    let bits = prefix_bits::<RAW>(keys, min, top, pre);
+                    let mut bits = prefix_bits::<RAW>(keys, min, top, pre);
+                    // 128-bit keys: the passes paid for carry as many bits as
+                    // they can, so that the groups left to the finish are
+                    // smaller (insertion sort of 16-byte keys: 11.6 of 25 ns per
+                    // key on time-ordered UUIDs with an 18-bit prefix).
+                    if <$uint>::BITS == 128 && wide_cap_enabled() {
+                        let widest = MAX_DIGIT_BITS.min(log_n.saturating_sub(4).max(8));
+                        bits = (bits.div_ceil(widest) * widest).min(top);
+                    }
                     let passes = bits.div_ceil(MAX_DIGIT_BITS);
                     // Digit width: the prefix split evenly, at most ~n/16 digit values.
                     let w = bits.div_ceil(passes).min(log_n.saturating_sub(4).max(8)).max(1);

@@ -90,7 +90,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         prefix,
         probes,
         true,
-        &|a: &mut [T], _| heavy_by(a, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y),
+        &|a: &mut [T], _| few(a) || heavy_by(a, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y),
         &|chunk: &mut [T]| {
             if chunk.len() >= roller_min() {
                 T::roller(bits_of(chunk));
@@ -185,4 +185,73 @@ fn narrow_to<T: Key128, U: Narrow>(arr: &mut [T], lo: u128, tz: u32) {
             wide.add(i).write(T::dec(lo + (v.to128() << tz)));
         }
     }
+}
+
+/// Most distinct values counted, and the hash table size (at most half full).
+const FEW_MAX: usize = 256;
+const FEW_TABLE_BITS: u32 = 9;
+const FEW_TABLE: usize = 1 << FEW_TABLE_BITS;
+/// From this size the few-values counting is tried.
+const FEW_MIN: usize = 129;
+
+/// Few distinct values (at most `FEW_MAX`): a spread sample gives up as soon
+/// as half of it is distinct; else one pass counts every value in an
+/// open-addressing hash table, giving up beyond `FEW_MAX` values with
+/// nothing written; the values are sorted and the array rewritten (same
+/// scheme as the other integer widths).
+fn few<T: Key128>(arr: &mut [T]) -> bool {
+    let n = arr.len();
+    if n < FEW_MIN {
+        return false;
+    }
+    let hash = |v: T| {
+        let e = v.enc();
+        (((e as u64) ^ ((e >> 64) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize
+    };
+    let mut keys = [arr[0]; FEW_TABLE];
+    let mut used = [false; FEW_TABLE];
+    let s = (n / 32).clamp(16, 256);
+    let mut distinct = 0;
+    for i in 0..s as u64 {
+        let v = arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize];
+        let mut h = hash(v);
+        while used[h] && keys[h] != v {
+            h = (h + 1) & (FEW_TABLE - 1);
+        }
+        if !used[h] {
+            used[h] = true;
+            keys[h] = v;
+            distinct += 1;
+            if distinct > s / 2 {
+                return false;
+            }
+        }
+    }
+    let mut keys = [arr[0]; FEW_TABLE];
+    let mut used = [false; FEW_TABLE];
+    let mut counts = [0usize; FEW_TABLE];
+    let mut distinct = 0;
+    for &v in arr.iter() {
+        let mut h = hash(v);
+        while used[h] && keys[h] != v {
+            h = (h + 1) & (FEW_TABLE - 1);
+        }
+        if !used[h] {
+            if distinct == FEW_MAX {
+                return false;
+            }
+            used[h] = true;
+            keys[h] = v;
+            distinct += 1;
+        }
+        counts[h] += 1;
+    }
+    let mut found: Vec<(T, usize)> = (0..FEW_TABLE).filter(|&h| used[h]).map(|h| (keys[h], counts[h])).collect();
+    found.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    let mut start = 0;
+    for (v, c) in found {
+        arr[start..start + c].fill(v);
+        start += c;
+    }
+    true
 }

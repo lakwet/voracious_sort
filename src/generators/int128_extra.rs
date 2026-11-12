@@ -42,14 +42,17 @@ macro_rules! int128_extra {
                     .collect()
             }
 
-            // UUID v7 as generated: increasing milliseconds, random tails.
+            // UUID v7 as generated: increasing milliseconds (16 per ms),
+            // random rand_a (12 bits) and rand_b (62 bits): not monotonic
+            // within a millisecond (RFC 9562 allows it).
             pub fn uuid_v7_sorted(size: usize) -> Vec<$t> {
                 let start: u128 = 1_700_000_000_000;
                 (0..size)
                     .into_par_iter()
                     .map(|i| {
                         let ms = start + i as u128 / 16;
-                        ((ms << 80) | (0x7 << 76) | (rand::rng().random::<u128>() & ((1 << 62) - 1)) | (0x2 << 62)) as $t
+                        let r = rand::rng().random::<u128>() & ((1 << 76) - 1) & !(0x3 << 62);
+                        ((ms << 80) | (0x7 << 76) | r | (0x2 << 62)) as $t
                     })
                     .collect()
             }
