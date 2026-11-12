@@ -394,7 +394,7 @@ pub fn helper_random_array_clusters_f64(size: usize) -> Vec<f64> {
 
 pub fn generators_f64(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<f64>, &'static str)> {
-    vec![
+    let mut v: Vec<(&'static dyn Fn(usize) -> Vec<_>, &'static str)> = vec![
         (&helper_random_array_uniform_f64, "-- Unif       :"),
         (&helper_random_array_small_f64, "-- Small 10^9 :"),
         (&helper_random_array_small_plus_f64, "-- Small+10^9 :"),
@@ -434,5 +434,7 @@ pub fn generators_f64(
         (&helper_random_array_sorted_runs8_f64, "-- Runs 8     :"),
         (&helper_random_array_sorted_runs64_f64, "-- Runs 64    :"),
         (&helper_random_array_clusters_f64, "-- Clusters   :"),
-    ]
+    ];
+    v.extend(super::float_extra::extra_f64::generators());
+    v
 }

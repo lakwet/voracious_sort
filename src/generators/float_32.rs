@@ -355,7 +355,7 @@ pub fn helper_random_array_clusters_f32(size: usize) -> Vec<f32> {
 
 pub fn generators_f32(
 ) -> Vec<(&'static dyn Fn(usize) -> Vec<f32>, &'static str)> {
-    vec![
+    let mut v: Vec<(&'static dyn Fn(usize) -> Vec<_>, &'static str)> = vec![
         (&helper_random_array_uniform_f32, "-- Unif       :"),
         (&helper_random_array_small_f32, "-- Small      :"),
         (&helper_random_array_asc_f32, "-- Asc        :"),
@@ -390,5 +390,7 @@ pub fn generators_f32(
         (&helper_random_array_sorted_runs8_f32, "-- Runs 8     :"),
         (&helper_random_array_sorted_runs64_f32, "-- Runs 64    :"),
         (&helper_random_array_clusters_f32, "-- Clusters   :"),
-    ]
+    ];
+    v.extend(super::float_extra::extra_f32::generators());
+    v
 }

@@ -141,9 +141,27 @@ macro_rules! narrow_extra {
                 (0..size).into_par_iter().map(|_| rand::rng().random::<$t>() & mask).collect()
             }
 
+            // 60 % of the keys among 4 values, the rest random
+            pub fn heavy4(size: usize) -> Vec<$t> {
+                let mut rng = rand::rng();
+                let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
+                (0..size)
+                    .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random::<$t>() })
+                    .collect()
+            }
+
+            // Tight clusters: 16 random centres, each key within 8 of its centre
+            pub fn clusters(size: usize) -> Vec<$t> {
+                let mut rng = rand::rng();
+                let centres: Vec<$t> = (0..16).map(|_| rng.random::<$t>()).collect();
+                (0..size).map(|_| centres[rng.random_range(0..16)].wrapping_add(rng.random_range(0..8) as $t)).collect()
+            }
+
             pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<$t>, &'static str)> {
                 vec![
                     (&few4, "-- Few 4      :"),
+                    (&heavy4, "-- Heavy 4    :"),
+                    (&clusters, "-- Clusters   :"),
                     (&range16, "-- Range 16   :"),
                     (&sorted, "-- Sorted     :"),
                     (&sorted_desc, "-- Sorted desc:"),
@@ -271,8 +289,63 @@ pub mod extra_char {
             .collect()
     }
 
+    // ASCII text sorted in descending order
+    pub fn sorted_text_desc(size: usize) -> Vec<char> {
+        let mut array = sorted_text(size);
+        array.reverse();
+        array
+    }
+
+    // Sorted text with 1 % of the characters swapped at random
+    pub fn near_sorted_text(size: usize) -> Vec<char> {
+        let mut array = sorted_text(size);
+        let mut rng = rand::rng();
+        for _ in 0..size / 100 {
+            let (i, j) = (rng.random_range(0..size), rng.random_range(0..size));
+            array.swap(i, j);
+        }
+        array
+    }
+
+    // 8 sorted chunks of text (merged sorted word lists)
+    pub fn text_runs8(size: usize) -> Vec<char> {
+        let mut array = ascii_text(size);
+        for r in 0..8 {
+            array[r * size / 8..(r + 1) * size / 8].sort_unstable();
+        }
+        array
+    }
+
+    // Padded columns: 90 % spaces, the rest text
+    pub fn padded(size: usize) -> Vec<char> {
+        let alphabet: Vec<char> = TEXT.chars().collect();
+        (0..size)
+            .into_par_iter()
+            .map(|_| {
+                let mut rng = rand::rng();
+                if rng.random_range(0..10) == 0 { alphabet[rng.random_range(0..alphabet.len())] } else { ' ' }
+            })
+            .collect()
+    }
+
+    // Any code point, uniform (surrogates excluded)
+    pub fn all_planes(size: usize) -> Vec<char> {
+        (0..size)
+            .into_par_iter()
+            .map(|_| {
+                let c = rand::rng().random_range(0..0x10F800u32);
+                chr(if c < 0xD800 { c } else { c + 0x800 })
+            })
+            .collect()
+    }
+
     pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<char>, &'static str)> {
         vec![
+            (&sorted_text_desc, "-- Sorted desc:"),
+            (&near_sorted_text, "-- Near sorted:"),
+            (&text_runs8, "-- Runs 8     :"),
+            (&padded, "-- Padded 90% :"),
+            (&all_planes, "-- All planes :"),
             (&ascii_text, "-- ASCII text :"),
             (&latin_text, "-- Latin text :"),
             (&cyrillic_text, "-- Cyrillic   :"),
