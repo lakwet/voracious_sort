@@ -333,3 +333,25 @@ mod w64 {
 
 pub(crate) use w32::{detect as detect32, few as few32};
 pub(crate) use w64::{detect as detect64, few as few64};
+
+/// Signed zeros after the generic steps of the radix path (near-sorted
+/// repair, Verge, merges), which compare with `<=`: there -0.0 and +0.0 are
+/// equal, so they come out together but mixed. The block of zeros is found
+/// by two binary searches and rewritten, -0.0 first (total order). O(log n)
+/// plus the zeros. NaN is not handled.
+macro_rules! signed_zeros {
+    ($name:ident, $float:ty) => {
+        pub(crate) fn $name(arr: &mut [$float]) {
+            let lo = arr.partition_point(|x| *x < 0.0);
+            let hi = lo + arr[lo..].partition_point(|x| *x <= 0.0);
+            if hi - lo < 2 {
+                return;
+            }
+            let neg = arr[lo..hi].iter().filter(|x| x.is_sign_negative()).count();
+            arr[lo..lo + neg].fill(-0.0);
+            arr[lo + neg..hi].fill(0.0);
+        }
+    };
+}
+signed_zeros!(signed_zeros32, f32);
+signed_zeros!(signed_zeros64, f64);

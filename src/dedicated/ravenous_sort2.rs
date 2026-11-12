@@ -39,7 +39,7 @@ use super::super::algo::k_way_merge_fast2::k_way_merge_fast2;
 use super::super::algo::near_sorted::{repair_ascending, repair_ascending_from, repair_near_sorted};
 use super::super::algo::verge_sort_fast::verge_sort_preprocessing_fast;
 use super::devour_sort2::heavy_by;
-use super::float_detect::{detect32, detect64, few32, few64};
+use super::float_detect::{signed_zeros32, signed_zeros64, detect32, detect64, few32, few64};
 use super::float_dlsd::dlsd64_with;
 use super::float_lsd::w32;
 #[cfg(test)]
@@ -398,6 +398,7 @@ pub(crate) fn ravenous_sort2_f32_radix(arr: &mut [f32]) {
             w32::lsd(bits32(s));
         }
     });
+    signed_zeros32(arr);
 }
 
 /// Tests / benchmarks: f32 chunk sort forced (0 default, 2 fused LSD, 3
@@ -472,6 +473,7 @@ pub(crate) fn ravenous_sort2_f32_radix_mode(arr: &mut [f32], mode: Digits) {
         w32::lsd_mode(bits32(chunk), mode)
     });
     k_way_merge_fast2(arr, &mut separators);
+    signed_zeros32(arr);
 }
 
 /// f64 radix path (see `radix_path`): the DLSD sorts the chunks (one scratch
@@ -492,6 +494,7 @@ pub(crate) fn ravenous_sort2_f64_radix(arr: &mut [f64]) {
             dlsd64_with(bits64(s), &mut scratch.borrow_mut());
         }
     });
+    signed_zeros64(arr);
 }
 
 /// Tests / benchmarks: f32 small-path limit override (0: `SMALL_F32`; 1:
@@ -516,5 +519,6 @@ pub(crate) fn ravenous_sort2_f64_radix_mode(arr: &mut [f64], mode: Digits) {
         w64::lsd_mode(bits64(chunk), mode)
     });
     k_way_merge_fast2(arr, &mut separators);
+    signed_zeros64(arr);
 }
 
