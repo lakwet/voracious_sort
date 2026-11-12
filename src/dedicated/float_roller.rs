@@ -515,6 +515,8 @@ roller_width!(u64, wu64, du64, ru64);
 roller_width!(u32, wu32, du32, ru32);
 roller_width!(u64, wi64, di64, ri64);
 roller_width!(u32, wi32, di32, ri32);
+roller_width!(u128, wu128, du128, ru128);
+roller_width!(u128, wi128, di128, ri128);
 pub(crate) use r64::roller as roller64;
 #[allow(unused_imports)]
 pub(crate) use r32::roller as roller32;

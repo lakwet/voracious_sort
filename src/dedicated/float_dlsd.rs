@@ -728,6 +728,8 @@ dlsd_width!(u64, wu64, du64, alias_min_bytes_int);
 dlsd_width!(u32, wu32, du32, alias_min_bytes_int);
 dlsd_width!(u64, wi64, di64, alias_min_bytes_int);
 dlsd_width!(u32, wi32, di32, alias_min_bytes_int);
+dlsd_width!(u128, wu128, du128, alias_min_bytes_int);
+dlsd_width!(u128, wi128, di128, alias_min_bytes_int);
 pub(crate) use d64::{dlsd as dlsd64, dlsd_with as dlsd64_with};
 #[allow(unused_imports)]
 pub(crate) use d32::{dlsd as dlsd32, dlsd_with as dlsd32_with};

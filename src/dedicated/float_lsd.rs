@@ -534,9 +534,10 @@ macro_rules! fused_lsd {
                 let size = bits.len();
                 // Skip the digits equal in every key: then the bucket of the
                 // first key holds all of them (one lookup per digit, not a
-                // scan of the table). No allocation (at most 8 digits).
+                // scan of the table). No allocation (at most 16 digits:
+                // bytes of a 128-bit key).
                 let first = if ENC { encode(bits[0]) } else { bits[0] };
-                let mut pass_store = [(0u32, 0usize); 8];
+                let mut pass_store = [(0u32, 0usize); 16];
                 let mut np = 0;
                 for (t, &shift) in all_shifts.iter().enumerate() {
                     if tables[t][digit::<R>(first, shift)].get() != size {
@@ -902,6 +903,8 @@ fused_lsd!(u32, i32, wu32, 20, unsigned);
 fused_lsd!(u64, i64, wu64, 44, unsigned);
 fused_lsd!(u32, i32, wi32, 20, signed);
 fused_lsd!(u64, i64, wi64, 44, signed);
+fused_lsd!(u128, i128, wu128, 88, unsigned);
+fused_lsd!(u128, i128, wi128, 88, signed);
 // 8- and 16-bit integers (devour_sort): byte digits only (never wide).
 fused_lsd!(u16, i16, wu16, 17, unsigned);
 fused_lsd!(u16, i16, wi16, 17, signed);
