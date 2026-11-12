@@ -13,7 +13,9 @@
 //! an x86_64 toolchain runs under emulation and distorts the timings.)
 //!
 //! Environment variables (all optional):
-//! - `BENCH_PARTS`: comma-separated parts among `sort`, `knobs`, `aa` (all by default);
+//! - `BENCH_PARTS`: comma-separated parts among `sort`, `knobs`, `aa`, `v2`
+//!   (work copies against the originals), `crates` (other Rust radix sorts)
+//!   (default: `sort,knobs,aa`);
 //! - `BENCH_TYPES`: types of the `sort` and `aa` parts among `f64`, `f32`,
 //!   `u32`, `u64`, `i32`, `i64`, `u8`, `i8`, `u16`, `i16`, `char` (all by
 //!   default);
@@ -574,6 +576,58 @@ fn bench_portable() {
         let mut g = generators_char();
         g.extend(extra_char::generators());
         sort_part(&cfg, "char", &g, &v, |x: &char| *x as u64, |a: &char, b: &char| a.cmp(b));
+    }
+    // Algorithmic phase: the work copies against the originals, same run.
+    macro_rules! v2_part {
+        ($t:ty, $name:expr, $gens:expr, $bits:expr, $cmp:expr, $v1:expr, $v2:expr) => {
+            if parts.contains(&"v2") && types.contains(&$name) {
+                let v: Vec<Variant<$t>> = vec![variant("v2", $v2), variant("v1", $v1)];
+                sort_part(&cfg, concat!("v2-", $name), &$gens, &v, $bits, $cmp);
+            }
+        };
+    }
+    {
+        use super::super::dedicated::devour_sort2::devour_sort2;
+        use super::super::dedicated::ravenous_sort2::ravenous_sort2;
+        v2_part!(f64, "f64", generators_f64(), f64_bits, f64_cmp, |a: &mut [f64]| ravenous_sort(a), |a: &mut [f64]| ravenous_sort2(a));
+        v2_part!(f32, "f32", generators_f32(), f32_bits, f32_cmp, |a: &mut [f32]| ravenous_sort(a), |a: &mut [f32]| ravenous_sort2(a));
+        v2_part!(u32, "u32", { let mut g = generators_u32(); g.extend(extra_u32::generators()); g }, |x: &u32| *x as u64, |a: &u32, b: &u32| a.cmp(b), |a: &mut [u32]| devour_sort(a), |a: &mut [u32]| devour_sort2(a));
+        v2_part!(u64, "u64", { let mut g = generators_u64(); g.extend(extra_u64::generators()); g }, |x: &u64| *x, |a: &u64, b: &u64| a.cmp(b), |a: &mut [u64]| devour_sort(a), |a: &mut [u64]| devour_sort2(a));
+        v2_part!(i32, "i32", { let mut g = generators_i32(); g.extend(extra_i32::generators()); g }, |x: &i32| *x as u32 as u64, |a: &i32, b: &i32| a.cmp(b), |a: &mut [i32]| devour_sort(a), |a: &mut [i32]| devour_sort2(a));
+        v2_part!(i64, "i64", { let mut g = generators_i64(); g.extend(extra_i64::generators()); g }, |x: &i64| *x as u64, |a: &i64, b: &i64| a.cmp(b), |a: &mut [i64]| devour_sort(a), |a: &mut [i64]| devour_sort2(a));
+        v2_part!(u8, "u8", { let mut g = generators_u8(); g.extend(extra_u8::generators()); g }, |x: &u8| *x as u64, |a: &u8, b: &u8| a.cmp(b), |a: &mut [u8]| devour_sort(a), |a: &mut [u8]| devour_sort2(a));
+        v2_part!(i8, "i8", { let mut g = generators_i8(); g.extend(extra_i8::generators()); g }, |x: &i8| *x as u8 as u64, |a: &i8, b: &i8| a.cmp(b), |a: &mut [i8]| devour_sort(a), |a: &mut [i8]| devour_sort2(a));
+        v2_part!(u16, "u16", { let mut g = generators_u16(); g.extend(extra_u16::generators()); g }, |x: &u16| *x as u64, |a: &u16, b: &u16| a.cmp(b), |a: &mut [u16]| devour_sort(a), |a: &mut [u16]| devour_sort2(a));
+        v2_part!(i16, "i16", { let mut g = generators_i16(); g.extend(extra_i16::generators()); g }, |x: &i16| *x as u16 as u64, |a: &i16, b: &i16| a.cmp(b), |a: &mut [i16]| devour_sort(a), |a: &mut [i16]| devour_sort2(a));
+        v2_part!(char, "char", { let mut g = generators_char(); g.extend(extra_char::generators()); g }, |x: &char| *x as u64, |a: &char, b: &char| a.cmp(b), |a: &mut [char]| devour_sort(a), |a: &mut [char]| devour_sort2(a));
+    }
+    // Other Rust radix sort crates (single-threaded), against the v2 sorts.
+    {
+        use super::super::dedicated::devour_sort2::devour_sort2;
+        use super::super::dedicated::ravenous_sort2::ravenous_sort2;
+        use rdst::RadixSort as RdstSort;
+        macro_rules! crates_part {
+            ($t:ty, $name:expr, $gens:expr, $bits:expr, $cmp:expr, $ours:expr, [$($extra:expr),*]) => {
+                if parts.contains(&"crates") && types.contains(&$name) {
+                    let v: Vec<Variant<$t>> = vec![
+                        variant("ours", $ours),
+                        variant("std", |a: &mut [$t]| a.sort_unstable_by($cmp)),
+                        variant("radsort", |a: &mut [$t]| radsort::sort(a)),
+                        variant("turbosort", |a: &mut [$t]| turbosort::sort(a)),
+                        $($extra),*
+                    ];
+                    sort_part(&cfg, concat!("crates-", $name), &$gens, &v, $bits, $cmp);
+                }
+            };
+        }
+        crates_part!(f64, "f64", generators_f64(), f64_bits, f64_cmp, |a: &mut [f64]| ravenous_sort2(a), []);
+        crates_part!(f32, "f32", generators_f32(), f32_bits, f32_cmp, |a: &mut [f32]| ravenous_sort2(a), [variant("blazing", |a: &mut [f32]| blazing_radix::radix_sort::<f32>(a))]);
+        crates_part!(u32, "u32", { let mut g = generators_u32(); g.extend(extra_u32::generators()); g }, |x: &u32| *x as u64, |a: &u32, b: &u32| a.cmp(b), |a: &mut [u32]| devour_sort2(a), [variant("blazing", |a: &mut [u32]| blazing_radix::radix_sort::<u32>(a)), variant("rdst", |a: &mut [u32]| a.radix_sort_unstable())]);
+        crates_part!(u64, "u64", { let mut g = generators_u64(); g.extend(extra_u64::generators()); g }, |x: &u64| *x, |a: &u64, b: &u64| a.cmp(b), |a: &mut [u64]| devour_sort2(a), [variant("blazing", |a: &mut [u64]| blazing_radix::radix_sort::<u64>(a)), variant("rdst", |a: &mut [u64]| a.radix_sort_unstable())]);
+        crates_part!(i32, "i32", { let mut g = generators_i32(); g.extend(extra_i32::generators()); g }, |x: &i32| *x as u32 as u64, |a: &i32, b: &i32| a.cmp(b), |a: &mut [i32]| devour_sort2(a), [variant("blazing", |a: &mut [i32]| blazing_radix::radix_sort::<i32>(a))]);
+        crates_part!(i64, "i64", { let mut g = generators_i64(); g.extend(extra_i64::generators()); g }, |x: &i64| *x as u64, |a: &i64, b: &i64| a.cmp(b), |a: &mut [i64]| devour_sort2(a), [variant("blazing", |a: &mut [i64]| blazing_radix::radix_sort::<i64>(a))]);
+        crates_part!(u16, "u16", { let mut g = generators_u16(); g.extend(extra_u16::generators()); g }, |x: &u16| *x as u64, |a: &u16, b: &u16| a.cmp(b), |a: &mut [u16]| devour_sort2(a), [variant("blazing", |a: &mut [u16]| blazing_radix::radix_sort::<u16>(a)), variant("rdst", |a: &mut [u16]| a.radix_sort_unstable())]);
+        crates_part!(u8, "u8", { let mut g = generators_u8(); g.extend(extra_u8::generators()); g }, |x: &u8| *x as u64, |a: &u8, b: &u8| a.cmp(b), |a: &mut [u8]| devour_sort2(a), [variant("blazing", |a: &mut [u8]| blazing_radix::radix_sort::<u8>(a)), variant("rdst", |a: &mut [u8]| a.radix_sort_unstable())]);
     }
     if parts.contains(&"knobs") {
         knobs_part(&cfg);

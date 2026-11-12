@@ -19,5 +19,8 @@ rayon = { version = "1.12.0", optional = true }
 
 [dev-dependencies]
 blazing-radix = "0.1.0"
+radsort = "0.1.1"
+rdst = { version = "0.20.14", default-features = false }
+turbosort = "0.2.2"
 rand = "0.10.3"
 rand_distr = "0.6.0"
