@@ -84,6 +84,8 @@ mod sealed {
     impl Sealed for char {}
     impl Sealed for usize {}
     impl Sealed for isize {}
+    impl Sealed for u128 {}
+    impl Sealed for i128 {}
 }
 
 /// Integer types sortable by [`devour_sort2`].
@@ -893,7 +895,7 @@ fn plateaus<T: Copy + Ord>(arr: &mut [T], equal: usize) -> bool {
 /// `Err`: the ascending prefix found and the probes, passed to the repair.
 /// Idea from turbosort's presorted check.
 #[inline]
-fn presorted<T: Copy + PartialOrd>(arr: &mut [T]) -> Result<(), (usize, Option<Probes>)> {
+pub(crate) fn presorted<T: Copy + PartialOrd>(arr: &mut [T]) -> Result<(), (usize, Option<Probes>)> {
     use super::super::algo::verge_sort_fast::{explore_forward_asc, explore_forward_desc};
     const PROBE_MIN: usize = 2048;
     let n = arr.len();
@@ -1487,3 +1489,19 @@ pointer_width!(isize, i32);
 pointer_width!(usize, u16);
 #[cfg(target_pointer_width = "16")]
 pointer_width!(isize, i16);
+
+// 128-bit keys: narrowed to 64 or 32 bits when they fit, else the DLSD on
+// 128-bit keys (see `wide128`).
+impl DevourSort2 for u128 {
+    #[inline]
+    fn devour_sort2_impl(arr: &mut [u128]) {
+        super::wide128::sort128(arr);
+    }
+}
+
+impl DevourSort2 for i128 {
+    #[inline]
+    fn devour_sort2_impl(arr: &mut [i128]) {
+        super::wide128::sort128(arr);
+    }
+}

@@ -13,3 +13,4 @@ pub(crate) mod ravenous_sort2;
 pub mod devour_sort;
 #[allow(dead_code)]
 pub(crate) mod devour_sort2;
+pub(crate) mod wide128;

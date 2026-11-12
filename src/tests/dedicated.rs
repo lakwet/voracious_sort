@@ -714,6 +714,39 @@ fn test_ded_devour_sort2() {
     check(generators_char(), extra_char::generators(), &['\0', 'a', '\u{10FFFF}', '\u{D7FF}', '\u{E000}'], "char");
 }
 
+/// `devour_sort2` on 128-bit keys: every generator, the sizes of the other
+/// integer tests (thresholds and benchmarks), extreme values.
+#[test]
+fn test_ded_devour_sort2_128() {
+    use super::super::dedicated::devour_sort2::{devour_sort2, DevourSort2};
+    use super::super::generators::int128_extra::{extra_i128, extra_u128};
+    use super::super::generators::signed_i128::generators_i128;
+    use super::super::generators::unsigned_u128::generators_u128;
+    fn check<T: DevourSort2 + std::fmt::Debug>(mut gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extra: Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>, extremes: &[T], ty: &str) {
+        gens.extend(extra);
+        let sizes: Vec<usize> = (0..=70)
+            .chain([128, 129, 255, 256, 257, 700, 701, 2_047, 2_048, 4_095, 4_096, 5_000, 65_536, 131_072, 524_288, 1_048_576].iter().copied())
+            .chain(BENCH_SIZES.iter().copied())
+            .collect();
+        for &size in sizes.iter() {
+            for (gen, name) in gens.iter() {
+                let mut arr = gen(size);
+                let mut expected = arr.clone();
+                expected.sort_unstable();
+                devour_sort2(&mut arr);
+                assert!(arr == expected, "{} {} size {}", ty, name, size);
+            }
+            let mut arr: Vec<T> = (0..size).map(|i| extremes[(i * 7919) % extremes.len()]).collect();
+            let mut expected = arr.clone();
+            expected.sort_unstable();
+            devour_sort2(&mut arr);
+            assert!(arr == expected, "{} extremes size {}", ty, size);
+        }
+    }
+    check(generators_u128(), extra_u128::generators(), &[0u128, 1, u128::MAX, u128::MAX - 1, 1 << 127, 1 << 64, (1 << 64) - 1, u64::MAX as u128 + 7], "u128");
+    check(generators_i128(), extra_i128::generators(), &[0i128, -1, 1, i128::MIN, i128::MAX, 1 << 64, -(1 << 64), i64::MIN as i128, i64::MAX as i128], "i128");
+}
+
 /// `ravenous_sort2` (algorithmic work copy): bit for bit `total_cmp` order,
 /// same sizes as `ravenous_sort`.
 #[test]

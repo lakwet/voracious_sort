@@ -104,6 +104,22 @@ fn count(i: usize, v: u64) {
     PROF[i].fetch_add(v, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Tests: 128-bit keys keep the full prefix (A/B of the one-digit cap).
+#[cfg(test)]
+pub(crate) static NO_WIDE_CAP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[inline(always)]
+fn wide_cap_enabled() -> bool {
+    #[cfg(test)]
+    {
+        !NO_WIDE_CAP.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
+
 /// Tests: disable the staged scatter (A/B).
 #[cfg(test)]
 pub(crate) static NO_STAGE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -550,7 +566,16 @@ macro_rules! dlsd_width {
                         *need.select_nth_unstable(at).1
                     };
                     let spread = (usize::BITS - (n / s).leading_zeros()).saturating_sub(1);
-                    (p95 + spread).clamp(1, top)
+                    let bits = (p95 + spread).clamp(1, top);
+                    // 128-bit keys whose neighbours share most of their bits
+                    // (clusters, two far apart modes, keys nearly sorted by
+                    // their top bits): a prefix over 64 bits would cost 6 to 11
+                    // passes. One top digit instead: each group is sorted again
+                    // with its own min and max, on a much narrower range.
+                    if <$uint>::BITS == 128 && bits > 64 && wide_cap_enabled() {
+                        return MAX_DIGIT_BITS.min(top);
+                    }
+                    bits
                 }
 
                 /// Histograms of `K` digits of `w` bits (prefix of `key - min` from
