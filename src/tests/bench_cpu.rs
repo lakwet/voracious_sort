@@ -33,8 +33,8 @@
 //! least 5 arrays sorted per measurement), `BENCH_MEM_MB` (memory budget,
 //! default half the RAM), `BENCH_TYPES` (filter), `BENCH_OUT` (output
 //! directory, default the repository root), `BENCH_PIN=0` (do not pin the
-//! thread to a fast core on hybrid CPUs). A panic is written to the
-//! file before the run stops.
+//! thread to a fast core on hybrid CPUs; `slow`: pin it to a slow one).
+//! A panic is written to the file before the run stops.
 
 use std::io::Write;
 use std::sync::atomic::Ordering::Relaxed;
@@ -646,15 +646,17 @@ mod pin {
         if lo == hi {
             return format!("not pinned (all cores alike), current processor {}; {}", current(), kinds);
         }
-        // A fast core other than core 0 (interrupts) when there is one.
-        let fastest: Vec<_> = sets.iter().filter(|s| s.3 == hi).collect();
-        let pick = fastest.iter().find(|s| s.2 != 0).unwrap_or(&fastest[0]);
+        // `BENCH_PIN=slow`: the slowest class instead (to measure the gap).
+        let class = if std::env::var("BENCH_PIN").map_or(false, |v| v == "slow") { lo } else { hi };
+        // A core of that class other than core 0 (interrupts) when there is one.
+        let chosen: Vec<_> = sets.iter().filter(|s| s.3 == class).collect();
+        let pick = chosen.iter().find(|s| s.2 != 0).unwrap_or(&chosen[0]);
         // SAFETY: GetCurrentThread returns a pseudo handle; one valid id.
         if unsafe { SetThreadSelectedCpuSets(GetCurrentThread(), &pick.0, 1) } == 0 {
             return format!("not pinned (SetThreadSelectedCpuSets failed); {}", kinds);
         }
         std::thread::yield_now();
-        format!("pinned to logical processor {} (core {}, class {}), now on processor {}; {}", pick.1, pick.2, hi, current(), kinds)
+        format!("pinned to logical processor {} (core {}, class {}), now on processor {}; {}", pick.1, pick.2, class, current(), kinds)
     }
 
     pub(super) fn current() -> u32 {
