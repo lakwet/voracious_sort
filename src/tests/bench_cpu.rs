@@ -20,7 +20,8 @@
 //! - `records`: sort by key (stable) of records of 8, 32 and 128 bytes
 //!   against std, glidesort, radsort, rdst, turbosort and voracious 1.x;
 //! - `l2`: v2 with the L2 size it derives its thresholds from forced to
-//!   half, twice and four times the detected one: if the detected one is
+//!   half, twice and four times the detected one, and to 12 MiB (the
+//!   Snapdragon X the thresholds were tuned on): if the detected one is
 //!   the fastest, the tuning holds on this machine (four times: whether a
 //!   small L2 backed by a large L3 should count for more).
 //!
@@ -52,7 +53,10 @@ type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 const SIZES: [usize; 12] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000, 30_000_000, 100_000_000];
 /// Beyond this size only the types of `BIG_LABELS` are measured.
 const BIG: usize = 10_000_000;
-const BIG_LABELS: [&str; 11] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u128", "records u32 8B", "records u64 32B", "l2 u64", "l2 f64"];
+const BIG_LABELS: [&str; 12] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u128", "records u32 8B", "records u64 32B", "l2 u32", "l2 u64", "l2 f64"];
+/// L2 of the Snapdragon X the thresholds were tuned on (`l2` part: the same
+/// engine choices as there).
+const ARM_L2: usize = 12 << 20;
 /// Keys per batch of arrays (small sizes: many arrays per measurement).
 const BATCH_KEYS: usize = 4_000_000;
 /// Most bytes in a batch (large records).
@@ -527,7 +531,7 @@ fn bench_cpu() {
         macro_rules! l2 {
             ($t:ty, $gens:expr, $sort:expr, $ordered:expr) => {
                 if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == stringify!($t))) {
-                    let (half, double, quad) = (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4));
+                    let (half, double, quad, arm) = (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4), with_l2(ARM_L2));
                     let variants: Vec<Variant<$t>> = vec![
                         variant("detected L2", |a: &mut [$t]| $sort(a)),
                         variant("L2 / 2", move |a: &mut [$t]| {
@@ -545,6 +549,11 @@ fn bench_cpu() {
                             $sort(a);
                             L2_OVERRIDE.store(0, Relaxed);
                         }),
+                        variant("L2 12 MiB", move |a: &mut [$t]| {
+                            arm();
+                            $sort(a);
+                            L2_OVERRIDE.store(0, Relaxed);
+                        }),
                     ];
                     bench(r, &cfg, concat!("l2 ", stringify!($t)), &$gens, &variants, $ordered, 100_000);
                 }
@@ -554,7 +563,7 @@ fn bench_cpu() {
         l2!(u64, all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()), devour_sort2, |a: &u64, b: &u64| a <= b);
         l2!(f64, g::float_64::generators_f64(), ravenous_sort2, ord_total_f64);
         if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
-            let (half, double, quad) = (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4));
+            let (half, double, quad, arm) = (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4), with_l2(ARM_L2));
             type R = Rec<u64, 6>;
             let variants: Vec<Variant<R>> = vec![
                 variant("detected L2", |a: &mut [R]| devour_sort_by_key(a, |x| x.key)),
@@ -570,6 +579,11 @@ fn bench_cpu() {
                 }),
                 variant("L2 x 4", move |a: &mut [R]| {
                     quad();
+                    devour_sort_by_key(a, |x| x.key);
+                    L2_OVERRIDE.store(0, Relaxed);
+                }),
+                variant("L2 12 MiB", move |a: &mut [R]| {
+                    arm();
                     devour_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
