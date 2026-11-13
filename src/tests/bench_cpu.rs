@@ -32,7 +32,8 @@
 //! 1k / 100M), `BENCH_REPS` (repetitions, the median is kept, default 3; at
 //! least 5 arrays sorted per measurement), `BENCH_MEM_MB` (memory budget,
 //! default half the RAM), `BENCH_TYPES` (filter), `BENCH_OUT` (output
-//! directory, default the repository root). A panic is written to the
+//! directory, default the repository root), `BENCH_PIN=0` (do not pin the
+//! thread to a fast core on hybrid CPUs). A panic is written to the
 //! file before the run stops.
 
 use std::io::Write;
@@ -375,7 +376,9 @@ fn bench_cpu() {
         default_hook(info);
     }));
     let started = std::time::Instant::now();
+    let core = pin::pin_fastest();
     machine(&mut report, &cfg);
+    report.line(&format!("core,{}", core));
     let r = &mut report;
 
     // Noise: v2 against itself.
@@ -576,6 +579,93 @@ fn bench_cpu() {
     }
 
     report.line("");
+    #[cfg(windows)]
+    report.line(&format!("core,ended on processor {}", pin::current()));
     report.line(&format!("== done in {:.0} min", started.elapsed().as_secs_f64() / 60.0));
     println!("\nResults written to {}", path.display());
+}
+
+/// Pins the bench thread to one core of the fastest kind on hybrid CPUs
+/// (Intel P / E cores: Windows reports an efficiency class per logical
+/// processor, higher is faster). Returns the `core` header line. `BENCH_PIN=0`
+/// turns it off; CPUs whose cores are all alike are not pinned.
+#[cfg(windows)]
+mod pin {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetSystemCpuSetInformation(info: *mut u8, len: u32, returned: *mut u32, process: isize, flags: u32) -> i32;
+        fn SetThreadSelectedCpuSets(thread: isize, ids: *const u32, count: u32) -> i32;
+        fn GetCurrentThread() -> isize;
+        fn GetCurrentProcessorNumber() -> u32;
+    }
+
+    /// (cpu set id, logical processor, core, efficiency class) of every
+    /// logical processor of group 0.
+    fn cpu_sets() -> Vec<(u32, u8, u8, u8)> {
+        let mut len: u32 = 0;
+        // SAFETY: a null buffer with length 0 only asks for the needed size.
+        unsafe { GetSystemCpuSetInformation(std::ptr::null_mut(), 0, &mut len, 0, 0) };
+        let mut buf = vec![0u64; (len as usize).div_ceil(8)];
+        // SAFETY: the buffer holds at least `len` bytes.
+        if len == 0 || unsafe { GetSystemCpuSetInformation(buf.as_mut_ptr() as *mut u8, len, &mut len, 0, 0) } == 0 {
+            return Vec::new();
+        }
+        // SAFETY: `len <= 8 * buf.len()` bytes were written by the call.
+        let b = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, len as usize) };
+        let u32_at = |o: usize| u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
+        // SYSTEM_CPU_SET_INFORMATION: Size u32, Type u32, then Id u32,
+        // Group u16, LogicalProcessorIndex u8, CoreIndex u8,
+        // LastLevelCacheIndex u8, NumaNodeIndex u8, EfficiencyClass u8.
+        let mut sets = Vec::new();
+        let mut off = 0;
+        while off + 19 <= b.len() {
+            let size = u32_at(off) as usize;
+            if size == 0 {
+                break;
+            }
+            let group = u16::from_le_bytes([b[off + 12], b[off + 13]]);
+            if u32_at(off + 4) == 0 && group == 0 {
+                sets.push((u32_at(off + 8), b[off + 14], b[off + 15], b[off + 18]));
+            }
+            off += size;
+        }
+        sets
+    }
+
+    pub(super) fn pin_fastest() -> String {
+        let sets = cpu_sets();
+        let (lo, hi) = match (sets.iter().map(|s| s.3).min(), sets.iter().map(|s| s.3).max()) {
+            (Some(lo), Some(hi)) => (lo, hi),
+            _ => return "not pinned (cpu sets not read)".into(),
+        };
+        let fast = sets.iter().filter(|s| s.3 == hi).count();
+        let kinds = format!("{} logical processors, {} of the fastest class {} (classes {}-{})", sets.len(), fast, hi, lo, hi);
+        if std::env::var("BENCH_PIN").map_or(false, |v| v == "0") {
+            return format!("not pinned (BENCH_PIN=0), current processor {}; {}", current(), kinds);
+        }
+        if lo == hi {
+            return format!("not pinned (all cores alike), current processor {}; {}", current(), kinds);
+        }
+        // A fast core other than core 0 (interrupts) when there is one.
+        let fastest: Vec<_> = sets.iter().filter(|s| s.3 == hi).collect();
+        let pick = fastest.iter().find(|s| s.2 != 0).unwrap_or(&fastest[0]);
+        // SAFETY: GetCurrentThread returns a pseudo handle; one valid id.
+        if unsafe { SetThreadSelectedCpuSets(GetCurrentThread(), &pick.0, 1) } == 0 {
+            return format!("not pinned (SetThreadSelectedCpuSets failed); {}", kinds);
+        }
+        std::thread::yield_now();
+        format!("pinned to logical processor {} (core {}, class {}), now on processor {}; {}", pick.1, pick.2, hi, current(), kinds)
+    }
+
+    pub(super) fn current() -> u32 {
+        // SAFETY: no arguments, cannot fail.
+        unsafe { GetCurrentProcessorNumber() }
+    }
+}
+
+#[cfg(not(windows))]
+mod pin {
+    pub(super) fn pin_fastest() -> String {
+        "not pinned (only on Windows)".into()
+    }
 }
