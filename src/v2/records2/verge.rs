@@ -49,6 +49,25 @@ pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
 /// would merge predictably (sawtooth: the packed sort is faster in the
 /// cache).
 pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictable_only: bool) -> bool {
+    // The first two ascending runs first: a predictable merge declines
+    // before reading the whole array.
+    if unpredictable_only {
+        let n = arr.len();
+        let run_end = |from: usize| {
+            let mut j = from + 1;
+            while j < n && enc(&arr[j]) >= enc(&arr[j - 1]) {
+                j += 1;
+            }
+            j
+        };
+        let j1 = run_end(0);
+        if j1 < n {
+            let j2 = run_end(j1);
+            if j1 >= 64 && j2 - j1 >= 64 && predictable(arr, (0, j1, false), (j1, j2, false), enc) {
+                return false;
+            }
+        }
+    }
     let t0 = std::time::Instant::now();
     let n = arr.len();
     let long = (n / RUN_DIV.load(Relaxed).max(1)).max(RUN_MIN.load(Relaxed)).max(2);

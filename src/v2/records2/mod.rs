@@ -201,12 +201,23 @@ fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E) -> usize {
     sample.len()
 }
 
+/// 32 pairs of neighbours spread over the array all in order: long runs
+/// likely (random keys pass with odds 2^-32).
+fn locally_sorted<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E) -> bool {
+    let n = arr.len();
+    (0..32).all(|i| {
+        let j = (2 * i + 1) * (n - 1) / 64;
+        enc(&arr[j]) <= enc(&arr[j + 1])
+    })
+}
+
 /// Runs at both ends tried from this length.
 const ENDS_MIN_N: usize = 64;
 pub(crate) static ENDS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 pub(crate) static LSD_INCACHE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 pub(crate) static HEAVY8: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 pub(crate) static VERGE_FEW: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) static RUNS8: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 pub(crate) static SHORT_END: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// Length of the run at the start: ascending, or strictly descending
@@ -319,6 +330,9 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // with byte histograms and the LSD on the records stay the fastest).
     if std::mem::size_of::<T>() <= 8 {
         if HEAVY8.load(std::sync::atomic::Ordering::Relaxed) && heavy::heavy_keys(arr, enc) {
+            return;
+        }
+        if RUNS8.load(std::sync::atomic::Ordering::Relaxed) && n >= VERGE_MIN && locally_sorted(arr, enc) && verge::verge_if(arr, enc, true) {
             return;
         }
         super::records::sort_encoded(arr, enc);
