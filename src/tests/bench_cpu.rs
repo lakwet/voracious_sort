@@ -23,7 +23,8 @@
 //!   voracious 1.x;
 //! - `rparams`: the CPU parameters of the records sort: the record size
 //!   from which run merges go 4-way instead of 2-way (`FOUR_WAY_MIN`), on
-//!   the shapes with runs, records of 16, 32 and 128 bytes;
+//!   the shapes with runs, records of 16, 32 and 128 bytes; and the digit
+//!   width of the LSD on 16-byte records (11 bits against 8);
 //! - `l2`: v2 with the L2 size it derives its thresholds from forced to
 //!   half, twice and four times the detected one, and to 12 MiB (the
 //!   Snapdragon X the thresholds were tuned on): if the detected one is
@@ -572,6 +573,31 @@ fn bench_cpu() {
         rparams!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));
         rparams!("u64 32B", Rec<u64, 6>, wrap(keys_u64(), rec::<u64, 6>));
         rparams!("u32 128B", Rec<u32, 31>, wrap(keys_u32(), rec::<u32, 31>));
+
+        // Digit width of the LSD on 16-byte records in disorder beyond the
+        // cache: 11 bits (2048 buckets, six passes for 64-bit keys) against
+        // bytes (256 buckets, eight passes). 2048 write streams need more
+        // L1 lines and TLB entries than some cores have (Zen 2: 32 KiB L1).
+        if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+            use super::super::v2::records2::LSD11;
+            type R = Rec<u64, 2>;
+            let disorder: Gens<R> = wrap(keys_u64(), rec::<u64, 2>)
+                .into_iter()
+                .filter(|(_, n)| ["Unif", "Normale", "Int 0..n", "Zipf", "Composite", "Clusters", "Bimodal", "Timestamps", "Aligned", "Prefix"].iter().any(|k| n.contains(k)))
+                .collect();
+            let variants: Vec<Variant<R>> = vec![
+                variant("LSD 11 bits", |a: &mut [R]| {
+                    LSD11.store(true, Relaxed);
+                    records2::devour_sort_by_key(a, |x| x.key);
+                }),
+                variant("LSD 8 bits", |a: &mut [R]| {
+                    LSD11.store(false, Relaxed);
+                    records2::devour_sort_by_key(a, |x| x.key);
+                    LSD11.store(true, Relaxed);
+                }),
+            ];
+            bench(r, &cfg, "rparams lsd digit u64 16B", &disorder, &variants, ordered_by_key!(R), 1_000_000);
+        }
     }
 
     // Thresholds derived from the L2: detected size against half and twice.
