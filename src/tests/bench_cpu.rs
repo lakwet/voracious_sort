@@ -1,5 +1,5 @@
 //! CPU benchmark of the v2 sorts against the other sorts, to run on other
-//! machines: `make bench-cpu` (or `make bench-cpu-quick`).
+//! machines: `make benchcpu` (or `make benchcpu-quick`).
 //!
 //! Everything goes to one file at the repository root,
 //! `bench-cpu-<host>-<date>.txt` (written as it goes: a run stopped early
@@ -12,18 +12,29 @@
 //!   (`CHECK FAILED` lines otherwise; voracious 1.x mixes -0.0 and +0.0, a
 //!   known v1 bug, on `Zeros +-`).
 //!
-//! Parts (`BENCH_PARTS`, all by default):
+//! Parts (`BENCH_PARTS`, all but `tune` by default):
 //! - `aa`: v2 against itself, the noise of the machine;
 //! - `int`, `float`, `wide`: integers, floats, 128-bit integers against
 //!   std, voracious 1.x and the radix crates (blazing, radsort, rdst,
 //!   turbosort) where they take the type;
-//! - `records`: sort by key (stable) of records of 8, 32 and 128 bytes
-//!   against std, glidesort, radsort, rdst, turbosort and voracious 1.x;
+//! - `records`: sort by key (stable) of records of 8, 16, 32 and 128 bytes
+//!   (`v2` the work copy `records2`, `v2 old` the current `records`) against
+//!   std (stable and unstable), glidesort, radsort, rdst, turbosort and
+//!   voracious 1.x;
+//! - `rparams`: the CPU parameters of the records sort: the record size
+//!   from which run merges go 4-way instead of 2-way (`FOUR_WAY_MIN`), on
+//!   the shapes with runs, records of 16, 32 and 128 bytes; and the digit
+//!   width of the LSD on 16-byte records (11 bits against 8);
 //! - `l2`: v2 with the L2 size it derives its thresholds from forced to
 //!   half, twice and four times the detected one, and to 12 MiB (the
 //!   Snapdragon X the thresholds were tuned on): if the detected one is
 //!   the fastest, the tuning holds on this machine (four times: whether a
-//!   small L2 backed by a large L3 should count for more).
+//!   small L2 backed by a large L3 should count for more);
+//! - `tune` (`make benchtune`, a few hours): one cache-derived decision at
+//!   a time (`v2::cache::Budget`), its budget forced to L2 / 4, L2 x 4,
+//!   L2 x 16 and the L3, the others at their default, 10k to 10M, on the
+//!   types it touches: which cache level each decision should follow on
+//!   this CPU. `BENCH_TUNE`: decisions to run (`lsd11,roller32,...`).
 //!
 //! Sizes: 1k to 10M for everything; 30M and 100M for the main types only
 //! (`BIG_LABELS`), and only when an array, its copy and a buffer fit in the
@@ -42,10 +53,11 @@ use std::sync::atomic::Ordering::Relaxed;
 
 use super::super::generators as g;
 use super::super::generators::records::*;
-use super::super::v2::cache::{l2_bytes, page_bytes, reported_l2, reported_levels, L2_OVERRIDE};
+use super::super::v2::cache::{l2_bytes, page_bytes, reported_l2, reported_levels, Budget, BUDGETS, BUDGET_OVERRIDE, L2_OVERRIDE};
 use super::super::v2::floats::ravenous_sort2;
 use super::super::v2::integers::devour_sort2;
 use super::super::v2::records::devour_sort_by_key;
+use super::super::v2::records2;
 use super::super::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -53,7 +65,7 @@ type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 const SIZES: [usize; 12] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000, 30_000_000, 100_000_000];
 /// Beyond this size only the types of `BIG_LABELS` are measured.
 const BIG: usize = 10_000_000;
-const BIG_LABELS: [&str; 12] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u128", "records u32 8B", "records u64 32B", "l2 u32", "l2 u64", "l2 f64"];
+const BIG_LABELS: [&str; 13] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u128", "records u32 8B", "records u64 16B", "records u64 32B", "l2 u32", "l2 u64", "l2 f64"];
 /// L2 of the Snapdragon X the thresholds were tuned on (`l2` part: the same
 /// engine choices as there).
 const ARM_L2: usize = 12 << 20;
@@ -81,7 +93,7 @@ impl Config {
             min: number("BENCH_MIN", 0),
             max: number("BENCH_MAX", 100_000_000),
             reps: number("BENCH_REPS", 3).max(1),
-            parts: list("BENCH_PARTS").unwrap_or_else(|| ["aa", "int", "float", "wide", "records", "l2"].iter().map(|s| s.to_string()).collect()),
+            parts: list("BENCH_PARTS").unwrap_or_else(|| ["aa", "int", "float", "wide", "records", "rparams", "l2"].iter().map(|s| s.to_string()).collect()),
             types: list("BENCH_TYPES"),
             memory: number("BENCH_MEM_MB", (total_ram().unwrap_or(16 << 30) / 2) >> 20) << 20,
         }
@@ -213,6 +225,26 @@ fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T
             ));
         }
     }
+}
+
+/// The variants of one decision for the `tune` part: its default budget,
+/// then forced to L2 / 4, L2 x 4, L2 x 16 and the L3 (when one is reported
+/// above the L2), the other decisions untouched.
+fn tune_variants<'a, T: 'a>(b: Budget, sort: impl Fn(&mut [T]) + Copy + 'a) -> Vec<Variant<'a, T>> {
+    let l2 = l2_bytes();
+    let mut sizes: Vec<(&'static str, usize)> = vec![("L2 / 4", l2 / 4), ("L2 x 4", l2 * 4), ("L2 x 16", l2 * 16)];
+    if let Some(l3) = reported_levels()[2].filter(|&l3| l3 > l2) {
+        sizes.push(("L3", l3));
+    }
+    let mut variants = vec![variant("default", move |a: &mut [T]| sort(a))];
+    for (name, bytes) in sizes {
+        variants.push(variant(name, move |a: &mut [T]| {
+            BUDGET_OVERRIDE[b as usize].store(bytes, Relaxed);
+            sort(a);
+            BUDGET_OVERRIDE[b as usize].store(0, Relaxed);
+        }));
+    }
+    variants
 }
 
 fn all<T>(mut a: Gens<T>, b: Gens<T>) -> Gens<T> {
@@ -506,8 +538,10 @@ fn bench_cpu() {
             ($label:expr, $ty:ty, $gens:expr) => {
                 if cfg.wants("records", $label) {
                     let variants: Vec<Variant<$ty>> = vec![
-                        variant("v2", |a: &mut [$ty]| devour_sort_by_key(a, |x| x.key)),
+                        variant("v2", |a: &mut [$ty]| records2::devour_sort_by_key(a, |x| x.key)),
+                        variant("v2 old", |a: &mut [$ty]| devour_sort_by_key(a, |x| x.key)),
                         variant("std", |a: &mut [$ty]| a.sort_by_key(|x| x.key)),
+                        variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by_key(|x| x.key)),
                         variant("std cached", |a: &mut [$ty]| a.sort_by_cached_key(|x| x.key)),
                         variant("glidesort", |a: &mut [$ty]| glidesort::sort_by_key(a, |x| x.key)),
                         variant("radsort", |a: &mut [$ty]| radsort::sort_by_key(a, |x| x.key)),
@@ -520,8 +554,141 @@ fn bench_cpu() {
             };
         }
         records!("u32 8B", Rec<u32, 1>, wrap(keys_u32(), rec::<u32, 1>));
+        records!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));
         records!("u64 32B", Rec<u64, 6>, wrap(keys_u64(), rec::<u64, 6>));
         records!("u32 128B", Rec<u32, 31>, wrap(keys_u32(), rec::<u32, 31>));
+    }
+
+    // CPU parameters of the records sort: from which record size the run
+    // merges go 4-way (one move per two levels) instead of 2-way (cheaper
+    // steps): the default 32 was measured on the Snapdragon X.
+    if cfg.part("rparams") {
+        use super::super::v2::records2::FOUR_WAY_MIN;
+        let with = |b: usize| move || FOUR_WAY_MIN.store(b, Relaxed);
+        macro_rules! rparams {
+            ($label:expr, $ty:ty, $gens:expr) => {
+                if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+                    let runs: Gens<$ty> = $gens.into_iter().filter(|(_, n)| ["Runs", "Saw", "Killer", "Almost", "Pipe"].iter().any(|k| n.contains(k))).collect();
+                    let (w16, w32, w64, wnever) = (with(16), with(32), with(64), with(usize::MAX));
+                    let variants: Vec<Variant<$ty>> = vec![
+                        variant("4-way from 32B", move |a: &mut [$ty]| {
+                            w32();
+                            records2::devour_sort_by_key(a, |x| x.key);
+                        }),
+                        variant("4-way from 16B", move |a: &mut [$ty]| {
+                            w16();
+                            records2::devour_sort_by_key(a, |x| x.key);
+                            FOUR_WAY_MIN.store(32, Relaxed);
+                        }),
+                        variant("4-way from 64B", move |a: &mut [$ty]| {
+                            w64();
+                            records2::devour_sort_by_key(a, |x| x.key);
+                            FOUR_WAY_MIN.store(32, Relaxed);
+                        }),
+                        variant("2-way only", move |a: &mut [$ty]| {
+                            wnever();
+                            records2::devour_sort_by_key(a, |x| x.key);
+                            FOUR_WAY_MIN.store(32, Relaxed);
+                        }),
+                    ];
+                    bench(r, &cfg, concat!("rparams ", $label), &runs, &variants, ordered_by_key!($ty), 100_000);
+                }
+            };
+        }
+        rparams!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));
+        rparams!("u64 32B", Rec<u64, 6>, wrap(keys_u64(), rec::<u64, 6>));
+        rparams!("u32 128B", Rec<u32, 31>, wrap(keys_u32(), rec::<u32, 31>));
+
+        // Digit width of the LSD on 16-byte records in disorder beyond the
+        // cache: 11 bits (2048 buckets, six passes for 64-bit keys) against
+        // bytes (256 buckets, eight passes). 2048 write streams need more
+        // L1 lines and TLB entries than some cores have (Zen 2: 32 KiB L1).
+        if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+            use super::super::v2::records2::LSD11;
+            type R = Rec<u64, 2>;
+            let disorder: Gens<R> = wrap(keys_u64(), rec::<u64, 2>)
+                .into_iter()
+                .filter(|(_, n)| ["Unif", "Normale", "Int 0..n", "Zipf", "Composite", "Clusters", "Bimodal", "Timestamps", "Aligned", "Prefix"].iter().any(|k| n.contains(k)))
+                .collect();
+            let variants: Vec<Variant<R>> = vec![
+                variant("LSD 11 bits", |a: &mut [R]| {
+                    LSD11.store(true, Relaxed);
+                    records2::devour_sort_by_key(a, |x| x.key);
+                }),
+                variant("LSD 8 bits", |a: &mut [R]| {
+                    LSD11.store(false, Relaxed);
+                    records2::devour_sort_by_key(a, |x| x.key);
+                    LSD11.store(true, Relaxed);
+                }),
+            ];
+            bench(r, &cfg, "rparams lsd digit u64 16B", &disorder, &variants, ordered_by_key!(R), 1_000_000);
+        }
+    }
+
+    // One cache-derived decision at a time: its budget forced to a quarter,
+    // 4x and 16x the L2 and to the L3, the others left at the L2 (the `l2`
+    // part moves them all together). Tells which cache level each decision
+    // should follow on this CPU. `BENCH_TUNE`: decisions to run (names of
+    // `BUDGETS`), all by default.
+    if cfg.part("tune") {
+        let wanted: Option<Vec<String>> = std::env::var("BENCH_TUNE").ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
+        let runs = |n: &str| ["Runs", "Saw", "Killer", "Almost", "Pipe", "Asc", "Desc", "Front", "Middle", "Organ"].iter().any(|k| n.contains(k));
+        // `BUDGET_OVERRIDE` is indexed by the enum order.
+        assert!(BUDGETS.iter().enumerate().all(|(i, &(b, _))| b as usize == i));
+        for &(b, name) in BUDGETS.iter() {
+            if wanted.as_ref().map_or(false, |w| !w.iter().any(|x| x == name)) {
+                continue;
+            }
+            macro_rules! tune {
+                ($ty:ty, $tyname:expr, $gens:expr, $sort:expr, $ordered:expr) => {
+                    if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == $tyname)) {
+                        let variants: Vec<Variant<$ty>> = tune_variants(b, $sort);
+                        bench(r, &cfg, &format!("tune {} {}", name, $tyname), &$gens, &variants, $ordered, 10_000);
+                    }
+                };
+            }
+            let u32s = || all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators());
+            let u64s = || all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators());
+            let only_runs = |v: Gens<u64>| -> Gens<u64> { v.into_iter().filter(|(_, n)| runs(n)).collect() };
+            match b {
+                Budget::Lsd11 | Budget::Roller32 => {
+                    tune!(u32, "u32", u32s(), |a: &mut [u32]| devour_sort2(a), |a: &u32, b: &u32| a <= b);
+                }
+                Budget::Roller64 | Budget::AliasInt => {
+                    tune!(u64, "u64", u64s(), |a: &mut [u64]| devour_sort2(a), |a: &u64, b: &u64| a <= b);
+                }
+                Budget::CountLanes | Budget::WideCount => {
+                    tune!(u32, "u32", u32s(), |a: &mut [u32]| devour_sort2(a), |a: &u32, b: &u32| a <= b);
+                    tune!(u64, "u64", u64s(), |a: &mut [u64]| devour_sort2(a), |a: &u64, b: &u64| a <= b);
+                }
+                Budget::Roller128 => {
+                    let gens = all(g::unsigned_u128::generators_u128(), g::int128_extra::extra_u128::generators());
+                    tune!(u128, "u128", gens, |a: &mut [u128]| devour_sort2(a), |a: &u128, b: &u128| a <= b);
+                }
+                Budget::RollerF32 => {
+                    tune!(f32, "f32", g::float_32::generators_f32(), |a: &mut [f32]| ravenous_sort2(a), ord_total_f32);
+                }
+                Budget::RollerF64 | Budget::AliasFloat => {
+                    tune!(f64, "f64", g::float_64::generators_f64(), |a: &mut [f64]| ravenous_sort2(a), ord_total_f64);
+                }
+                Budget::MergeTwoWay | Budget::PingPong => {
+                    tune!(u64, "u64", only_runs(u64s()), |a: &mut [u64]| devour_sort2(a), |a: &u64, b: &u64| a <= b);
+                }
+                Budget::Records => {
+                    if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+                        type R8 = Rec<u32, 1>;
+                        type R16 = Rec<u64, 2>;
+                        type R32 = Rec<u64, 6>;
+                        let v8: Vec<Variant<R8>> = tune_variants(b, |a: &mut [R8]| records2::devour_sort_by_key(a, |x| x.key));
+                        bench(r, &cfg, "tune records 8B", &wrap(keys_u32(), rec::<u32, 1>), &v8, ordered_by_key!(R8), 10_000);
+                        let v16: Vec<Variant<R16>> = tune_variants(b, |a: &mut [R16]| records2::devour_sort_by_key(a, |x| x.key));
+                        bench(r, &cfg, "tune records 16B", &wrap(keys_u64(), rec::<u64, 2>), &v16, ordered_by_key!(R16), 10_000);
+                        let v32: Vec<Variant<R32>> = tune_variants(b, |a: &mut [R32]| records2::devour_sort_by_key(a, |x| x.key));
+                        bench(r, &cfg, "tune records 32B", &wrap(keys_u64(), rec::<u64, 6>), &v32, ordered_by_key!(R32), 10_000);
+                    }
+                }
+            }
+        }
     }
 
     // Thresholds derived from the L2: detected size against half and twice.

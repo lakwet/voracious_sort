@@ -43,13 +43,13 @@ const GROUP_INSERTION: usize = 16;
 /// bytes of keys (below, keys and buffer mostly stay in L2, where staging
 /// costs more than it saves).
 fn alias_min_bytes() -> usize {
-    super::super::cache::l2_bytes() / 3 * 4
+    super::super::cache::budget(super::super::cache::Budget::AliasFloat) / 3 * 4
 }
 
 /// Integers: from L2 / 32 bytes (integer sequences give regular bucket sizes
 /// whose aliased streams cost even inside L2).
 fn alias_min_bytes_int() -> usize {
-    super::super::cache::l2_bytes() / 32
+    super::super::cache::budget(super::super::cache::Budget::AliasInt) / 32
 }
 
 /// Keys narrowed to 64 or 32 bits when their range fits (128-bit keys only).

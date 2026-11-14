@@ -4,7 +4,7 @@
 //! (repeated values would otherwise wait on the same counter). At most
 //! 2^32 - 1 keys (`u32` counters).
 
-use super::super::cache::l2_bytes;
+use super::super::cache::{budget, Budget};
 use super::super::integers::keys::Key;
 
 /// Narrow-range counting in one pass over the keys, without a min / max
@@ -101,7 +101,7 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
 /// keys: a fixed 4096-counter cap was 1-2 % slower at 3M-10M (12 MiB L2).
 #[inline]
 fn lanes_for(width: usize, n: usize) -> usize {
-    if 4 * width * 4 <= l2_bytes() / 8 && 2 * width <= n {
+    if 4 * width * 4 <= budget(Budget::CountLanes) / 8 && 2 * width <= n {
         4
     } else {
         1

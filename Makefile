@@ -50,22 +50,29 @@ $(BENCH_ARGS):
 endif
 
 # CPU benchmark of the v2 sorts against the other sorts: writes one file,
-# bench-cpu-<host>-<date>.txt, at the repository root (about a night).
+# bench-cpu-<host>-<date>.txt, at the repository root (about a night):
+# make benchcpu
 # Compiled for the CPU of the machine (every sort alike).
 BENCH_CPU_RUSTFLAGS = $(BENCH_RUSTFLAGS) -C target-cpu=native
 
-bench-cpu: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-bench-cpu: ## CPU benchmark (one output file bench-cpu-*.txt, about a night)
+benchcpu: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchcpu: ## CPU benchmark (one output file bench-cpu-*.txt, about a night)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
-bench-cpu-quick: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-bench-cpu-quick: export BENCH_MAX = 1000000
-bench-cpu-quick: export BENCH_REPS = 1
-bench-cpu-quick: ## short CPU benchmark (up to 1M keys, one repetition): checks the setup
+benchcpu-quick: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchcpu-quick: export BENCH_MAX = 1000000
+benchcpu-quick: export BENCH_REPS = 1
+benchcpu-quick: ## short CPU benchmark (up to 1M keys, one repetition): checks the setup
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
+benchtune: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchtune: export BENCH_PARTS = tune
+benchtune: export BENCH_MAX = 10000000
+benchtune: ## CPU tuning: each cache-derived decision alone, 10k to 10M (a few hours)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench bench-cpu bench-cpu-quick check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench benchcpu benchcpu-quick check clean lint doc fmt build-dev build-dev-single build-release build-release-single help

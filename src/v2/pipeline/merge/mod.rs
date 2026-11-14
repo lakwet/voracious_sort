@@ -25,7 +25,7 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
     let bytes = 2 * arr.len() * std::mem::size_of::<T>();
     if separators.len() >= 4
         && arr.len() >= 4096
-        && bytes <= super::super::cache::l2_bytes() / 4
+        && bytes <= super::super::cache::budget(super::super::cache::Budget::PingPong) / 4
     {
         pingpong(arr, separators);
         return;

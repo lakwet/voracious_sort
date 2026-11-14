@@ -30,13 +30,13 @@ const SMALL_F64: usize = 700;
 /// From this chunk size f64 goes to the rollercoaster instead of the DLSD:
 /// L2 / 48, where the DLSD's keys and buffer take a third of the L2.
 fn roller_min_f64() -> usize {
-    super::cache::l2_bytes() / 48
+    super::cache::budget(super::cache::Budget::RollerF64) / 48
 }
 
 /// From this chunk size f32 goes to the rollercoaster instead of the fused
 /// LSD: L2 / 12.
 fn roller_min_f32() -> usize {
-    super::cache::l2_bytes() / 12
+    super::cache::budget(super::cache::Budget::RollerF32) / 12
 }
 
 mod sealed {

@@ -80,7 +80,7 @@ macro_rules! int_range {
                 // bits at 10M keys: 3.5 to 1.1 ns per key; u64 sawtooth at 3M-10M:
                 // 5.4 to 0.9).
                 if <$uint>::BITS >= 32 && n <= u32::MAX as usize {
-                    let wide = ((l2_bytes() / 8).min(n / WIDE_KEYS_PER_COUNTER)) as u128;
+                    let wide = ((budget(Budget::WideCount) / 8).min(n / WIDE_KEYS_PER_COUNTER)) as u128;
                     if (hi as i128 - lo as i128) as u128 + 1 <= wide {
                         let (lo, hi) = values.iter().fold((lo, hi), |(l, h), &v| (l.min(v), h.max(v)));
                         let span = (hi as i128 - lo as i128) as u128 + 1;

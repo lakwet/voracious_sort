@@ -63,7 +63,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
         // so do merges beyond the cache, where the extra copy costs more.
         let len = end - start;
         if 4 * left.min(right) >= len
-            && len * std::mem::size_of::<T>() <= super::super::super::cache::l2_bytes() / 2
+            && len * std::mem::size_of::<T>() <= super::super::super::cache::budget(super::super::super::cache::Budget::MergeTwoWay) / 2
         {
             if copy.len() < len {
                 copy.resize(len, arr[0]);

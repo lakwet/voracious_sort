@@ -19,7 +19,7 @@ pub(crate) mod wide128;
 
 use std::mem::MaybeUninit;
 
-use super::cache::l2_bytes;
+use super::cache::{budget, Budget};
 use super::detect::clusters::clustered;
 use super::detect::counting::domain_count;
 use super::detect::heavy::heavy_sorted_by;
@@ -66,13 +66,13 @@ pub fn devour_sort2<T: DevourSort2>(arr: &mut [T]) {
 /// fused LSD: L2 bytes (for its memory, n instead of 2n; rollercoaster /
 /// LSD 0.94-1.05 from 1M to 10M).
 fn roller_min_32() -> usize {
-    l2_bytes()
+    budget(Budget::Roller32)
 }
 
 /// From this chunk size 64-bit keys go to the rollercoaster instead of the
 /// DLSD: L2 / 12 (rollercoaster / DLSD 1.00 there, 0.82-0.93 at 4M-10M).
 fn roller_min_64() -> usize {
-    l2_bytes() / 12
+    budget(Budget::Roller64) / 12
 }
 
 /// 8- and 16-bit keys never take the rollercoaster.

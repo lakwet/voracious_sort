@@ -56,7 +56,7 @@ pub(crate) fn spread<T: Copy>(arr: &[T]) -> [T; SAMPLE] {
 macro_rules! int_detectors {
     ($m:ident, $t:ty, $uint:ty, $encode:expr, $decode:expr, $roller_min:path) => {
         pub(crate) mod $m {
-            use super::super::cache::l2_bytes;
+            use super::super::cache::{budget, Budget};
             use super::super::detect::counting::{domain_count, exact_count, window_count, window_count_split};
             use super::super::detect::*;
             use super::*;

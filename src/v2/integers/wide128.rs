@@ -110,7 +110,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
 /// leaves in cache) instead of the DLSD: L2 / 24 (keys of 16 bytes, as the
 /// 64-bit threshold L2 / 12).
 fn roller_min() -> usize {
-    super::super::cache::l2_bytes() / 24
+    super::super::cache::budget(super::super::cache::Budget::Roller128) / 24
 }
 
 /// Narrowing (see the module doc). Returns whether the keys were sorted.

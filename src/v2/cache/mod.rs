@@ -23,6 +23,78 @@ struct CacheSizes {
     page: usize,
 }
 
+/// The decisions taken from the cache size, one budget each, so that each
+/// can follow the cache level that fits it on a given CPU (journal §68: on
+/// the Core Ultra 9 185H, 2 MiB L2 and 24 MiB L3, a larger size helped
+/// some decisions at 10M keys and hurt others). Every budget is the L2
+/// for now; the call sites keep their own fractions of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Budget {
+    /// 11-bit digits for 32-bit keys while keys and buffer fit (`engines/lsd`).
+    Lsd11,
+    /// 32-bit integers: rollercoaster instead of the fused LSD (`integers`).
+    Roller32,
+    /// 64-bit integers: rollercoaster instead of the DLSD (`integers`).
+    Roller64,
+    /// 128-bit integers: rollercoaster instead of the DLSD (`wide128`).
+    Roller128,
+    /// f32: rollercoaster instead of the fused LSD (`floats`).
+    RollerF32,
+    /// f64: rollercoaster instead of the DLSD (`floats`).
+    RollerF64,
+    /// DLSD on floats: from which size bucket starts are checked for aliasing.
+    AliasFloat,
+    /// DLSD on integers: the same.
+    AliasInt,
+    /// Counting sort: 4 counter lanes while the 4 tables fit (`detect/counting`).
+    CountLanes,
+    /// Wide range counted all the same while its counters fit (`detect/range`).
+    WideCount,
+    /// Two-run merge: two-ended through a scratch while it fits (`merge/two_way`).
+    MergeTwoWay,
+    /// Run merges: ping-pong rounds while array and buffer fit (`merge`).
+    PingPong,
+    /// Records: beyond this the moves dominate (LSD on small records, Verge).
+    Records,
+}
+
+/// Every budget with its name (benchmarks).
+pub(crate) const BUDGETS: [(Budget, &str); 13] = [
+    (Budget::Lsd11, "lsd11"),
+    (Budget::Roller32, "roller32"),
+    (Budget::Roller64, "roller64"),
+    (Budget::Roller128, "roller128"),
+    (Budget::RollerF32, "rollerf32"),
+    (Budget::RollerF64, "rollerf64"),
+    (Budget::AliasFloat, "aliasfloat"),
+    (Budget::AliasInt, "aliasint"),
+    (Budget::CountLanes, "countlanes"),
+    (Budget::WideCount, "widecount"),
+    (Budget::MergeTwoWay, "mergetwoway"),
+    (Budget::PingPong, "pingpong"),
+    (Budget::Records, "records"),
+];
+
+/// Cache bytes a decision is taken from (see [`Budget`]).
+#[inline]
+pub(crate) fn budget(b: Budget) -> usize {
+    #[cfg(test)]
+    {
+        let forced = BUDGET_OVERRIDE[b as usize].load(std::sync::atomic::Ordering::Relaxed);
+        if forced != 0 {
+            return forced;
+        }
+    }
+    let _ = b;
+    l2_bytes()
+}
+
+/// Benchmarks: one decision's budget forced (0: the default), the others
+/// untouched, to find which cache level each decision should follow.
+#[cfg(test)]
+pub(crate) static BUDGET_OVERRIDE: [std::sync::atomic::AtomicUsize; 13] =
+    [const { std::sync::atomic::AtomicUsize::new(0) }; 13];
+
 static SIZES: OnceLock<CacheSizes> = OnceLock::new();
 
 /// L2 size in bytes.

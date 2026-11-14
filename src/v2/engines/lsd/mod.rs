@@ -31,7 +31,7 @@ const WIDE_MIN: usize = 8192;
 /// buffer fit in half the L2 (beyond, their 2048 write streams leave the
 /// cache; journal §54).
 fn wide_max_32() -> usize {
-    super::super::cache::l2_bytes() / 2 / (2 * 4)
+    super::super::cache::budget(super::super::cache::Budget::Lsd11) / 2 / (2 * 4)
 }
 
 macro_rules! fused_lsd {
