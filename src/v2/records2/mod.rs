@@ -32,7 +32,7 @@ use lsd::lsd;
 use packed::{sort_in_place, sort_into};
 use verge::{verge, IN_CACHE, TURN_DIV, VERGE_MIN};
 pub(crate) use heavy::ONE as HEAVY1;
-pub(crate) use merge::{FOUR_WAY_MIN, HALF_KWAY, REUSE, K4M, KWAY2, ORGAN2, PREFAULT, PREFAULT2, TRIM};
+pub(crate) use merge::{FOUR_WAY_MIN, HALF_KWAY, REUSE, K4M, KWAY2, ORGAN2, PREFAULT, PREFAULT2, TRIM, X2};
 #[cfg(test)]
 pub(crate) use merge::bench_kernel;
 /// Records of at most this size in disorder beyond the cache: the LSD.
