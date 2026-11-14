@@ -19,4 +19,5 @@ pub(crate) mod floats;
 pub(crate) mod integers;
 pub(crate) mod pipeline;
 pub(crate) mod records;
+pub(crate) mod records2;
 pub(crate) mod small;
