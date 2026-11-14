@@ -12,7 +12,7 @@
 //!   (`CHECK FAILED` lines otherwise; voracious 1.x mixes -0.0 and +0.0, a
 //!   known v1 bug, on `Zeros +-`).
 //!
-//! Parts (`BENCH_PARTS`, all but `tune` by default):
+//! Parts (`BENCH_PARTS`, all but `tune` and `big` by default):
 //! - `aa`: v2 against itself, the noise of the machine;
 //! - `int`, `float`, `wide`: integers, floats, 128-bit integers against
 //!   std, voracious 1.x and the radix crates (blazing, radsort, rdst,
@@ -30,6 +30,10 @@
 //!   Snapdragon X the thresholds were tuned on): if the detected one is
 //!   the fastest, the tuning holds on this machine (four times: whether a
 //!   small L2 backed by a large L3 should count for more);
+//! - `big` (`make benchbig`, a few hours): 30M to 1G keys (30M, 100M, 300M,
+//!   500M, 800M, 1G), one repetition by default, one array per
+//!   measurement, u32 / u64 / f32 / f64 on ten shapes in disorder: the
+//!   default against the LSD (or DLSD) forced and the rollercoaster forced;
 //! - `tune` (`make benchtune`, a few hours): one cache-derived decision at
 //!   a time (`v2::cache::Budget`), its budget forced to L2 / 4, L2 x 4,
 //!   L2 x 16 and the L3, the others at their default, 10k to 10M, on the
@@ -69,6 +73,8 @@ const BIG_LABELS: [&str; 13] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u1
 /// L2 of the Snapdragon X the thresholds were tuned on (`l2` part: the same
 /// engine choices as there).
 const ARM_L2: usize = 12 << 20;
+/// Sizes of the `big` part.
+const BIG_SIZES: [usize; 6] = [30_000_000, 100_000_000, 300_000_000, 500_000_000, 800_000_000, 1_000_000_000];
 /// Keys per batch of arrays (small sizes: many arrays per measurement).
 const BATCH_KEYS: usize = 4_000_000;
 /// Most bytes in a batch (large records).
@@ -76,6 +82,7 @@ const BATCH_BYTES: usize = 256 << 20;
 /// At least this many arrays sorted per measurement, over the repetitions.
 const MIN_ARRAYS: usize = 5;
 
+#[derive(Clone)]
 struct Config {
     min: usize,
     max: usize,
@@ -83,6 +90,8 @@ struct Config {
     parts: Vec<String>,
     types: Option<Vec<String>>,
     memory: usize,
+    /// At least this many arrays sorted per measurement (`big` part: 1).
+    min_arrays: usize,
 }
 
 impl Config {
@@ -96,6 +105,7 @@ impl Config {
             parts: list("BENCH_PARTS").unwrap_or_else(|| ["aa", "int", "float", "wide", "records", "rparams", "l2"].iter().map(|s| s.to_string()).collect()),
             types: list("BENCH_TYPES"),
             memory: number("BENCH_MEM_MB", (total_ram().unwrap_or(16 << 30) / 2) >> 20) << 20,
+            min_arrays: MIN_ARRAYS,
         }
     }
 
@@ -145,7 +155,7 @@ fn geo(values: &[f64]) -> f64 {
 fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, size: usize, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool) -> Vec<(String, Vec<f64>)> {
     let bytes = std::mem::size_of::<T>().max(1);
     let count = (BATCH_KEYS / size).min(BATCH_BYTES / (size * bytes)).max(1);
-    let reps = cfg.reps.max((MIN_ARRAYS + count - 1) / count);
+    let reps = cfg.reps.max((cfg.min_arrays + count - 1) / count);
     let nv = variants.len();
     let mut rows = Vec::new();
     for (gen, name) in gens.iter() {
@@ -187,16 +197,20 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
 
 /// One type of one part: raw rows and a summary per size.
 fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool, min_size: usize) {
+    let sizes: Vec<usize> = SIZES.iter().copied().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).collect();
+    bench_sizes(report, cfg, label, gens, variants, ordered, &sizes);
+}
+
+/// `bench` at the given sizes.
+fn bench_sizes<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool, sizes: &[usize]) {
     let names: Vec<&str> = variants.iter().map(|v| v.name).collect();
     report.line("");
     report.line(&format!("== {} ({} distributions; ns per key; ratios other / {}, > 1: {} faster)", label, gens.len(), names[0], names[0]));
     report.line(&format!("cols,{},size,gen,{}", label, names.join(",")));
-    for &size in SIZES.iter().filter(|&&s| s <= cfg.max && s >= min_size.max(cfg.min)) {
-        if size > BIG && !BIG_LABELS.contains(&label) {
-            continue;
-        }
+    for &size in sizes {
         // The batch, its working copy and a buffer of the same size.
-        if size > BIG && size.saturating_mul(std::mem::size_of::<T>()).saturating_mul(4) > cfg.memory {
+        let live = if cfg.min_arrays == 1 { 3 } else { 4 };
+        if size > BIG && size.saturating_mul(std::mem::size_of::<T>()).saturating_mul(live) > cfg.memory {
             report.line(&format!("skip,{},{},memory budget (BENCH_MEM_MB)", label, size));
             continue;
         }
@@ -689,6 +703,47 @@ fn bench_cpu() {
                 }
             }
         }
+    }
+
+    // Very large arrays (30M to 1G keys, one thread): the rollercoaster
+    // (MSD passes first) against the LSD / DLSD, each forced, on the shapes
+    // in disorder. The choice between them depends on the CPU (journal §69:
+    // the LSD is faster at 10M+ on the Core Ultra 9 185H, the MSD on the
+    // Ryzen 9 3950X up to 1G in 2020). One array per measurement.
+    if cfg.part("big") {
+        use super::super::v2::cache::Budget as B;
+        // Three arrays live (batch, working copy, buffer): up to 3/4 of the
+        // RAM unless BENCH_MEM_MB says otherwise.
+        let memory = if std::env::var("BENCH_MEM_MB").is_ok() { cfg.memory } else { total_ram().map_or(cfg.memory, |r| r / 4 * 3) };
+        let big = Config { min_arrays: 1, memory, ..cfg.clone() };
+        let sizes: Vec<usize> = BIG_SIZES.iter().copied().filter(|&s| s >= cfg.min && s <= cfg.max).collect();
+        let keep = |n: &str| { let n = short_name(n); ["Unif", "Normale 20", "Normale 30", "Zipf", "Clusters", "Aligned", "Prefix", "Asc Saw", "Timestamps", "Bimodal"].iter().any(|k| n.starts_with(k)) };
+        macro_rules! big {
+            ($ty:ty, $gens:expr, $budget:expr, $sort:expr, $ordered:expr) => {
+                if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == stringify!($ty))) {
+                    let gens: Gens<$ty> = $gens.into_iter().filter(|(_, n)| keep(n)).collect();
+                    let b = $budget as usize;
+                    let variants: Vec<Variant<$ty>> = vec![
+                        variant("default", |a: &mut [$ty]| $sort(a)),
+                        variant("LSD", move |a: &mut [$ty]| {
+                            BUDGET_OVERRIDE[b].store(1 << 50, Relaxed);
+                            $sort(a);
+                            BUDGET_OVERRIDE[b].store(0, Relaxed);
+                        }),
+                        variant("rollercoaster", move |a: &mut [$ty]| {
+                            BUDGET_OVERRIDE[b].store(1, Relaxed);
+                            $sort(a);
+                            BUDGET_OVERRIDE[b].store(0, Relaxed);
+                        }),
+                    ];
+                    bench_sizes(r, &big, concat!("big ", stringify!($ty)), &gens, &variants, $ordered, &sizes);
+                }
+            };
+        }
+        big!(u32, all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators()), B::Roller32, devour_sort2, |a: &u32, b: &u32| a <= b);
+        big!(u64, all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()), B::Roller64, devour_sort2, |a: &u64, b: &u64| a <= b);
+        big!(f32, g::float_32::generators_f32(), B::RollerF32, ravenous_sort2, ord_total_f32);
+        big!(f64, g::float_64::generators_f64(), B::RollerF64, ravenous_sort2, ord_total_f64);
     }
 
     // Thresholds derived from the L2: detected size against half and twice.

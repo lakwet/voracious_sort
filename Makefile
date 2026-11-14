@@ -71,6 +71,13 @@ benchtune: export BENCH_MAX = 10000000
 benchtune: ## CPU tuning: each cache-derived decision alone, 10k to 10M (a few hours)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
+benchbig: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchbig: export BENCH_PARTS = big
+benchbig: export BENCH_MAX = 1000000000
+benchbig: export BENCH_REPS ?= 1
+benchbig: ## very large arrays, 30M to 1G keys: rollercoaster against LSD (a few hours, memory: 3 arrays)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
