@@ -1,18 +1,25 @@
-//! Branch-free merge from both ends at once.
+//! Two-ended merges: branchy for predictable interleavings, branch-free for
+//! irregular ones.
 
-/// Stable merge of the sorted runs `a` (first) and `b` into `dst`, from both ends
-/// at once and without branches: each step writes the smallest remaining
-/// element at the front and the largest at the back, two independent
-/// chains of loads and selects (a single branch-free chain waits on each
-/// load; a branchy merge mispredicts on irregular interleavings). The
-/// two-ended phase lasts as many steps as the shorter run has elements, so
-/// no read leaves a run; the middle that remains is merged forward.
+/// Stable merge of the sorted runs `a` (first) and `b` into `dst`, from both
+/// ends at once: each step writes the smallest remaining element at the
+/// front and the largest at the back, two independent chains. The two-ended
+/// phase lasts as many steps as the shorter run has elements, so no read
+/// leaves a run; the middle that remains is merged forward.
+///
+/// The form of the loop is fixed instead of left to LLVM, which made it
+/// branchy in a generic build and branch-free under `target-cpu=native` on
+/// the Snapdragon X (0.45 against 1.43 ns per key on two sawtooth teeth;
+/// journal §87). `BRANCHY`: one real branch per step and end (an empty
+/// `asm!` in one arm keeps LLVM from turning it into a select), for
+/// predictable interleavings, where the branch predictor runs ahead; else
+/// selects for the values and the indices (`select_unpredictable`), for
+/// irregular ones, where a branch mispredicts one step in two.
 #[inline]
-pub(super) fn merge_bidir<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
+pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(a: &[T], b: &[T], dst: &mut [T]) {
     let len = a.len() + b.len();
     debug_assert!(dst.len() == len && !a.is_empty() && !b.is_empty());
     let steps = a.len().min(b.len());
-    // Left run a[lf..le), right run b[rf..re); output [df, de).
     let (mut lf, mut le, mut rf, mut re) = (0usize, a.len(), 0usize, b.len());
     let (mut df, mut de) = (0usize, len);
     // SAFETY: before each of the `steps` two-ended steps each end has taken
@@ -22,21 +29,42 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T])
         let (pa, pb) = (a.as_ptr(), b.as_ptr());
         let d = dst.as_mut_ptr();
         for _ in 0..steps {
-            let (x, y) = (pa.add(lf), pb.add(rf));
-            let take_right = *y < *x;
-            *d.add(df) = *pick(take_right, y, x);
-            rf += take_right as usize;
-            lf += (!take_right) as usize;
+            let (x, y) = (*pa.add(lf), *pb.add(rf));
+            if BRANCHY {
+                if y < x {
+                    *d.add(df) = y;
+                    rf += 1;
+                    std::arch::asm!("", options(nomem, nostack, preserves_flags));
+                } else {
+                    *d.add(df) = x;
+                    lf += 1;
+                }
+            } else {
+                let take_right = y < x;
+                *d.add(df) = std::hint::select_unpredictable(take_right, y, x);
+                rf = std::hint::select_unpredictable(take_right, rf + 1, rf);
+                lf = std::hint::select_unpredictable(take_right, lf, lf + 1);
+            }
             df += 1;
-            let (x, y) = (pa.add(le - 1), pb.add(re - 1));
-            let take_left = *y < *x;
+            let (x, y) = (*pa.add(le - 1), *pb.add(re - 1));
             de -= 1;
-            *d.add(de) = *pick(take_left, x, y);
-            le -= take_left as usize;
-            re -= (!take_left) as usize;
+            if BRANCHY {
+                if y < x {
+                    *d.add(de) = x;
+                    le -= 1;
+                    std::arch::asm!("", options(nomem, nostack, preserves_flags));
+                } else {
+                    *d.add(de) = y;
+                    re -= 1;
+                }
+            } else {
+                let take_left = y < x;
+                *d.add(de) = std::hint::select_unpredictable(take_left, x, y);
+                le = std::hint::select_unpredictable(take_left, le - 1, le);
+                re = std::hint::select_unpredictable(take_left, re, re - 1);
+            }
         }
     }
-    // Middle: what is left of both runs, between df and de.
     while lf < le && rf < re {
         let (x, y) = (a[lf], b[rf]);
         if y < x {
@@ -52,17 +80,4 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T])
     df += le - lf;
     dst[df..df + (re - rf)].copy_from_slice(&b[rf..re]);
     debug_assert_eq!(df + (re - rf), de);
-}
-
-/// `a` when `c`, else `b`, kept a select by LLVM (an `if` on the values
-/// became a branch on aarch64: mispredicted half the time on random merges,
-/// u32 halves at 100k-10M 2.7-2.9 ns per key). Masked on aarch64,
-/// `select_unpredictable` (cmov) on x86 (the same rule as the records'
-/// merges).
-#[inline(always)]
-fn pick<T>(c: bool, a: *const T, b: *const T) -> *const T {
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    return std::hint::select_unpredictable(c, a, b);
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-    return (b as usize ^ ((a as usize ^ b as usize) & (c as usize).wrapping_neg())) as *const T;
 }

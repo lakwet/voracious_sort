@@ -118,12 +118,13 @@ fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
 /// segments; from 2 for keys of at most 16 bits, whose radix sort is cheaper
 /// than one unpredictable merge round. Dense merges (one element per
 /// comparison) count as unpredictable from `DENSE_LEVELS` merge levels, for
-/// arrays beyond a quarter of the L2: float sawtooth, 18-21 teeth, f32 10M
+/// arrays beyond a quarter of the largest cache (L2 / 4 alone sent 100k
+/// floats to the radix on the Ryzen's 512 KiB L2: f32 saw 2.5 to 7.7): float sawtooth, 18-21 teeth, f32 10M
 /// 6.6 to 3.7 ns per key, f64 600k 6.4 to 4.4; in the cache the merges stay
 /// cheaper (f32 600k 4.9 against 7.2, f64 100k 4.6 against 6.5). Chunks are
 /// not sorted yet: only run-run pairs are sampled.
 fn merges_unpredictable<T: Copy + PartialOrd>(arr: &[T], separators: &[usize], chunks: &[(usize, usize)], levels: usize) -> bool {
-    let beyond = std::mem::size_of_val(arr) > super::cache::l2_bytes() / 4;
+    let beyond = std::mem::size_of_val(arr) > super::cache::largest_bytes() / 4;
     let dense_levels = beyond && levels >= DENSE_LEVELS;
     let narrow = std::mem::size_of::<T>() <= 2;
     if separators.len() < if narrow { 3 } else { 4 } {

@@ -80,10 +80,18 @@ pub(crate) static SIMD_I32: std::sync::atomic::AtomicBool = std::sync::atomic::A
 /// The vector merge on f32 keys too.
 pub(crate) static SIMD_F32: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
-/// Balanced merge of `a` and `b` into `dst`: the SIMD block merge for
-/// unpredictable u32 runs, else the two-ended branch-free merge.
+/// Balanced merge of `a` and `b` into `dst`, two-ended: branchy when the
+/// interleaving is predictable, else the SIMD block merge where it applies,
+/// else branch-free.
 fn merge_balanced<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
-    if simd_applies::<T>() && a.len() >= 4 && b.len() >= 4 && !predictable::predictable_pair(a, b) {
+    // Predictable interleavings: the branchy two-ended merge (the branch
+    // predictor runs ahead); irregular ones: SIMD blocks, else branch-free.
+    let predictable = predictable::predictable_pair(a, b);
+    if predictable {
+        merge_bidir::<T, true>(a, b, dst);
+        return;
+    }
+    if simd_applies::<T>() && a.len() >= 4 && b.len() >= 4 {
         // SAFETY: `T` is one of the key types of `simd_flip` (checked by
         // name), of the width given there: the same layout as u32 / u64.
         unsafe {
@@ -107,7 +115,7 @@ fn merge_balanced<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
         }
         return;
     }
-    merge_bidir(a, b, dst);
+    merge_bidir::<T, false>(a, b, dst);
 }
 
 use bidir::merge_bidir;
@@ -243,8 +251,7 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
         dst[a.len()..].copy_from_slice(b);
         return;
     }
-    // Balanced runs: two-ended branch-free merge (as the in-place version;
-    // a branchy merge does not beat it even on predictable interleavings).
+    // Balanced runs: the two-ended merge (as the in-place version).
     if 4 * a.len().min(b.len()) >= a.len() + b.len() {
         merge_balanced(a, b, dst);
         return;
@@ -288,6 +295,6 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
 /// Tests: the two-ended branch-free merge.
 #[cfg(test)]
 pub(crate) fn bidir_pub<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
-    merge_bidir(a, b, dst)
+    merge_bidir::<T, false>(a, b, dst)
 }
 

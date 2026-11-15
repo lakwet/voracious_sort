@@ -110,6 +110,24 @@ pub(crate) fn l2_bytes() -> usize {
     sizes().l2
 }
 
+/// Largest cache a core reaches: the L2, or the L3 when one is reported
+/// above it (Snapdragon X: 12 MiB L2, no L3; Ryzen 3950X: 512 KiB L2,
+/// 16 MiB L3 per CCX; Core Ultra 185H: 2 MiB L2, 24 MiB L3). For the
+/// decisions measured to follow it on the three machines (journal §69, §85,
+/// §87).
+#[inline]
+pub(crate) fn largest_bytes() -> usize {
+    #[cfg(test)]
+    {
+        let forced = L2_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+        if forced != 0 {
+            return forced;
+        }
+    }
+    static LARGEST: OnceLock<usize> = OnceLock::new();
+    *LARGEST.get_or_init(|| sizes().l2.max(os::levels()[2].unwrap_or(0)))
+}
+
 /// Benchmarks: L2 size forced (0: the detected one), to check on a machine
 /// that the thresholds derived from it hold.
 #[cfg(test)]
