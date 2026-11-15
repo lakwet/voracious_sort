@@ -362,6 +362,10 @@ impl Radixable<f64> for f64 {
                     let mut v1 = arr.get_unchecked(i + 1).into_key_type();
                     let mut v2 = arr.get_unchecked(i + 2).into_key_type();
                     let mut v3 = arr.get_unchecked(i + 3).into_key_type();
+                    histograms[3][(v0 & default_mask) as usize] += 1;
+                    histograms[3][(v1 & default_mask) as usize] += 1;
+                    histograms[3][(v2 & default_mask) as usize] += 1;
+                    histograms[3][(v3 & default_mask) as usize] += 1;
                     v0 >>= shift;
                     v1 >>= shift;
                     v2 >>= shift;
