@@ -1,3 +1,39 @@
+# Version **1.2.1** (November 15<sup>th</sup> 2026)
+
+### Bug fix:
+
+- `voracious_sort` and `voracious_stable_sort` could panic on `f64` arrays
+(index out of bounds in `copy_by_histogram`), depending on the data, for
+example timestamps of 20 000 to 200 000 elements. The dedicated `f64`
+histogram did not count the lowest digit in its 4-level loop, so the LSD radix
+sort used wrong bucket heads when it sorted exactly four levels.
+- `lsd_radixsort` (and the sorts that call it with these levels) could panic
+on `u128` keys spanning 113 to 120 bits: the generic 15-level histogram did not
+count the highest digit of the last 1 to 3 elements. The trait methods were not
+affected.
+- `voracious_stable_sort` called on a `Vec` ran the unstable sort. It now runs
+the stable sort, as on a slice (thanks to Yikai-Liao, PR #24).
+- Stable sorts were not stable on descending runs: the preprocessing reversed
+them with their groups of equal keys. Each group now keeps its original order
+(thanks to Yikai-Liao, PR #24).
+- The crate did not build on 32-bit targets (for example
+`wasm32-unknown-unknown`): missing feature guards and imports (thanks to
+Ferdinand Schober, PR #21).
+
+### Dependency:
+
+- Use Rayon 1.12.0 instead of 1.7.0.
+- Tests and generators: use rand 0.10.3 instead of 0.7.3 and rand_distr 0.6.0
+instead of 0.3.0.
+
+### Misc:
+
+- Readme: how to run the tests, and how to build them on Windows with the GNU
+toolchain.
+- Tests: the "almost descending" generators of u32 and u64 gave almost
+ascending arrays; new tests of stability, of the histograms of every type at
+every level, and of the u128 LSD at every key width.
+
 # Version **1.2.0** (March 18<sup>th</sup> 2023)
 
 ### Dependency:

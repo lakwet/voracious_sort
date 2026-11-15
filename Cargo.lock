@@ -154,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "voracious_radix_sort"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "rand",
  "rand_distr",
