@@ -85,8 +85,15 @@ pub(crate) fn budget(b: Budget) -> usize {
             return forced;
         }
     }
-    let _ = b;
-    l2_bytes()
+    match b {
+        // Measured on the three machines (journal §69, §85): the 32-bit
+        // rollercoaster threshold and the wide counting follow the largest
+        // cache a core reaches (Core Ultra 185H 10M u32: Unif 10.9 to 6.9 ns
+        // per key, sawtooth 5.5-7.8 to 1.1-2.3; Ryzen 3950X widecount u32
+        // 10M 0.88, roller32 neutral; Snapdragon X: no L3, unchanged).
+        Budget::Roller32 | Budget::WideCount => largest_bytes(),
+        _ => l2_bytes(),
+    }
 }
 
 /// Benchmarks: one decision's budget forced (0: the default), the others
