@@ -1,11 +1,11 @@
 #[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
-use super::super::sorts::rollercoaster_sort::rollercoaster_sort_heu;
 use super::super::sorts::lsd_sort::lsd_radixsort_heu;
 #[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
+use super::super::sorts::rollercoaster_sort::rollercoaster_sort_heu;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::Radixable;
 
@@ -887,15 +887,14 @@ impl Radixable<isize> for isize {
         if arr.len() < 10_000_000 {
             arr.par_sort_unstable();
         } else {
-            let chunk_size =
-                if arr.len() < 60_000_000 {
-                    500_000
-                } else if arr.len() < 5_000_000_000 {
-                    700_000
-                } else {
-                    // Switch to regions sort algo
-                    5000
-                };
+            let chunk_size = if arr.len() < 60_000_000 {
+                500_000
+            } else if arr.len() < 5_000_000_000 {
+                700_000
+            } else {
+                // Switch to regions sort algo
+                5000
+            };
             peeka_sort(arr, 8, chunk_size, thread_n);
         }
     }

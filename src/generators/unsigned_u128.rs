@@ -3,7 +3,10 @@ use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_u128(size: usize) -> Vec<u128> {
-    (0..size).into_par_iter().map(|_| rand::rng().random()).collect::<Vec<u128>>()
+    (0..size)
+        .into_par_iter()
+        .map(|_| rand::rng().random())
+        .collect::<Vec<u128>>()
 }
 
 // Uniform 10^9

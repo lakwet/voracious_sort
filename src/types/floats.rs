@@ -13,9 +13,7 @@ impl Radixable<f32> for f32 {
     type Key = f32;
 
     #[inline]
-    fn key(&self) -> f32 {
-        *self
-    }
+    fn key(&self) -> f32 { *self }
     #[inline]
     fn extract(&self, mask: u32, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize
@@ -233,9 +231,7 @@ impl Radixable<f64> for f64 {
     type Key = f64;
 
     #[inline]
-    fn key(&self) -> f64 {
-        *self
-    }
+    fn key(&self) -> f64 { *self }
     #[inline]
     fn extract(&self, mask: u64, shift: usize) -> usize {
         ((self.into_key_type() & mask) >> shift) as usize

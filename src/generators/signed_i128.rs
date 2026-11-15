@@ -3,7 +3,10 @@ use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_i128(size: usize) -> Vec<i128> {
-    (0..size).into_par_iter().map(|_| rand::rng().random()).collect::<Vec<i128>>()
+    (0..size)
+        .into_par_iter()
+        .map(|_| rand::rng().random())
+        .collect::<Vec<i128>>()
 }
 
 // Small values

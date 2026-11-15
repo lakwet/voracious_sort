@@ -52,7 +52,13 @@ where
             }
         }
         let got = dummy.get_full_histograms(arr, &p);
-        assert!(got == expected, "{} bits, radix {}, {} levels", bits, radix, max_level);
+        assert!(
+            got == expected,
+            "{} bits, radix {}, {} levels",
+            bits,
+            radix,
+            max_level
+        );
     }
 }
 
@@ -72,13 +78,18 @@ fn test_histograms_all_levels() {
     check_histograms(&mut helper_random_array_uniform_i128(n), 128, &[]);
     check_histograms(&mut helper_random_array_uniform_f32(n), 32, &[]);
     check_histograms(&mut helper_random_array_uniform_f64(n), 64, &[]);
-    let mut us: Vec<usize> = helper_random_array_uniform_u64(n).iter().map(|&x| x as usize).collect();
+    let mut us: Vec<usize> = helper_random_array_uniform_u64(n)
+        .iter()
+        .map(|&x| x as usize)
+        .collect();
     check_histograms(&mut us, 8 * std::mem::size_of::<usize>(), &[]);
     check_histograms(&mut helper_random_array_uniform_char(n), 32, &[7, 11]);
-    let mut is: Vec<isize> = helper_random_array_uniform_i64(n).iter().map(|&x| x as isize).collect();
+    let mut is: Vec<isize> = helper_random_array_uniform_i64(n)
+        .iter()
+        .map(|&x| x as isize)
+        .collect();
     check_histograms(&mut is, 8 * std::mem::size_of::<isize>(), &[]);
 }
-
 
 // u128 keys of every width: the LSD on 120-bit keys sorts 15 levels, whose
 // remainder loop missed a level and panicked (1.2.1).
