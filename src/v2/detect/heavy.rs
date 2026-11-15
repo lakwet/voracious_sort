@@ -2,6 +2,13 @@
 
 use super::{spread, DENSE_MIN, SAMPLE};
 
+/// Shortest array tried for heavy hitters (keys of 8 to 64 bits; below
+/// `DENSE_MIN` after the `may_be_heavy` filter). 4096 before: sparse data
+/// of 2000-4000 keys went to the radix (f64 zeros +- 3000 9.0 against 2.0
+/// ns per key, f32 sparse 90 % 5.3 against 1.6); four heavy values lose a
+/// little at this size (u16 Heavy 4 2500 1.72 against 2.04). Snapdragon X.
+pub(crate) const HEAVY_MIN: usize = 2048;
+
 /// Heavy hitters: a few values holding a large share of the keys (sparse
 /// data full of zeros, default values, a few popular items among many
 /// others). From a sorted sample of `SAMPLE` keys, the values seen at
@@ -25,6 +32,9 @@ pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> boo
         return false;
     }
     let mut sample = spread(arr);
+    if arr.len() < DENSE_MIN && !may_be_heavy(&sample, eq) {
+        return false;
+    }
     sample.sort_unstable_by(|a, b| {
         if lt(*a, *b) {
             std::cmp::Ordering::Less
@@ -35,6 +45,18 @@ pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> boo
         }
     });
     heavy_sorted_by(arr, &sample, min, sort, eq, lt)
+}
+
+/// Cheap filter before sorting the sample on short arrays (where sorting it
+/// costs about as much as the radix sort): one of 8 sample keys spread over
+/// it occurs at least `SAMPLE / 8` times. A heavy value holds at least an
+/// eighth of the sample and the heavy values a quarter: 8 picks miss them
+/// all with odds below (3/4)^8 = 10 %.
+pub(crate) fn may_be_heavy<T: Copy, E: Fn(T, T) -> bool + Copy>(sample: &[T; SAMPLE], eq: E) -> bool {
+    (0..8).any(|k| {
+        let v = sample[k * (SAMPLE / 8)];
+        sample.iter().fold(0usize, |c, &x| c + eq(x, v) as usize) >= SAMPLE / 8
+    })
 }
 
 /// `heavy_by` on a spread sample already sorted (by `lt`).

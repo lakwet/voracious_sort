@@ -14,7 +14,7 @@
 //! NaN is not supported yet (the Verge step compares with `<`).
 
 use super::detect::floats::{detect32, detect64, few32, few64};
-use super::detect::heavy::heavy_by;
+use super::detect::heavy::{heavy_by, heavy_from, HEAVY_MIN};
 use super::engines::dlsd::d64;
 use super::engines::lsd::w32;
 use super::engines::roller::{r32, r64};
@@ -185,7 +185,7 @@ fn sort_f32(arr: &mut [f32]) {
     } else {
         Unsorted::default()
     };
-    let detect = |a: &mut [f32], _| (presorted_first && detect32(a)) || few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less);
+    let detect = |a: &mut [f32], _| (presorted_first && detect32(a)) || few32(a) || heavy_from(a, HEAVY_MIN, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less);
     let sort_chunk = |chunk: &mut [f32]| {
         if chunk.len() >= roller_min_f32() {
             r32::roller(f32_bits::bits(chunk));
@@ -225,7 +225,7 @@ fn sort_f64(arr: &mut [f64]) {
         Unsorted::default()
     };
     let buffer = std::cell::RefCell::new(Vec::new());
-    let detect = |a: &mut [f64], _| (presorted_first && detect64(a)) || few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less);
+    let detect = |a: &mut [f64], _| (presorted_first && detect64(a)) || few64(a) || heavy_from(a, HEAVY_MIN, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less);
     let sort_chunk = |chunk: &mut [f64]| {
         if chunk.len() >= roller_min_f64() {
             r64::roller(f64_bits::bits(chunk));

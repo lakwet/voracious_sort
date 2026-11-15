@@ -22,7 +22,7 @@ use std::mem::MaybeUninit;
 use super::cache::{budget, Budget};
 use super::detect::clusters::clustered;
 use super::detect::counting::domain_count;
-use super::detect::heavy::heavy_sorted_by;
+use super::detect::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use super::detect::plateaus::plateaus;
 use super::detect::{spread, DENSE_MIN, SAMPLE};
 use super::engines::dlsd::{di64, du64};
@@ -127,10 +127,12 @@ fn detect<T: IntSort>(arr: &mut [T], equal_pairs: usize) -> bool {
     T::range(arr, &sample)
         || plateaus(arr, equal_pairs)
         || T::few(arr, &sample)
-        || (arr.len() >= DENSE_MIN && {
+        || (arr.len() >= HEAVY_MIN
+            && (arr.len() >= DENSE_MIN || may_be_heavy(&sample, |x, y| x == y))
+            && {
             sample.sort_unstable();
-            heavy_sorted_by(arr, &sample, DENSE_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y)
-                || T::dense(arr, &sample)
+            heavy_sorted_by(arr, &sample, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y)
+                || (arr.len() >= DENSE_MIN && T::dense(arr, &sample))
         })
 }
 
