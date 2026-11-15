@@ -22,9 +22,9 @@ pub(crate) static SIMD_LEVELS: std::sync::atomic::AtomicUsize = std::sync::atomi
 
 /// Whether the SIMD block merge applies to keys of type `T`.
 pub(crate) fn simd_applies<T>() -> bool {
-    cfg!(target_arch = "aarch64")
-        && SIMD_MERGE.load(std::sync::atomic::Ordering::Relaxed)
+    SIMD_MERGE.load(std::sync::atomic::Ordering::Relaxed)
         && std::any::type_name::<T>() == "u32"
+        && simd::available()
 }
 
 /// Balanced merge of `a` and `b` into `dst`: the SIMD block merge for
