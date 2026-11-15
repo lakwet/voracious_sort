@@ -89,6 +89,15 @@ benchfix-native: export BENCH_MIN_ARRAYS = 1
 benchfix-native: ## the same with target-cpu=native (~15 min)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
+benchbilan: export RUSTFLAGS =
+benchbilan: export BENCH_PARTS = int,float,wide,records
+benchbilan: export BENCH_TYPES = u8,i8,u16,i16,u32,i32,u64,i64,u128,i128,f32,f64,u32 8B,u64 16B
+benchbilan: export BENCH_SIZES = 1000,10000,50000,100000,1000000,5000000,10000000
+benchbilan: export BENCH_SORTS = std,std unstable,std cached,v1,glidesort,blazing,radsort,rdst,turbosort
+benchbilan: export BENCH_MIN_ARRAYS = 1
+benchbilan: ## every type against every sort, 1k to 10M, generic build: the list of losses (1-3 h)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
 benchbig: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
 benchbig: export BENCH_PARTS = big
 benchbig: export BENCH_MAX = 1000000000
@@ -100,4 +109,4 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
