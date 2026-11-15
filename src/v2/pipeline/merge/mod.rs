@@ -28,23 +28,80 @@ pub(crate) static SIMD_LEVELS: std::sync::atomic::AtomicUsize = std::sync::atomi
 /// Whether the SIMD block merge applies to keys of type `T`.
 pub(crate) fn simd_applies<T>() -> bool {
     SIMD_MERGE.load(std::sync::atomic::Ordering::Relaxed)
-        && std::any::type_name::<T>() == "u32"
-        && simd::available()
+        && simd_flip::<T>().is_some_and(|(w, _)| w == 64 || simd::available())
 }
+
+/// Keys the vector merge takes: (bits, mode of `simd::Lane::key`): u32,
+/// i32, f32 (32 bits), u64, i64, f64 (64 bits; modes 0 unsigned, 1 signed,
+/// 2 float).
+fn simd_flip<T>() -> Option<(u32, u8)> {
+    use std::sync::atomic::Ordering::Relaxed;
+    let w64 = SIMD_64.load(Relaxed) && simd::available64();
+    match std::any::type_name::<T>() {
+        "u32" => Some((32, 0)),
+        "i32" if SIMD_I32.load(Relaxed) => Some((32, 1)),
+        "f32" if SIMD_F32.load(Relaxed) => Some((32, 2)),
+        "u64" if w64 => Some((64, 0)),
+        "i64" if w64 => Some((64, 1)),
+        "f64" if w64 && SIMD_F64.load(Relaxed) => Some((64, 2)),
+        _ => None,
+    }
+}
+
+/// The vector merge on 64-bit keys too.
+pub(crate) static SIMD_64: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// The vector merge on f64 keys. OFF: the f64 path (mode 2 of the 64-bit
+/// network in `simd.rs`, tested correct) is kept but never runs, because it
+/// lost everywhere on the Snapdragon X: Runs 8 100k 2.90 to 4.05, 1M 4.25 to
+/// 6.14 ns per key (the f64 radix sort is faster than these merges, unlike
+/// u64 / i64). Kept to measure on x86 (Ryzen, Intel) before removing it:
+/// turn this on and compare in the same run.
+pub(crate) static SIMD_F64: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// With `SIMD_RULE`: the smallest array of 64-bit keys whose unpredictable
+/// merges are merged by vector blocks (below, the radix sort in the cache
+/// wins: i64 Runs 8 10k 2.02 against 2.65 ns per key on the Snapdragon X).
+/// Measured on one machine only: to check on x86 (Ryzen, Intel).
+pub(crate) static SIMD_MIN_ARRAY_SIZE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1 << 16);
+
+/// Whether unpredictable merges of `n` keys of type `T` are merged by
+/// vector blocks instead of sorted by radix (`SIMD_RULE`): 32-bit keys at
+/// every size, 64-bit keys from `SIMD_MIN_ARRAY_SIZE`.
+pub(crate) fn simd_rule_applies<T>(n: usize) -> bool {
+    let min64 = SIMD_MIN_ARRAY_SIZE.load(std::sync::atomic::Ordering::Relaxed);
+    simd_applies::<T>() && simd_flip::<T>().is_some_and(|(w, _)| w == 32 || n >= min64)
+}
+
+/// The vector merge on i32 keys too.
+pub(crate) static SIMD_I32: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// The vector merge on f32 keys too.
+pub(crate) static SIMD_F32: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// Balanced merge of `a` and `b` into `dst`: the SIMD block merge for
 /// unpredictable u32 runs, else the two-ended branch-free merge.
 fn merge_balanced<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
     if simd_applies::<T>() && a.len() >= 4 && b.len() >= 4 && !predictable::predictable_pair(a, b) {
-        // SAFETY: `T` is `u32` (checked by name above): same layout.
-        let (a, b, d) = unsafe {
-            (
-                std::slice::from_raw_parts(a.as_ptr() as *const u32, a.len()),
-                std::slice::from_raw_parts(b.as_ptr() as *const u32, b.len()),
-                std::slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u32, dst.len()),
-            )
-        };
-        simd::merge_u32(a, b, d);
+        // SAFETY: `T` is one of the key types of `simd_flip` (checked by
+        // name), of the width given there: the same layout as u32 / u64.
+        unsafe {
+            macro_rules! go {
+                ($u:ty, $f:ident, $m:literal) => {
+                    simd::$f::<$m>(
+                        std::slice::from_raw_parts(a.as_ptr() as *const $u, a.len()),
+                        std::slice::from_raw_parts(b.as_ptr() as *const $u, b.len()),
+                        std::slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut $u, dst.len()),
+                    )
+                };
+            }
+            match simd_flip::<T>() {
+                Some((32, 0)) => go!(u32, merge_u32, 0),
+                Some((32, 1)) => go!(u32, merge_u32, 1),
+                Some((32, _)) => go!(u32, merge_u32, 2),
+                Some((_, 0)) => go!(u64, merge_u64, 0),
+                Some((_, 1)) => go!(u64, merge_u64, 1),
+                _ => go!(u64, merge_u64, 2),
+            }
+        }
         return;
     }
     merge_bidir(a, b, dst);

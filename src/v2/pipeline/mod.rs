@@ -30,7 +30,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     detect: &dyn Fn(&mut [T], usize) -> bool,
     sort: &dyn Fn(&mut [T]),
 ) {
-    let simd_rule = merge::simd_applies::<T>() && merge::SIMD_RULE.load(std::sync::atomic::Ordering::Relaxed);
+    let simd_rule = merge::simd_rule_applies::<T>(arr.len()) && merge::SIMD_RULE.load(std::sync::atomic::Ordering::Relaxed);
     let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, known.ascending_prefix);
     let (sorted, equal_pairs) = if random_runs {
         (false, known.probes.map_or(0, |p| p.equal()))
