@@ -1,5 +1,6 @@
 mod comparative_sort;
 mod dedicated;
+mod histograms;
 mod regions_graph;
 #[rustfmt::skip] mod sorts;
 mod stable_sort;
