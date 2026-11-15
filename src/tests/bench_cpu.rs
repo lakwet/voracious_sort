@@ -49,7 +49,10 @@
 //! least 5 arrays sorted per measurement), `BENCH_MEM_MB` (memory budget,
 //! default half the RAM), `BENCH_TYPES` (filter), `BENCH_OUT` (output
 //! directory, default the repository root), `BENCH_PIN=0` (do not pin the
-//! thread to a fast core on hybrid CPUs; `slow`: pin it to a slow one).
+//! thread to a fast core on hybrid CPUs; `slow`: pin it to a slow one),
+//! `BENCH_SIZES` (only these sizes, e.g. `10000,1000000`), `BENCH_SORTS`
+//! (only these sorts besides v2, e.g. `std,glidesort,blazing`),
+//! `BENCH_MIN_ARRAYS` (arrays sorted per measurement at least, default 5).
 //! A panic is written to the file before the run stops.
 
 use std::io::Write;
@@ -66,7 +69,7 @@ use super::super::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
-const SIZES: [usize; 12] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000, 30_000_000, 100_000_000];
+const SIZES: [usize; 13] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 5_000_000, 10_000_000, 30_000_000, 100_000_000];
 /// Beyond this size only the types of `BIG_LABELS` are measured.
 const BIG: usize = 10_000_000;
 const BIG_LABELS: [&str; 13] = ["aa u64", "u32", "u64", "i64", "f32", "f64", "u128", "records u32 8B", "records u64 16B", "records u64 32B", "l2 u32", "l2 u64", "l2 f64"];
@@ -105,7 +108,7 @@ impl Config {
             parts: list("BENCH_PARTS").unwrap_or_else(|| ["aa", "int", "float", "wide", "records", "rparams", "l2"].iter().map(|s| s.to_string()).collect()),
             types: list("BENCH_TYPES"),
             memory: number("BENCH_MEM_MB", (total_ram().unwrap_or(16 << 30) / 2) >> 20) << 20,
-            min_arrays: MIN_ARRAYS,
+            min_arrays: number("BENCH_MIN_ARRAYS", MIN_ARRAYS).max(1),
         }
     }
 
@@ -135,6 +138,14 @@ impl Report {
 struct Variant<'a, T> {
     name: &'a str,
     sort: Box<dyn Fn(&mut [T]) + 'a>,
+}
+
+/// `BENCH_SORTS`: the sorts kept (the first one, v2, always: the reference).
+fn keep_sorts<T>(v: Vec<Variant<'_, T>>) -> Vec<Variant<'_, T>> {
+    match std::env::var("BENCH_SORTS") {
+        Ok(list) => v.into_iter().enumerate().filter(|(i, x)| *i == 0 || list.split(',').any(|n| n.trim() == x.name)).map(|(_, x)| x).collect(),
+        Err(_) => v,
+    }
 }
 
 fn variant<'a, T>(name: &'a str, sort: impl Fn(&mut [T]) + 'a) -> Variant<'a, T> {
@@ -197,7 +208,8 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
 
 /// One type of one part: raw rows and a summary per size.
 fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool, min_size: usize) {
-    let sizes: Vec<usize> = SIZES.iter().copied().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).collect();
+    let only: Option<Vec<usize>> = std::env::var("BENCH_SIZES").ok().map(|l| l.split(',').map(|x| x.trim().replace('_', "").parse().unwrap()).collect());
+    let sizes: Vec<usize> = SIZES.iter().copied().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).filter(|s| only.as_ref().map_or(true, |o| o.contains(s))).collect();
     bench_sizes(report, cfg, label, gens, variants, ordered, &sizes);
 }
 
@@ -448,9 +460,10 @@ fn bench_cpu() {
                         variant("v2", |a: &mut [$t]| devour_sort2(a)),
                         variant("std", |a: &mut [$t]| a.sort_unstable()),
                         variant("v1", |a: &mut [$t]| a.voracious_sort()),
+                        variant("glidesort", |a: &mut [$t]| glidesort::sort(a)),
                         $($extra),*
                     ];
-                    bench(r, &cfg, stringify!($t), &$gens, &variants, |a, b| a <= b, 0);
+                    bench(r, &cfg, stringify!($t), &$gens, &keep_sorts(variants), |a, b| a <= b, 0);
                 }
             };
         }
@@ -507,21 +520,23 @@ fn bench_cpu() {
             variant("v2", |a: &mut [f32]| ravenous_sort2(a)),
             variant("std", |a: &mut [f32]| a.sort_unstable_by(|x, y| x.total_cmp(y))),
             variant("v1", |a: &mut [f32]| a.voracious_sort()),
+            variant("glidesort", |a: &mut [f32]| glidesort::sort_by(a, |x, y| x.total_cmp(y))),
             variant("blazing", |a: &mut [f32]| blazing_radix::radix_sort::<f32>(a)),
             variant("radsort", |a: &mut [f32]| radsort::sort(a)),
             variant("turbosort", |a: &mut [f32]| turbosort::sort(a)),
         ];
-        bench(r, &cfg, "f32", &all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()), &variants, ord_total_f32, 0);
+        bench(r, &cfg, "f32", &all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()), &keep_sorts(variants), ord_total_f32, 0);
     }
     if cfg.wants("float", "f64") {
         let variants: Vec<Variant<f64>> = vec![
             variant("v2", |a: &mut [f64]| ravenous_sort2(a)),
             variant("std", |a: &mut [f64]| a.sort_unstable_by(|x, y| x.total_cmp(y))),
             variant("v1", |a: &mut [f64]| a.voracious_sort()),
+            variant("glidesort", |a: &mut [f64]| glidesort::sort_by(a, |x, y| x.total_cmp(y))),
             variant("radsort", |a: &mut [f64]| radsort::sort(a)),
             variant("turbosort", |a: &mut [f64]| turbosort::sort(a)),
         ];
-        bench(r, &cfg, "f64", &all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()), &variants, ord_total_f64, 0);
+        bench(r, &cfg, "f64", &all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()), &keep_sorts(variants), ord_total_f64, 0);
     }
 
     // 128-bit integers.
@@ -537,7 +552,7 @@ fn bench_cpu() {
                         variant("radsort", |a: &mut [$t]| radsort::sort(a)),
                         variant("rdst", |a: &mut [$t]| a.radix_sort_unstable()),
                     ];
-                    bench(r, &cfg, stringify!($t), &$gens, &variants, |a, b| a <= b, 0);
+                    bench(r, &cfg, stringify!($t), &$gens, &keep_sorts(variants), |a, b| a <= b, 0);
                 }
             };
         }
@@ -563,7 +578,7 @@ fn bench_cpu() {
                         variant("turbosort", |a: &mut [$ty]| turbosort::sort_by_key(a, |x| x.key)),
                         variant("v1", |a: &mut [$ty]| a.voracious_sort()),
                     ];
-                    bench(r, &cfg, concat!("records ", $label), &$gens, &variants, ordered_by_key!($ty), 0);
+                    bench(r, &cfg, concat!("records ", $label), &$gens, &keep_sorts(variants), ordered_by_key!($ty), 0);
                 }
             };
         }

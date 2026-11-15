@@ -71,6 +71,24 @@ benchtune: export BENCH_MAX = 10000000
 benchtune: ## CPU tuning: each cache-derived decision alone, 10k to 10M (a few hours)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
+benchfix: export RUSTFLAGS =
+benchfix: export BENCH_PARTS = int,float
+benchfix: export BENCH_TYPES = u32,i32,u64,i64,f32,f64
+benchfix: export BENCH_SIZES = 10000,100000,1000000,10000000
+benchfix: export BENCH_SORTS = std,v1,glidesort,blazing
+benchfix: export BENCH_MIN_ARRAYS = 1
+benchfix: ## short check of the merge fixes: keys against std, v1, glidesort, blazing, generic build (~15 min)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
+benchfix-native: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchfix-native: export BENCH_PARTS = int,float
+benchfix-native: export BENCH_TYPES = u32,i32,u64,i64,f32,f64
+benchfix-native: export BENCH_SIZES = 10000,100000,1000000,10000000
+benchfix-native: export BENCH_SORTS = std,v1,glidesort,blazing
+benchfix-native: export BENCH_MIN_ARRAYS = 1
+benchfix-native: ## the same with target-cpu=native (~15 min)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
 benchbig: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
 benchbig: export BENCH_PARTS = big
 benchbig: export BENCH_MAX = 1000000000
@@ -82,4 +100,4 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench benchcpu benchcpu-quick check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
