@@ -1643,6 +1643,8 @@ where
         });
         arr_remainder.iter().for_each(|item| {
             let mut v = item.into_key_type();
+            histograms[14][dummy.keytype_to_usize(v & default_mask)] += 1;
+            v = v >> shift;
             histograms[13][dummy.keytype_to_usize(v & default_mask)] += 1;
             v = v >> shift;
             histograms[12][dummy.keytype_to_usize(v & default_mask)] += 1;
