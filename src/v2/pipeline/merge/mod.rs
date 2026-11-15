@@ -54,8 +54,11 @@ pub(crate) static SIMD_64: std::sync::atomic::AtomicBool = std::sync::atomic::At
 /// network in `simd.rs`, tested correct) is kept but never runs, because it
 /// lost everywhere on the Snapdragon X: Runs 8 100k 2.90 to 4.05, 1M 4.25 to
 /// 6.14 ns per key (the f64 radix sort is faster than these merges, unlike
-/// u64 / i64). Kept to measure on x86 (Ryzen, Intel) before removing it:
-/// turn this on and compare in the same run.
+/// u64 / i64). With the keys converted once (`FLOAT_ENCODE`) it stays mixed
+/// (Runs 8 100k 2.83 to 2.40, 1M 4.35 to 4.60, 10M 4.74 to 4.30; Saw 10k
+/// +7 % through the in-cache merges, which still convert each block). Kept
+/// to measure on x86 (Ryzen, Intel) before removing it: turn this on and
+/// compare in the same run.
 pub(crate) static SIMD_F64: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// With `SIMD_RULE`: the smallest array of 64-bit keys whose unpredictable
@@ -151,10 +154,40 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
 /// sort): ping-pong rounds at every size (the block merges stream through
 /// memory).
 pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut Vec<usize>) {
-    if separators.len() > 2 {
-        pingpong(arr, separators);
+    if separators.len() <= 2 {
+        return;
     }
+    // Floats: the whole array turned into unsigned keys of the same order
+    // once, merged as u32 / u64, turned back. Converting each block inside
+    // the vector merge cost more: LLVM no longer kept the four streams in
+    // registers and the block choice became a branch (f32 kernel 0.92
+    // against 0.46 ns per key at 1M on the Snapdragon X).
+    if FLOAT_ENCODE.load(std::sync::atomic::Ordering::Relaxed) {
+        match simd_flip::<T>() {
+            Some((32, 2)) => {
+                // SAFETY: `T` is f32 (checked by name in `simd_flip`): 32 bits.
+                let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
+                keys.iter_mut().for_each(|k| *k ^= (((*k as i32) >> 31) as u32) | (1 << 31));
+                pingpong(keys, separators);
+                keys.iter_mut().for_each(|k| *k ^= (*k >> 31).wrapping_sub(1) | (1 << 31));
+                return;
+            }
+            Some((64, 2)) => {
+                // SAFETY: `T` is f64 (checked by name in `simd_flip`): 64 bits.
+                let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u64, arr.len()) };
+                keys.iter_mut().for_each(|k| *k ^= (((*k as i64) >> 63) as u64) | (1 << 63));
+                pingpong(keys, separators);
+                keys.iter_mut().for_each(|k| *k ^= (*k >> 63).wrapping_sub(1) | (1 << 63));
+                return;
+            }
+            _ => {}
+        }
+    }
+    pingpong(arr, separators);
 }
+
+/// Floats merged by SIMD blocks as unsigned keys (see `merge_runs_simd`).
+pub(crate) static FLOAT_ENCODE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// Ping-pong rounds (see `merge_runs`).
 fn pingpong<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut Vec<usize>) {
