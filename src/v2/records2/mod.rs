@@ -21,6 +21,7 @@ mod merge;
 mod packed;
 mod permute;
 mod verge;
+mod unstable;
 mod verge_small;
 
 pub use super::records::SortKey;
@@ -50,6 +51,92 @@ pub(crate) use verge::{BRANCHY_ROUNDS, KWAY_BRANCHY_MIN, ORGAN, KWAY_BRANCHY, KW
 pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) {
     sort_encoded(arr, &|x: &T| key(x).encode());
 }
+
+/// Sorts `arr` by `key`, unstably: equal keys may come out in any order.
+/// The stable sort's path, where the freedom pays: the run merges by
+/// vector blocks (`simd`), large records in disorder by the in-place MSD
+/// (`unstable`: no buffer).
+pub fn devour_sort_unstable_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) {
+    let enc = |x: &T| key(x).encode();
+    // Few large records: the standard library's pattern-defeating quicksort
+    // (in place: no buffer to fault in, presorted data found as it goes).
+    let size = std::mem::size_of::<T>();
+    if size >= UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && arr.len() < UNSTABLE_PDQ_MAX.load(std::sync::atomic::Ordering::Relaxed) {
+        arr.sort_unstable_by_key(|x| enc(x));
+        return;
+    }
+    let _unstable = Unstable::enter();
+    sort_encoded(arr, &enc);
+}
+
+/// Unstable sort of small records with many repeated keys (see
+/// `sort_encoded`): 0 the stable path, 1 the MSD, 2 the standard library.
+pub(crate) static UNSTABLE_DUPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(2);
+/// Unstable sort of small records in disorder: keys wider than this many
+/// bits go to the standard library's unstable sort (the radix passes cost
+/// more than its comparisons); 128: never.
+pub(crate) static UNSTABLE_WIDE_BITS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(40);
+
+/// Small records: the rules toward the standard library's unstable sort
+/// from this many (below, the radix sort in the cache is faster: Saw 16 B
+/// at 10k 4.2 against 7.8 ns per record).
+const UNSTABLE_PDQ_MIN: usize = 65536;
+
+/// Large records below this many: the standard library's unstable sort.
+pub(crate) static UNSTABLE_PDQ_MAX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(32768);
+
+std::thread_local! {
+    /// Set while this thread runs the unstable sort.
+    static UNSTABLE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether the running sort may reorder equal keys.
+#[inline]
+pub(super) fn unstable() -> bool {
+    UNSTABLE.with(|u| u.get())
+}
+
+/// Sets the unstable mode for its lifetime (restored even on a panic).
+struct Unstable(bool);
+
+impl Unstable {
+    fn enter() -> Self {
+        Unstable(UNSTABLE.with(|u| u.replace(true)))
+    }
+}
+
+impl Drop for Unstable {
+    fn drop(&mut self) {
+        let was = self.0;
+        UNSTABLE.with(|u| u.set(was));
+    }
+}
+
+/// Ascending order broken only locally (the stable passes repair it for
+/// little; the MSD would move every record): few breaks, most of them a
+/// single key out of place (the keys around it in order: random swaps in
+/// sorted data, not the long runs of a sawtooth), or keys in order at a
+/// distance of 64 on a sample (local disorder: timestamps with jitter).
+fn nearly_sorted<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, s: &Scan, drops: &[usize]) -> bool {
+    let n = arr.len();
+    if s.drops <= DROPS_MAX {
+        let k = |i: usize| enc(&arr[i]);
+        let isolated = drops[..s.drops]
+            .iter()
+            .filter(|&&j| (j + 1 < n && j >= 1 && k(j + 1) >= k(j - 1)) || (j >= 2 && k(j) >= k(j - 2)))
+            .count();
+        return 2 * isolated >= s.drops;
+    }
+    const W: usize = 64;
+    let samples = 256.min(n / W);
+    (0..samples).all(|i| {
+        let a = i * (n - W) / samples;
+        enc(&arr[a]) <= enc(&arr[a + W])
+    })
+}
+
+/// Records from this size: the unstable sort may use the in-place MSD.
+pub(crate) static UNSTABLE_MSD_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(64);
 
 /// What one read of the keys learned.
 /// Most breaks of ascending order the first read keeps for Verge.
@@ -329,6 +416,11 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // Records of at most 8 bytes: the path of `records` (its first read
     // with byte histograms and the LSD on the records stay the fastest).
     if std::mem::size_of::<T>() <= 8 {
+        // Unstable, many repeated keys: as below for larger records.
+        if unstable() && n >= UNSTABLE_PDQ_MIN && UNSTABLE_DUPS.load(std::sync::atomic::Ordering::Relaxed) == 2 && sample_distinct(arr, enc) < 500 {
+            arr.sort_unstable_by_key(|x| enc(x));
+            return;
+        }
         if HEAVY8.load(std::sync::atomic::Ordering::Relaxed) && heavy::heavy_keys(arr, enc) {
             return;
         }
@@ -344,13 +436,17 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     let beyond_cache = n.saturating_mul(size) > super::cache::budget(super::cache::Budget::Records) / 2;
     let small_records = lsd_forced() || (size <= 8 && beyond_cache);
     let mut hist = if small_records { vec![[0usize; 256]; 8] } else { Vec::new() };
+    // The MSD's passes read and swap at random across the array: up to
+    // twice the cache (beyond, the packed sort moves each record once).
+    let msd_ok = unstable() && size >= UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && n >= VERGE_MIN
+        && n.saturating_mul(size) <= 2 * super::cache::budget(super::cache::Budget::Records);
     let try_verge = n >= VERGE_MIN && (beyond_cache || IN_CACHE.load(std::sync::atomic::Ordering::Relaxed));
     let t_scan = std::time::Instant::now();
-    let mut drops = if small_records || try_verge { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
-    let mut turn_at = if small_records || try_verge { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
+    let mut drops = if small_records || try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
+    let mut turn_at = if small_records || try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
     let s = if small_records {
         scan::<T, E, true, true>(arr, enc, &mut hist, &mut drops, &mut turn_at)
-    } else if try_verge {
+    } else if try_verge || msd_ok {
         scan::<T, E, true, false>(arr, enc, &mut hist, &mut drops, &mut turn_at)
     } else {
         scan::<T, E, false, false>(arr, enc, &mut hist, &mut drops, &mut turn_at)
@@ -366,6 +462,28 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         return;
     }
     let tr = verge::TRACE.load(std::sync::atomic::Ordering::Relaxed);
+    // Unstable, large records: the in-place MSD (each record moved once per
+    // byte level, no buffer) unless the stable passes are cheaper: two runs
+    // (a pipe organ: one merge) or breaks scattered in ascending order (the
+    // repair of nearly sorted data).
+    if msd_ok && s.turns > 2 && !nearly_sorted(arr, enc, &s, &drops) {
+        unstable::msd(arr, enc, s.lo, s.hi);
+        return;
+    }
+    // Unstable, small records, many repeated keys (a sample of 512 holds
+    // fewer than 500 distinct): `UNSTABLE_DUPS` 1: the MSD (buckets of equal
+    // keys end at once), 2: the standard library's unstable sort.
+    if unstable() && size < UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && n >= UNSTABLE_PDQ_MIN {
+        let mode = UNSTABLE_DUPS.load(std::sync::atomic::Ordering::Relaxed);
+        if mode != 0 && sample_distinct(arr, enc) < 500 {
+            if mode == 1 {
+                unstable::msd(arr, enc, s.lo, s.hi);
+            } else {
+                arr.sort_unstable_by_key(|x| enc(x));
+            }
+            return;
+        }
+    }
     if few_keys(arr, enc) {
         if tr {
             eprintln!("  few_keys");
@@ -401,6 +519,14 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
             verge(arr, enc)
         })
     {
+        return;
+    }
+    // Unstable, small records in disorder with wide keys (Verge declined):
+    // the standard library's unstable sort.
+    if unstable() && size < UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && n >= UNSTABLE_PDQ_MIN
+        && u128::BITS - (s.hi - s.lo).leading_zeros() > UNSTABLE_WIDE_BITS.load(std::sync::atomic::Ordering::Relaxed)
+    {
+        arr.sort_unstable_by_key(|x| enc(x));
         return;
     }
     if small_records && s.hi <= u64::MAX as u128 {

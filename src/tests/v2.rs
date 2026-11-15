@@ -160,6 +160,60 @@ fn test_v2_sort_by_key() {
     FORCE_LSD.store(false, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// `records2`: the stable sort equal to the stable `sort_by` on the key; the
+/// unstable sort with the keys in order and the same records (both sides
+/// put in one order: key, then the record, whose payload holds its
+/// original index).
+fn check_records2<T: Clone + PartialEq + PartialOrd + std::fmt::Debug + Send, K: super::super::v2::records2::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
+    use super::super::v2::records2::{devour_sort_by_key, devour_sort_unstable_by_key, SortKey};
+    let total = |a: &T, b: &T| key(a).encode().cmp(&key(b).encode()).then(a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    for &size in sizes.iter().filter(|&&n| n <= quick_max()) {
+        for (gen, name) in gens.iter() {
+            let arr = gen(size);
+            let mut expected = arr.clone();
+            expected.par_sort_by(|a, b| key(a).encode().cmp(&key(b).encode()));
+            let mut stable = arr.clone();
+            devour_sort_by_key(&mut stable, key);
+            assert!(stable == expected, "stable {} {} size {}", ty, name, size);
+            let mut unstable = arr;
+            devour_sort_unstable_by_key(&mut unstable, key);
+            assert!(unstable.windows(2).all(|w| key(&w[0]).encode() <= key(&w[1]).encode()), "unstable order {} {} size {}", ty, name, size);
+            unstable.par_sort_by(total);
+            expected.par_sort_by(total);
+            assert!(unstable == expected, "unstable records {} {} size {}", ty, name, size);
+        }
+    }
+}
+
+/// `records2`, stable and unstable, on the key distributions: keys of 16 to
+/// 64 bits and char, records of 8 to 128 bytes, key first or last, a
+/// `String` record, a composite key; up to 1M.
+#[test]
+fn test_v2_records2_by_key() {
+    use super::super::generators::records::*;
+    macro_rules! sizes {
+        ($keys:expr, $k:ty, $w8:literal, $w16:literal, $w32:literal, $w128:literal, $name:literal) => {{
+            if $w8 > 0 {
+                check_records2(&wrap($keys, rec::<$k, $w8>), |r| r.key, &record_sizes(8, 1_000_000), concat!($name, " 8 B"));
+            }
+            check_records2(&wrap($keys, rec::<$k, $w16>), |r| r.key, &record_sizes(16, 1_000_000), concat!($name, " 16 B"));
+            check_records2(&wrap($keys, rec::<$k, $w32>), |r| r.key, &record_sizes(32, 1_000_000), concat!($name, " 32 B"));
+            check_records2(&wrap($keys, rec::<$k, $w128>), |r| r.key, &record_sizes(128, 1_000_000), concat!($name, " 128 B"));
+            check_records2(&wrap($keys, rec_end::<$k, 3>), |r| r.key, &record_sizes(16, 1_000_000), concat!($name, " key last"));
+        }};
+    }
+    sizes!(keys_u16(), u16, 1, 3, 7, 31, "u16");
+    sizes!(keys_u32(), u32, 1, 3, 7, 31, "u32");
+    sizes!(keys_i32(), i32, 1, 3, 7, 31, "i32");
+    sizes!(keys_f32(), f32, 1, 3, 7, 31, "f32");
+    sizes!(keys_char(), char, 1, 3, 7, 31, "char");
+    sizes!(keys_u64(), u64, 0, 2, 6, 30, "u64");
+    sizes!(keys_i64(), i64, 0, 2, 6, 30, "i64");
+    sizes!(keys_f64(), f64, 0, 2, 6, 30, "f64");
+    check_records2(&wrap(keys_u64(), rec_string), |r| r.key, &record_sizes(32, 1_000_000), "string");
+    check_records2(&wrap(keys_u64(), rec_pair), |r| r.key(), &record_sizes(16, 1_000_000), "pair");
+}
+
 /// Stability on keys built for it (many equal keys in every shape the sort
 /// treats apart), every key type and record size, every size up to 1M.
 #[test]
