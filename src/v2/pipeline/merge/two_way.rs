@@ -10,13 +10,15 @@ const INSERT_MAX: usize = 16;
 /// place: the elements already at their place trimmed (binary searches); a
 /// run below the other rotated; a tiny run inserted; balanced runs in the
 /// cache merged from both ends into `copy`; skewed runs by galloping;
-/// others by the classic merge (shorter run copied out).
+/// others by the classic merge (shorter run copied out). `only`: the one
+/// merge of two runs covering the array.
 pub(super) fn merge_in_place<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut Vec<T>,
     start: usize,
     middle: usize,
     end: usize,
+    only: bool,
 ) {
     if start >= middle || middle >= end || arr[middle - 1] <= arr[middle] {
         return;
@@ -61,9 +63,18 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
         // merge below (shorter run copied, long predictable stretches), and
         // so do merges beyond the cache, where the extra copy costs more.
         let len = end - start;
-        if 4 * left.min(right) >= len
-            && len * std::mem::size_of::<T>() <= super::super::super::cache::budget(super::super::super::cache::Budget::MergeTwoWay) / 2
-        {
+        let in_cache = len * std::mem::size_of::<T>() <= super::super::super::cache::budget(super::super::super::cache::Budget::MergeTwoWay) / 2;
+        // The only merge (two runs: a pipe organ), balanced, beyond the
+        // cache: the gap merge (shorter run in the buffer, four chains, no
+        // copy back) instead of the one-chain merge below (u64 pipe organ
+        // 1M 1.34 to 1.06, 10M 2.12 to 1.85 ns per key). In the cache the
+        // two-ended merge into the scratch stays faster; in the rounds of
+        // many runs (sawtooth) the gap merge loses.
+        if only && !in_cache && 4 * left.min(right) >= len && super::GAP2.load(std::sync::atomic::Ordering::Relaxed) {
+            super::gap::merge_two_gap(&mut arr[start..end], middle - start, copy);
+            return;
+        }
+        if 4 * left.min(right) >= len && in_cache {
             if copy.len() < len {
                 copy.resize(len, arr[0]);
             }

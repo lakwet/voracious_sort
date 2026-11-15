@@ -2,12 +2,17 @@
 
 mod bidir;
 mod classic;
+mod gap;
 mod gallop;
 mod predictable;
 pub(crate) mod simd;
 mod two_way;
 
 pub(crate) use predictable::predictable_merge;
+
+/// Balanced two-run merges in place by gap merges (`gap`: buffer of the
+/// shorter run, four chains, no copy back).
+pub(crate) static GAP2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// Merges of unpredictable 32-bit unsigned runs by blocks in vector
 /// registers (`simd`), where the branch-free merge waits on each load.
@@ -77,7 +82,7 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
         let half = (separators.len() - 1) / 2;
         for i in 0..half {
             let i2 = i * 2;
-            merge_in_place(arr, &mut copy, separators[i2], separators[i2 + 1], separators[i2 + 2]);
+            merge_in_place(arr, &mut copy, separators[i2], separators[i2 + 1], separators[i2 + 2], separators.len() == 3);
         }
         for i in 0..half {
             separators.remove(i + 1);
