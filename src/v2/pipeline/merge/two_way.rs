@@ -40,22 +40,34 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
         return;
     }
     if right <= INSERT_MAX {
-        // Insert the right elements, in order, after the equal left ones.
-        let mut lo = start;
-        for idx in middle..end {
-            let value = arr[idx];
-            let pos = lo + arr[lo..idx].partition_point(|x| *x <= value);
-            arr[pos..=idx].rotate_right(1);
-            lo = pos + 1;
+        // A few right elements: copied out, then merged from the back, each
+        // left element moved once (block moves between binary searches);
+        // one rotation per inserted element moved the prefix again and
+        // again (i64 sorted + 0.1 % tail 10k: 0.25 against 0.60 ns per key).
+        let mut tmp = [arr[middle]; INSERT_MAX];
+        tmp[..right].copy_from_slice(&arr[middle..end]);
+        let (mut j, mut pos) = (middle, end);
+        for &v in tmp[..right].iter().rev() {
+            // Left elements above `v` (stable: the equal ones stay first).
+            let p = start + arr[start..j].partition_point(|x| *x <= v);
+            arr.copy_within(p..j, pos - (j - p));
+            pos -= j - p + 1;
+            j = p;
+            arr[pos] = v;
         }
     } else if left <= INSERT_MAX {
-        // Insert the left elements, last first, before the equal right ones.
-        let mut hi = end;
-        for idx in (start..middle).rev() {
-            let value = arr[idx];
-            let pos = idx + 1 + arr[idx + 1..hi].partition_point(|x| *x < value);
-            arr[idx..pos].rotate_left(1);
-            hi = pos - 1;
+        // Mirror: a few left elements merged from the front, before the
+        // equal right ones.
+        let mut tmp = [arr[start]; INSERT_MAX];
+        tmp[..left].copy_from_slice(&arr[start..middle]);
+        let (mut j, mut pos) = (middle, start);
+        for &v in tmp[..left].iter() {
+            let q = j + arr[j..end].partition_point(|x| *x < v);
+            arr.copy_within(j..q, pos);
+            pos += q - j;
+            j = q;
+            arr[pos] = v;
+            pos += 1;
         }
     } else {
         // Balanced runs (the shorter at least a quarter) within half the L2:

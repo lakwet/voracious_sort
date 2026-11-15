@@ -20,6 +20,17 @@ use verge::{compute_big_enough_run, explore_forward_asc, verge_sort_preprocessin
 /// `merges_unpredictable`).
 const DENSE_LEVELS: usize = 4;
 
+/// Tails from this length go through the whole path (repair, detectors);
+/// shorter ones go to the engine. Same value as `DENSE_MIN` (detect), the
+/// size from which the detectors pay off: could be tied to it.
+const TAIL_PATH_MIN: usize = 4096;
+
+/// Whether an array of `n` keys with a sorted prefix of `p` keys takes the
+/// tail-first path of `radix_path`.
+pub(crate) fn tail_first(n: usize, p: usize) -> bool {
+    p >= n / 2 && p < n
+}
+
 /// Monotone pairs probed at each grid point by `can_skip_verge`.
 const RUN_PROBE: usize = 8;
 
@@ -34,6 +45,24 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     detect: &dyn Fn(&mut [T], usize) -> bool,
     sort: &dyn Fn(&mut [T]),
 ) {
+    // A sorted prefix of at least half the array (seen by the presorted
+    // check): the tail alone goes through the path, then one merge, instead
+    // of scanning the prefix again (repair, Verge). u128 sorted + 10 % random
+    // tail 100k 2.96 to 2.07 ns per key.
+    let n = arr.len();
+    let p = known.ascending_prefix;
+    if tail_first(n, p) {
+        // A short tail: sorted (or reversed) as it is, else the engine (the
+        // whole path needs more keys).
+        let tail = &mut arr[p..];
+        if tail.len() >= TAIL_PATH_MIN {
+            radix_path(tail, Unsorted::default(), check_random_runs, detect, sort);
+        } else if presorted::presorted(tail).is_err() {
+            sort(tail);
+        }
+        merge_runs(arr, &mut vec![0, p, n]);
+        return;
+    }
     let simd_rule = merge::simd_rule_applies::<T>(arr.len()) && merge::SIMD_RULE.load(std::sync::atomic::Ordering::Relaxed);
     let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, known.ascending_prefix);
     let (sorted, equal_pairs) = if random_runs {
