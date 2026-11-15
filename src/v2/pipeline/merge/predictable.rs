@@ -31,6 +31,25 @@ pub(crate) fn predictable_merge<T: Copy + PartialOrd>(run: &[T], mid: usize) -> 
     (1..=16).any(|p| ((bits ^ (bits << p)) >> p).count_ones() <= 4)
 }
 
+/// Whether a merge of `run[..mid]` and `run[mid..]` is dense: at least half
+/// of its first 64 steps switch run (it moves one element per comparison,
+/// even when the pattern is periodic, as interleaved sawtooth teeth).
+pub(crate) fn dense_merge<T: Copy + PartialOrd>(run: &[T], mid: usize) -> bool {
+    let (mut i, mut j) = (0, mid);
+    let (mut prev, mut switches) = (true, 0);
+    for step in 0..64 {
+        if i >= mid || j >= run.len() {
+            return false;
+        }
+        let take_left = run[i] <= run[j];
+        switches += (step > 0 && take_left != prev) as u32;
+        prev = take_left;
+        i += take_left as usize;
+        j += !take_left as usize;
+    }
+    switches >= 32
+}
+
 /// `predictable_merge` on two separate runs `a` (first) and `b`.
 pub(crate) fn predictable_pair<T: Copy + PartialOrd>(a: &[T], b: &[T]) -> bool {
     let (mut i, mut j) = (0, 0);

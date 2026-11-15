@@ -18,7 +18,7 @@ use super::detect::heavy::heavy_by;
 use super::engines::dlsd::d64;
 use super::engines::lsd::w32;
 use super::engines::roller::{r32, r64};
-use super::pipeline::presorted::Unsorted;
+use super::pipeline::presorted::{presorted, Unsorted};
 use super::pipeline::radix_path;
 use super::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 
@@ -153,17 +153,39 @@ impl RavenousSort2 for f64 {
     }
 }
 
+/// From this size the presorted check and the repair of nearly sorted
+/// arrays come before the float detectors (f32 timestamps, a few distinct
+/// values nearly in order: 0.67 to 0.15-0.27 ns per key at 10k-3M). Below,
+/// the detectors first (1k: sparse 2.8 against 3.6).
+const PRESORTED_FIRST_MIN: usize = 4096;
+
 /// f32 arrays beyond the network: detectors, small path, radix path.
 #[inline(never)]
 fn sort_f32(arr: &mut [f32]) {
-    if detect32(arr) {
-        return;
+    let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
+    if !presorted_first {
+        if detect32(arr) {
+            return;
+        }
+        if arr.len() <= SMALL_F32 {
+            f32_bits::sort_small(f32_bits::bits(arr));
+            return;
+        }
     }
-    if arr.len() <= SMALL_F32 {
-        f32_bits::sort_small(f32_bits::bits(arr));
-        return;
-    }
-    let detect = |a: &mut [f32], _| few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less);
+    // As for integers: the presorted check first, then the repair of nearly
+    // sorted arrays, and only then the detectors (in `detect`).
+    let known = if presorted_first {
+        match presorted(arr) {
+            Ok(()) => {
+                f32_bits::order_signed_zeros(arr);
+                return;
+            }
+            Err(known) => known,
+        }
+    } else {
+        Unsorted::default()
+    };
+    let detect = |a: &mut [f32], _| (presorted_first && detect32(a)) || few32(a) || heavy_by(a, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less);
     let sort_chunk = |chunk: &mut [f32]| {
         if chunk.len() >= roller_min_f32() {
             r32::roller(f32_bits::bits(chunk));
@@ -171,7 +193,7 @@ fn sort_f32(arr: &mut [f32]) {
             w32::lsd(f32_bits::bits(chunk));
         }
     };
-    radix_path(arr, Unsorted::default(), false, &detect, &sort_chunk);
+    radix_path(arr, known, false, &detect, &sort_chunk);
     f32_bits::order_signed_zeros(arr);
 }
 
@@ -179,15 +201,31 @@ fn sort_f32(arr: &mut [f32]) {
 /// DLSD buffer for all the chunks).
 #[inline(never)]
 fn sort_f64(arr: &mut [f64]) {
-    if detect64(arr) {
-        return;
+    let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
+    if !presorted_first {
+        if detect64(arr) {
+            return;
+        }
+        if arr.len() <= SMALL_F64 {
+            f64_bits::sort_small(f64_bits::bits(arr));
+            return;
+        }
     }
-    if arr.len() <= SMALL_F64 {
-        f64_bits::sort_small(f64_bits::bits(arr));
-        return;
-    }
+    // As for integers: the presorted check first, then the repair of nearly
+    // sorted arrays, and only then the detectors (in `detect`).
+    let known = if presorted_first {
+        match presorted(arr) {
+            Ok(()) => {
+                f64_bits::order_signed_zeros(arr);
+                return;
+            }
+            Err(known) => known,
+        }
+    } else {
+        Unsorted::default()
+    };
     let buffer = std::cell::RefCell::new(Vec::new());
-    let detect = |a: &mut [f64], _| few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less);
+    let detect = |a: &mut [f64], _| (presorted_first && detect64(a)) || few64(a) || heavy_by(a, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less);
     let sort_chunk = |chunk: &mut [f64]| {
         if chunk.len() >= roller_min_f64() {
             r64::roller(f64_bits::bits(chunk));
@@ -195,6 +233,6 @@ fn sort_f64(arr: &mut [f64]) {
             d64::dlsd_with(f64_bits::bits(chunk), &mut buffer.borrow_mut());
         }
     };
-    radix_path(arr, Unsorted::default(), false, &detect, &sort_chunk);
+    radix_path(arr, known, false, &detect, &sort_chunk);
     f64_bits::order_signed_zeros(arr);
 }

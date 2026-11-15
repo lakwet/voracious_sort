@@ -16,6 +16,10 @@ use merge::{merge_runs, predictable_merge};
 use presorted::{repair_nearly_sorted, Unsorted};
 use verge::{compute_big_enough_run, explore_forward_asc, verge_sort_preprocessing_fast};
 
+/// Merge levels from which dense merges cost more than a radix sort (see
+/// `merges_unpredictable`).
+const DENSE_LEVELS: usize = 4;
+
 /// Monotone pairs probed at each grid point by `can_skip_verge`.
 const RUN_PROBE: usize = 8;
 
@@ -56,7 +60,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     let segments = separators.len().saturating_sub(1);
     let levels = (usize::BITS - segments.saturating_sub(1).leading_zeros()) as usize;
     let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS.load(std::sync::atomic::Ordering::Relaxed);
-    let unpredictable = merges_unpredictable(arr, &separators, &chunks);
+    let unpredictable = merges_unpredictable(arr, &separators, &chunks, levels);
     if unpredictable && !simd_merge {
         sort(arr);
         return;
@@ -112,9 +116,15 @@ fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
 /// whole array: most first-round merges between two runs unpredictable for
 /// a branchy merge (about as costly as a whole radix sort each). From 3
 /// segments; from 2 for keys of at most 16 bits, whose radix sort is cheaper
-/// than one unpredictable merge round. Chunks are not sorted yet: only
-/// run-run pairs are sampled.
-fn merges_unpredictable<T: Copy + PartialOrd>(arr: &[T], separators: &[usize], chunks: &[(usize, usize)]) -> bool {
+/// than one unpredictable merge round. Dense merges (one element per
+/// comparison) count as unpredictable from `DENSE_LEVELS` merge levels, for
+/// arrays beyond a quarter of the L2: float sawtooth, 18-21 teeth, f32 10M
+/// 6.6 to 3.7 ns per key, f64 600k 6.4 to 4.4; in the cache the merges stay
+/// cheaper (f32 600k 4.9 against 7.2, f64 100k 4.6 against 6.5). Chunks are
+/// not sorted yet: only run-run pairs are sampled.
+fn merges_unpredictable<T: Copy + PartialOrd>(arr: &[T], separators: &[usize], chunks: &[(usize, usize)], levels: usize) -> bool {
+    let beyond = std::mem::size_of_val(arr) > super::cache::l2_bytes() / 4;
+    let dense_levels = beyond && levels >= DENSE_LEVELS;
     let narrow = std::mem::size_of::<T>() <= 2;
     if separators.len() < if narrow { 3 } else { 4 } {
         return false;
@@ -127,7 +137,7 @@ fn merges_unpredictable<T: Copy + PartialOrd>(arr: &[T], separators: &[usize], c
             continue;
         }
         sampled += 1;
-        if !predictable_merge(&arr[s..e], m - s) {
+        if !predictable_merge(&arr[s..e], m - s) || (dense_levels && merge::dense_merge(&arr[s..e], m - s)) {
             unpredictable += 1;
         }
     }

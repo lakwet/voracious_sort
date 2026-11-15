@@ -8,7 +8,7 @@ mod predictable;
 pub(crate) mod simd;
 mod two_way;
 
-pub(crate) use predictable::predictable_merge;
+pub(crate) use predictable::{dense_merge, predictable_merge};
 
 /// Balanced two-run merges in place by gap merges (`gap`: buffer of the
 /// shorter run, four chains, no copy back).
