@@ -11,9 +11,7 @@ struct Record {
 }
 
 impl PartialEq for Record {
-    fn eq(&self, other: &Self) -> bool {
-        self.key == other.key
-    }
+    fn eq(&self, other: &Self) -> bool { self.key == other.key }
 }
 
 impl PartialOrd for Record {
@@ -25,9 +23,7 @@ impl PartialOrd for Record {
 impl Radixable<u32> for Record {
     type Key = u32;
 
-    fn key(&self) -> u32 {
-        self.key
-    }
+    fn key(&self) -> u32 { self.key }
 }
 
 fn assert_stable(keys: Vec<u32>, sort: impl FnOnce(&mut Vec<Record>)) {

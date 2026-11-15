@@ -282,9 +282,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
 }
 
 impl<T: Radixable<i32>> Dispatcher<T, i32> for i32 {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        lsd_radixsort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         lsd_stable_radixsort(arr, 8);
     }
@@ -303,9 +301,7 @@ impl<T: Radixable<i32>> Dispatcher<T, i32> for i32 {
 
 #[cfg(target_pointer_width = "32")]
 impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        lsd_radixsort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         lsd_stable_radixsort(arr, 8);
     }
@@ -396,9 +392,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
 }
 
 impl<T: Radixable<i128>> Dispatcher<T, i128> for i128 {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        voracious_sort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -417,9 +411,7 @@ impl<T: Radixable<i128>> Dispatcher<T, i128> for i128 {
 
 #[cfg(target_pointer_width = "128")]
 impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        voracious_sort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -550,9 +542,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
 }
 
 impl<T: Radixable<u32>> Dispatcher<T, u32> for u32 {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        lsd_radixsort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         lsd_stable_radixsort(arr, 8);
     }
@@ -571,9 +561,7 @@ impl<T: Radixable<u32>> Dispatcher<T, u32> for u32 {
 
 #[cfg(target_pointer_width = "32")]
 impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        lsd_radixsort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { lsd_radixsort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         lsd_stable_radixsort(arr, 8);
     }
@@ -656,9 +644,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
 }
 
 impl<T: Radixable<u128>> Dispatcher<T, u128> for u128 {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        voracious_sort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }
@@ -677,9 +663,7 @@ impl<T: Radixable<u128>> Dispatcher<T, u128> for u128 {
 
 #[cfg(target_pointer_width = "128")]
 impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
-    fn voracious_sort(&self, arr: &mut [T]) {
-        voracious_sort(arr, 8);
-    }
+    fn voracious_sort(&self, arr: &mut [T]) { voracious_sort(arr, 8); }
     fn voracious_stable_sort(&self, arr: &mut [T]) {
         msd_stable_radixsort(arr, 8);
     }

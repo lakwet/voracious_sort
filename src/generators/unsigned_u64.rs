@@ -1,5 +1,5 @@
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen::<u64>())
+        .map(|_| rand::rng().random::<u64>())
         .collect::<Vec<u64>>()
 }
 
@@ -15,7 +15,7 @@ pub fn helper_random_array_uniform_u64(size: usize) -> Vec<u64> {
 pub fn helper_random_array_uniform_10_9_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(0, 1_000_000_000))
+        .map(|_| rand::rng().random_range(0..1_000_000_000))
         .collect::<Vec<u64>>()
 }
 
@@ -29,7 +29,7 @@ fn helper_asc_xth_start(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i < size / frac {
-                thread_rng().gen::<u64>()
+                rand::rng().random::<u64>()
             } else {
                 i as u64
             }
@@ -57,7 +57,7 @@ fn helper_asc_xth(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i > size - (size / frac) {
-                thread_rng().gen::<u64>()
+                rand::rng().random::<u64>()
             } else {
                 i as u64
             }
@@ -90,7 +90,7 @@ fn helper_desc_xthst(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i < size / frac {
-                thread_rng().gen::<u64>()
+                rand::rng().random::<u64>()
             } else {
                 (size - i) as u64
             }
@@ -118,7 +118,7 @@ fn helper_desc_xth(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i > size - (size / frac) {
-                thread_rng().gen::<u64>()
+                rand::rng().random::<u64>()
             } else {
                 (size - i) as u64
             }
@@ -143,8 +143,8 @@ pub fn helper_random_array_desc10pct_u64(size: usize) -> Vec<u64> {
 
 // All equals
 pub fn helper_random_array_allequals_u64(size: usize) -> Vec<u64> {
-    let mut rng = thread_rng();
-    let value: u64 = rng.gen();
+    let mut rng = rand::rng();
+    let value: u64 = rng.random();
 
     vec![value; size]
 }
@@ -153,19 +153,19 @@ pub fn helper_random_array_allequals_u64(size: usize) -> Vec<u64> {
 pub fn helper_random_array_alternating16_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(0, 16))
+        .map(|_| rand::rng().random_range(0..16))
         .collect::<Vec<u64>>()
 }
 
 // Zipf
 pub fn helper_random_array_zipf_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u64 = 0;
     while quantity > 2 {
-        value = rng.gen();
+        value = rng.random();
 
         for _ in 0..quantity {
             array.push(value);
@@ -191,7 +191,7 @@ fn helper_small(size: usize, range: u64) -> Vec<u64> {
 
     (0..size)
         .into_par_iter()
-        .map(|_| thread_rng().gen_range(0, range))
+        .map(|_| rand::rng().random_range(0..range))
         .collect::<Vec<u64>>()
 }
 
@@ -232,14 +232,14 @@ pub fn helper_random_array_small_size7_u64(size: usize) -> Vec<u64> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_u64(size: usize) -> Vec<u64> {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<u64> = Vec::with_capacity(size);
 
     let mut i = 0;
     let mut value: u64 = 0;
     for _ in 0..sqrt {
-        value = rng.gen();
+        value = rng.random();
         for _ in 0..sqrt {
             array.push(value);
             i += 1;
@@ -262,12 +262,12 @@ pub fn helper_random_array_almost_asc_u64(size: usize) -> Vec<u64> {
         return helper_random_array_uniform_u64(size);
     }
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut array = helper_random_array_ascending_u64(size);
 
     for _ in 0..((size as f64).log2() as usize) {
-        let i = rng.gen_range(0, size);
-        let j = rng.gen_range(0, size);
+        let i = rng.random_range(0..size);
+        let j = rng.random_range(0..size);
         array.swap(i, j);
     }
 
@@ -283,12 +283,12 @@ pub fn helper_random_array_almost_desc_u64(size: usize) -> Vec<u64> {
         return helper_random_array_uniform_u64(size);
     }
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let mut array = helper_random_array_descending_u64(size);
 
     for _ in 0..((size as f64).log2() as usize) {
-        let i = rng.gen_range(0, size);
-        let j = rng.gen_range(0, size);
+        let i = rng.random_range(0..size);
+        let j = rng.random_range(0..size);
         array.swap(i, j);
     }
 
@@ -391,7 +391,7 @@ fn helper_normal(size: usize, bound: f64) -> Vec<u64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let v: f64 = normal.sample(&mut thread_rng());
+            let v: f64 = normal.sample(&mut rand::rng());
             v.abs() as u64
         })
         .collect::<Vec<u64>>()
