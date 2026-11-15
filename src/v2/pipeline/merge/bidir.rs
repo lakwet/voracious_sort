@@ -22,16 +22,16 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T])
         let (pa, pb) = (a.as_ptr(), b.as_ptr());
         let d = dst.as_mut_ptr();
         for _ in 0..steps {
-            let (x, y) = (*pa.add(lf), *pb.add(rf));
-            let take_right = y < x;
-            *d.add(df) = if take_right { y } else { x };
+            let (x, y) = (pa.add(lf), pb.add(rf));
+            let take_right = *y < *x;
+            *d.add(df) = *pick(take_right, y, x);
             rf += take_right as usize;
             lf += (!take_right) as usize;
             df += 1;
-            let (x, y) = (*pa.add(le - 1), *pb.add(re - 1));
-            let take_left = y < x;
+            let (x, y) = (pa.add(le - 1), pb.add(re - 1));
+            let take_left = *y < *x;
             de -= 1;
-            *d.add(de) = if take_left { x } else { y };
+            *d.add(de) = *pick(take_left, x, y);
             le -= take_left as usize;
             re -= (!take_left) as usize;
         }
@@ -52,4 +52,17 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T])
     df += le - lf;
     dst[df..df + (re - rf)].copy_from_slice(&b[rf..re]);
     debug_assert_eq!(df + (re - rf), de);
+}
+
+/// `a` when `c`, else `b`, kept a select by LLVM (an `if` on the values
+/// became a branch on aarch64: mispredicted half the time on random merges,
+/// u32 halves at 100k-10M 2.7-2.9 ns per key). Masked on aarch64,
+/// `select_unpredictable` (cmov) on x86 (the same rule as the records'
+/// merges).
+#[inline(always)]
+fn pick<T>(c: bool, a: *const T, b: *const T) -> *const T {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    return std::hint::select_unpredictable(c, a, b);
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
+    return (b as usize ^ ((a as usize ^ b as usize) & (c as usize).wrapping_neg())) as *const T;
 }

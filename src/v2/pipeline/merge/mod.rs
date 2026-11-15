@@ -4,9 +4,46 @@ mod bidir;
 mod classic;
 mod gallop;
 mod predictable;
+pub(crate) mod simd;
 mod two_way;
 
 pub(crate) use predictable::predictable_merge;
+
+/// Merges of unpredictable 32-bit unsigned runs by blocks in vector
+/// registers (`simd`), where the branch-free merge waits on each load.
+pub(crate) static SIMD_MERGE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+/// With `SIMD_MERGE`, unpredictable merges are merged instead of sorting
+/// the whole array by radix (`merges_unpredictable`).
+pub(crate) static SIMD_RULE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+/// With `SIMD_RULE`: unpredictable merges merged (instead of the radix
+/// sort) up to this many merge levels.
+pub(crate) static SIMD_LEVELS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+
+/// Whether the SIMD block merge applies to keys of type `T`.
+pub(crate) fn simd_applies<T>() -> bool {
+    cfg!(target_arch = "aarch64")
+        && SIMD_MERGE.load(std::sync::atomic::Ordering::Relaxed)
+        && std::any::type_name::<T>() == "u32"
+}
+
+/// Balanced merge of `a` and `b` into `dst`: the SIMD block merge for
+/// unpredictable u32 runs, else the two-ended branch-free merge.
+fn merge_balanced<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
+    if simd_applies::<T>() && a.len() >= 4 && b.len() >= 4 && !predictable::predictable_pair(a, b) {
+        // SAFETY: `T` is `u32` (checked by name above): same layout.
+        let (a, b, d) = unsafe {
+            (
+                std::slice::from_raw_parts(a.as_ptr() as *const u32, a.len()),
+                std::slice::from_raw_parts(b.as_ptr() as *const u32, b.len()),
+                std::slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u32, dst.len()),
+            )
+        };
+        simd::merge_u32(a, b, d);
+        return;
+    }
+    merge_bidir(a, b, dst);
+}
 
 use bidir::merge_bidir;
 use gallop::GALLOP_MIN;
@@ -45,6 +82,15 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
         for i in 0..half {
             separators.remove(i + 1);
         }
+    }
+}
+
+/// Unpredictable merges of u32 runs by SIMD blocks (instead of the radix
+/// sort): ping-pong rounds at every size (the block merges stream through
+/// memory).
+pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut Vec<usize>) {
+    if separators.len() > 2 {
+        pingpong(arr, separators);
     }
 }
 
@@ -105,7 +151,7 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
     // Balanced runs: two-ended branch-free merge (as the in-place version;
     // a branchy merge does not beat it even on predictable interleavings).
     if 4 * a.len().min(b.len()) >= a.len() + b.len() {
-        merge_bidir(a, b, dst);
+        merge_balanced(a, b, dst);
         return;
     }
     // Skewed runs: stretches, galloping from `GALLOP_MIN` on.
@@ -143,3 +189,10 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
     k += a.len() - i;
     dst[k..].copy_from_slice(&b[j..]);
 }
+
+/// Tests: the two-ended branch-free merge.
+#[cfg(test)]
+pub(crate) fn bidir_pub<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
+    merge_bidir(a, b, dst)
+}
+

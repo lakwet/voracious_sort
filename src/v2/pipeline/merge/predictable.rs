@@ -30,3 +30,24 @@ pub(crate) fn predictable_merge<T: Copy + PartialOrd>(run: &[T], mid: usize) -> 
     }
     (1..=16).any(|p| ((bits ^ (bits << p)) >> p).count_ones() <= 4)
 }
+
+/// `predictable_merge` on two separate runs `a` (first) and `b`.
+pub(crate) fn predictable_pair<T: Copy + PartialOrd>(a: &[T], b: &[T]) -> bool {
+    let (mut i, mut j) = (0, 0);
+    let mut bits = 0u64;
+    let mut steps = 0;
+    while steps < 64 && i < a.len() && j < b.len() {
+        let take_left = a[i] <= b[j];
+        bits |= u64::from(take_left) << steps;
+        i += take_left as usize;
+        j += !take_left as usize;
+        steps += 1;
+    }
+    if steps < 64 {
+        return true;
+    }
+    if (bits ^ (bits << 1)).count_ones() - (bits & 1) as u32 <= 16 {
+        return true;
+    }
+    (1..=16).any(|p| ((bits ^ (bits << p)) >> p).count_ones() <= 4)
+}

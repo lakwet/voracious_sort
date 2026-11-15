@@ -30,7 +30,8 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     detect: &dyn Fn(&mut [T], usize) -> bool,
     sort: &dyn Fn(&mut [T]),
 ) {
-    let random_runs = check_random_runs && starts_with_random_runs(arr, known.ascending_prefix);
+    let simd_rule = merge::simd_applies::<T>() && merge::SIMD_RULE.load(std::sync::atomic::Ordering::Relaxed);
+    let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, known.ascending_prefix);
     let (sorted, equal_pairs) = if random_runs {
         (false, known.probes.map_or(0, |p| p.equal()))
     } else {
@@ -51,14 +52,23 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
         chunks.borrow_mut().push((start, chunk.len()));
     });
     let chunks = chunks.into_inner();
-    if merges_unpredictable(arr, &separators, &chunks) {
+    // SIMD merges: merging beats the radix sort up to a few merge levels.
+    let segments = separators.len().saturating_sub(1);
+    let levels = (usize::BITS - segments.saturating_sub(1).leading_zeros()) as usize;
+    let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS.load(std::sync::atomic::Ordering::Relaxed);
+    let unpredictable = merges_unpredictable(arr, &separators, &chunks);
+    if unpredictable && !simd_merge {
         sort(arr);
         return;
     }
     for &(start, len) in chunks.iter() {
         sort(&mut arr[start..start + len]);
     }
-    merge_runs(arr, &mut separators);
+    if unpredictable {
+        merge::merge_runs_simd(arr, &mut separators);
+    } else {
+        merge_runs(arr, &mut separators);
+    }
 }
 
 /// The array starts with two long ascending runs (the first one, `prefix`

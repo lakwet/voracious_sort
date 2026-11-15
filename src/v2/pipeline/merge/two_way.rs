@@ -1,6 +1,5 @@
 //! The in-place 2-way merge of the merge rounds.
 
-use super::bidir::merge_bidir;
 use super::classic::merge2;
 use super::gallop::{gallop_back, gallop_forward};
 
@@ -80,7 +79,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
             let dst = &mut copy[..len];
             dst[..head].copy_from_slice(&src[mid..mid + head]);
             dst[len - tail..].copy_from_slice(&src[mid - tail..mid]);
-            merge_bidir(&src[..mid - tail], &src[mid + head..], &mut dst[head..len - tail]);
+            super::merge_balanced(&src[..mid - tail], &src[mid + head..], &mut dst[head..len - tail]);
             arr[start..end].copy_from_slice(&copy[..len]);
             return;
         }
