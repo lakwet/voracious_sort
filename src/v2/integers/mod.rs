@@ -10,7 +10,7 @@
 //! 5. the radix path (`pipeline`), with the integer detectors (ranges,
 //!    plateaus, few values, heavy hitters, dense ranges); chunks sorted by
 //!    the fused LSD (8 to 32 bits) or the DLSD (64 bits), the rollercoaster
-//!    beyond the cache.
+//!    beyond the cache (32 bits: only on ordered keys).
 //!
 //! 128-bit keys: see `wide128`.
 
@@ -143,12 +143,12 @@ fn detect<T: IntSort>(arr: &mut [T], equal_pairs: usize) -> bool {
         })
 }
 
-/// Beyond the largest cache: whether 32-bit keys still take the
-/// rollercoaster. Rule under test: only when the keys are ordered locally
-/// or globally (else the fused LSD).
+/// Beyond the largest cache, 32-bit keys take the rollercoaster only when
+/// they are ordered locally or globally (else the fused LSD: random keys
+/// -15 to -45 % from 30M to 1G).
 #[inline]
 fn roller_beyond<U: Copy + PartialOrd>(bits: &[U]) -> bool {
-    !super::ab::new_rule() || locally_ordered(bits) || globally_ordered(bits)
+    locally_ordered(bits) || globally_ordered(bits)
 }
 
 /// Sampled keys (65 spread over the slice) mostly in one order: a global

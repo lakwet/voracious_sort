@@ -428,16 +428,16 @@ u32    10000000 Sparse 90%       : no_verge > lsd > heavy
 u32    10000000 Heavy 4          : no_verge > lsd > heavy
 u32    10000000 Composite        : no_verge > lsd
 u32    10000000 Straddle         : range
-u32    30000000 Unif             : no_verge > roller
-u32    30000000 Unif 10^9        : no_verge > roller
+u32    30000000 Unif             : no_verge > lsd
+u32    30000000 Unif 10^9        : no_verge > lsd
 u32    30000000 Small1           : range
 u32    30000000 Small2           : range
-u32    30000000 Small3           : no_verge > roller
+u32    30000000 Small3           : no_verge > lsd
 u32    30000000 Asc              : presorted
 u32    30000000 Desc             : presorted
 u32    30000000 Equal            : presorted
 u32    30000000 Alt16            : range
-u32    30000000 Zipf             : no_verge > roller
+u32    30000000 Zipf             : no_verge > lsd
 u32    30000000 FakeZipf         : few
 u32    30000000 Almost Asc       : repaired
 u32    30000000 Almost Desc      : repaired
@@ -451,36 +451,36 @@ u32    30000000 Normale 8        : range
 u32    30000000 Normale 10       : range
 u32    30000000 Normale 13       : range
 u32    30000000 Normale 16       : range
-u32    30000000 Normale 20       : no_verge > roller
-u32    30000000 Normale 24       : no_verge > roller
-u32    30000000 Normale 30       : no_verge > roller
+u32    30000000 Normale 20       : no_verge > lsd
+u32    30000000 Normale 24       : no_verge > lsd
+u32    30000000 Normale 30       : no_verge > lsd
 u32    30000000 Int 0..100       : range
-u32    30000000 Int 0..n         : no_verge > roller
+u32    30000000 Int 0..n         : no_verge > lsd
 u32    30000000 Few 16           : few
 u32    30000000 Int late out     : few
 u32    30000000 Few16 late       : few
 u32    30000000 Asc rnd tail     : tail_first > no_verge > lsd
 u32    30000000 Runs 8           : verge_simd_merge
 u32    30000000 Runs 64          : verge_merge > roller
-u32    30000000 Clusters         : no_verge > roller
+u32    30000000 Clusters         : no_verge > lsd
 u32    30000000 Timestamps       : no_verge > roller
 u32    30000000 Aligned 2^16     : range
 u32    30000000 Prefix 20b       : range
 u32    30000000 Bimodal          : no_verge > roller
 u32    30000000 Sparse 90%       : no_verge > lsd > heavy
 u32    30000000 Heavy 4          : no_verge > lsd > heavy
-u32    30000000 Composite        : no_verge > roller
+u32    30000000 Composite        : no_verge > lsd
 u32    30000000 Straddle         : range
-u32   100000000 Unif             : no_verge > roller
-u32   100000000 Unif 10^9        : no_verge > roller
+u32   100000000 Unif             : no_verge > lsd
+u32   100000000 Unif 10^9        : no_verge > lsd
 u32   100000000 Small1           : range
 u32   100000000 Small2           : range
-u32   100000000 Small3           : no_verge > roller
+u32   100000000 Small3           : no_verge > lsd
 u32   100000000 Asc              : presorted
 u32   100000000 Desc             : presorted
 u32   100000000 Equal            : presorted
 u32   100000000 Alt16            : range
-u32   100000000 Zipf             : no_verge > roller
+u32   100000000 Zipf             : no_verge > lsd
 u32   100000000 FakeZipf         : few
 u32   100000000 Almost Asc       : repaired
 u32   100000000 Almost Desc      : repaired
@@ -494,25 +494,25 @@ u32   100000000 Normale 8        : range
 u32   100000000 Normale 10       : range
 u32   100000000 Normale 13       : range
 u32   100000000 Normale 16       : range
-u32   100000000 Normale 20       : no_verge > roller
-u32   100000000 Normale 24       : no_verge > roller
-u32   100000000 Normale 30       : no_verge > roller
+u32   100000000 Normale 20       : no_verge > lsd
+u32   100000000 Normale 24       : no_verge > lsd
+u32   100000000 Normale 30       : no_verge > lsd
 u32   100000000 Int 0..100       : range
-u32   100000000 Int 0..n         : no_verge > roller
+u32   100000000 Int 0..n         : no_verge > lsd
 u32   100000000 Few 16           : few
 u32   100000000 Int late out     : few
 u32   100000000 Few16 late       : few
 u32   100000000 Asc rnd tail     : tail_first > no_verge > lsd
 u32   100000000 Runs 8           : verge_simd_merge
 u32   100000000 Runs 64          : verge_merge > roller
-u32   100000000 Clusters         : no_verge > roller
+u32   100000000 Clusters         : no_verge > lsd
 u32   100000000 Timestamps       : no_verge > roller
 u32   100000000 Aligned 2^16     : range
 u32   100000000 Prefix 20b       : range
-u32   100000000 Bimodal          : no_verge > roller
+u32   100000000 Bimodal          : no_verge > lsd
 u32   100000000 Sparse 90%       : no_verge > lsd > heavy
-u32   100000000 Heavy 4          : no_verge > roller > heavy
-u32   100000000 Composite        : no_verge > roller
+u32   100000000 Heavy 4          : no_verge > lsd > heavy
+u32   100000000 Composite        : no_verge > lsd
 u32   100000000 Straddle         : range
 i32        1000 Unif             : no_verge > lsd
 i32        1000 +-10^9           : no_verge > lsd
@@ -884,14 +884,14 @@ i32    10000000 Sparse 90%       : no_verge > lsd > heavy
 i32    10000000 Heavy 4          : no_verge > lsd > heavy
 i32    10000000 Composite        : no_verge > lsd
 i32    10000000 Straddle         : range
-i32    30000000 Unif             : no_verge > roller
-i32    30000000 +-10^9           : no_verge > roller
+i32    30000000 Unif             : no_verge > lsd
+i32    30000000 +-10^9           : no_verge > lsd
 i32    30000000 Small            : range
 i32    30000000 Asc              : presorted
 i32    30000000 Desc             : presorted
 i32    30000000 Equal            : presorted
 i32    30000000 Alt16            : range
-i32    30000000 Zipf             : no_verge > roller
+i32    30000000 Zipf             : no_verge > lsd
 i32    30000000 FakeZipf         : few
 i32    30000000 Almost Asc       : repaired
 i32    30000000 Almost Desc      : repaired
@@ -902,33 +902,33 @@ i32    30000000 Pipe Organ       : tail_first > repaired
 i32    30000000 Front            : tail_first
 i32    30000000 Middle           : tail_first
 i32    30000000 Normale 10       : range
-i32    30000000 Normale 20       : no_verge > roller
-i32    30000000 Normale 30       : no_verge > roller
+i32    30000000 Normale 20       : no_verge > lsd
+i32    30000000 Normale 30       : no_verge > lsd
 i32    30000000 Int 0..100       : range
-i32    30000000 Int 0..n         : no_verge > roller
+i32    30000000 Int 0..n         : no_verge > lsd
 i32    30000000 Few 16           : few
 i32    30000000 Int late out     : few
 i32    30000000 Few16 late       : few
 i32    30000000 Asc rnd tail     : tail_first > no_verge > lsd
 i32    30000000 Runs 8           : verge_simd_merge
 i32    30000000 Runs 64          : verge_merge > roller
-i32    30000000 Clusters         : no_verge > roller
+i32    30000000 Clusters         : no_verge > lsd
 i32    30000000 Timestamps       : no_verge > roller
 i32    30000000 Aligned 2^16     : range
 i32    30000000 Prefix 20b       : range
 i32    30000000 Bimodal          : no_verge > roller
 i32    30000000 Sparse 90%       : no_verge > lsd > heavy
 i32    30000000 Heavy 4          : no_verge > lsd > heavy
-i32    30000000 Composite        : no_verge > roller
+i32    30000000 Composite        : no_verge > lsd
 i32    30000000 Straddle         : range
-i32   100000000 Unif             : no_verge > roller
-i32   100000000 +-10^9           : no_verge > roller
+i32   100000000 Unif             : no_verge > lsd
+i32   100000000 +-10^9           : no_verge > lsd
 i32   100000000 Small            : range
 i32   100000000 Asc              : presorted
 i32   100000000 Desc             : presorted
 i32   100000000 Equal            : presorted
 i32   100000000 Alt16            : range
-i32   100000000 Zipf             : no_verge > roller
+i32   100000000 Zipf             : no_verge > lsd
 i32   100000000 FakeZipf         : few
 i32   100000000 Almost Asc       : repaired
 i32   100000000 Almost Desc      : repaired
@@ -939,24 +939,24 @@ i32   100000000 Pipe Organ       : tail_first > repaired
 i32   100000000 Front            : tail_first
 i32   100000000 Middle           : tail_first
 i32   100000000 Normale 10       : range
-i32   100000000 Normale 20       : no_verge > roller
-i32   100000000 Normale 30       : no_verge > roller
+i32   100000000 Normale 20       : no_verge > lsd
+i32   100000000 Normale 30       : no_verge > lsd
 i32   100000000 Int 0..100       : range
-i32   100000000 Int 0..n         : no_verge > roller
+i32   100000000 Int 0..n         : no_verge > lsd
 i32   100000000 Few 16           : few
 i32   100000000 Int late out     : few
 i32   100000000 Few16 late       : few
 i32   100000000 Asc rnd tail     : tail_first > no_verge > lsd
 i32   100000000 Runs 8           : verge_simd_merge
 i32   100000000 Runs 64          : verge_merge > roller
-i32   100000000 Clusters         : no_verge > roller
+i32   100000000 Clusters         : no_verge > lsd
 i32   100000000 Timestamps       : no_verge > roller
 i32   100000000 Aligned 2^16     : range
 i32   100000000 Prefix 20b       : range
-i32   100000000 Bimodal          : no_verge > roller
+i32   100000000 Bimodal          : no_verge > lsd
 i32   100000000 Sparse 90%       : no_verge > lsd > heavy
-i32   100000000 Heavy 4          : no_verge > roller > heavy
-i32   100000000 Composite        : no_verge > roller
+i32   100000000 Heavy 4          : no_verge > lsd > heavy
+i32   100000000 Composite        : no_verge > lsd
 i32   100000000 Straddle         : range
 u64        1000 Unif             : no_verge > dlsd
 u64        1000 Unif 10^9        : no_verge > dlsd
