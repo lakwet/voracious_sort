@@ -69,6 +69,12 @@ macro_rules! int_range {
                 if n <= u32::MAX as usize && 2 * rspan < limit {
                     return wrapped_count(values, rlo, rhi, limit as usize);
                 }
+                // Low bits equal in all keys (aligned values, a 16-bit field
+                // in the middle of the key): counted on the keys shifted
+                // right past them.
+                if n <= u32::MAX as usize && shifted_count(values, sample, limit) {
+                    return true;
+                }
                 // Values at both ends of the domain, wider than a window (u64
                 // at 1k-1M: 6.7-9.0 to 3.0-4.0 ns per key; u32 3.1 to 2.1).
                 if <$uint>::BITS >= 32 && n < $roller_min() && offset_sort(values, lo, hi, rlo, rhi) {
@@ -137,6 +143,45 @@ macro_rules! int_range {
                 for k in keys.iter_mut() {
                     *k = $decode((*k + kmin) ^ TOP);
                 }
+                true
+            }
+
+            /// Counting sort of keys whose low `tz` bits are the same in all
+            /// of them, on `key >> tz` (the shifted range within `limit`):
+            /// from the sample first, then checked on all the keys (one pass
+            /// for the exact min / max and the bits that differ).
+            fn shifted_count(values: &mut [$t], sample: &[$t; SAMPLE], limit: u64) -> bool {
+                let e0 = $encode(sample[0] as $uint);
+                let (mut slo, mut shi, mut sdiff) = (e0, e0, 0 as $uint);
+                for &v in sample.iter() {
+                    let e = $encode(v as $uint);
+                    sdiff |= e ^ e0;
+                    slo = slo.min(e);
+                    shi = shi.max(e);
+                }
+                let tz = sdiff.trailing_zeros();
+                if tz == 0 || tz >= <$uint>::BITS || ((shi - slo) >> tz) as u64 >= limit {
+                    return false;
+                }
+                let keys = bits_of(values);
+                let k0 = $encode(keys[0]);
+                let (mut kmin, mut kmax, mut diff) = (k0, k0, 0 as $uint);
+                for &k in keys.iter() {
+                    let e = $encode(k);
+                    diff |= e ^ k0;
+                    kmin = kmin.min(e);
+                    kmax = kmax.max(e);
+                }
+                let tz = diff.trailing_zeros();
+                if tz == 0 || tz >= <$uint>::BITS {
+                    return tz >= <$uint>::BITS;
+                }
+                let span = ((kmax - kmin) >> tz) as u64 + 1;
+                if span > limit {
+                    return false;
+                }
+                let low = k0 & (((1 as $uint) << tz) - 1);
+                exact_count(keys, kmin >> tz, span as usize, move |k: $uint| $encode(k) >> tz, move |v: $uint| $decode((v << tz) | low));
                 true
             }
 
