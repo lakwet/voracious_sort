@@ -19,6 +19,15 @@ pub fn helper_random_array_uniform_10_9_u32(size: usize) -> Vec<u32> {
         .collect::<Vec<u32>>()
 }
 
+// Only the two middle bytes vary (top and bottom bytes constant): a
+// 16-bit range that does not start at the bottom of the key.
+pub fn helper_random_array_middle16_u32(size: usize) -> Vec<u32> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| 0x5A00_002A | ((rand::rng().random::<u16>() as u32) << 8))
+        .collect::<Vec<u32>>()
+}
+
 // Ascending
 pub fn helper_random_array_ascending_u32(size: usize) -> Vec<u32> {
     (0..(size as u32)).into_par_iter().collect::<Vec<u32>>()

@@ -92,6 +92,13 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
     true
 }
 
+/// Widest table counted on 4 lanes: beyond, one lane (Snapdragon X, u32
+/// at 100k-10M, against the cache rule alone: Gaussian over 46k values 0.95
+/// to 0.79 and 0.85 to 0.74 ns per key, uniform over 10k-40k values 3-17 %
+/// faster; uniform over 60k values at 10M 0.69 to 0.75; 4096 was 30 %
+/// slower on a Gaussian over ~4.5k values).
+const LANES_MAX_WIDTH: usize = 8192;
+
 /// Counter lanes of a count table of `width` counters for `n` keys: 4 lanes
 /// (repeated values would otherwise wait on the previous increment of their
 /// counter) when the 4 tables fit in an eighth of the L2 (12 MiB L2: up to
@@ -101,7 +108,7 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
 /// keys: a fixed 4096-counter cap was 1-2 % slower at 3M-10M (12 MiB L2).
 #[inline]
 fn lanes_for(width: usize, n: usize) -> usize {
-    if 4 * width * 4 <= budget(Budget::CountLanes) / 8 && 2 * width <= n {
+    if width <= LANES_MAX_WIDTH && 4 * width * 4 <= budget(Budget::CountLanes) / 8 && 2 * width <= n {
         4
     } else {
         1
