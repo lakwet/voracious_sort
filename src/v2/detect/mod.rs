@@ -38,6 +38,8 @@ pub(crate) const DENSE_MIN: usize = 4096;
 pub(crate) const FEW_MAX: usize = 256;
 pub(crate) const FEW_TABLE_BITS: u32 = 9;
 pub(crate) const FEW_TABLE: usize = 1 << FEW_TABLE_BITS;
+/// Fewest keys for the 4-times larger few table (many values in the sample).
+pub(crate) const FEW_BIG_MIN: usize = 16384;
 
 /// Spread sample of `SAMPLE` keys at the positions frac(i x golden ratio) x n.
 #[inline]

@@ -10,10 +10,10 @@ macro_rules! int_few {
         /// as the float `few`).
         pub(crate) fn few(values: &mut [$t], sample: &[$t; SAMPLE]) -> bool {
             let n = values.len();
-            if n < FEW_MIN {
+            if n < FEW_MIN || n > u32::MAX as usize {
                 return false;
             }
-            let hash = |v: $t| (((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)) >> (64 - FEW_TABLE_BITS)) as usize;
+            let hash = |v: $t| ((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize;
             let s = (n / 32).clamp(16, 256);
             let mut keys = [0 as $t; FEW_TABLE];
             let mut used = [false; FEW_TABLE];
@@ -38,14 +38,32 @@ macro_rules! int_few {
                     }
                 }
             }
-            let mut keys = [0 as $t; FEW_TABLE];
-            let mut used = [false; FEW_TABLE];
-            let mut counts = [[0usize; FEW_TABLE]; 4];
+            // Many values in the sample: a table 4 times larger, so that
+            // the probe chains stay short (16 clusters of 8 consecutive u16
+            // values at 30k-100k keys: 0.85-1.23 to 0.52-0.96 ns per key;
+            // the time followed the collisions, 0.7 to 3.5 ns). Below
+            // `FEW_BIG_MIN` keys, zeroing it costs more than it saves.
+            if distinct > FEW_TABLE / 8 && n >= FEW_BIG_MIN {
+                few_count::<{ 4 * FEW_TABLE }>(values)
+            } else {
+                few_count::<FEW_TABLE>(values)
+            }
+        }
+
+        /// The counting pass of `few` in a table of `TABLE` slots.
+        fn few_count<const TABLE: usize>(values: &mut [$t]) -> bool {
+            let n = values.len();
+            let bits = TABLE.trailing_zeros();
+            let mask = TABLE - 1;
+            let hash = |v: $t| ((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - bits)) as usize;
+            let mut keys = [0 as $t; TABLE];
+            let mut used = [false; TABLE];
+            let mut counts = [[0u32; TABLE]; 4];
             let mut distinct = 0;
             let mut find = |v: $t, distinct: &mut usize| -> Option<usize> {
                 let mut h = hash(v);
                 while used[h] && keys[h] != v {
-                    h = (h + 1) & (FEW_TABLE - 1);
+                    h = (h + 1) & mask;
                 }
                 if !used[h] {
                     if *distinct == FEW_MAX {
@@ -72,9 +90,9 @@ macro_rules! int_few {
                     None => return false,
                 }
             }
-            let mut found: Vec<($t, usize)> = (0..FEW_TABLE)
+            let mut found: Vec<($t, usize)> = (0..=mask)
                 .filter(|&h| used[h])
-                .map(|h| (keys[h], counts[0][h] + counts[1][h] + counts[2][h] + counts[3][h]))
+                .map(|h| (keys[h], counts[0][h] as usize + counts[1][h] as usize + counts[2][h] as usize + counts[3][h] as usize))
                 .collect();
             found.sort_unstable_by_key(|&(v, _)| v);
             let mut start = 0;
