@@ -27,7 +27,7 @@ pub(crate) fn available() -> bool {
 pub(crate) fn merge_u32<const M: u8>(a: &[u32], b: &[u32], dst: &mut [u32]) {
     assert_eq!(dst.len(), a.len() + b.len());
     if a.len() >= 4 && b.len() >= 4 && available() {
-        let k = STREAMS.load(std::sync::atomic::Ordering::Relaxed);
+        let k = STREAMS;
         let k = if k > 1 && a.len() + b.len() >= k * SPLIT_MIN { k } else { 1 };
         // SAFETY: the vector unit is present (`available`); lengths checked.
         #[cfg(target_arch = "aarch64")]
@@ -95,7 +95,7 @@ pub(crate) fn available64() -> bool {
 pub(crate) fn merge_u64<const M: u8>(a: &[u64], b: &[u64], dst: &mut [u64]) {
     assert_eq!(dst.len(), a.len() + b.len());
     if a.len() >= 4 && b.len() >= 4 && available64() {
-        let k = STREAMS.load(std::sync::atomic::Ordering::Relaxed);
+        let k = STREAMS;
         let k = if k > 1 && a.len() + b.len() >= k * SPLIT_MIN { k } else { 1 };
         // SAFETY: the vector unit is present (`available64`); lengths checked.
         #[cfg(target_arch = "aarch64")]
@@ -114,7 +114,7 @@ pub(crate) fn merge_u64<const M: u8>(a: &[u64], b: &[u64], dst: &mut [u64]) {
 
 /// Independent block merges run together in one loop (the output cut by
 /// binary searches): 1 (one merge), 2 or 4.
-pub(crate) static STREAMS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(4);
+pub(crate) const STREAMS: usize = 4;
 /// Shortest part per stream.
 const SPLIT_MIN: usize = 256;
 

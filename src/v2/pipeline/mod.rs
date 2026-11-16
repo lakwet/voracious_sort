@@ -64,7 +64,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
         merge_runs(arr, &mut vec![0, p, n]);
         return;
     }
-    let simd_rule = merge::simd_rule_applies::<T>(arr.len()) && merge::SIMD_RULE.load(std::sync::atomic::Ordering::Relaxed);
+    let simd_rule = merge::simd_rule_applies::<T>(arr.len()) && merge::SIMD_RULE;
     let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, known.ascending_prefix);
     let (sorted, equal_pairs) = if random_runs {
         (false, known.probes.map_or(0, |p| p.equal()))
@@ -97,7 +97,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     // SIMD merges: merging beats the radix sort up to a few merge levels.
     let segments = separators.len().saturating_sub(1);
     let levels = (usize::BITS - segments.saturating_sub(1).leading_zeros()) as usize;
-    let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS.load(std::sync::atomic::Ordering::Relaxed);
+    let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS;
     let unpredictable = merges_unpredictable(arr, &separators, &chunks, levels);
     if unpredictable && !simd_merge {
         trace!("verge_whole");

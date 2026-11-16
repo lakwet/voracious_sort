@@ -16,25 +16,25 @@ pub(super) const VERGE_MIN: usize = 4096;
 /// Exploration knobs (temporary): at most `n / RUN_DIV` segments' worth of
 /// run length, runs of at least `RUN_MIN`, tried when `TURN_DIV * turns <=
 /// n`, in the cache too when `IN_CACHE`.
-pub(crate) static RUN_DIV: AtomicUsize = AtomicUsize::new(64);
-pub(crate) static RUN_MIN: AtomicUsize = AtomicUsize::new(64);
-pub(crate) static TURN_DIV: AtomicUsize = AtomicUsize::new(4);
-pub(crate) static IN_CACHE: AtomicBool = AtomicBool::new(false);
-pub(crate) static HALF: AtomicBool = AtomicBool::new(true);
-pub(crate) static ORGAN: AtomicBool = AtomicBool::new(true);
+pub(crate) const RUN_DIV: usize = 64;
+pub(crate) const RUN_MIN: usize = 64;
+pub(crate) const TURN_DIV: usize = 4;
+pub(crate) const IN_CACHE: bool = false;
+pub(crate) const HALF: bool = true;
+pub(crate) const ORGAN: bool = true;
 /// Predictable merges of many segments: 2-way branchy rounds between the
 /// array and a buffer (one move per level) instead of half a buffer.
-pub(crate) static BRANCHY_ROUNDS: AtomicBool = AtomicBool::new(false);
-pub(crate) static TRACE: AtomicBool = AtomicBool::new(false);
+pub(crate) const BRANCHY_ROUNDS: bool = false;
+pub(crate) const TRACE: bool = false;
 /// Unpredictable merges of records of at most this size: four at a time.
-pub(crate) static QUAD_MAX: AtomicUsize = AtomicUsize::new(0);
+pub(crate) const QUAD_MAX: usize = 0;
 /// Unpredictable merges of records of at most this size: k-way rounds.
-pub(crate) static KWAY_MAX: AtomicUsize = AtomicUsize::new(usize::MAX);
+pub(crate) const KWAY_MAX: usize = usize::MAX;
 /// k-way rounds for predictable merges of more than two segments too.
-pub(crate) static KWAY_BRANCHY: AtomicBool = AtomicBool::new(true);
+pub(crate) const KWAY_BRANCHY: bool = true;
 /// Predictable merges of more than two segments of records of at least
 /// this size: k-way rounds too.
-pub(crate) static KWAY_BRANCHY_MIN: AtomicUsize = AtomicUsize::new(128);
+pub(crate) const KWAY_BRANCHY_MIN: usize = 128;
 
 /// Verge on the elements: runs of at least `max(n / RUN_DIV, RUN_MIN)`
 /// keys (ascending, or strictly descending and then reversed: still
@@ -70,7 +70,7 @@ pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictab
     }
     let t0 = std::time::Instant::now();
     let n = arr.len();
-    let long = (n / RUN_DIV.load(Relaxed).max(1)).max(RUN_MIN.load(Relaxed)).max(2);
+    let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
     // Runs: (start, end, descending).
     let mut runs: Vec<(usize, usize, bool)> = Vec::new();
     let mut covered = 0;
@@ -120,7 +120,7 @@ pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictab
 pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, drops: &[usize]) -> bool {
     let t0 = std::time::Instant::now();
     let n = arr.len();
-    let long = (n / RUN_DIV.load(Relaxed).max(1)).max(RUN_MIN.load(Relaxed)).max(2);
+    let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
     let mut runs: Vec<(usize, usize, bool)> = Vec::new();
     let mut covered = 0;
     let mut isolated = 0;
@@ -149,7 +149,7 @@ pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, dr
 pub(super) fn verge_from_turns<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, turn_at: &[usize]) -> bool {
     let t0 = std::time::Instant::now();
     let n = arr.len();
-    let long = (n / RUN_DIV.load(Relaxed).max(1)).max(RUN_MIN.load(Relaxed)).max(2);
+    let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
     let mut runs: Vec<(usize, usize, bool)> = Vec::new();
     let (mut covered, mut breaks, mut isolated) = (0, 0, 0);
     // The first stretch: descending when the first pair breaks.
@@ -197,7 +197,7 @@ fn finish<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, runs: Vec<(usize, usize,
     // Pipe organ (one ascending run, then one strictly descending run to
     // the end): no reversal in place, the descending run copied reversed
     // into the buffer and merged from the back (1.5 moves instead of 2).
-    if runs.len() == 2 && runs[0] == (0, runs[1].0, false) && runs[1].1 == n && runs[1].2 && ORGAN.load(Relaxed) {
+    if runs.len() == 2 && runs[0] == (0, runs[1].0, false) && runs[1].1 == n && runs[1].2 && ORGAN {
         merge_asc_desc(arr, runs[1].0, enc);
         return true;
     }
@@ -225,20 +225,20 @@ fn finish<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, runs: Vec<(usize, usize,
     let branchy = bounds.len() >= 3 && predictable(arr, (bounds[0], bounds[1], false), (bounds[1], bounds[2], false), enc);
     if bounds.len() == 3 {
         merge_two(arr, bounds[1], enc, branchy);
-    } else if !branchy && super::merge::HALF_KWAY.load(Relaxed) {
+    } else if !branchy && super::merge::HALF_KWAY {
         merge_all_half(arr, &bounds, enc, false);
-    } else if (!branchy || std::mem::size_of::<T>() >= KWAY_BRANCHY_MIN.load(Relaxed)) && std::mem::size_of::<T>() <= KWAY_MAX.load(Relaxed) {
+    } else if (!branchy || std::mem::size_of::<T>() >= KWAY_BRANCHY_MIN) && std::mem::size_of::<T>() <= KWAY_MAX {
         merge_all_kway(arr, &bounds, enc, false);
-    } else if BRANCHY_ROUNDS.load(Relaxed) && super::merge::KWAY2.load(Relaxed) {
+    } else if BRANCHY_ROUNDS && super::merge::KWAY2 {
         merge_all_kway(arr, &bounds, enc, true);
-    } else if !branchy && std::mem::size_of::<T>() <= QUAD_MAX.load(Relaxed) {
+    } else if !branchy && std::mem::size_of::<T>() <= QUAD_MAX {
         merge_all_quad(arr, &bounds, enc);
-    } else if HALF.load(Relaxed) {
+    } else if HALF {
         merge_all_half(arr, &bounds, enc, branchy);
     } else {
         merge_all(arr, &bounds, enc, branchy);
     }
-    if TRACE.load(Relaxed) {
+    if TRACE {
         eprintln!("verge n {} runs {} segs {} branchy {} | detect {:.2} gaps {:.2} merge {:.2} ns", n, runs.len(), bounds.len() - 1, branchy, t1, t2 - t1, t0.elapsed().as_nanos() as f64 / n as f64 - t2);
     }
     true

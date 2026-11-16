@@ -12,22 +12,22 @@ pub(crate) use predictable::{dense_merge, predictable_merge};
 
 /// Balanced two-run merges in place by gap merges (`gap`: buffer of the
 /// shorter run, four chains, no copy back).
-pub(crate) static GAP2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const GAP2: bool = true;
 
 /// Merges of unpredictable 32-bit unsigned runs by blocks in vector
 /// registers (`simd`), where the branch-free merge waits on each load.
-pub(crate) static SIMD_MERGE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const SIMD_MERGE: bool = true;
 /// With `SIMD_MERGE`, unpredictable merges are merged instead of sorting
 /// the whole array by radix (`merges_unpredictable`).
-pub(crate) static SIMD_RULE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const SIMD_RULE: bool = true;
 
 /// With `SIMD_RULE`: unpredictable merges merged (instead of the radix
 /// sort) up to this many merge levels.
-pub(crate) static SIMD_LEVELS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(3);
+pub(crate) const SIMD_LEVELS: usize = 3;
 
 /// Whether the SIMD block merge applies to keys of type `T`.
 pub(crate) fn simd_applies<T>() -> bool {
-    SIMD_MERGE.load(std::sync::atomic::Ordering::Relaxed)
+    SIMD_MERGE
         && simd_flip::<T>().is_some_and(|(w, _)| w == 64 || simd::available())
 }
 
@@ -36,20 +36,20 @@ pub(crate) fn simd_applies<T>() -> bool {
 /// 2 float).
 fn simd_flip<T>() -> Option<(u32, u8)> {
     use std::sync::atomic::Ordering::Relaxed;
-    let w64 = SIMD_64.load(Relaxed) && simd::available64();
+    let w64 = SIMD_64 && simd::available64();
     match std::any::type_name::<T>() {
         "u32" => Some((32, 0)),
-        "i32" if SIMD_I32.load(Relaxed) => Some((32, 1)),
-        "f32" if SIMD_F32.load(Relaxed) => Some((32, 2)),
+        "i32" if SIMD_I32 => Some((32, 1)),
+        "f32" if SIMD_F32 => Some((32, 2)),
         "u64" if w64 => Some((64, 0)),
         "i64" if w64 => Some((64, 1)),
-        "f64" if w64 && SIMD_F64.load(Relaxed) => Some((64, 2)),
+        "f64" if w64 && SIMD_F64 => Some((64, 2)),
         _ => None,
     }
 }
 
 /// The vector merge on 64-bit keys too.
-pub(crate) static SIMD_64: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const SIMD_64: bool = true;
 /// The vector merge on f64 keys. OFF: the f64 path (mode 2 of the 64-bit
 /// network in `simd.rs`, tested correct) is kept but never runs, because it
 /// lost everywhere on the Snapdragon X: Runs 8 100k 2.90 to 4.05, 1M 4.25 to
@@ -59,26 +59,26 @@ pub(crate) static SIMD_64: std::sync::atomic::AtomicBool = std::sync::atomic::At
 /// +7 % through the in-cache merges, which still convert each block). Kept
 /// to measure on x86 (Ryzen, Intel) before removing it: turn this on and
 /// compare in the same run.
-pub(crate) static SIMD_F64: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub(crate) const SIMD_F64: bool = false;
 
 /// With `SIMD_RULE`: the smallest array of 64-bit keys whose unpredictable
 /// merges are merged by vector blocks (below, the radix sort in the cache
 /// wins: i64 Runs 8 10k 2.02 against 2.65 ns per key on the Snapdragon X).
 /// Measured on one machine only: to check on x86 (Ryzen, Intel).
-pub(crate) static SIMD_MIN_ARRAY_SIZE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1 << 16);
+pub(crate) const SIMD_MIN_ARRAY_SIZE: usize = 1 << 16;
 
 /// Whether unpredictable merges of `n` keys of type `T` are merged by
 /// vector blocks instead of sorted by radix (`SIMD_RULE`): 32-bit keys at
 /// every size, 64-bit keys from `SIMD_MIN_ARRAY_SIZE`.
 pub(crate) fn simd_rule_applies<T>(n: usize) -> bool {
-    let min64 = SIMD_MIN_ARRAY_SIZE.load(std::sync::atomic::Ordering::Relaxed);
+    let min64 = SIMD_MIN_ARRAY_SIZE;
     simd_applies::<T>() && simd_flip::<T>().is_some_and(|(w, _)| w == 32 || n >= min64)
 }
 
 /// The vector merge on i32 keys too.
-pub(crate) static SIMD_I32: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const SIMD_I32: bool = true;
 /// The vector merge on f32 keys too.
-pub(crate) static SIMD_F32: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const SIMD_F32: bool = true;
 
 /// Balanced merge of `a` and `b` into `dst`, two-ended: branchy when the
 /// interleaving is predictable, else the SIMD block merge where it applies,
@@ -170,7 +170,7 @@ pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &
     // the vector merge cost more: LLVM no longer kept the four streams in
     // registers and the block choice became a branch (f32 kernel 0.92
     // against 0.46 ns per key at 1M on the Snapdragon X).
-    if FLOAT_ENCODE.load(std::sync::atomic::Ordering::Relaxed) {
+    if FLOAT_ENCODE {
         match simd_flip::<T>() {
             Some((32, 2)) => {
                 // SAFETY: `T` is f32 (checked by name in `simd_flip`): 32 bits.
@@ -195,7 +195,7 @@ pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &
 }
 
 /// Floats merged by SIMD blocks as unsigned keys (see `merge_runs_simd`).
-pub(crate) static FLOAT_ENCODE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const FLOAT_ENCODE: bool = true;
 
 /// Ping-pong rounds (see `merge_runs`).
 fn pingpong<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut Vec<usize>) {

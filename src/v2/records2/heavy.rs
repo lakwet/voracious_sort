@@ -69,7 +69,7 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     if (n - others) * 10 < n * 3 {
         return false;
     }
-    if h == 1 && ONE.load(std::sync::atomic::Ordering::Relaxed) {
+    if h == 1 && ONE {
         one_heavy(arr, enc, heavy[0], others);
         return true;
     }
@@ -117,7 +117,7 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
 /// One heavy key: its records compacted in place (forward, in order), the
 /// others moved to a buffer of their size, sorted there, then the block
 /// moved to its place and the others put around it.
-pub(crate) static ONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const ONE: bool = true;
 
 fn one_heavy<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, key: u128, others: usize) {
     let n = arr.len();

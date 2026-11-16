@@ -8,9 +8,9 @@ use std::mem::MaybeUninit;
 /// Merges of two runs: the elements already beyond the other run moved as
 /// one block (binary search) before merging the rest.
 /// The buffers of `merge_two` and `merge_asc_desc` prefaulted too.
-pub(crate) static PREFAULT2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const PREFAULT2: bool = true;
 /// Pipe organs: the descending run reversed in place, then `merge_out`.
-pub(crate) static ORGAN2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub(crate) const ORGAN2: bool = false;
 
 /// Merge of `arr[..m]` and `arr[m..]` into a buffer with the four-chain
 /// kernel, then copied back (two moves, no branch).
@@ -28,9 +28,9 @@ pub(super) fn merge_out<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E) 
 }
 
 /// Experiment: the k-way buffer kept on the thread between sorts.
-pub(crate) static REUSE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub(crate) const REUSE: bool = false;
 /// Experiment: unpredictable merges through half a buffer (as glidesort).
-pub(crate) static HALF_KWAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub(crate) const HALF_KWAY: bool = false;
 
 /// A scratch block of bytes, aligned for any record (64), prefaulted.
 pub(super) struct Scratch {
@@ -88,11 +88,11 @@ pub(super) fn give_scratch(s: Scratch) {
     });
 }
 
-pub(crate) static TRIM: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const TRIM: bool = true;
 
 pub(super) fn merge_two<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, branchy: bool) {
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(m.min(arr.len() - m));
-    if PREFAULT2.load(std::sync::atomic::Ordering::Relaxed) {
+    if PREFAULT2 {
         prefault(&mut buf);
     }
     merge_two_with(arr, m, enc, &mut buf, branchy);
@@ -104,7 +104,7 @@ pub(super) fn merge_two<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, 
 pub(super) fn merge_two_with<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, buf: &mut Vec<MaybeUninit<T>>, branchy: bool) {
     // Balanced runs only: a short run merged into a long one is mostly
     // block moves, which the one-chain merge with its trim does as well.
-    if X2.load(std::sync::atomic::Ordering::Relaxed) && !branchy && 16 * m.min(arr.len() - m) >= arr.len() {
+    if X2 && !branchy && 16 * m.min(arr.len() - m) >= arr.len() {
         return merge_two_x(arr, m, enc, buf);
     }
     if branchy {
@@ -136,7 +136,7 @@ fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(arr: &mut [T], m: u
             std::ptr::copy_nonoverlapping(a.add(m), b, len);
             // The left keys above every right key move as one block.
             let top = enc(&*b.add(len - 1));
-            let p = if TRIM.load(std::sync::atomic::Ordering::Relaxed) {
+            let p = if TRIM {
                 std::slice::from_raw_parts(a, m).partition_point(|x| enc(x) <= top)
             } else {
                 m
@@ -171,7 +171,7 @@ fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(arr: &mut [T], m: u
             std::ptr::copy_nonoverlapping(a, b, len);
             // The right keys below every left key move as one block.
             let bottom = enc(&*b);
-            let q = if TRIM.load(std::sync::atomic::Ordering::Relaxed) {
+            let q = if TRIM {
                 m + std::slice::from_raw_parts(a.add(m), n - m).partition_point(|x| enc(x) < bottom)
             } else {
                 m
@@ -243,7 +243,7 @@ pub(super) fn merge_all<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], e
             }
             bounds = next;
             in_buf = !in_buf;
-            if super::verge::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+            if super::verge::TRACE {
                 eprintln!("  full round {:.2} ns", t.elapsed().as_nanos() as f64 / n as f64);
                 t = std::time::Instant::now();
             }
@@ -251,7 +251,7 @@ pub(super) fn merge_all<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], e
         if in_buf {
             std::ptr::copy_nonoverlapping(b, a, n);
         }
-        if super::verge::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+        if super::verge::TRACE {
             eprintln!("  copy back {} {:.2} ns", in_buf, t.elapsed().as_nanos() as f64 / n as f64);
         }
     }
@@ -308,10 +308,10 @@ unsafe fn merge_into<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, s: usize,
 pub(super) fn merge_all_half<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], enc: &E, branchy: bool) {
     let mut bounds = bounds.to_vec();
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(arr.len() / 2 + 1);
-    if HALF_KWAY.load(std::sync::atomic::Ordering::Relaxed) {
+    if HALF_KWAY {
         prefault(&mut buf);
     }
-    if super::verge::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+    if super::verge::TRACE {
         let t = std::time::Instant::now();
         // SAFETY: bytes of the spare capacity, written only.
         unsafe { std::ptr::write_bytes(buf.as_mut_ptr() as *mut u8, 0, buf.capacity() * std::mem::size_of::<T>()) };
@@ -459,8 +459,8 @@ unsafe fn merge_into_pair<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, x: (
 /// 0.7-1.3 ns per level, 4-way 1.9-2.3 per two levels, 128 B 5.0 against
 /// 10.4); to be measured on x86 (bench-cpu).
 pub(crate) static FOUR_WAY_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(32);
-pub(crate) static K4M: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
-pub(crate) static KWAY2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const K4M: bool = true;
+pub(crate) const KWAY2: bool = true;
 
 pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], enc: &E, branchy: bool) {
     let n = arr.len();
@@ -473,8 +473,8 @@ pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usiz
         return;
     }
     let levels = (usize::BITS - (segs - 1).leading_zeros()) as usize;
-    let k4m = K4M.load(std::sync::atomic::Ordering::Relaxed);
-    let two = KWAY2.load(std::sync::atomic::Ordering::Relaxed)
+    let k4m = K4M;
+    let two = KWAY2
         && std::mem::size_of::<T>() < if k4m { FOUR_WAY_MIN.load(std::sync::atomic::Ordering::Relaxed) } else { 128 };
     let mut rounds = levels.div_ceil(2);
     rounds += rounds % 2;
@@ -483,7 +483,7 @@ pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usiz
     let mut bounds = bounds.to_vec();
     let mut own: Vec<MaybeUninit<T>> = Vec::new();
     let mut held = None;
-    let b: *mut T = if REUSE.load(std::sync::atomic::Ordering::Relaxed) {
+    let b: *mut T = if REUSE {
         let mut s = take_scratch(n * std::mem::size_of::<T>());
         let p = s.ptr as *mut T;
         held = Some(s.take());
@@ -525,7 +525,7 @@ pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usiz
             }
             bounds = next;
             in_buf = !in_buf;
-            if super::verge::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+            if super::verge::TRACE {
                 eprintln!("  round {} k {} {:.2} ns", round, k, t.elapsed().as_nanos() as f64 / n as f64);
                 t = std::time::Instant::now();
             }
@@ -743,7 +743,7 @@ unsafe fn merge4b<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, 
 /// in the middle of a merge (32-byte records at 1M: 7.0 ns for the first
 /// round against 3.0 for zeroing + 1.4 for the round).
 pub(super) fn prefault<T>(buf: &mut Vec<MaybeUninit<T>>) {
-    if !PREFAULT.load(std::sync::atomic::Ordering::Relaxed) {
+    if !PREFAULT {
         return;
     }
     // SAFETY: bytes of the spare capacity, written only.
@@ -755,7 +755,7 @@ pub(super) fn prefault<T>(buf: &mut Vec<MaybeUninit<T>>) {
     unsafe { std::ptr::write_bytes(buf.as_mut_ptr() as *mut u8, 0, buf.capacity() * std::mem::size_of::<T>()) };
 }
 
-pub(crate) static PREFAULT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const PREFAULT: bool = true;
 
 /// `merge_into` with branches (both ends): faster when the merge is
 /// predictable (long stretches from one run, or a short period).
@@ -810,14 +810,14 @@ unsafe fn merge_into_b<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, s: usiz
 /// interleave regularly.
 pub(super) fn merge_asc_desc<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E) {
     let n = arr.len();
-    if ORGAN2.load(std::sync::atomic::Ordering::Relaxed) {
+    if ORGAN2 {
         arr[m..].reverse();
         merge_out(arr, m, enc);
         return;
     }
     let len = n - m;
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(len);
-    if PREFAULT2.load(std::sync::atomic::Ordering::Relaxed) {
+    if PREFAULT2 {
         prefault(&mut buf);
     }
     // SAFETY: the descending run is moved out reversed; each later write
@@ -830,7 +830,7 @@ pub(super) fn merge_asc_desc<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc:
         for k in 0..len {
             b.add(k).write(std::ptr::read(a.add(n - 1 - k)));
         }
-        if X2.load(std::sync::atomic::Ordering::Relaxed) {
+        if X2 {
             // The descending run, reversed in the buffer, is the right run
             // of a right gap merge.
             gap_right(a, m, b, len, enc);
@@ -1055,7 +1055,7 @@ pub(super) unsafe fn merge_into_p4<T, E: Fn(&T) -> u128>(src: *const T, dst: *mu
 /// done from both ends on both halves (four chains), instead of one chain
 /// from the side the buffered run came from. Idea of glidesort (Orson
 /// Peters, 2023: gap merges split at the crossover point); own code.
-pub(crate) static X2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub(crate) const X2: bool = true;
 /// Below this many elements on the shorter side a gap merge is finished
 /// with one chain.
 const X2_SMALL: usize = 64;
