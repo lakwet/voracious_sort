@@ -283,13 +283,14 @@ pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(ke
     let n = keys.len();
     let base = base.to_u64();
     let lanes = lanes_for(width, n);
-    let mut counts = vec![0u32; width * lanes];
-    let missed = count_window(keys, encode, base, width, lanes, &mut counts);
-    debug_assert!(missed.is_none());
+    // Tables of a power of two: offsets masked, no bound check.
+    let size = width.next_power_of_two();
+    let mut counts = vec![0u32; size * lanes];
+    count_masked(keys, encode, base, size, lanes, &mut counts);
     if lanes == 4 {
-        let (c0, rest) = counts.split_at_mut(width);
+        let (c0, rest) = counts.split_at_mut(size);
         for l in 0..3 {
-            for (a, b) in c0.iter_mut().zip(rest[l * width..(l + 1) * width].iter()) {
+            for (a, b) in c0[..width].iter_mut().zip(&rest[l * size..l * size + width]) {
                 *a += *b;
             }
         }
@@ -303,6 +304,47 @@ pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(ke
         }
     }
     debug_assert_eq!(start, n);
+}
+
+/// Counts `keys`, all within `base..base + size` (`size` a power of two),
+/// in `lanes` tables of `size` counters: offsets masked, no bound check.
+#[inline(always)]
+fn count_masked<U: Key, E: Fn(U) -> U + Copy>(keys: &[U], encode: E, base: u64, size: usize, lanes: usize, counts: &mut [u32]) {
+    let mask = size - 1;
+    let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize & mask;
+    let mut quads = keys.chunks_exact(4);
+    if lanes == 4 {
+        let (c0, rest) = counts.split_at_mut(size);
+        let (c1, rest) = rest.split_at_mut(size);
+        let (c2, c3) = rest.split_at_mut(size);
+        let (c0, c1, c2, c3) = (&mut c0[..size], &mut c1[..size], &mut c2[..size], &mut c3[..size]);
+        for q in &mut quads {
+            // SAFETY: a masked offset is below `size`, the length of each table.
+            unsafe {
+                *c0.get_unchecked_mut(off(q[0])) += 1;
+                *c1.get_unchecked_mut(off(q[1])) += 1;
+                *c2.get_unchecked_mut(off(q[2])) += 1;
+                *c3.get_unchecked_mut(off(q[3])) += 1;
+            }
+        }
+        for &k in quads.remainder() {
+            c0[off(k)] += 1;
+        }
+    } else {
+        let c = &mut counts[..size];
+        for q in &mut quads {
+            // SAFETY: as above.
+            unsafe {
+                *c.get_unchecked_mut(off(q[0])) += 1;
+                *c.get_unchecked_mut(off(q[1])) += 1;
+                *c.get_unchecked_mut(off(q[2])) += 1;
+                *c.get_unchecked_mut(off(q[3])) += 1;
+            }
+        }
+        for &k in quads.remainder() {
+            c[off(k)] += 1;
+        }
+    }
 }
 
 /// Counts `keys` in `counts` (`lanes` tables of `width` counters for the
