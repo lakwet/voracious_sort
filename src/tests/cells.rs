@@ -1,9 +1,11 @@
 //! The cells shared by the decision trace and the sentinel bench: every
 //! (type, size, distribution), with inputs seeded per cell (the same keys
-//! at every run, whatever the cells kept).
+//! at every run, whatever the cells kept). Records: `r<bytes><key>`
+//! (`ru…`: the unstable sort).
 
 use super::super::generators as g;
-use super::super::generators::records::Gens;
+use super::super::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
+use super::super::v2::records2;
 use super::super::v2::floats::ravenous_sort2;
 use super::super::v2::integers::devour_sort2;
 
@@ -104,6 +106,20 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
     ty!("char", all(g::char::generators_char(), g::narrow_extra::extra_char::generators()), |a| devour_sort2(a), false);
     ty!("u128", all(g::unsigned_u128::generators_u128(), g::int128_extra::extra_u128::generators()), |a| devour_sort2(a), false);
     ty!("i128", all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()), |a| devour_sort2(a), false);
+    // Records sorted by key (stable, but the last), as in the CPU bench;
+    // 128-byte records up to 1M keys.
+    macro_rules! rec {
+        ($label:expr, $k:ty, $w:expr, $keys:expr, $sort:path, $cap:expr) => {
+            if wants($label) {
+                cells(v, &pool, $label, wrap($keys, rec::<$k, $w>), |a: &mut [Rec<$k, $w>]| $sort(a, |x| x.key), false, max.min($cap));
+            }
+        };
+    }
+    rec!("r8u32", u32, 1, keys_u32(), records2::devour_sort_by_key, usize::MAX);
+    rec!("r16u64", u64, 2, keys_u64(), records2::devour_sort_by_key, usize::MAX);
+    rec!("r32u64", u64, 6, keys_u64(), records2::devour_sort_by_key, usize::MAX);
+    rec!("r128u32", u32, 31, keys_u32(), records2::devour_sort_by_key, 1_000_000);
+    rec!("ru16u64", u64, 2, keys_u64(), records2::devour_sort_unstable_by_key, usize::MAX);
 }
 
 /// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment.

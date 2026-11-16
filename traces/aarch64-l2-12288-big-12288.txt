@@ -4886,3 +4886,2157 @@ i128   10000000 Few 16           : few
 i128   10000000 Heavy 4          : no_verge > roller > heavy
 i128   10000000 Sparse 90%       : no_verge > roller > heavy
 i128   10000000 Zipf             : no_verge > roller
+r8u32      1000 Unif             : small_path > packed > no_verge > dlsd
+r8u32      1000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32      1000 Small1           : small_path > packed > no_verge > dlsd
+r8u32      1000 Small2           : small_path > packed > no_verge > dlsd
+r8u32      1000 Small3           : small_path > packed > no_verge > dlsd
+r8u32      1000 Asc              : ends
+r8u32      1000 Desc             : ends
+r8u32      1000 Equal            : ends
+r8u32      1000 Alt16            : small_path > packed > no_verge > dlsd
+r8u32      1000 Zipf             : small_path > packed > no_verge > dlsd
+r8u32      1000 FakeZipf         : small_path > few
+r8u32      1000 Almost Asc       : small_path > packed > repaired
+r8u32      1000 Almost Desc      : small_path > packed > repaired
+r8u32      1000 Asc Saw          : small_path > packed > verge_merge > dlsd
+r8u32      1000 Desc Saw         : small_path > packed > verge_merge > dlsd
+r8u32      1000 Sqrt             : small_path > packed > verge_merge > dlsd
+r8u32      1000 Pipe Organ       : ends
+r8u32      1000 Front            : ends
+r8u32      1000 Middle           : ends
+r8u32      1000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32      1000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32      1000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32      1000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32      1000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32      1000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32      1000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32      1000 Int 0..100       : small_path > packed > no_verge > dlsd
+r8u32      1000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32      1000 Few 16           : small_path > few
+r8u32      1000 Int late out     : small_path > packed > no_verge > dlsd
+r8u32      1000 Few16 late       : small_path > few
+r8u32      1000 Asc rnd tail     : small_path > packed > std_small > ends
+r8u32      1000 Runs 8           : small_path > packed > random_runs > no_verge > dlsd
+r8u32      1000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32      1000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32      1000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32      1000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32      1000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32      1000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32      1000 Sparse 90%       : small_path > few
+r8u32      1000 Heavy 4          : small_path > packed > no_verge > dlsd
+r8u32      1000 Composite        : small_path > packed > no_verge > dlsd
+r8u32      1000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32     10000 Unif             : small_path > packed > no_verge > dlsd
+r8u32     10000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32     10000 Small1           : small_path > packed > no_verge > dlsd
+r8u32     10000 Small2           : small_path > packed > no_verge > dlsd
+r8u32     10000 Small3           : small_path > packed > no_verge > dlsd
+r8u32     10000 Asc              : ends
+r8u32     10000 Desc             : ends
+r8u32     10000 Equal            : ends
+r8u32     10000 Alt16            : small_path > few
+r8u32     10000 Zipf             : small_path > packed > no_verge > lsd_clustered
+r8u32     10000 FakeZipf         : small_path > few > heavy
+r8u32     10000 Almost Asc       : small_path > packed > repaired
+r8u32     10000 Almost Desc      : small_path > packed > repaired
+r8u32     10000 Asc Saw          : small_path > packed > verge_merge
+r8u32     10000 Desc Saw         : small_path > packed > verge_merge
+r8u32     10000 Sqrt             : small_path > few
+r8u32     10000 Pipe Organ       : ends
+r8u32     10000 Front            : ends
+r8u32     10000 Middle           : ends
+r8u32     10000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32     10000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32     10000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32     10000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32     10000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32     10000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32     10000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32     10000 Int 0..100       : small_path > few
+r8u32     10000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32     10000 Few 16           : small_path > few
+r8u32     10000 Int late out     : small_path > few
+r8u32     10000 Few16 late       : small_path > few
+r8u32     10000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32     10000 Runs 8           : verge_runs
+r8u32     10000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32     10000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32     10000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32     10000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32     10000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32     10000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32     10000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32     10000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32     10000 Composite        : small_path > packed > no_verge > dlsd
+r8u32     10000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32     30000 Unif             : small_path > packed > no_verge > dlsd
+r8u32     30000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32     30000 Small1           : small_path > packed > no_verge > dlsd
+r8u32     30000 Small2           : small_path > packed > no_verge > dlsd
+r8u32     30000 Small3           : small_path > packed > no_verge > dlsd
+r8u32     30000 Asc              : ends
+r8u32     30000 Desc             : ends
+r8u32     30000 Equal            : ends
+r8u32     30000 Alt16            : small_path > few
+r8u32     30000 Zipf             : small_path > packed > no_verge > lsd_clustered
+r8u32     30000 FakeZipf         : small_path > few > heavy
+r8u32     30000 Almost Asc       : small_path > packed > repaired
+r8u32     30000 Almost Desc      : small_path > packed > repaired
+r8u32     30000 Asc Saw          : small_path > packed > verge_merge > dlsd
+r8u32     30000 Desc Saw         : small_path > packed > verge_merge > dlsd
+r8u32     30000 Sqrt             : small_path > packed > verge_merge > dlsd
+r8u32     30000 Pipe Organ       : ends
+r8u32     30000 Front            : ends
+r8u32     30000 Middle           : ends
+r8u32     30000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32     30000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32     30000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32     30000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32     30000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32     30000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32     30000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32     30000 Int 0..100       : small_path > few
+r8u32     30000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32     30000 Few 16           : small_path > few
+r8u32     30000 Int late out     : small_path > few
+r8u32     30000 Few16 late       : small_path > few
+r8u32     30000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32     30000 Runs 8           : verge_runs
+r8u32     30000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32     30000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32     30000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32     30000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32     30000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32     30000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32     30000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32     30000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32     30000 Composite        : small_path > packed > no_verge > dlsd
+r8u32     30000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32     50000 Unif             : small_path > packed > no_verge > dlsd
+r8u32     50000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32     50000 Small1           : small_path > packed > no_verge > dlsd
+r8u32     50000 Small2           : small_path > packed > no_verge > dlsd
+r8u32     50000 Small3           : small_path > packed > no_verge > dlsd
+r8u32     50000 Asc              : ends
+r8u32     50000 Desc             : ends
+r8u32     50000 Equal            : ends
+r8u32     50000 Alt16            : small_path > few
+r8u32     50000 Zipf             : small_path > packed > no_verge > lsd_clustered
+r8u32     50000 FakeZipf         : small_path > few > heavy
+r8u32     50000 Almost Asc       : small_path > packed > repaired
+r8u32     50000 Almost Desc      : small_path > packed > repaired
+r8u32     50000 Asc Saw          : small_path > packed > verge_merge > dlsd
+r8u32     50000 Desc Saw         : small_path > packed > verge_merge > dlsd
+r8u32     50000 Sqrt             : small_path > packed > verge_merge > lsd_clustered
+r8u32     50000 Pipe Organ       : ends
+r8u32     50000 Front            : ends
+r8u32     50000 Middle           : ends
+r8u32     50000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32     50000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32     50000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32     50000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32     50000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32     50000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32     50000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32     50000 Int 0..100       : small_path > few
+r8u32     50000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32     50000 Few 16           : small_path > few
+r8u32     50000 Int late out     : small_path > few
+r8u32     50000 Few16 late       : small_path > few
+r8u32     50000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32     50000 Runs 8           : verge_runs
+r8u32     50000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32     50000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32     50000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32     50000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32     50000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32     50000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32     50000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32     50000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32     50000 Composite        : small_path > packed > no_verge > dlsd
+r8u32     50000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32    100000 Unif             : small_path > packed > no_verge > dlsd
+r8u32    100000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32    100000 Small1           : small_path > packed > no_verge > dlsd
+r8u32    100000 Small2           : small_path > packed > no_verge > dlsd
+r8u32    100000 Small3           : small_path > packed > no_verge > dlsd
+r8u32    100000 Asc              : ends
+r8u32    100000 Desc             : ends
+r8u32    100000 Equal            : ends
+r8u32    100000 Alt16            : small_path > few
+r8u32    100000 Zipf             : small_path > packed > no_verge > lsd_clustered
+r8u32    100000 FakeZipf         : small_path > few > heavy
+r8u32    100000 Almost Asc       : small_path > packed > repaired
+r8u32    100000 Almost Desc      : small_path > packed > repaired
+r8u32    100000 Asc Saw          : small_path > packed > verge_merge
+r8u32    100000 Desc Saw         : small_path > packed > verge_merge
+r8u32    100000 Sqrt             : small_path > packed > verge_merge > lsd_clustered
+r8u32    100000 Pipe Organ       : ends
+r8u32    100000 Front            : ends
+r8u32    100000 Middle           : ends
+r8u32    100000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32    100000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32    100000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32    100000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32    100000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32    100000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32    100000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32    100000 Int 0..100       : small_path > few
+r8u32    100000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32    100000 Few 16           : small_path > few
+r8u32    100000 Int late out     : small_path > few
+r8u32    100000 Few16 late       : small_path > few
+r8u32    100000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32    100000 Runs 8           : verge_runs
+r8u32    100000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32    100000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32    100000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32    100000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32    100000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32    100000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32    100000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32    100000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32    100000 Composite        : small_path > packed > no_verge > dlsd
+r8u32    100000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32    200000 Unif             : small_path > packed > no_verge > dlsd
+r8u32    200000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32    200000 Small1           : small_path > packed > no_verge > dlsd
+r8u32    200000 Small2           : small_path > packed > no_verge > dlsd
+r8u32    200000 Small3           : small_path > packed > no_verge > dlsd
+r8u32    200000 Asc              : ends
+r8u32    200000 Desc             : ends
+r8u32    200000 Equal            : ends
+r8u32    200000 Alt16            : small_path > few
+r8u32    200000 Zipf             : small_path > packed > no_verge > lsd_clustered
+r8u32    200000 FakeZipf         : small_path > few > heavy
+r8u32    200000 Almost Asc       : small_path > packed > repaired
+r8u32    200000 Almost Desc      : small_path > packed > repaired
+r8u32    200000 Asc Saw          : small_path > packed > verge_merge > dlsd
+r8u32    200000 Desc Saw         : small_path > packed > verge_merge > dlsd
+r8u32    200000 Sqrt             : small_path > packed > verge_merge > lsd_clustered
+r8u32    200000 Pipe Organ       : ends
+r8u32    200000 Front            : ends
+r8u32    200000 Middle           : ends
+r8u32    200000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32    200000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32    200000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32    200000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32    200000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32    200000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32    200000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32    200000 Int 0..100       : small_path > few
+r8u32    200000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32    200000 Few 16           : small_path > few
+r8u32    200000 Int late out     : small_path > few
+r8u32    200000 Few16 late       : small_path > few
+r8u32    200000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32    200000 Runs 8           : verge_runs
+r8u32    200000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32    200000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32    200000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32    200000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32    200000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32    200000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32    200000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32    200000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32    200000 Composite        : small_path > packed > no_verge > dlsd
+r8u32    200000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32    600000 Unif             : small_path > packed > no_verge > dlsd
+r8u32    600000 Unif 10^9        : small_path > packed > no_verge > dlsd
+r8u32    600000 Small1           : small_path > packed > no_verge > dlsd
+r8u32    600000 Small2           : small_path > packed > no_verge > dlsd
+r8u32    600000 Small3           : small_path > packed > no_verge > dlsd
+r8u32    600000 Asc              : ends
+r8u32    600000 Desc             : ends
+r8u32    600000 Equal            : ends
+r8u32    600000 Alt16            : small_path > few
+r8u32    600000 Zipf             : small_path > packed > no_verge > lsd_clustered
+r8u32    600000 FakeZipf         : small_path > few > heavy
+r8u32    600000 Almost Asc       : small_path > packed > repaired
+r8u32    600000 Almost Desc      : small_path > packed > repaired
+r8u32    600000 Asc Saw          : small_path > packed > verge_whole > dlsd
+r8u32    600000 Desc Saw         : small_path > packed > verge_whole > dlsd
+r8u32    600000 Sqrt             : small_path > packed > verge_merge > dlsd
+r8u32    600000 Pipe Organ       : ends
+r8u32    600000 Front            : ends
+r8u32    600000 Middle           : ends
+r8u32    600000 Normale 8        : small_path > packed > no_verge > dlsd
+r8u32    600000 Normale 10       : small_path > packed > no_verge > dlsd
+r8u32    600000 Normale 13       : small_path > packed > no_verge > dlsd
+r8u32    600000 Normale 16       : small_path > packed > no_verge > dlsd
+r8u32    600000 Normale 20       : small_path > packed > no_verge > dlsd
+r8u32    600000 Normale 24       : small_path > packed > no_verge > dlsd
+r8u32    600000 Normale 30       : small_path > packed > no_verge > dlsd
+r8u32    600000 Int 0..100       : small_path > few
+r8u32    600000 Int 0..n         : small_path > packed > no_verge > dlsd
+r8u32    600000 Few 16           : small_path > few
+r8u32    600000 Int late out     : small_path > few
+r8u32    600000 Few16 late       : small_path > few
+r8u32    600000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32    600000 Runs 8           : verge_runs
+r8u32    600000 Runs 64          : small_path > packed > verge_merge > dlsd
+r8u32    600000 Clusters         : small_path > packed > no_verge > dlsd
+r8u32    600000 Timestamps       : small_path > packed > no_verge > dlsd
+r8u32    600000 Aligned 2^16     : small_path > packed > no_verge > dlsd
+r8u32    600000 Prefix 20b       : small_path > packed > no_verge > dlsd
+r8u32    600000 Bimodal          : small_path > packed > no_verge > dlsd
+r8u32    600000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32    600000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32    600000 Composite        : small_path > packed > no_verge > dlsd
+r8u32    600000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32   1000000 Unif             : small_path > lsd
+r8u32   1000000 Unif 10^9        : small_path > lsd
+r8u32   1000000 Small1           : small_path > lsd
+r8u32   1000000 Small2           : small_path > lsd
+r8u32   1000000 Small3           : small_path > lsd
+r8u32   1000000 Asc              : ends
+r8u32   1000000 Desc             : ends
+r8u32   1000000 Equal            : ends
+r8u32   1000000 Alt16            : small_path > few
+r8u32   1000000 Zipf             : small_path > lsd
+r8u32   1000000 FakeZipf         : small_path > few > heavy
+r8u32   1000000 Almost Asc       : small_path > packed > repaired > verge
+r8u32   1000000 Almost Desc      : small_path > packed > repaired > reversed > tail_first > verge
+r8u32   1000000 Asc Saw          : small_path > verge
+r8u32   1000000 Desc Saw         : small_path > verge
+r8u32   1000000 Sqrt             : small_path > lsd
+r8u32   1000000 Pipe Organ       : ends
+r8u32   1000000 Front            : ends
+r8u32   1000000 Middle           : ends
+r8u32   1000000 Normale 8        : small_path > lsd
+r8u32   1000000 Normale 10       : small_path > lsd
+r8u32   1000000 Normale 13       : small_path > lsd
+r8u32   1000000 Normale 16       : small_path > lsd
+r8u32   1000000 Normale 20       : small_path > lsd
+r8u32   1000000 Normale 24       : small_path > lsd
+r8u32   1000000 Normale 30       : small_path > lsd
+r8u32   1000000 Int 0..100       : small_path > few
+r8u32   1000000 Int 0..n         : small_path > lsd
+r8u32   1000000 Few 16           : small_path > few
+r8u32   1000000 Int late out     : small_path > few
+r8u32   1000000 Few16 late       : small_path > few
+r8u32   1000000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32   1000000 Runs 8           : verge_runs
+r8u32   1000000 Runs 64          : small_path > lsd
+r8u32   1000000 Clusters         : small_path > lsd
+r8u32   1000000 Timestamps       : small_path > lsd
+r8u32   1000000 Aligned 2^16     : small_path > lsd
+r8u32   1000000 Prefix 20b       : small_path > lsd
+r8u32   1000000 Bimodal          : small_path > lsd
+r8u32   1000000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32   1000000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
+r8u32   1000000 Composite        : small_path > lsd
+r8u32   1000000 Straddle         : small_path > lsd
+r8u32   3000000 Unif             : small_path > lsd
+r8u32   3000000 Unif 10^9        : small_path > lsd
+r8u32   3000000 Small1           : small_path > lsd
+r8u32   3000000 Small2           : small_path > lsd
+r8u32   3000000 Small3           : small_path > lsd
+r8u32   3000000 Asc              : ends
+r8u32   3000000 Desc             : ends
+r8u32   3000000 Equal            : ends
+r8u32   3000000 Alt16            : small_path > few
+r8u32   3000000 Zipf             : small_path > lsd
+r8u32   3000000 FakeZipf         : small_path > few > heavy
+r8u32   3000000 Almost Asc       : small_path > packed > repaired > presorted > tail_first > verge
+r8u32   3000000 Almost Desc      : small_path > packed > repaired > reversed > verge
+r8u32   3000000 Asc Saw          : small_path > presorted > verge
+r8u32   3000000 Desc Saw         : small_path > reversed > verge
+r8u32   3000000 Sqrt             : small_path > lsd
+r8u32   3000000 Pipe Organ       : ends
+r8u32   3000000 Front            : ends
+r8u32   3000000 Middle           : ends
+r8u32   3000000 Normale 8        : small_path > lsd
+r8u32   3000000 Normale 10       : small_path > lsd
+r8u32   3000000 Normale 13       : small_path > lsd
+r8u32   3000000 Normale 16       : small_path > lsd
+r8u32   3000000 Normale 20       : small_path > lsd
+r8u32   3000000 Normale 24       : small_path > lsd
+r8u32   3000000 Normale 30       : small_path > lsd
+r8u32   3000000 Int 0..100       : small_path > few
+r8u32   3000000 Int 0..n         : small_path > lsd
+r8u32   3000000 Few 16           : small_path > few
+r8u32   3000000 Int late out     : small_path > few
+r8u32   3000000 Few16 late       : small_path > few
+r8u32   3000000 Asc rnd tail     : small_path > packed > no_verge > dlsd > ends
+r8u32   3000000 Runs 8           : verge_runs
+r8u32   3000000 Runs 64          : small_path > lsd
+r8u32   3000000 Clusters         : small_path > lsd
+r8u32   3000000 Timestamps       : small_path > lsd
+r8u32   3000000 Aligned 2^16     : small_path > lsd
+r8u32   3000000 Prefix 20b       : small_path > lsd
+r8u32   3000000 Bimodal          : small_path > lsd
+r8u32   3000000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
+r8u32   3000000 Heavy 4          : small_path > lsd > heavy
+r8u32   3000000 Composite        : small_path > lsd
+r8u32   3000000 Straddle         : small_path > lsd
+r8u32  10000000 Unif             : small_path > lsd
+r8u32  10000000 Unif 10^9        : small_path > lsd
+r8u32  10000000 Small1           : small_path > lsd
+r8u32  10000000 Small2           : small_path > lsd
+r8u32  10000000 Small3           : small_path > lsd
+r8u32  10000000 Asc              : ends
+r8u32  10000000 Desc             : ends
+r8u32  10000000 Equal            : ends
+r8u32  10000000 Alt16            : small_path > few
+r8u32  10000000 Zipf             : small_path > lsd
+r8u32  10000000 FakeZipf         : small_path > few > heavy
+r8u32  10000000 Almost Asc       : small_path > packed > repaired > verge > presorted > tail_first
+r8u32  10000000 Almost Desc      : small_path > packed > repaired > reversed > verge
+r8u32  10000000 Asc Saw          : small_path > verge
+r8u32  10000000 Desc Saw         : small_path > verge
+r8u32  10000000 Sqrt             : small_path > lsd
+r8u32  10000000 Pipe Organ       : ends
+r8u32  10000000 Front            : ends
+r8u32  10000000 Middle           : ends
+r8u32  10000000 Normale 8        : small_path > lsd
+r8u32  10000000 Normale 10       : small_path > lsd
+r8u32  10000000 Normale 13       : small_path > lsd
+r8u32  10000000 Normale 16       : small_path > lsd
+r8u32  10000000 Normale 20       : small_path > lsd
+r8u32  10000000 Normale 24       : small_path > lsd
+r8u32  10000000 Normale 30       : small_path > lsd
+r8u32  10000000 Int 0..100       : small_path > few
+r8u32  10000000 Int 0..n         : small_path > lsd
+r8u32  10000000 Few 16           : small_path > few
+r8u32  10000000 Int late out     : small_path > few
+r8u32  10000000 Few16 late       : small_path > few
+r8u32  10000000 Asc rnd tail     : small_path > lsd > ends
+r8u32  10000000 Runs 8           : verge_runs
+r8u32  10000000 Runs 64          : small_path > lsd
+r8u32  10000000 Clusters         : small_path > lsd
+r8u32  10000000 Timestamps       : small_path > lsd
+r8u32  10000000 Aligned 2^16     : small_path > lsd
+r8u32  10000000 Prefix 20b       : small_path > lsd
+r8u32  10000000 Bimodal          : small_path > lsd
+r8u32  10000000 Sparse 90%       : small_path > lsd > heavy
+r8u32  10000000 Heavy 4          : small_path > lsd > heavy
+r8u32  10000000 Composite        : small_path > lsd
+r8u32  10000000 Straddle         : small_path > lsd
+r16u64      1000 Unif             : packed > no_verge > dlsd
+r16u64      1000 Unif 10^9        : packed > no_verge > dlsd
+r16u64      1000 Small 4          : packed > no_verge > dlsd
+r16u64      1000 Small 5          : packed > no_verge > dlsd
+r16u64      1000 Small 6          : packed > no_verge > dlsd
+r16u64      1000 Small 7          : packed > no_verge > dlsd
+r16u64      1000 Asc              : ends
+r16u64      1000 Asc10pctst       : packed > verge_merge > dlsd > ends
+r16u64      1000 Asc10pct         : packed > verge_merge > dlsd > ends
+r16u64      1000 Desc             : ends
+r16u64      1000 Desc10pctst      : packed > verge_merge > dlsd > ends
+r16u64      1000 Desc10pct        : packed > verge_merge > dlsd > ends
+r16u64      1000 Equal            : ends
+r16u64      1000 Alt16            : few
+r16u64      1000 Zipf             : packed > no_verge > dlsd
+r16u64      1000 FakeZipf         : few
+r16u64      1000 Almost Asc       : packed > repaired
+r16u64      1000 Almost Desc      : packed > repaired
+r16u64      1000 Asc Saw          : packed > verge_merge > dlsd
+r16u64      1000 Desc Saw         : packed > verge_merge > dlsd
+r16u64      1000 Asc Killer       : packed > verge_merge > dlsd
+r16u64      1000 Desc Killer      : packed > verge_merge > dlsd
+r16u64      1000 Sqrt             : packed > verge_merge > dlsd
+r16u64      1000 Pipe Organ       : ends
+r16u64      1000 Front            : ends
+r16u64      1000 Middle           : ends
+r16u64      1000 Normale 10       : packed > no_verge > dlsd
+r16u64      1000 Normale 30       : packed > no_verge > dlsd
+r16u64      1000 Normale 51       : packed > no_verge > dlsd
+r16u64      1000 Int 0..100       : packed > no_verge > dlsd
+r16u64      1000 Int 0..n         : packed > no_verge > dlsd
+r16u64      1000 Few 16           : few
+r16u64      1000 Int late out     : packed > no_verge > dlsd > verge_merge > lsd
+r16u64      1000 Few16 late       : few
+r16u64      1000 Asc rnd tail     : packed > std_small > ends
+r16u64      1000 Runs 8           : packed > random_runs > no_verge > dlsd
+r16u64      1000 Runs 64          : packed > verge_merge > dlsd
+r16u64      1000 Clusters         : packed > no_verge > dlsd
+r16u64      1000 Timestamps       : packed > no_verge > dlsd
+r16u64      1000 Aligned 2^16     : packed > no_verge > dlsd
+r16u64      1000 Prefix 20b       : packed > no_verge > dlsd
+r16u64      1000 Bimodal          : packed > no_verge > dlsd
+r16u64      1000 Sparse 90%       : few
+r16u64      1000 Heavy 4          : packed > no_verge > dlsd
+r16u64      1000 Composite        : packed > no_verge > dlsd
+r16u64      1000 Straddle         : packed > no_verge > dlsd
+r16u64     10000 Unif             : packed > no_verge > dlsd
+r16u64     10000 Unif 10^9        : packed > no_verge > dlsd
+r16u64     10000 Small 4          : packed > no_verge > dlsd
+r16u64     10000 Small 5          : packed > no_verge > dlsd
+r16u64     10000 Small 6          : packed > no_verge > dlsd
+r16u64     10000 Small 7          : packed > no_verge > dlsd
+r16u64     10000 Asc              : ends
+r16u64     10000 Asc10pctst       : packed > no_verge > dlsd > ends
+r16u64     10000 Asc10pct         : packed > no_verge > dlsd > ends
+r16u64     10000 Desc             : ends
+r16u64     10000 Desc10pctst      : packed > no_verge > dlsd > ends
+r16u64     10000 Desc10pct        : packed > no_verge > dlsd > ends
+r16u64     10000 Equal            : ends
+r16u64     10000 Alt16            : few
+r16u64     10000 Zipf             : packed > no_verge > dlsd
+r16u64     10000 FakeZipf         : few
+r16u64     10000 Almost Asc       : packed > repaired
+r16u64     10000 Almost Desc      : packed > repaired
+r16u64     10000 Asc Saw          : packed > verge_merge
+r16u64     10000 Desc Saw         : packed > verge_merge
+r16u64     10000 Asc Killer       : packed > verge_merge > dlsd
+r16u64     10000 Desc Killer      : packed > verge_merge > dlsd
+r16u64     10000 Sqrt             : few
+r16u64     10000 Pipe Organ       : ends
+r16u64     10000 Front            : ends
+r16u64     10000 Middle           : ends
+r16u64     10000 Normale 10       : packed > no_verge > dlsd
+r16u64     10000 Normale 30       : packed > no_verge > dlsd
+r16u64     10000 Normale 51       : packed > no_verge > dlsd
+r16u64     10000 Int 0..100       : few
+r16u64     10000 Int 0..n         : packed > no_verge > dlsd
+r16u64     10000 Few 16           : few
+r16u64     10000 Int late out     : few
+r16u64     10000 Few16 late       : few
+r16u64     10000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64     10000 Runs 8           : verge_few
+r16u64     10000 Runs 64          : verge_few
+r16u64     10000 Clusters         : packed > no_verge > dlsd
+r16u64     10000 Timestamps       : packed > no_verge > dlsd
+r16u64     10000 Aligned 2^16     : packed > no_verge > dlsd
+r16u64     10000 Prefix 20b       : packed > no_verge > dlsd
+r16u64     10000 Bimodal          : packed > no_verge > dlsd
+r16u64     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r16u64     10000 Heavy 4          : packed > no_verge > dlsd > heavy
+r16u64     10000 Composite        : packed > no_verge > dlsd
+r16u64     10000 Straddle         : packed > no_verge > dlsd
+r16u64     30000 Unif             : packed > no_verge > dlsd
+r16u64     30000 Unif 10^9        : packed > no_verge > dlsd
+r16u64     30000 Small 4          : packed > no_verge > dlsd
+r16u64     30000 Small 5          : packed > no_verge > dlsd
+r16u64     30000 Small 6          : packed > no_verge > dlsd
+r16u64     30000 Small 7          : packed > no_verge > dlsd
+r16u64     30000 Asc              : ends
+r16u64     30000 Asc10pctst       : packed > no_verge > dlsd > ends
+r16u64     30000 Asc10pct         : packed > no_verge > dlsd > ends
+r16u64     30000 Desc             : ends
+r16u64     30000 Desc10pctst      : packed > no_verge > dlsd > ends
+r16u64     30000 Desc10pct        : packed > no_verge > dlsd > ends
+r16u64     30000 Equal            : ends
+r16u64     30000 Alt16            : few
+r16u64     30000 Zipf             : packed > no_verge > dlsd
+r16u64     30000 FakeZipf         : few
+r16u64     30000 Almost Asc       : packed > repaired
+r16u64     30000 Almost Desc      : packed > repaired
+r16u64     30000 Asc Saw          : packed > verge_merge > dlsd
+r16u64     30000 Desc Saw         : packed > verge_merge > dlsd
+r16u64     30000 Asc Killer       : packed > verge_merge > dlsd
+r16u64     30000 Desc Killer      : packed > verge_merge > dlsd
+r16u64     30000 Sqrt             : packed > verge_merge > dlsd
+r16u64     30000 Pipe Organ       : ends
+r16u64     30000 Front            : ends
+r16u64     30000 Middle           : ends
+r16u64     30000 Normale 10       : packed > no_verge > dlsd
+r16u64     30000 Normale 30       : packed > no_verge > dlsd
+r16u64     30000 Normale 51       : packed > no_verge > dlsd
+r16u64     30000 Int 0..100       : few
+r16u64     30000 Int 0..n         : packed > no_verge > dlsd
+r16u64     30000 Few 16           : few
+r16u64     30000 Int late out     : few
+r16u64     30000 Few16 late       : few
+r16u64     30000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64     30000 Runs 8           : verge_few
+r16u64     30000 Runs 64          : verge_few
+r16u64     30000 Clusters         : packed > no_verge > dlsd
+r16u64     30000 Timestamps       : packed > no_verge > dlsd
+r16u64     30000 Aligned 2^16     : packed > no_verge > dlsd
+r16u64     30000 Prefix 20b       : packed > no_verge > dlsd
+r16u64     30000 Bimodal          : packed > no_verge > dlsd
+r16u64     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r16u64     30000 Heavy 4          : packed > no_verge > dlsd > heavy
+r16u64     30000 Composite        : packed > no_verge > dlsd
+r16u64     30000 Straddle         : packed > no_verge > dlsd
+r16u64     50000 Unif             : lsd11_cache
+r16u64     50000 Unif 10^9        : packed > no_verge > dlsd
+r16u64     50000 Small 4          : packed > no_verge > dlsd
+r16u64     50000 Small 5          : packed > no_verge > dlsd
+r16u64     50000 Small 6          : packed > no_verge > dlsd
+r16u64     50000 Small 7          : lsd11_cache
+r16u64     50000 Asc              : ends
+r16u64     50000 Asc10pctst       : packed > no_verge > dlsd > ends
+r16u64     50000 Asc10pct         : packed > no_verge > dlsd > ends
+r16u64     50000 Desc             : ends
+r16u64     50000 Desc10pctst      : packed > no_verge > dlsd > ends
+r16u64     50000 Desc10pct        : packed > no_verge > dlsd > ends
+r16u64     50000 Equal            : ends
+r16u64     50000 Alt16            : few
+r16u64     50000 Zipf             : lsd11_cache
+r16u64     50000 FakeZipf         : few
+r16u64     50000 Almost Asc       : packed > repaired
+r16u64     50000 Almost Desc      : packed > repaired
+r16u64     50000 Asc Saw          : packed > verge_merge > dlsd
+r16u64     50000 Desc Saw         : packed > verge_merge > dlsd
+r16u64     50000 Asc Killer       : packed > verge_merge > dlsd
+r16u64     50000 Desc Killer      : packed > verge_merge > dlsd
+r16u64     50000 Sqrt             : few_wide_cache
+r16u64     50000 Pipe Organ       : ends
+r16u64     50000 Front            : ends
+r16u64     50000 Middle           : ends
+r16u64     50000 Normale 10       : few_wide_cache
+r16u64     50000 Normale 30       : packed > no_verge > dlsd
+r16u64     50000 Normale 51       : lsd11_cache
+r16u64     50000 Int 0..100       : few
+r16u64     50000 Int 0..n         : packed > no_verge > dlsd
+r16u64     50000 Few 16           : few
+r16u64     50000 Int late out     : few
+r16u64     50000 Few16 late       : few
+r16u64     50000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64     50000 Runs 8           : verge_few
+r16u64     50000 Runs 64          : verge_few
+r16u64     50000 Clusters         : lsd11_cache
+r16u64     50000 Timestamps       : packed > no_verge > dlsd
+r16u64     50000 Aligned 2^16     : lsd11_cache
+r16u64     50000 Prefix 20b       : packed > no_verge > dlsd
+r16u64     50000 Bimodal          : lsd11_cache
+r16u64     50000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r16u64     50000 Heavy 4          : packed > no_verge > dlsd > heavy
+r16u64     50000 Composite        : lsd11_cache
+r16u64     50000 Straddle         : packed > no_verge > dlsd
+r16u64    100000 Unif             : lsd11_cache
+r16u64    100000 Unif 10^9        : packed > no_verge > dlsd
+r16u64    100000 Small 4          : packed > no_verge > dlsd
+r16u64    100000 Small 5          : packed > no_verge > dlsd
+r16u64    100000 Small 6          : lsd11_cache
+r16u64    100000 Small 7          : lsd11_cache
+r16u64    100000 Asc              : ends
+r16u64    100000 Asc10pctst       : packed > no_verge > dlsd > ends
+r16u64    100000 Asc10pct         : packed > no_verge > dlsd > ends
+r16u64    100000 Desc             : ends
+r16u64    100000 Desc10pctst      : packed > no_verge > dlsd > ends
+r16u64    100000 Desc10pct        : packed > no_verge > dlsd > ends
+r16u64    100000 Equal            : ends
+r16u64    100000 Alt16            : few
+r16u64    100000 Zipf             : lsd11_cache
+r16u64    100000 FakeZipf         : few
+r16u64    100000 Almost Asc       : packed > repaired
+r16u64    100000 Almost Desc      : packed > repaired
+r16u64    100000 Asc Saw          : packed > verge_merge
+r16u64    100000 Desc Saw         : packed > verge_merge
+r16u64    100000 Asc Killer       : packed > verge_merge > dlsd
+r16u64    100000 Desc Killer      : packed > verge_merge > dlsd
+r16u64    100000 Sqrt             : few_wide_cache
+r16u64    100000 Pipe Organ       : ends
+r16u64    100000 Front            : ends
+r16u64    100000 Middle           : ends
+r16u64    100000 Normale 10       : few_wide_cache
+r16u64    100000 Normale 30       : packed > no_verge > dlsd
+r16u64    100000 Normale 51       : lsd11_cache
+r16u64    100000 Int 0..100       : few
+r16u64    100000 Int 0..n         : packed > no_verge > dlsd
+r16u64    100000 Few 16           : few
+r16u64    100000 Int late out     : few
+r16u64    100000 Few16 late       : few
+r16u64    100000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64    100000 Runs 8           : verge_few
+r16u64    100000 Runs 64          : verge_few
+r16u64    100000 Clusters         : lsd11_cache
+r16u64    100000 Timestamps       : packed > no_verge > dlsd
+r16u64    100000 Aligned 2^16     : lsd11_cache
+r16u64    100000 Prefix 20b       : packed > no_verge > dlsd
+r16u64    100000 Bimodal          : lsd11_cache
+r16u64    100000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r16u64    100000 Heavy 4          : lsd11_cache > heavy
+r16u64    100000 Composite        : lsd11_cache
+r16u64    100000 Straddle         : packed > no_verge > dlsd
+r16u64    200000 Unif             : lsd11_cache
+r16u64    200000 Unif 10^9        : packed > no_verge > dlsd
+r16u64    200000 Small 4          : packed > no_verge > dlsd
+r16u64    200000 Small 5          : packed > no_verge > dlsd
+r16u64    200000 Small 6          : lsd11_cache
+r16u64    200000 Small 7          : lsd11_cache
+r16u64    200000 Asc              : ends
+r16u64    200000 Asc10pctst       : packed > no_verge > dlsd > ends
+r16u64    200000 Asc10pct         : packed > no_verge > dlsd > ends
+r16u64    200000 Desc             : ends
+r16u64    200000 Desc10pctst      : packed > no_verge > dlsd > ends
+r16u64    200000 Desc10pct        : packed > no_verge > dlsd > ends
+r16u64    200000 Equal            : ends
+r16u64    200000 Alt16            : few
+r16u64    200000 Zipf             : lsd11_cache
+r16u64    200000 FakeZipf         : few
+r16u64    200000 Almost Asc       : packed > repaired
+r16u64    200000 Almost Desc      : packed > repaired
+r16u64    200000 Asc Saw          : packed > verge_merge > dlsd
+r16u64    200000 Desc Saw         : packed > verge_merge > dlsd
+r16u64    200000 Asc Killer       : packed > verge_merge > dlsd
+r16u64    200000 Desc Killer      : packed > verge_merge > dlsd
+r16u64    200000 Sqrt             : few_wide_cache
+r16u64    200000 Pipe Organ       : ends
+r16u64    200000 Front            : ends
+r16u64    200000 Middle           : ends
+r16u64    200000 Normale 10       : few_wide_cache
+r16u64    200000 Normale 30       : packed > no_verge > dlsd
+r16u64    200000 Normale 51       : lsd11_cache
+r16u64    200000 Int 0..100       : few
+r16u64    200000 Int 0..n         : packed > no_verge > dlsd
+r16u64    200000 Few 16           : few
+r16u64    200000 Int late out     : few
+r16u64    200000 Few16 late       : few
+r16u64    200000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64    200000 Runs 8           : verge_few
+r16u64    200000 Runs 64          : verge_few
+r16u64    200000 Clusters         : lsd11_cache
+r16u64    200000 Timestamps       : packed > no_verge > dlsd
+r16u64    200000 Aligned 2^16     : lsd11_cache
+r16u64    200000 Prefix 20b       : packed > no_verge > dlsd
+r16u64    200000 Bimodal          : lsd11_cache
+r16u64    200000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r16u64    200000 Heavy 4          : lsd11_cache > heavy
+r16u64    200000 Composite        : lsd11_cache
+r16u64    200000 Straddle         : packed > no_verge > dlsd
+r16u64    600000 Unif             : lsd
+r16u64    600000 Unif 10^9        : lsd
+r16u64    600000 Small 4          : lsd
+r16u64    600000 Small 5          : lsd
+r16u64    600000 Small 6          : lsd
+r16u64    600000 Small 7          : lsd
+r16u64    600000 Asc              : ends
+r16u64    600000 Asc10pctst       : lsd11_cache > ends
+r16u64    600000 Asc10pct         : lsd11_cache > ends
+r16u64    600000 Desc             : ends
+r16u64    600000 Desc10pctst      : lsd11_cache > ends
+r16u64    600000 Desc10pct        : lsd11_cache > ends
+r16u64    600000 Equal            : ends
+r16u64    600000 Alt16            : few
+r16u64    600000 Zipf             : lsd
+r16u64    600000 FakeZipf         : few
+r16u64    600000 Almost Asc       : packed_in_place > repaired
+r16u64    600000 Almost Desc      : packed_in_place > repaired
+r16u64    600000 Asc Saw          : verge
+r16u64    600000 Desc Saw         : verge
+r16u64    600000 Asc Killer       : ends > verge
+r16u64    600000 Desc Killer      : ends > verge
+r16u64    600000 Sqrt             : few_wide
+r16u64    600000 Pipe Organ       : ends
+r16u64    600000 Front            : ends
+r16u64    600000 Middle           : ends
+r16u64    600000 Normale 10       : few_wide
+r16u64    600000 Normale 30       : lsd
+r16u64    600000 Normale 51       : lsd
+r16u64    600000 Int 0..100       : few
+r16u64    600000 Int 0..n         : lsd
+r16u64    600000 Few 16           : few
+r16u64    600000 Int late out     : few
+r16u64    600000 Few16 late       : few
+r16u64    600000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64    600000 Runs 8           : verge
+r16u64    600000 Runs 64          : verge
+r16u64    600000 Clusters         : lsd
+r16u64    600000 Timestamps       : lsd
+r16u64    600000 Aligned 2^16     : lsd
+r16u64    600000 Prefix 20b       : lsd
+r16u64    600000 Bimodal          : lsd
+r16u64    600000 Sparse 90%       : lsd11_cache > heavy
+r16u64    600000 Heavy 4          : lsd11_cache > heavy
+r16u64    600000 Composite        : lsd
+r16u64    600000 Straddle         : lsd
+r16u64   1000000 Unif             : lsd
+r16u64   1000000 Unif 10^9        : lsd
+r16u64   1000000 Small 4          : lsd
+r16u64   1000000 Small 5          : lsd
+r16u64   1000000 Small 6          : lsd
+r16u64   1000000 Small 7          : lsd
+r16u64   1000000 Asc              : ends
+r16u64   1000000 Asc10pctst       : lsd11_cache > ends
+r16u64   1000000 Asc10pct         : lsd11_cache > ends
+r16u64   1000000 Desc             : ends
+r16u64   1000000 Desc10pctst      : lsd11_cache > ends
+r16u64   1000000 Desc10pct        : lsd11_cache > ends
+r16u64   1000000 Equal            : ends
+r16u64   1000000 Alt16            : few
+r16u64   1000000 Zipf             : lsd
+r16u64   1000000 FakeZipf         : few
+r16u64   1000000 Almost Asc       : packed_in_place > repaired
+r16u64   1000000 Almost Desc      : packed_in_place > repaired
+r16u64   1000000 Asc Saw          : verge
+r16u64   1000000 Desc Saw         : verge
+r16u64   1000000 Asc Killer       : verge
+r16u64   1000000 Desc Killer      : verge
+r16u64   1000000 Sqrt             : few_wide
+r16u64   1000000 Pipe Organ       : ends
+r16u64   1000000 Front            : ends
+r16u64   1000000 Middle           : ends
+r16u64   1000000 Normale 10       : few_wide
+r16u64   1000000 Normale 30       : lsd
+r16u64   1000000 Normale 51       : lsd
+r16u64   1000000 Int 0..100       : few
+r16u64   1000000 Int 0..n         : lsd
+r16u64   1000000 Few 16           : few
+r16u64   1000000 Int late out     : few
+r16u64   1000000 Few16 late       : few
+r16u64   1000000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64   1000000 Runs 8           : verge
+r16u64   1000000 Runs 64          : verge
+r16u64   1000000 Clusters         : lsd
+r16u64   1000000 Timestamps       : lsd
+r16u64   1000000 Aligned 2^16     : lsd
+r16u64   1000000 Prefix 20b       : lsd
+r16u64   1000000 Bimodal          : lsd
+r16u64   1000000 Sparse 90%       : lsd11_cache > heavy
+r16u64   1000000 Heavy 4          : lsd > heavy
+r16u64   1000000 Composite        : lsd
+r16u64   1000000 Straddle         : lsd
+r16u64   3000000 Unif             : lsd
+r16u64   3000000 Unif 10^9        : lsd
+r16u64   3000000 Small 4          : lsd
+r16u64   3000000 Small 5          : lsd
+r16u64   3000000 Small 6          : lsd
+r16u64   3000000 Small 7          : lsd
+r16u64   3000000 Asc              : ends
+r16u64   3000000 Asc10pctst       : lsd11_cache > ends
+r16u64   3000000 Asc10pct         : lsd11_cache > ends
+r16u64   3000000 Desc             : ends
+r16u64   3000000 Desc10pctst      : lsd11_cache > ends
+r16u64   3000000 Desc10pct        : lsd11_cache > ends
+r16u64   3000000 Equal            : ends
+r16u64   3000000 Alt16            : few
+r16u64   3000000 Zipf             : lsd
+r16u64   3000000 FakeZipf         : few
+r16u64   3000000 Almost Asc       : packed_in_place > repaired
+r16u64   3000000 Almost Desc      : packed_in_place > repaired
+r16u64   3000000 Asc Saw          : verge
+r16u64   3000000 Desc Saw         : verge
+r16u64   3000000 Asc Killer       : verge
+r16u64   3000000 Desc Killer      : verge
+r16u64   3000000 Sqrt             : few_wide
+r16u64   3000000 Pipe Organ       : ends
+r16u64   3000000 Front            : ends
+r16u64   3000000 Middle           : ends
+r16u64   3000000 Normale 10       : lsd
+r16u64   3000000 Normale 30       : lsd
+r16u64   3000000 Normale 51       : lsd
+r16u64   3000000 Int 0..100       : few
+r16u64   3000000 Int 0..n         : lsd
+r16u64   3000000 Few 16           : few
+r16u64   3000000 Int late out     : few
+r16u64   3000000 Few16 late       : few
+r16u64   3000000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r16u64   3000000 Runs 8           : verge
+r16u64   3000000 Runs 64          : verge
+r16u64   3000000 Clusters         : lsd
+r16u64   3000000 Timestamps       : lsd
+r16u64   3000000 Aligned 2^16     : lsd
+r16u64   3000000 Prefix 20b       : lsd
+r16u64   3000000 Bimodal          : lsd
+r16u64   3000000 Sparse 90%       : lsd11_cache > heavy
+r16u64   3000000 Heavy 4          : lsd > heavy
+r16u64   3000000 Composite        : lsd
+r16u64   3000000 Straddle         : lsd
+r16u64  10000000 Unif             : lsd
+r16u64  10000000 Unif 10^9        : lsd
+r16u64  10000000 Small 4          : lsd
+r16u64  10000000 Small 5          : lsd
+r16u64  10000000 Small 6          : lsd
+r16u64  10000000 Small 7          : lsd
+r16u64  10000000 Asc              : ends
+r16u64  10000000 Asc10pctst       : lsd > ends
+r16u64  10000000 Asc10pct         : lsd > ends
+r16u64  10000000 Desc             : ends
+r16u64  10000000 Desc10pctst      : lsd > ends
+r16u64  10000000 Desc10pct        : lsd > ends
+r16u64  10000000 Equal            : ends
+r16u64  10000000 Alt16            : few
+r16u64  10000000 Zipf             : lsd
+r16u64  10000000 FakeZipf         : few
+r16u64  10000000 Almost Asc       : packed_in_place > repaired
+r16u64  10000000 Almost Desc      : packed_in_place > repaired
+r16u64  10000000 Asc Saw          : verge
+r16u64  10000000 Desc Saw         : verge
+r16u64  10000000 Asc Killer       : verge
+r16u64  10000000 Desc Killer      : verge
+r16u64  10000000 Sqrt             : few_wide
+r16u64  10000000 Pipe Organ       : ends
+r16u64  10000000 Front            : ends
+r16u64  10000000 Middle           : ends
+r16u64  10000000 Normale 10       : lsd
+r16u64  10000000 Normale 30       : lsd
+r16u64  10000000 Normale 51       : lsd
+r16u64  10000000 Int 0..100       : few
+r16u64  10000000 Int 0..n         : lsd
+r16u64  10000000 Few 16           : few
+r16u64  10000000 Int late out     : few
+r16u64  10000000 Few16 late       : few
+r16u64  10000000 Asc rnd tail     : lsd > ends
+r16u64  10000000 Runs 8           : verge
+r16u64  10000000 Runs 64          : verge
+r16u64  10000000 Clusters         : lsd
+r16u64  10000000 Timestamps       : lsd
+r16u64  10000000 Aligned 2^16     : lsd
+r16u64  10000000 Prefix 20b       : lsd
+r16u64  10000000 Bimodal          : lsd
+r16u64  10000000 Sparse 90%       : lsd > heavy
+r16u64  10000000 Heavy 4          : lsd > heavy
+r16u64  10000000 Composite        : lsd
+r16u64  10000000 Straddle         : lsd
+r32u64      1000 Unif             : packed > no_verge > dlsd
+r32u64      1000 Unif 10^9        : packed > no_verge > dlsd
+r32u64      1000 Small 4          : packed > no_verge > dlsd
+r32u64      1000 Small 5          : packed > no_verge > dlsd
+r32u64      1000 Small 6          : packed > no_verge > dlsd
+r32u64      1000 Small 7          : packed > no_verge > dlsd
+r32u64      1000 Asc              : ends
+r32u64      1000 Asc10pctst       : packed > verge_merge > dlsd > ends
+r32u64      1000 Asc10pct         : packed > verge_merge > dlsd > ends
+r32u64      1000 Desc             : ends
+r32u64      1000 Desc10pctst      : packed > verge_merge > dlsd > ends
+r32u64      1000 Desc10pct        : packed > verge_merge > dlsd > ends
+r32u64      1000 Equal            : ends
+r32u64      1000 Alt16            : few
+r32u64      1000 Zipf             : packed > no_verge > dlsd
+r32u64      1000 FakeZipf         : few
+r32u64      1000 Almost Asc       : packed > repaired
+r32u64      1000 Almost Desc      : packed > repaired
+r32u64      1000 Asc Saw          : packed > verge_merge > dlsd
+r32u64      1000 Desc Saw         : packed > verge_merge > dlsd
+r32u64      1000 Asc Killer       : packed > verge_merge > dlsd
+r32u64      1000 Desc Killer      : packed > verge_merge > dlsd
+r32u64      1000 Sqrt             : packed > verge_merge > dlsd
+r32u64      1000 Pipe Organ       : ends
+r32u64      1000 Front            : ends
+r32u64      1000 Middle           : ends
+r32u64      1000 Normale 10       : packed > no_verge > dlsd
+r32u64      1000 Normale 30       : packed > no_verge > dlsd
+r32u64      1000 Normale 51       : packed > no_verge > dlsd
+r32u64      1000 Int 0..100       : packed > no_verge > dlsd
+r32u64      1000 Int 0..n         : packed > no_verge > dlsd
+r32u64      1000 Few 16           : few
+r32u64      1000 Int late out     : packed > no_verge > dlsd > verge_merge > lsd
+r32u64      1000 Few16 late       : few
+r32u64      1000 Asc rnd tail     : packed > std_small > ends
+r32u64      1000 Runs 8           : packed > random_runs > no_verge > dlsd
+r32u64      1000 Runs 64          : packed > verge_merge > dlsd
+r32u64      1000 Clusters         : packed > no_verge > dlsd
+r32u64      1000 Timestamps       : packed > no_verge > dlsd
+r32u64      1000 Aligned 2^16     : packed > no_verge > dlsd
+r32u64      1000 Prefix 20b       : packed > no_verge > dlsd
+r32u64      1000 Bimodal          : packed > no_verge > dlsd
+r32u64      1000 Sparse 90%       : few
+r32u64      1000 Heavy 4          : packed > no_verge > dlsd
+r32u64      1000 Composite        : packed > no_verge > dlsd
+r32u64      1000 Straddle         : packed > no_verge > dlsd
+r32u64     10000 Unif             : packed > no_verge > dlsd
+r32u64     10000 Unif 10^9        : packed > no_verge > dlsd
+r32u64     10000 Small 4          : packed > no_verge > dlsd
+r32u64     10000 Small 5          : packed > no_verge > dlsd
+r32u64     10000 Small 6          : packed > no_verge > dlsd
+r32u64     10000 Small 7          : packed > no_verge > dlsd
+r32u64     10000 Asc              : ends
+r32u64     10000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64     10000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64     10000 Desc             : ends
+r32u64     10000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64     10000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64     10000 Equal            : ends
+r32u64     10000 Alt16            : few
+r32u64     10000 Zipf             : packed > no_verge > dlsd
+r32u64     10000 FakeZipf         : few
+r32u64     10000 Almost Asc       : packed > repaired
+r32u64     10000 Almost Desc      : packed > repaired
+r32u64     10000 Asc Saw          : packed > verge_merge
+r32u64     10000 Desc Saw         : packed > verge_merge
+r32u64     10000 Asc Killer       : packed > verge_merge > dlsd
+r32u64     10000 Desc Killer      : packed > verge_merge > dlsd
+r32u64     10000 Sqrt             : few
+r32u64     10000 Pipe Organ       : ends
+r32u64     10000 Front            : ends
+r32u64     10000 Middle           : ends
+r32u64     10000 Normale 10       : packed > no_verge > dlsd
+r32u64     10000 Normale 30       : packed > no_verge > dlsd
+r32u64     10000 Normale 51       : packed > no_verge > dlsd
+r32u64     10000 Int 0..100       : few
+r32u64     10000 Int 0..n         : packed > no_verge > dlsd
+r32u64     10000 Few 16           : few
+r32u64     10000 Int late out     : few
+r32u64     10000 Few16 late       : few
+r32u64     10000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64     10000 Runs 8           : verge_few
+r32u64     10000 Runs 64          : verge_few
+r32u64     10000 Clusters         : packed > no_verge > dlsd
+r32u64     10000 Timestamps       : packed > no_verge > dlsd
+r32u64     10000 Aligned 2^16     : packed > no_verge > dlsd
+r32u64     10000 Prefix 20b       : packed > no_verge > dlsd
+r32u64     10000 Bimodal          : packed > no_verge > dlsd
+r32u64     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64     10000 Heavy 4          : packed > no_verge > dlsd > heavy
+r32u64     10000 Composite        : packed > no_verge > dlsd
+r32u64     10000 Straddle         : packed > no_verge > dlsd
+r32u64     30000 Unif             : packed > no_verge > dlsd
+r32u64     30000 Unif 10^9        : packed > no_verge > dlsd
+r32u64     30000 Small 4          : packed > no_verge > dlsd
+r32u64     30000 Small 5          : packed > no_verge > dlsd
+r32u64     30000 Small 6          : packed > no_verge > dlsd
+r32u64     30000 Small 7          : packed > no_verge > dlsd
+r32u64     30000 Asc              : ends
+r32u64     30000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64     30000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64     30000 Desc             : ends
+r32u64     30000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64     30000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64     30000 Equal            : ends
+r32u64     30000 Alt16            : few
+r32u64     30000 Zipf             : packed > no_verge > dlsd
+r32u64     30000 FakeZipf         : few
+r32u64     30000 Almost Asc       : packed > repaired
+r32u64     30000 Almost Desc      : packed > repaired
+r32u64     30000 Asc Saw          : packed > verge_merge > dlsd
+r32u64     30000 Desc Saw         : packed > verge_merge > dlsd
+r32u64     30000 Asc Killer       : packed > verge_merge > dlsd
+r32u64     30000 Desc Killer      : packed > verge_merge > dlsd
+r32u64     30000 Sqrt             : packed > verge_merge > dlsd
+r32u64     30000 Pipe Organ       : ends
+r32u64     30000 Front            : ends
+r32u64     30000 Middle           : ends
+r32u64     30000 Normale 10       : packed > no_verge > dlsd
+r32u64     30000 Normale 30       : packed > no_verge > dlsd
+r32u64     30000 Normale 51       : packed > no_verge > dlsd
+r32u64     30000 Int 0..100       : few
+r32u64     30000 Int 0..n         : packed > no_verge > dlsd
+r32u64     30000 Few 16           : few
+r32u64     30000 Int late out     : few
+r32u64     30000 Few16 late       : few
+r32u64     30000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64     30000 Runs 8           : verge_few
+r32u64     30000 Runs 64          : verge_few
+r32u64     30000 Clusters         : packed > no_verge > dlsd > presorted > std_small
+r32u64     30000 Timestamps       : packed > no_verge > dlsd
+r32u64     30000 Aligned 2^16     : packed > no_verge > dlsd
+r32u64     30000 Prefix 20b       : packed > no_verge > dlsd
+r32u64     30000 Bimodal          : packed > no_verge > dlsd
+r32u64     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64     30000 Heavy 4          : packed > no_verge > dlsd > heavy
+r32u64     30000 Composite        : packed > no_verge > dlsd
+r32u64     30000 Straddle         : packed > no_verge > dlsd
+r32u64     50000 Unif             : packed > no_verge > dlsd
+r32u64     50000 Unif 10^9        : packed > no_verge > dlsd
+r32u64     50000 Small 4          : packed > no_verge > dlsd
+r32u64     50000 Small 5          : packed > no_verge > dlsd
+r32u64     50000 Small 6          : packed > no_verge > dlsd
+r32u64     50000 Small 7          : packed > no_verge > dlsd
+r32u64     50000 Asc              : ends
+r32u64     50000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64     50000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64     50000 Desc             : ends
+r32u64     50000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64     50000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64     50000 Equal            : ends
+r32u64     50000 Alt16            : few
+r32u64     50000 Zipf             : packed > no_verge > dlsd > network > presorted > merge_small
+r32u64     50000 FakeZipf         : few
+r32u64     50000 Almost Asc       : packed > repaired
+r32u64     50000 Almost Desc      : packed > repaired
+r32u64     50000 Asc Saw          : packed > verge_merge > dlsd
+r32u64     50000 Desc Saw         : packed > verge_merge > dlsd
+r32u64     50000 Asc Killer       : packed > verge_merge > dlsd
+r32u64     50000 Desc Killer      : packed > verge_merge > dlsd
+r32u64     50000 Sqrt             : few_wide_cache
+r32u64     50000 Pipe Organ       : ends
+r32u64     50000 Front            : ends
+r32u64     50000 Middle           : ends
+r32u64     50000 Normale 10       : few_wide_cache
+r32u64     50000 Normale 30       : packed > no_verge > dlsd
+r32u64     50000 Normale 51       : packed > no_verge > dlsd
+r32u64     50000 Int 0..100       : few
+r32u64     50000 Int 0..n         : packed > no_verge > dlsd
+r32u64     50000 Few 16           : few
+r32u64     50000 Int late out     : few
+r32u64     50000 Few16 late       : few
+r32u64     50000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64     50000 Runs 8           : verge_few
+r32u64     50000 Runs 64          : verge_few
+r32u64     50000 Clusters         : packed > no_verge > dlsd
+r32u64     50000 Timestamps       : packed > no_verge > dlsd
+r32u64     50000 Aligned 2^16     : packed > no_verge > dlsd
+r32u64     50000 Prefix 20b       : packed > no_verge > dlsd
+r32u64     50000 Bimodal          : packed > no_verge > dlsd
+r32u64     50000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64     50000 Heavy 4          : packed > no_verge > dlsd > heavy
+r32u64     50000 Composite        : packed > no_verge > dlsd
+r32u64     50000 Straddle         : packed > no_verge > dlsd
+r32u64    100000 Unif             : packed > no_verge > dlsd
+r32u64    100000 Unif 10^9        : packed > no_verge > dlsd
+r32u64    100000 Small 4          : packed > no_verge > dlsd
+r32u64    100000 Small 5          : packed > no_verge > dlsd
+r32u64    100000 Small 6          : packed > no_verge > dlsd
+r32u64    100000 Small 7          : packed > no_verge > dlsd
+r32u64    100000 Asc              : ends
+r32u64    100000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64    100000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64    100000 Desc             : ends
+r32u64    100000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64    100000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64    100000 Equal            : ends
+r32u64    100000 Alt16            : few
+r32u64    100000 Zipf             : packed > no_verge > dlsd > network
+r32u64    100000 FakeZipf         : few
+r32u64    100000 Almost Asc       : packed > repaired
+r32u64    100000 Almost Desc      : packed > repaired
+r32u64    100000 Asc Saw          : packed > verge_merge
+r32u64    100000 Desc Saw         : packed > verge_merge
+r32u64    100000 Asc Killer       : packed > verge_merge > dlsd
+r32u64    100000 Desc Killer      : packed > verge_merge > dlsd
+r32u64    100000 Sqrt             : few_wide_cache
+r32u64    100000 Pipe Organ       : ends
+r32u64    100000 Front            : ends
+r32u64    100000 Middle           : ends
+r32u64    100000 Normale 10       : few_wide_cache
+r32u64    100000 Normale 30       : packed > no_verge > dlsd
+r32u64    100000 Normale 51       : packed > no_verge > dlsd
+r32u64    100000 Int 0..100       : few
+r32u64    100000 Int 0..n         : packed > no_verge > dlsd
+r32u64    100000 Few 16           : few
+r32u64    100000 Int late out     : few
+r32u64    100000 Few16 late       : few
+r32u64    100000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64    100000 Runs 8           : verge_few
+r32u64    100000 Runs 64          : verge_few
+r32u64    100000 Clusters         : packed > no_verge > dlsd
+r32u64    100000 Timestamps       : packed > no_verge > dlsd
+r32u64    100000 Aligned 2^16     : packed > no_verge > dlsd
+r32u64    100000 Prefix 20b       : packed > no_verge > dlsd
+r32u64    100000 Bimodal          : packed > no_verge > dlsd
+r32u64    100000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64    100000 Heavy 4          : packed > no_verge > dlsd > heavy
+r32u64    100000 Composite        : packed > no_verge > dlsd
+r32u64    100000 Straddle         : packed > no_verge > dlsd
+r32u64    200000 Unif             : packed_in_place > no_verge > dlsd
+r32u64    200000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r32u64    200000 Small 4          : packed_in_place > no_verge > dlsd
+r32u64    200000 Small 5          : packed_in_place > no_verge > dlsd
+r32u64    200000 Small 6          : packed_in_place > no_verge > dlsd
+r32u64    200000 Small 7          : packed_in_place > no_verge > dlsd
+r32u64    200000 Asc              : ends
+r32u64    200000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64    200000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64    200000 Desc             : ends
+r32u64    200000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64    200000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64    200000 Equal            : ends
+r32u64    200000 Alt16            : few
+r32u64    200000 Zipf             : packed_in_place > no_verge > dlsd
+r32u64    200000 FakeZipf         : few
+r32u64    200000 Almost Asc       : packed_in_place > repaired
+r32u64    200000 Almost Desc      : packed_in_place > repaired
+r32u64    200000 Asc Saw          : verge
+r32u64    200000 Desc Saw         : verge
+r32u64    200000 Asc Killer       : verge
+r32u64    200000 Desc Killer      : verge
+r32u64    200000 Sqrt             : few_wide
+r32u64    200000 Pipe Organ       : ends
+r32u64    200000 Front            : ends
+r32u64    200000 Middle           : ends
+r32u64    200000 Normale 10       : few_wide
+r32u64    200000 Normale 30       : packed_in_place > no_verge > dlsd
+r32u64    200000 Normale 51       : packed_in_place > no_verge > dlsd
+r32u64    200000 Int 0..100       : few
+r32u64    200000 Int 0..n         : packed_in_place > no_verge > dlsd
+r32u64    200000 Few 16           : few
+r32u64    200000 Int late out     : few
+r32u64    200000 Few16 late       : few
+r32u64    200000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64    200000 Runs 8           : verge
+r32u64    200000 Runs 64          : verge
+r32u64    200000 Clusters         : packed_in_place > no_verge > dlsd > presorted > std_small
+r32u64    200000 Timestamps       : packed_in_place > no_verge > dlsd
+r32u64    200000 Aligned 2^16     : packed_in_place > no_verge > dlsd
+r32u64    200000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r32u64    200000 Bimodal          : packed_in_place > no_verge > dlsd
+r32u64    200000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64    200000 Heavy 4          : packed > no_verge > dlsd > heavy
+r32u64    200000 Composite        : packed_in_place > no_verge > dlsd
+r32u64    200000 Straddle         : packed_in_place > no_verge > dlsd
+r32u64    600000 Unif             : packed_in_place > no_verge > roller
+r32u64    600000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r32u64    600000 Small 4          : packed_in_place > no_verge > dlsd
+r32u64    600000 Small 5          : packed_in_place > no_verge > dlsd
+r32u64    600000 Small 6          : packed_in_place > no_verge > roller > dlsd
+r32u64    600000 Small 7          : packed_in_place > no_verge > roller
+r32u64    600000 Asc              : ends
+r32u64    600000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64    600000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64    600000 Desc             : ends
+r32u64    600000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64    600000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64    600000 Equal            : ends
+r32u64    600000 Alt16            : few
+r32u64    600000 Zipf             : packed_in_place > no_verge > roller > merge_small > network > presorted > tail_first > lsd > std_small > verge_merge > dlsd
+r32u64    600000 FakeZipf         : few
+r32u64    600000 Almost Asc       : packed_in_place > repaired
+r32u64    600000 Almost Desc      : packed_in_place > repaired
+r32u64    600000 Asc Saw          : verge
+r32u64    600000 Desc Saw         : verge
+r32u64    600000 Asc Killer       : ends > verge
+r32u64    600000 Desc Killer      : ends > verge
+r32u64    600000 Sqrt             : few_wide
+r32u64    600000 Pipe Organ       : ends
+r32u64    600000 Front            : ends
+r32u64    600000 Middle           : ends
+r32u64    600000 Normale 10       : few_wide
+r32u64    600000 Normale 30       : packed_in_place > no_verge > dlsd
+r32u64    600000 Normale 51       : packed_in_place > no_verge > roller
+r32u64    600000 Int 0..100       : few
+r32u64    600000 Int 0..n         : packed_in_place > no_verge > dlsd
+r32u64    600000 Few 16           : few
+r32u64    600000 Int late out     : few
+r32u64    600000 Few16 late       : few
+r32u64    600000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64    600000 Runs 8           : verge
+r32u64    600000 Runs 64          : verge
+r32u64    600000 Clusters         : packed_in_place > no_verge > roller
+r32u64    600000 Timestamps       : packed_in_place > no_verge > dlsd
+r32u64    600000 Aligned 2^16     : packed_in_place > no_verge > roller
+r32u64    600000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r32u64    600000 Bimodal          : packed_in_place > no_verge > roller > dlsd
+r32u64    600000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64    600000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
+r32u64    600000 Composite        : packed_in_place > no_verge > roller > dlsd
+r32u64    600000 Straddle         : packed_in_place > no_verge > dlsd
+r32u64   1000000 Unif             : packed_in_place > no_verge > roller
+r32u64   1000000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r32u64   1000000 Small 4          : packed_in_place > no_verge > dlsd
+r32u64   1000000 Small 5          : packed_in_place > no_verge > dlsd
+r32u64   1000000 Small 6          : packed_in_place > no_verge > roller > dlsd
+r32u64   1000000 Small 7          : packed_in_place > no_verge > roller
+r32u64   1000000 Asc              : ends
+r32u64   1000000 Asc10pctst       : packed > no_verge > dlsd > ends
+r32u64   1000000 Asc10pct         : packed > no_verge > dlsd > ends
+r32u64   1000000 Desc             : ends
+r32u64   1000000 Desc10pctst      : packed > no_verge > dlsd > ends
+r32u64   1000000 Desc10pct        : packed > no_verge > dlsd > ends
+r32u64   1000000 Equal            : ends
+r32u64   1000000 Alt16            : few
+r32u64   1000000 Zipf             : packed_in_place > no_verge > roller > network > presorted > merge_small > tail_first > lsd > std_small > verge_merge > dlsd
+r32u64   1000000 FakeZipf         : few
+r32u64   1000000 Almost Asc       : packed_in_place > repaired
+r32u64   1000000 Almost Desc      : packed_in_place > repaired
+r32u64   1000000 Asc Saw          : verge
+r32u64   1000000 Desc Saw         : verge
+r32u64   1000000 Asc Killer       : verge
+r32u64   1000000 Desc Killer      : verge
+r32u64   1000000 Sqrt             : few_wide
+r32u64   1000000 Pipe Organ       : ends
+r32u64   1000000 Front            : ends
+r32u64   1000000 Middle           : ends
+r32u64   1000000 Normale 10       : few_wide
+r32u64   1000000 Normale 30       : packed_in_place > no_verge > dlsd
+r32u64   1000000 Normale 51       : packed_in_place > no_verge > roller
+r32u64   1000000 Int 0..100       : few
+r32u64   1000000 Int 0..n         : packed_in_place > no_verge > dlsd
+r32u64   1000000 Few 16           : few
+r32u64   1000000 Int late out     : few
+r32u64   1000000 Few16 late       : few
+r32u64   1000000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r32u64   1000000 Runs 8           : verge
+r32u64   1000000 Runs 64          : verge
+r32u64   1000000 Clusters         : packed_in_place > no_verge > roller
+r32u64   1000000 Timestamps       : packed_in_place > no_verge > dlsd
+r32u64   1000000 Aligned 2^16     : packed_in_place > no_verge > roller
+r32u64   1000000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r32u64   1000000 Bimodal          : packed_in_place > no_verge > roller > dlsd
+r32u64   1000000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r32u64   1000000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
+r32u64   1000000 Composite        : packed_in_place > no_verge > roller
+r32u64   1000000 Straddle         : packed_in_place > no_verge > dlsd
+r32u64   3000000 Unif             : packed_in_place > no_verge > roller
+r32u64   3000000 Unif 10^9        : packed_in_place > no_verge > roller
+r32u64   3000000 Small 4          : packed_in_place > no_verge > roller
+r32u64   3000000 Small 5          : packed_in_place > no_verge > roller
+r32u64   3000000 Small 6          : packed_in_place > no_verge > roller > dlsd
+r32u64   3000000 Small 7          : packed_in_place > no_verge > roller
+r32u64   3000000 Asc              : ends
+r32u64   3000000 Asc10pctst       : packed_in_place > no_verge > dlsd > ends
+r32u64   3000000 Asc10pct         : packed_in_place > no_verge > dlsd > ends
+r32u64   3000000 Desc             : ends
+r32u64   3000000 Desc10pctst      : packed_in_place > no_verge > dlsd > ends
+r32u64   3000000 Desc10pct        : packed_in_place > no_verge > dlsd > ends
+r32u64   3000000 Equal            : ends
+r32u64   3000000 Alt16            : few
+r32u64   3000000 Zipf             : packed_in_place > no_verge > roller > tail_first > lsd > network > merge_small > std_small > presorted > verge_merge > dlsd
+r32u64   3000000 FakeZipf         : few
+r32u64   3000000 Almost Asc       : packed_in_place > repaired
+r32u64   3000000 Almost Desc      : packed_in_place > repaired
+r32u64   3000000 Asc Saw          : verge
+r32u64   3000000 Desc Saw         : verge
+r32u64   3000000 Asc Killer       : verge
+r32u64   3000000 Desc Killer      : verge
+r32u64   3000000 Sqrt             : few_wide
+r32u64   3000000 Pipe Organ       : ends
+r32u64   3000000 Front            : ends
+r32u64   3000000 Middle           : ends
+r32u64   3000000 Normale 10       : packed_in_place > no_verge > roller
+r32u64   3000000 Normale 30       : packed_in_place > no_verge > roller
+r32u64   3000000 Normale 51       : packed_in_place > no_verge > roller
+r32u64   3000000 Int 0..100       : few
+r32u64   3000000 Int 0..n         : packed_in_place > no_verge > roller
+r32u64   3000000 Few 16           : few
+r32u64   3000000 Int late out     : few
+r32u64   3000000 Few16 late       : few
+r32u64   3000000 Asc rnd tail     : packed_in_place > no_verge > dlsd > ends
+r32u64   3000000 Runs 8           : verge
+r32u64   3000000 Runs 64          : verge
+r32u64   3000000 Clusters         : packed_in_place > no_verge > roller
+r32u64   3000000 Timestamps       : packed_in_place > no_verge > roller
+r32u64   3000000 Aligned 2^16     : packed_in_place > no_verge > roller
+r32u64   3000000 Prefix 20b       : packed_in_place > no_verge > roller
+r32u64   3000000 Bimodal          : packed_in_place > no_verge > roller > dlsd
+r32u64   3000000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
+r32u64   3000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
+r32u64   3000000 Composite        : packed_in_place > no_verge > roller > dlsd
+r32u64   3000000 Straddle         : packed_in_place > no_verge > roller
+r32u64  10000000 Unif             : packed_in_place > no_verge > roller
+r32u64  10000000 Unif 10^9        : packed_in_place > no_verge > roller
+r32u64  10000000 Small 4          : packed_in_place > no_verge > roller
+r32u64  10000000 Small 5          : packed_in_place > no_verge > roller
+r32u64  10000000 Small 6          : packed_in_place > no_verge > roller > dlsd
+r32u64  10000000 Small 7          : packed_in_place > no_verge > roller
+r32u64  10000000 Asc              : ends
+r32u64  10000000 Asc10pctst       : packed_in_place > no_verge > roller > ends
+r32u64  10000000 Asc10pct         : packed_in_place > no_verge > roller > ends
+r32u64  10000000 Desc             : ends
+r32u64  10000000 Desc10pctst      : packed_in_place > no_verge > roller > ends
+r32u64  10000000 Desc10pct        : packed_in_place > no_verge > roller > ends
+r32u64  10000000 Equal            : ends
+r32u64  10000000 Alt16            : few
+r32u64  10000000 Zipf             : packed_in_place > no_verge > roller > merge_small > network > presorted > tail_first > lsd > std_small > verge_merge > dlsd
+r32u64  10000000 FakeZipf         : few
+r32u64  10000000 Almost Asc       : packed_in_place > repaired
+r32u64  10000000 Almost Desc      : packed_in_place > repaired
+r32u64  10000000 Asc Saw          : verge
+r32u64  10000000 Desc Saw         : verge
+r32u64  10000000 Asc Killer       : verge
+r32u64  10000000 Desc Killer      : verge
+r32u64  10000000 Sqrt             : few_wide
+r32u64  10000000 Pipe Organ       : ends
+r32u64  10000000 Front            : ends
+r32u64  10000000 Middle           : ends
+r32u64  10000000 Normale 10       : packed_in_place > no_verge > roller
+r32u64  10000000 Normale 30       : packed_in_place > no_verge > roller
+r32u64  10000000 Normale 51       : packed_in_place > no_verge > roller
+r32u64  10000000 Int 0..100       : few
+r32u64  10000000 Int 0..n         : packed_in_place > no_verge > roller
+r32u64  10000000 Few 16           : few
+r32u64  10000000 Int late out     : few
+r32u64  10000000 Few16 late       : few
+r32u64  10000000 Asc rnd tail     : packed_in_place > no_verge > dlsd > ends
+r32u64  10000000 Runs 8           : verge
+r32u64  10000000 Runs 64          : verge
+r32u64  10000000 Clusters         : packed_in_place > no_verge > roller
+r32u64  10000000 Timestamps       : packed_in_place > no_verge > roller
+r32u64  10000000 Aligned 2^16     : packed_in_place > no_verge > roller
+r32u64  10000000 Prefix 20b       : packed_in_place > no_verge > roller
+r32u64  10000000 Bimodal          : packed_in_place > no_verge > roller > dlsd
+r32u64  10000000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
+r32u64  10000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
+r32u64  10000000 Composite        : packed_in_place > no_verge > roller > dlsd
+r32u64  10000000 Straddle         : packed_in_place > no_verge > roller
+r128u32      1000 Unif             : packed > no_verge > dlsd
+r128u32      1000 Unif 10^9        : packed > no_verge > dlsd
+r128u32      1000 Small1           : packed > no_verge > dlsd
+r128u32      1000 Small2           : packed > no_verge > dlsd
+r128u32      1000 Small3           : packed > no_verge > dlsd
+r128u32      1000 Asc              : ends
+r128u32      1000 Desc             : ends
+r128u32      1000 Equal            : ends
+r128u32      1000 Alt16            : few
+r128u32      1000 Zipf             : packed > no_verge > dlsd
+r128u32      1000 FakeZipf         : few
+r128u32      1000 Almost Asc       : packed > repaired
+r128u32      1000 Almost Desc      : packed > repaired
+r128u32      1000 Asc Saw          : packed > verge_merge > dlsd
+r128u32      1000 Desc Saw         : packed > verge_merge > dlsd
+r128u32      1000 Sqrt             : packed > verge_merge > dlsd
+r128u32      1000 Pipe Organ       : ends
+r128u32      1000 Front            : ends
+r128u32      1000 Middle           : ends
+r128u32      1000 Normale 8        : packed > no_verge > dlsd
+r128u32      1000 Normale 10       : packed > no_verge > dlsd
+r128u32      1000 Normale 13       : packed > no_verge > dlsd
+r128u32      1000 Normale 16       : packed > no_verge > dlsd
+r128u32      1000 Normale 20       : packed > no_verge > dlsd
+r128u32      1000 Normale 24       : packed > no_verge > dlsd
+r128u32      1000 Normale 30       : packed > no_verge > dlsd
+r128u32      1000 Int 0..100       : packed > no_verge > dlsd
+r128u32      1000 Int 0..n         : packed > no_verge > dlsd
+r128u32      1000 Few 16           : few
+r128u32      1000 Int late out     : packed > no_verge > dlsd
+r128u32      1000 Few16 late       : few
+r128u32      1000 Asc rnd tail     : packed > std_small > ends
+r128u32      1000 Runs 8           : packed > random_runs > no_verge > dlsd
+r128u32      1000 Runs 64          : packed > verge_merge > dlsd
+r128u32      1000 Clusters         : packed > no_verge > dlsd
+r128u32      1000 Timestamps       : packed > no_verge > dlsd
+r128u32      1000 Aligned 2^16     : packed > no_verge > dlsd
+r128u32      1000 Prefix 20b       : packed > no_verge > dlsd
+r128u32      1000 Bimodal          : packed > no_verge > dlsd
+r128u32      1000 Sparse 90%       : few
+r128u32      1000 Heavy 4          : packed > no_verge > dlsd
+r128u32      1000 Composite        : packed > no_verge > dlsd
+r128u32      1000 Straddle         : packed > no_verge > dlsd
+r128u32     10000 Unif             : packed > no_verge > dlsd
+r128u32     10000 Unif 10^9        : packed > no_verge > dlsd
+r128u32     10000 Small1           : packed > no_verge > dlsd
+r128u32     10000 Small2           : packed > no_verge > dlsd
+r128u32     10000 Small3           : packed > no_verge > dlsd
+r128u32     10000 Asc              : ends
+r128u32     10000 Desc             : ends
+r128u32     10000 Equal            : ends
+r128u32     10000 Alt16            : few
+r128u32     10000 Zipf             : packed > no_verge > lsd_clustered
+r128u32     10000 FakeZipf         : few
+r128u32     10000 Almost Asc       : packed > repaired
+r128u32     10000 Almost Desc      : packed > repaired
+r128u32     10000 Asc Saw          : packed > verge_merge
+r128u32     10000 Desc Saw         : packed > verge_merge
+r128u32     10000 Sqrt             : few
+r128u32     10000 Pipe Organ       : ends
+r128u32     10000 Front            : ends
+r128u32     10000 Middle           : ends
+r128u32     10000 Normale 8        : packed > no_verge > dlsd
+r128u32     10000 Normale 10       : packed > no_verge > dlsd
+r128u32     10000 Normale 13       : packed > no_verge > dlsd
+r128u32     10000 Normale 16       : packed > no_verge > dlsd
+r128u32     10000 Normale 20       : packed > no_verge > dlsd
+r128u32     10000 Normale 24       : packed > no_verge > dlsd
+r128u32     10000 Normale 30       : packed > no_verge > dlsd
+r128u32     10000 Int 0..100       : few
+r128u32     10000 Int 0..n         : packed > no_verge > dlsd
+r128u32     10000 Few 16           : few
+r128u32     10000 Int late out     : few
+r128u32     10000 Few16 late       : few
+r128u32     10000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r128u32     10000 Runs 8           : verge_few
+r128u32     10000 Runs 64          : verge_few
+r128u32     10000 Clusters         : packed > no_verge > dlsd
+r128u32     10000 Timestamps       : packed > no_verge > dlsd
+r128u32     10000 Aligned 2^16     : packed > no_verge > dlsd
+r128u32     10000 Prefix 20b       : packed > no_verge > dlsd
+r128u32     10000 Bimodal          : packed > no_verge > dlsd
+r128u32     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r128u32     10000 Heavy 4          : packed > no_verge > dlsd > heavy
+r128u32     10000 Composite        : packed > no_verge > dlsd
+r128u32     10000 Straddle         : packed > no_verge > dlsd
+r128u32     30000 Unif             : packed > no_verge > dlsd
+r128u32     30000 Unif 10^9        : packed > no_verge > dlsd
+r128u32     30000 Small1           : packed > no_verge > dlsd
+r128u32     30000 Small2           : packed > no_verge > dlsd
+r128u32     30000 Small3           : packed > no_verge > dlsd
+r128u32     30000 Asc              : ends
+r128u32     30000 Desc             : ends
+r128u32     30000 Equal            : ends
+r128u32     30000 Alt16            : few
+r128u32     30000 Zipf             : packed > no_verge > lsd_clustered
+r128u32     30000 FakeZipf         : few
+r128u32     30000 Almost Asc       : packed > repaired
+r128u32     30000 Almost Desc      : packed > repaired
+r128u32     30000 Asc Saw          : packed > verge_merge > dlsd
+r128u32     30000 Desc Saw         : packed > verge_merge > dlsd
+r128u32     30000 Sqrt             : packed > verge_merge > dlsd
+r128u32     30000 Pipe Organ       : ends
+r128u32     30000 Front            : ends
+r128u32     30000 Middle           : ends
+r128u32     30000 Normale 8        : packed > no_verge > dlsd
+r128u32     30000 Normale 10       : packed > no_verge > dlsd
+r128u32     30000 Normale 13       : packed > no_verge > dlsd
+r128u32     30000 Normale 16       : packed > no_verge > dlsd
+r128u32     30000 Normale 20       : packed > no_verge > dlsd
+r128u32     30000 Normale 24       : packed > no_verge > dlsd
+r128u32     30000 Normale 30       : packed > no_verge > dlsd
+r128u32     30000 Int 0..100       : few
+r128u32     30000 Int 0..n         : packed > no_verge > dlsd
+r128u32     30000 Few 16           : few
+r128u32     30000 Int late out     : few
+r128u32     30000 Few16 late       : few
+r128u32     30000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r128u32     30000 Runs 8           : verge_few
+r128u32     30000 Runs 64          : verge_few
+r128u32     30000 Clusters         : packed > no_verge > dlsd
+r128u32     30000 Timestamps       : packed > no_verge > dlsd
+r128u32     30000 Aligned 2^16     : packed > no_verge > dlsd
+r128u32     30000 Prefix 20b       : packed > no_verge > dlsd
+r128u32     30000 Bimodal          : packed > no_verge > dlsd
+r128u32     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r128u32     30000 Heavy 4          : packed > no_verge > dlsd > heavy
+r128u32     30000 Composite        : packed > no_verge > dlsd
+r128u32     30000 Straddle         : packed > no_verge > dlsd
+r128u32     50000 Unif             : packed_in_place > no_verge > dlsd
+r128u32     50000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r128u32     50000 Small1           : few_wide
+r128u32     50000 Small2           : packed_in_place > no_verge > dlsd
+r128u32     50000 Small3           : packed_in_place > no_verge > dlsd
+r128u32     50000 Asc              : ends
+r128u32     50000 Desc             : ends
+r128u32     50000 Equal            : ends
+r128u32     50000 Alt16            : few
+r128u32     50000 Zipf             : packed_in_place > no_verge > lsd_clustered
+r128u32     50000 FakeZipf         : few
+r128u32     50000 Almost Asc       : packed_in_place > repaired
+r128u32     50000 Almost Desc      : packed_in_place > repaired
+r128u32     50000 Asc Saw          : ends > verge
+r128u32     50000 Desc Saw         : ends > verge
+r128u32     50000 Sqrt             : few_wide
+r128u32     50000 Pipe Organ       : ends
+r128u32     50000 Front            : ends
+r128u32     50000 Middle           : ends
+r128u32     50000 Normale 8        : few_wide
+r128u32     50000 Normale 10       : few_wide
+r128u32     50000 Normale 13       : packed_in_place > no_verge > dlsd
+r128u32     50000 Normale 16       : packed_in_place > no_verge > dlsd
+r128u32     50000 Normale 20       : packed_in_place > no_verge > dlsd
+r128u32     50000 Normale 24       : packed_in_place > no_verge > dlsd
+r128u32     50000 Normale 30       : packed_in_place > no_verge > dlsd
+r128u32     50000 Int 0..100       : few
+r128u32     50000 Int 0..n         : packed_in_place > no_verge > dlsd
+r128u32     50000 Few 16           : few
+r128u32     50000 Int late out     : few
+r128u32     50000 Few16 late       : few
+r128u32     50000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r128u32     50000 Runs 8           : verge
+r128u32     50000 Runs 64          : verge
+r128u32     50000 Clusters         : packed_in_place > no_verge > dlsd
+r128u32     50000 Timestamps       : packed_in_place > no_verge > dlsd
+r128u32     50000 Aligned 2^16     : packed_in_place > no_verge > dlsd
+r128u32     50000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r128u32     50000 Bimodal          : packed_in_place > no_verge > dlsd
+r128u32     50000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r128u32     50000 Heavy 4          : packed > no_verge > dlsd > heavy
+r128u32     50000 Composite        : packed_in_place > no_verge > dlsd
+r128u32     50000 Straddle         : few_wide
+r128u32    100000 Unif             : packed_in_place > no_verge > dlsd
+r128u32    100000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r128u32    100000 Small1           : few_wide
+r128u32    100000 Small2           : packed_in_place > no_verge > dlsd
+r128u32    100000 Small3           : packed_in_place > no_verge > dlsd
+r128u32    100000 Asc              : ends
+r128u32    100000 Desc             : ends
+r128u32    100000 Equal            : ends
+r128u32    100000 Alt16            : few
+r128u32    100000 Zipf             : packed_in_place > no_verge > lsd_clustered
+r128u32    100000 FakeZipf         : few
+r128u32    100000 Almost Asc       : packed_in_place > repaired
+r128u32    100000 Almost Desc      : packed_in_place > repaired
+r128u32    100000 Asc Saw          : verge
+r128u32    100000 Desc Saw         : verge
+r128u32    100000 Sqrt             : few_wide
+r128u32    100000 Pipe Organ       : ends
+r128u32    100000 Front            : ends
+r128u32    100000 Middle           : ends
+r128u32    100000 Normale 8        : few_wide
+r128u32    100000 Normale 10       : few_wide
+r128u32    100000 Normale 13       : packed_in_place > no_verge > dlsd
+r128u32    100000 Normale 16       : packed_in_place > no_verge > dlsd
+r128u32    100000 Normale 20       : packed_in_place > no_verge > dlsd
+r128u32    100000 Normale 24       : packed_in_place > no_verge > dlsd
+r128u32    100000 Normale 30       : packed_in_place > no_verge > dlsd
+r128u32    100000 Int 0..100       : few
+r128u32    100000 Int 0..n         : packed_in_place > no_verge > dlsd
+r128u32    100000 Few 16           : few
+r128u32    100000 Int late out     : few
+r128u32    100000 Few16 late       : few
+r128u32    100000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r128u32    100000 Runs 8           : verge
+r128u32    100000 Runs 64          : verge
+r128u32    100000 Clusters         : packed_in_place > no_verge > dlsd
+r128u32    100000 Timestamps       : packed_in_place > no_verge > dlsd
+r128u32    100000 Aligned 2^16     : packed_in_place > no_verge > dlsd
+r128u32    100000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r128u32    100000 Bimodal          : packed_in_place > no_verge > dlsd
+r128u32    100000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r128u32    100000 Heavy 4          : packed > no_verge > dlsd > heavy
+r128u32    100000 Composite        : packed_in_place > no_verge > dlsd
+r128u32    100000 Straddle         : few_wide
+r128u32    200000 Unif             : packed_in_place > no_verge > dlsd
+r128u32    200000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r128u32    200000 Small1           : few_wide
+r128u32    200000 Small2           : packed_in_place > no_verge > dlsd
+r128u32    200000 Small3           : packed_in_place > no_verge > dlsd
+r128u32    200000 Asc              : ends
+r128u32    200000 Desc             : ends
+r128u32    200000 Equal            : ends
+r128u32    200000 Alt16            : few
+r128u32    200000 Zipf             : packed_in_place > no_verge > lsd_clustered
+r128u32    200000 FakeZipf         : few
+r128u32    200000 Almost Asc       : packed_in_place > repaired
+r128u32    200000 Almost Desc      : packed_in_place > repaired
+r128u32    200000 Asc Saw          : verge
+r128u32    200000 Desc Saw         : verge
+r128u32    200000 Sqrt             : few_wide
+r128u32    200000 Pipe Organ       : ends
+r128u32    200000 Front            : ends
+r128u32    200000 Middle           : ends
+r128u32    200000 Normale 8        : few_wide
+r128u32    200000 Normale 10       : few_wide
+r128u32    200000 Normale 13       : packed_in_place > no_verge > dlsd
+r128u32    200000 Normale 16       : packed_in_place > no_verge > dlsd
+r128u32    200000 Normale 20       : packed_in_place > no_verge > dlsd
+r128u32    200000 Normale 24       : packed_in_place > no_verge > dlsd
+r128u32    200000 Normale 30       : packed_in_place > no_verge > dlsd
+r128u32    200000 Int 0..100       : few
+r128u32    200000 Int 0..n         : packed_in_place > no_verge > dlsd
+r128u32    200000 Few 16           : few
+r128u32    200000 Int late out     : few
+r128u32    200000 Few16 late       : few
+r128u32    200000 Asc rnd tail     : packed > no_verge > dlsd > ends
+r128u32    200000 Runs 8           : verge
+r128u32    200000 Runs 64          : verge
+r128u32    200000 Clusters         : packed_in_place > no_verge > dlsd
+r128u32    200000 Timestamps       : packed_in_place > no_verge > dlsd
+r128u32    200000 Aligned 2^16     : packed_in_place > no_verge > dlsd
+r128u32    200000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r128u32    200000 Bimodal          : packed_in_place > no_verge > dlsd
+r128u32    200000 Sparse 90%       : packed > no_verge > dlsd > heavy
+r128u32    200000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
+r128u32    200000 Composite        : packed_in_place > no_verge > dlsd
+r128u32    200000 Straddle         : few_wide
+r128u32    600000 Unif             : packed_in_place > no_verge > dlsd
+r128u32    600000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r128u32    600000 Small1           : few_wide
+r128u32    600000 Small2           : packed_in_place > no_verge > dlsd
+r128u32    600000 Small3           : packed_in_place > no_verge > dlsd
+r128u32    600000 Asc              : ends
+r128u32    600000 Desc             : ends
+r128u32    600000 Equal            : ends
+r128u32    600000 Alt16            : few
+r128u32    600000 Zipf             : packed_in_place > no_verge > lsd_clustered
+r128u32    600000 FakeZipf         : few
+r128u32    600000 Almost Asc       : packed_in_place > repaired
+r128u32    600000 Almost Desc      : packed_in_place > repaired
+r128u32    600000 Asc Saw          : verge
+r128u32    600000 Desc Saw         : verge
+r128u32    600000 Sqrt             : few_wide
+r128u32    600000 Pipe Organ       : ends
+r128u32    600000 Front            : ends
+r128u32    600000 Middle           : ends
+r128u32    600000 Normale 8        : few_wide
+r128u32    600000 Normale 10       : few_wide
+r128u32    600000 Normale 13       : packed_in_place > no_verge > dlsd
+r128u32    600000 Normale 16       : packed_in_place > no_verge > dlsd
+r128u32    600000 Normale 20       : packed_in_place > no_verge > dlsd
+r128u32    600000 Normale 24       : packed_in_place > no_verge > dlsd
+r128u32    600000 Normale 30       : packed_in_place > no_verge > dlsd
+r128u32    600000 Int 0..100       : few
+r128u32    600000 Int 0..n         : packed_in_place > no_verge > dlsd
+r128u32    600000 Few 16           : few
+r128u32    600000 Int late out     : few
+r128u32    600000 Few16 late       : few
+r128u32    600000 Asc rnd tail     : packed_in_place > no_verge > dlsd > ends
+r128u32    600000 Runs 8           : verge
+r128u32    600000 Runs 64          : verge
+r128u32    600000 Clusters         : packed_in_place > no_verge > dlsd
+r128u32    600000 Timestamps       : packed_in_place > no_verge > dlsd
+r128u32    600000 Aligned 2^16     : packed_in_place > no_verge > dlsd
+r128u32    600000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r128u32    600000 Bimodal          : packed_in_place > no_verge > dlsd
+r128u32    600000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
+r128u32    600000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
+r128u32    600000 Composite        : packed_in_place > no_verge > dlsd
+r128u32    600000 Straddle         : few_wide
+r128u32   1000000 Unif             : packed_in_place > no_verge > dlsd
+r128u32   1000000 Unif 10^9        : packed_in_place > no_verge > dlsd
+r128u32   1000000 Small1           : few_wide
+r128u32   1000000 Small2           : packed_in_place > no_verge > dlsd
+r128u32   1000000 Small3           : packed_in_place > no_verge > dlsd
+r128u32   1000000 Asc              : ends
+r128u32   1000000 Desc             : ends
+r128u32   1000000 Equal            : ends
+r128u32   1000000 Alt16            : few
+r128u32   1000000 Zipf             : packed_in_place > no_verge > lsd_clustered
+r128u32   1000000 FakeZipf         : few
+r128u32   1000000 Almost Asc       : packed_in_place > repaired
+r128u32   1000000 Almost Desc      : packed_in_place > repaired
+r128u32   1000000 Asc Saw          : verge
+r128u32   1000000 Desc Saw         : verge
+r128u32   1000000 Sqrt             : few_wide
+r128u32   1000000 Pipe Organ       : ends
+r128u32   1000000 Front            : ends
+r128u32   1000000 Middle           : ends
+r128u32   1000000 Normale 8        : few_wide
+r128u32   1000000 Normale 10       : few_wide
+r128u32   1000000 Normale 13       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Normale 16       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Normale 20       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Normale 24       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Normale 30       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Int 0..100       : few
+r128u32   1000000 Int 0..n         : packed_in_place > no_verge > dlsd
+r128u32   1000000 Few 16           : few
+r128u32   1000000 Int late out     : few
+r128u32   1000000 Few16 late       : few
+r128u32   1000000 Asc rnd tail     : packed_in_place > no_verge > dlsd > ends
+r128u32   1000000 Runs 8           : verge
+r128u32   1000000 Runs 64          : verge
+r128u32   1000000 Clusters         : packed_in_place > no_verge > dlsd
+r128u32   1000000 Timestamps       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Aligned 2^16     : packed_in_place > no_verge > dlsd
+r128u32   1000000 Prefix 20b       : packed_in_place > no_verge > dlsd
+r128u32   1000000 Bimodal          : packed_in_place > no_verge > dlsd
+r128u32   1000000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
+r128u32   1000000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
+r128u32   1000000 Composite        : packed_in_place > no_verge > dlsd
+r128u32   1000000 Straddle         : few_wide
+ru16u64      1000 Unif             : packed > no_verge > dlsd
+ru16u64      1000 Unif 10^9        : packed > no_verge > dlsd
+ru16u64      1000 Small 4          : packed > no_verge > dlsd
+ru16u64      1000 Small 5          : packed > no_verge > dlsd
+ru16u64      1000 Small 6          : packed > no_verge > dlsd
+ru16u64      1000 Small 7          : packed > no_verge > dlsd
+ru16u64      1000 Asc              : ends
+ru16u64      1000 Asc10pctst       : packed > verge_merge > dlsd > ends
+ru16u64      1000 Asc10pct         : packed > verge_merge > dlsd > ends
+ru16u64      1000 Desc             : ends
+ru16u64      1000 Desc10pctst      : packed > verge_merge > dlsd > ends
+ru16u64      1000 Desc10pct        : packed > verge_merge > dlsd > ends
+ru16u64      1000 Equal            : ends
+ru16u64      1000 Alt16            : few
+ru16u64      1000 Zipf             : packed > no_verge > dlsd
+ru16u64      1000 FakeZipf         : few
+ru16u64      1000 Almost Asc       : packed > repaired
+ru16u64      1000 Almost Desc      : packed > repaired
+ru16u64      1000 Asc Saw          : packed > verge_merge > dlsd
+ru16u64      1000 Desc Saw         : packed > verge_merge > dlsd
+ru16u64      1000 Asc Killer       : packed > verge_merge > dlsd
+ru16u64      1000 Desc Killer      : packed > verge_merge > dlsd
+ru16u64      1000 Sqrt             : packed > verge_merge > dlsd
+ru16u64      1000 Pipe Organ       : ends
+ru16u64      1000 Front            : ends
+ru16u64      1000 Middle           : ends
+ru16u64      1000 Normale 10       : packed > no_verge > dlsd
+ru16u64      1000 Normale 30       : packed > no_verge > dlsd
+ru16u64      1000 Normale 51       : packed > no_verge > dlsd
+ru16u64      1000 Int 0..100       : packed > no_verge > dlsd
+ru16u64      1000 Int 0..n         : packed > no_verge > dlsd
+ru16u64      1000 Few 16           : few
+ru16u64      1000 Int late out     : packed > no_verge > dlsd > verge_merge > lsd
+ru16u64      1000 Few16 late       : few
+ru16u64      1000 Asc rnd tail     : packed > std_small > ends
+ru16u64      1000 Runs 8           : packed > random_runs > no_verge > dlsd
+ru16u64      1000 Runs 64          : packed > verge_merge > dlsd
+ru16u64      1000 Clusters         : packed > no_verge > dlsd
+ru16u64      1000 Timestamps       : packed > no_verge > dlsd
+ru16u64      1000 Aligned 2^16     : packed > no_verge > dlsd
+ru16u64      1000 Prefix 20b       : packed > no_verge > dlsd
+ru16u64      1000 Bimodal          : packed > no_verge > dlsd
+ru16u64      1000 Sparse 90%       : few
+ru16u64      1000 Heavy 4          : packed > no_verge > dlsd
+ru16u64      1000 Composite        : packed > no_verge > dlsd
+ru16u64      1000 Straddle         : packed > no_verge > dlsd
+ru16u64     10000 Unif             : packed > no_verge > dlsd
+ru16u64     10000 Unif 10^9        : packed > no_verge > dlsd
+ru16u64     10000 Small 4          : packed > no_verge > dlsd
+ru16u64     10000 Small 5          : packed > no_verge > dlsd
+ru16u64     10000 Small 6          : packed > no_verge > dlsd
+ru16u64     10000 Small 7          : packed > no_verge > dlsd
+ru16u64     10000 Asc              : ends
+ru16u64     10000 Asc10pctst       : packed > no_verge > dlsd > ends
+ru16u64     10000 Asc10pct         : packed > no_verge > dlsd > ends
+ru16u64     10000 Desc             : ends
+ru16u64     10000 Desc10pctst      : packed > no_verge > dlsd > ends
+ru16u64     10000 Desc10pct        : packed > no_verge > dlsd > ends
+ru16u64     10000 Equal            : ends
+ru16u64     10000 Alt16            : few
+ru16u64     10000 Zipf             : packed > no_verge > dlsd
+ru16u64     10000 FakeZipf         : few
+ru16u64     10000 Almost Asc       : packed > repaired
+ru16u64     10000 Almost Desc      : packed > repaired
+ru16u64     10000 Asc Saw          : packed > verge_merge
+ru16u64     10000 Desc Saw         : packed > verge_merge
+ru16u64     10000 Asc Killer       : packed > verge_merge > dlsd
+ru16u64     10000 Desc Killer      : packed > verge_merge > dlsd
+ru16u64     10000 Sqrt             : few
+ru16u64     10000 Pipe Organ       : ends
+ru16u64     10000 Front            : ends
+ru16u64     10000 Middle           : ends
+ru16u64     10000 Normale 10       : packed > no_verge > dlsd
+ru16u64     10000 Normale 30       : packed > no_verge > dlsd
+ru16u64     10000 Normale 51       : packed > no_verge > dlsd
+ru16u64     10000 Int 0..100       : few
+ru16u64     10000 Int 0..n         : packed > no_verge > dlsd
+ru16u64     10000 Few 16           : few
+ru16u64     10000 Int late out     : few
+ru16u64     10000 Few16 late       : few
+ru16u64     10000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64     10000 Runs 8           : verge_few
+ru16u64     10000 Runs 64          : verge_few
+ru16u64     10000 Clusters         : packed > no_verge > dlsd
+ru16u64     10000 Timestamps       : packed > no_verge > dlsd
+ru16u64     10000 Aligned 2^16     : packed > no_verge > dlsd
+ru16u64     10000 Prefix 20b       : packed > no_verge > dlsd
+ru16u64     10000 Bimodal          : packed > no_verge > dlsd
+ru16u64     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
+ru16u64     10000 Heavy 4          : packed > no_verge > dlsd > heavy
+ru16u64     10000 Composite        : packed > no_verge > dlsd
+ru16u64     10000 Straddle         : packed > no_verge > dlsd
+ru16u64     30000 Unif             : packed > no_verge > dlsd
+ru16u64     30000 Unif 10^9        : packed > no_verge > dlsd
+ru16u64     30000 Small 4          : packed > no_verge > dlsd
+ru16u64     30000 Small 5          : packed > no_verge > dlsd
+ru16u64     30000 Small 6          : packed > no_verge > dlsd
+ru16u64     30000 Small 7          : packed > no_verge > dlsd
+ru16u64     30000 Asc              : ends
+ru16u64     30000 Asc10pctst       : packed > no_verge > dlsd > ends
+ru16u64     30000 Asc10pct         : packed > no_verge > dlsd > ends
+ru16u64     30000 Desc             : ends
+ru16u64     30000 Desc10pctst      : packed > no_verge > dlsd > ends
+ru16u64     30000 Desc10pct        : packed > no_verge > dlsd > ends
+ru16u64     30000 Equal            : ends
+ru16u64     30000 Alt16            : few
+ru16u64     30000 Zipf             : packed > no_verge > dlsd
+ru16u64     30000 FakeZipf         : few
+ru16u64     30000 Almost Asc       : packed > repaired
+ru16u64     30000 Almost Desc      : packed > repaired
+ru16u64     30000 Asc Saw          : packed > verge_merge > dlsd
+ru16u64     30000 Desc Saw         : packed > verge_merge > dlsd
+ru16u64     30000 Asc Killer       : packed > verge_merge > dlsd
+ru16u64     30000 Desc Killer      : packed > verge_merge > dlsd
+ru16u64     30000 Sqrt             : packed > verge_merge > dlsd
+ru16u64     30000 Pipe Organ       : ends
+ru16u64     30000 Front            : ends
+ru16u64     30000 Middle           : ends
+ru16u64     30000 Normale 10       : packed > no_verge > dlsd
+ru16u64     30000 Normale 30       : packed > no_verge > dlsd
+ru16u64     30000 Normale 51       : packed > no_verge > dlsd
+ru16u64     30000 Int 0..100       : few
+ru16u64     30000 Int 0..n         : packed > no_verge > dlsd
+ru16u64     30000 Few 16           : few
+ru16u64     30000 Int late out     : few
+ru16u64     30000 Few16 late       : few
+ru16u64     30000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64     30000 Runs 8           : verge_few
+ru16u64     30000 Runs 64          : verge_few
+ru16u64     30000 Clusters         : packed > no_verge > dlsd
+ru16u64     30000 Timestamps       : packed > no_verge > dlsd
+ru16u64     30000 Aligned 2^16     : packed > no_verge > dlsd
+ru16u64     30000 Prefix 20b       : packed > no_verge > dlsd
+ru16u64     30000 Bimodal          : packed > no_verge > dlsd
+ru16u64     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
+ru16u64     30000 Heavy 4          : packed > no_verge > dlsd > heavy
+ru16u64     30000 Composite        : packed > no_verge > dlsd
+ru16u64     30000 Straddle         : packed > no_verge > dlsd
+ru16u64     50000 Unif             : lsd11_cache
+ru16u64     50000 Unif 10^9        : packed > no_verge > dlsd
+ru16u64     50000 Small 4          : packed > no_verge > dlsd
+ru16u64     50000 Small 5          : packed > no_verge > dlsd
+ru16u64     50000 Small 6          : packed > no_verge > dlsd
+ru16u64     50000 Small 7          : lsd11_cache
+ru16u64     50000 Asc              : ends
+ru16u64     50000 Asc10pctst       : packed > no_verge > dlsd > ends
+ru16u64     50000 Asc10pct         : packed > no_verge > dlsd > ends
+ru16u64     50000 Desc             : ends
+ru16u64     50000 Desc10pctst      : packed > no_verge > dlsd > ends
+ru16u64     50000 Desc10pct        : packed > no_verge > dlsd > ends
+ru16u64     50000 Equal            : ends
+ru16u64     50000 Alt16            : few
+ru16u64     50000 Zipf             : lsd11_cache
+ru16u64     50000 FakeZipf         : few
+ru16u64     50000 Almost Asc       : packed > repaired
+ru16u64     50000 Almost Desc      : packed > repaired
+ru16u64     50000 Asc Saw          : packed > verge_merge > dlsd
+ru16u64     50000 Desc Saw         : packed > verge_merge > dlsd
+ru16u64     50000 Asc Killer       : packed > verge_merge > dlsd
+ru16u64     50000 Desc Killer      : packed > verge_merge > dlsd
+ru16u64     50000 Sqrt             : few_wide_cache
+ru16u64     50000 Pipe Organ       : ends
+ru16u64     50000 Front            : ends
+ru16u64     50000 Middle           : ends
+ru16u64     50000 Normale 10       : few_wide_cache
+ru16u64     50000 Normale 30       : packed > no_verge > dlsd
+ru16u64     50000 Normale 51       : lsd11_cache
+ru16u64     50000 Int 0..100       : few
+ru16u64     50000 Int 0..n         : packed > no_verge > dlsd
+ru16u64     50000 Few 16           : few
+ru16u64     50000 Int late out     : few
+ru16u64     50000 Few16 late       : few
+ru16u64     50000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64     50000 Runs 8           : verge_few
+ru16u64     50000 Runs 64          : verge_few
+ru16u64     50000 Clusters         : lsd11_cache
+ru16u64     50000 Timestamps       : packed > no_verge > dlsd
+ru16u64     50000 Aligned 2^16     : lsd11_cache
+ru16u64     50000 Prefix 20b       : packed > no_verge > dlsd
+ru16u64     50000 Bimodal          : lsd11_cache
+ru16u64     50000 Sparse 90%       : packed > no_verge > dlsd > heavy
+ru16u64     50000 Heavy 4          : packed > no_verge > dlsd > heavy
+ru16u64     50000 Composite        : lsd11_cache
+ru16u64     50000 Straddle         : packed > no_verge > dlsd
+ru16u64    100000 Unif             : std_unstable_wide
+ru16u64    100000 Unif 10^9        : packed > no_verge > dlsd
+ru16u64    100000 Small 4          : packed > no_verge > dlsd
+ru16u64    100000 Small 5          : packed > no_verge > dlsd
+ru16u64    100000 Small 6          : std_unstable_wide
+ru16u64    100000 Small 7          : std_unstable_wide
+ru16u64    100000 Asc              : ends
+ru16u64    100000 Asc10pctst       : packed > no_verge > dlsd > ends
+ru16u64    100000 Asc10pct         : packed > no_verge > dlsd > ends
+ru16u64    100000 Desc             : ends
+ru16u64    100000 Desc10pctst      : packed > no_verge > dlsd > ends
+ru16u64    100000 Desc10pct        : packed > no_verge > dlsd > ends
+ru16u64    100000 Equal            : ends
+ru16u64    100000 Alt16            : unstable_dups
+ru16u64    100000 Zipf             : unstable_dups
+ru16u64    100000 FakeZipf         : unstable_dups
+ru16u64    100000 Almost Asc       : packed > repaired
+ru16u64    100000 Almost Desc      : packed > repaired
+ru16u64    100000 Asc Saw          : unstable_dups
+ru16u64    100000 Desc Saw         : unstable_dups
+ru16u64    100000 Asc Killer       : packed > verge_merge > dlsd
+ru16u64    100000 Desc Killer      : packed > verge_merge > dlsd
+ru16u64    100000 Sqrt             : unstable_dups
+ru16u64    100000 Pipe Organ       : ends
+ru16u64    100000 Front            : ends
+ru16u64    100000 Middle           : ends
+ru16u64    100000 Normale 10       : unstable_dups
+ru16u64    100000 Normale 30       : packed > no_verge > dlsd
+ru16u64    100000 Normale 51       : std_unstable_wide
+ru16u64    100000 Int 0..100       : unstable_dups
+ru16u64    100000 Int 0..n         : packed > no_verge > dlsd
+ru16u64    100000 Few 16           : unstable_dups
+ru16u64    100000 Int late out     : unstable_dups
+ru16u64    100000 Few16 late       : unstable_dups
+ru16u64    100000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64    100000 Runs 8           : verge_few
+ru16u64    100000 Runs 64          : verge_few
+ru16u64    100000 Clusters         : std_unstable_wide
+ru16u64    100000 Timestamps       : packed > no_verge > dlsd
+ru16u64    100000 Aligned 2^16     : std_unstable_wide
+ru16u64    100000 Prefix 20b       : packed > no_verge > dlsd
+ru16u64    100000 Bimodal          : std_unstable_wide
+ru16u64    100000 Sparse 90%       : unstable_dups
+ru16u64    100000 Heavy 4          : unstable_dups
+ru16u64    100000 Composite        : std_unstable_wide
+ru16u64    100000 Straddle         : packed > no_verge > dlsd
+ru16u64    200000 Unif             : std_unstable_wide
+ru16u64    200000 Unif 10^9        : packed > no_verge > dlsd
+ru16u64    200000 Small 4          : packed > no_verge > dlsd
+ru16u64    200000 Small 5          : packed > no_verge > dlsd
+ru16u64    200000 Small 6          : std_unstable_wide
+ru16u64    200000 Small 7          : std_unstable_wide
+ru16u64    200000 Asc              : ends
+ru16u64    200000 Asc10pctst       : packed > no_verge > dlsd > ends
+ru16u64    200000 Asc10pct         : packed > no_verge > dlsd > ends
+ru16u64    200000 Desc             : ends
+ru16u64    200000 Desc10pctst      : packed > no_verge > dlsd > ends
+ru16u64    200000 Desc10pct        : packed > no_verge > dlsd > ends
+ru16u64    200000 Equal            : ends
+ru16u64    200000 Alt16            : unstable_dups
+ru16u64    200000 Zipf             : unstable_dups
+ru16u64    200000 FakeZipf         : unstable_dups
+ru16u64    200000 Almost Asc       : packed > repaired
+ru16u64    200000 Almost Desc      : packed > repaired
+ru16u64    200000 Asc Saw          : packed > verge_merge > dlsd
+ru16u64    200000 Desc Saw         : packed > verge_merge > dlsd
+ru16u64    200000 Asc Killer       : packed > verge_merge > dlsd
+ru16u64    200000 Desc Killer      : packed > verge_merge > dlsd
+ru16u64    200000 Sqrt             : unstable_dups
+ru16u64    200000 Pipe Organ       : ends
+ru16u64    200000 Front            : ends
+ru16u64    200000 Middle           : ends
+ru16u64    200000 Normale 10       : unstable_dups
+ru16u64    200000 Normale 30       : packed > no_verge > dlsd
+ru16u64    200000 Normale 51       : std_unstable_wide
+ru16u64    200000 Int 0..100       : unstable_dups
+ru16u64    200000 Int 0..n         : packed > no_verge > dlsd
+ru16u64    200000 Few 16           : unstable_dups
+ru16u64    200000 Int late out     : unstable_dups
+ru16u64    200000 Few16 late       : unstable_dups
+ru16u64    200000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64    200000 Runs 8           : verge_few
+ru16u64    200000 Runs 64          : verge_few
+ru16u64    200000 Clusters         : std_unstable_wide
+ru16u64    200000 Timestamps       : packed > no_verge > dlsd
+ru16u64    200000 Aligned 2^16     : std_unstable_wide
+ru16u64    200000 Prefix 20b       : packed > no_verge > dlsd
+ru16u64    200000 Bimodal          : std_unstable_wide
+ru16u64    200000 Sparse 90%       : unstable_dups
+ru16u64    200000 Heavy 4          : unstable_dups
+ru16u64    200000 Composite        : std_unstable_wide
+ru16u64    200000 Straddle         : packed > no_verge > dlsd
+ru16u64    600000 Unif             : std_unstable_wide
+ru16u64    600000 Unif 10^9        : lsd
+ru16u64    600000 Small 4          : lsd
+ru16u64    600000 Small 5          : lsd
+ru16u64    600000 Small 6          : std_unstable_wide
+ru16u64    600000 Small 7          : std_unstable_wide
+ru16u64    600000 Asc              : ends
+ru16u64    600000 Asc10pctst       : lsd11_cache > ends
+ru16u64    600000 Asc10pct         : lsd11_cache > ends
+ru16u64    600000 Desc             : ends
+ru16u64    600000 Desc10pctst      : lsd11_cache > ends
+ru16u64    600000 Desc10pct        : lsd11_cache > ends
+ru16u64    600000 Equal            : ends
+ru16u64    600000 Alt16            : unstable_dups
+ru16u64    600000 Zipf             : unstable_dups
+ru16u64    600000 FakeZipf         : unstable_dups
+ru16u64    600000 Almost Asc       : packed_in_place > repaired
+ru16u64    600000 Almost Desc      : packed_in_place > repaired
+ru16u64    600000 Asc Saw          : verge
+ru16u64    600000 Desc Saw         : verge
+ru16u64    600000 Asc Killer       : ends > verge
+ru16u64    600000 Desc Killer      : ends > verge
+ru16u64    600000 Sqrt             : unstable_dups
+ru16u64    600000 Pipe Organ       : ends
+ru16u64    600000 Front            : ends
+ru16u64    600000 Middle           : ends
+ru16u64    600000 Normale 10       : unstable_dups
+ru16u64    600000 Normale 30       : lsd
+ru16u64    600000 Normale 51       : std_unstable_wide
+ru16u64    600000 Int 0..100       : unstable_dups
+ru16u64    600000 Int 0..n         : lsd
+ru16u64    600000 Few 16           : unstable_dups
+ru16u64    600000 Int late out     : unstable_dups
+ru16u64    600000 Few16 late       : unstable_dups
+ru16u64    600000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64    600000 Runs 8           : verge
+ru16u64    600000 Runs 64          : verge
+ru16u64    600000 Clusters         : std_unstable_wide
+ru16u64    600000 Timestamps       : lsd
+ru16u64    600000 Aligned 2^16     : std_unstable_wide
+ru16u64    600000 Prefix 20b       : lsd
+ru16u64    600000 Bimodal          : std_unstable_wide
+ru16u64    600000 Sparse 90%       : unstable_dups
+ru16u64    600000 Heavy 4          : unstable_dups
+ru16u64    600000 Composite        : std_unstable_wide
+ru16u64    600000 Straddle         : lsd
+ru16u64   1000000 Unif             : std_unstable_wide
+ru16u64   1000000 Unif 10^9        : lsd
+ru16u64   1000000 Small 4          : lsd
+ru16u64   1000000 Small 5          : lsd
+ru16u64   1000000 Small 6          : std_unstable_wide
+ru16u64   1000000 Small 7          : std_unstable_wide
+ru16u64   1000000 Asc              : ends
+ru16u64   1000000 Asc10pctst       : std_unstable_wide > ends
+ru16u64   1000000 Asc10pct         : std_unstable_wide > ends
+ru16u64   1000000 Desc             : ends
+ru16u64   1000000 Desc10pctst      : std_unstable_wide > ends
+ru16u64   1000000 Desc10pct        : std_unstable_wide > ends
+ru16u64   1000000 Equal            : ends
+ru16u64   1000000 Alt16            : unstable_dups
+ru16u64   1000000 Zipf             : unstable_dups
+ru16u64   1000000 FakeZipf         : unstable_dups
+ru16u64   1000000 Almost Asc       : packed_in_place > repaired
+ru16u64   1000000 Almost Desc      : packed_in_place > repaired
+ru16u64   1000000 Asc Saw          : verge
+ru16u64   1000000 Desc Saw         : verge
+ru16u64   1000000 Asc Killer       : verge
+ru16u64   1000000 Desc Killer      : verge
+ru16u64   1000000 Sqrt             : std_unstable_wide
+ru16u64   1000000 Pipe Organ       : ends
+ru16u64   1000000 Front            : ends
+ru16u64   1000000 Middle           : ends
+ru16u64   1000000 Normale 10       : unstable_dups
+ru16u64   1000000 Normale 30       : lsd
+ru16u64   1000000 Normale 51       : std_unstable_wide
+ru16u64   1000000 Int 0..100       : unstable_dups
+ru16u64   1000000 Int 0..n         : lsd
+ru16u64   1000000 Few 16           : unstable_dups
+ru16u64   1000000 Int late out     : unstable_dups
+ru16u64   1000000 Few16 late       : unstable_dups
+ru16u64   1000000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64   1000000 Runs 8           : verge
+ru16u64   1000000 Runs 64          : verge
+ru16u64   1000000 Clusters         : std_unstable_wide
+ru16u64   1000000 Timestamps       : lsd
+ru16u64   1000000 Aligned 2^16     : std_unstable_wide
+ru16u64   1000000 Prefix 20b       : lsd
+ru16u64   1000000 Bimodal          : std_unstable_wide
+ru16u64   1000000 Sparse 90%       : unstable_dups
+ru16u64   1000000 Heavy 4          : unstable_dups
+ru16u64   1000000 Composite        : std_unstable_wide
+ru16u64   1000000 Straddle         : lsd
+ru16u64   3000000 Unif             : std_unstable_wide
+ru16u64   3000000 Unif 10^9        : lsd
+ru16u64   3000000 Small 4          : lsd
+ru16u64   3000000 Small 5          : lsd
+ru16u64   3000000 Small 6          : std_unstable_wide
+ru16u64   3000000 Small 7          : std_unstable_wide
+ru16u64   3000000 Asc              : ends
+ru16u64   3000000 Asc10pctst       : std_unstable_wide > ends
+ru16u64   3000000 Asc10pct         : std_unstable_wide > ends
+ru16u64   3000000 Desc             : ends
+ru16u64   3000000 Desc10pctst      : std_unstable_wide > ends
+ru16u64   3000000 Desc10pct        : std_unstable_wide > ends
+ru16u64   3000000 Equal            : ends
+ru16u64   3000000 Alt16            : unstable_dups
+ru16u64   3000000 Zipf             : unstable_dups
+ru16u64   3000000 FakeZipf         : unstable_dups
+ru16u64   3000000 Almost Asc       : packed_in_place > repaired
+ru16u64   3000000 Almost Desc      : packed_in_place > repaired
+ru16u64   3000000 Asc Saw          : verge
+ru16u64   3000000 Desc Saw         : verge
+ru16u64   3000000 Asc Killer       : verge
+ru16u64   3000000 Desc Killer      : verge
+ru16u64   3000000 Sqrt             : std_unstable_wide
+ru16u64   3000000 Pipe Organ       : ends
+ru16u64   3000000 Front            : ends
+ru16u64   3000000 Middle           : ends
+ru16u64   3000000 Normale 10       : unstable_dups
+ru16u64   3000000 Normale 30       : lsd
+ru16u64   3000000 Normale 51       : std_unstable_wide
+ru16u64   3000000 Int 0..100       : unstable_dups
+ru16u64   3000000 Int 0..n         : lsd
+ru16u64   3000000 Few 16           : unstable_dups
+ru16u64   3000000 Int late out     : unstable_dups
+ru16u64   3000000 Few16 late       : unstable_dups
+ru16u64   3000000 Asc rnd tail     : packed > no_verge > dlsd > ends
+ru16u64   3000000 Runs 8           : verge
+ru16u64   3000000 Runs 64          : verge
+ru16u64   3000000 Clusters         : std_unstable_wide
+ru16u64   3000000 Timestamps       : lsd
+ru16u64   3000000 Aligned 2^16     : std_unstable_wide
+ru16u64   3000000 Prefix 20b       : lsd
+ru16u64   3000000 Bimodal          : std_unstable_wide
+ru16u64   3000000 Sparse 90%       : unstable_dups
+ru16u64   3000000 Heavy 4          : unstable_dups
+ru16u64   3000000 Composite        : std_unstable_wide
+ru16u64   3000000 Straddle         : lsd
+ru16u64  10000000 Unif             : std_unstable_wide
+ru16u64  10000000 Unif 10^9        : lsd
+ru16u64  10000000 Small 4          : lsd
+ru16u64  10000000 Small 5          : lsd
+ru16u64  10000000 Small 6          : std_unstable_wide
+ru16u64  10000000 Small 7          : std_unstable_wide
+ru16u64  10000000 Asc              : ends
+ru16u64  10000000 Asc10pctst       : std_unstable_wide > ends
+ru16u64  10000000 Asc10pct         : std_unstable_wide > ends
+ru16u64  10000000 Desc             : ends
+ru16u64  10000000 Desc10pctst      : std_unstable_wide > ends
+ru16u64  10000000 Desc10pct        : std_unstable_wide > ends
+ru16u64  10000000 Equal            : ends
+ru16u64  10000000 Alt16            : unstable_dups
+ru16u64  10000000 Zipf             : unstable_dups
+ru16u64  10000000 FakeZipf         : unstable_dups
+ru16u64  10000000 Almost Asc       : packed_in_place > repaired
+ru16u64  10000000 Almost Desc      : packed_in_place > repaired
+ru16u64  10000000 Asc Saw          : verge
+ru16u64  10000000 Desc Saw         : verge
+ru16u64  10000000 Asc Killer       : verge
+ru16u64  10000000 Desc Killer      : verge
+ru16u64  10000000 Sqrt             : std_unstable_wide
+ru16u64  10000000 Pipe Organ       : ends
+ru16u64  10000000 Front            : ends
+ru16u64  10000000 Middle           : ends
+ru16u64  10000000 Normale 10       : unstable_dups
+ru16u64  10000000 Normale 30       : lsd
+ru16u64  10000000 Normale 51       : std_unstable_wide
+ru16u64  10000000 Int 0..100       : unstable_dups
+ru16u64  10000000 Int 0..n         : lsd
+ru16u64  10000000 Few 16           : unstable_dups
+ru16u64  10000000 Int late out     : unstable_dups
+ru16u64  10000000 Few16 late       : unstable_dups
+ru16u64  10000000 Asc rnd tail     : lsd > ends
+ru16u64  10000000 Runs 8           : verge
+ru16u64  10000000 Runs 64          : verge
+ru16u64  10000000 Clusters         : std_unstable_wide
+ru16u64  10000000 Timestamps       : lsd
+ru16u64  10000000 Aligned 2^16     : std_unstable_wide
+ru16u64  10000000 Prefix 20b       : lsd
+ru16u64  10000000 Bimodal          : std_unstable_wide
+ru16u64  10000000 Sparse 90%       : unstable_dups
+ru16u64  10000000 Heavy 4          : unstable_dups
+ru16u64  10000000 Composite        : std_unstable_wide
+ru16u64  10000000 Straddle         : lsd

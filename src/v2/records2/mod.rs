@@ -26,6 +26,7 @@ mod verge_small;
 
 pub use super::records::SortKey;
 
+use super::trace::hit;
 use std::mem::MaybeUninit;
 
 use few::few_keys;
@@ -62,6 +63,7 @@ pub fn devour_sort_unstable_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T],
     // (in place: no buffer to fault in, presorted data found as it goes).
     let size = std::mem::size_of::<T>();
     if size >= UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && arr.len() < UNSTABLE_PDQ_MAX.load(std::sync::atomic::Ordering::Relaxed) {
+        trace!("std_unstable_large");
         arr.sort_unstable_by_key(|x| enc(x));
         return;
     }
@@ -407,7 +409,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         return;
     }
     let t_ends = std::time::Instant::now();
-    if n >= ENDS_MIN_N && ENDS.load(std::sync::atomic::Ordering::Relaxed) && ends(arr, enc) {
+    if n >= ENDS_MIN_N && ENDS.load(std::sync::atomic::Ordering::Relaxed) && hit(ends(arr, enc), "ends") {
         if verge::TRACE.load(std::sync::atomic::Ordering::Relaxed) {
             eprintln!("  ends {:.2} ns", t_ends.elapsed().as_nanos() as f64 / n as f64);
         }
@@ -418,15 +420,17 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     if std::mem::size_of::<T>() <= 8 {
         // Unstable, many repeated keys: as below for larger records.
         if unstable() && n >= UNSTABLE_PDQ_MIN && UNSTABLE_DUPS.load(std::sync::atomic::Ordering::Relaxed) == 2 && sample_distinct(arr, enc) < 500 {
+            trace!("std_unstable_dups");
             arr.sort_unstable_by_key(|x| enc(x));
             return;
         }
-        if HEAVY8.load(std::sync::atomic::Ordering::Relaxed) && heavy::heavy_keys(arr, enc) {
+        if HEAVY8.load(std::sync::atomic::Ordering::Relaxed) && hit(heavy::heavy_keys(arr, enc), "heavy") {
             return;
         }
-        if RUNS8.load(std::sync::atomic::Ordering::Relaxed) && n >= VERGE_MIN && locally_sorted(arr, enc) && verge::verge_if(arr, enc, true) {
+        if RUNS8.load(std::sync::atomic::Ordering::Relaxed) && n >= VERGE_MIN && locally_sorted(arr, enc) && hit(verge::verge_if(arr, enc, true), "verge_runs") {
             return;
         }
+        trace!("small_path");
         super::records::sort_encoded(arr, enc);
         return;
     }
@@ -455,9 +459,11 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         eprintln!("  scan {:.2} ns (turns {})", t_scan.elapsed().as_nanos() as f64 / n as f64, s.turns);
     }
     if s.ascending {
+        trace!("presorted");
         return;
     }
     if s.strictly_descending {
+        trace!("reversed");
         arr.reverse();
         return;
     }
@@ -467,6 +473,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // (a pipe organ: one merge) or breaks scattered in ascending order (the
     // repair of nearly sorted data).
     if msd_ok && s.turns > 2 && !nearly_sorted(arr, enc, &s, &drops) {
+        trace!("msd_unstable");
         unstable::msd(arr, enc, s.lo, s.hi);
         return;
     }
@@ -476,6 +483,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     if unstable() && size < UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && n >= UNSTABLE_PDQ_MIN {
         let mode = UNSTABLE_DUPS.load(std::sync::atomic::Ordering::Relaxed);
         if mode != 0 && sample_distinct(arr, enc) < 500 {
+            trace!("unstable_dups");
             if mode == 1 {
                 unstable::msd(arr, enc, s.lo, s.hi);
             } else {
@@ -484,13 +492,13 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
             return;
         }
     }
-    if few_keys(arr, enc) {
+    if hit(few_keys(arr, enc), "few") {
         if tr {
             eprintln!("  few_keys");
         }
         return;
     }
-    if HEAVY.load(std::sync::atomic::Ordering::Relaxed) && heavy::heavy_keys(arr, enc) {
+    if HEAVY.load(std::sync::atomic::Ordering::Relaxed) && hit(heavy::heavy_keys(arr, enc), "heavy") {
         if tr {
             eprintln!("  heavy_keys");
         }
@@ -502,22 +510,22 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // Few turns: long runs likely.
     // Small records: the strict rule (long runs, predictable merges);
     // larger ones: runs worth more than gathering the records at random.
-    if size <= 8 && beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n && verge_small::verge(arr, enc) {
+    if size <= 8 && beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n && hit(verge_small::verge(arr, enc), "verge_small") {
         return;
     }
     // In the cache: Verge only on few breaks of ascending order (long runs:
     // concatenated sorted pieces), the runs found by a second read.
-    if size > 8 && !beyond_cache && n >= VERGE_MIN && 64 * s.drops <= n && VERGE_FEW.load(std::sync::atomic::Ordering::Relaxed) && verge::verge_if(arr, enc, true) {
+    if size > 8 && !beyond_cache && n >= VERGE_MIN && 64 * s.drops <= n && VERGE_FEW.load(std::sync::atomic::Ordering::Relaxed) && hit(verge::verge_if(arr, enc, true), "verge_few") {
         return;
     }
     if size > 8 && try_verge && TURN_DIV.load(std::sync::atomic::Ordering::Relaxed) * s.turns <= n
-        && (if s.drops <= DROPS_MAX && FROM_BREAKS.load(std::sync::atomic::Ordering::Relaxed) {
+        && hit(if s.drops <= DROPS_MAX && FROM_BREAKS.load(std::sync::atomic::Ordering::Relaxed) {
             verge::verge_from_breaks(arr, enc, &drops[..s.drops])
         } else if s.turns <= DROPS_MAX && FROM_BREAKS.load(std::sync::atomic::Ordering::Relaxed) {
             verge::verge_from_turns(arr, enc, &turn_at[..s.turns])
         } else {
             verge(arr, enc)
-        })
+        }, "verge")
     {
         return;
     }
@@ -526,10 +534,12 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     if unstable() && size < UNSTABLE_MSD_MIN.load(std::sync::atomic::Ordering::Relaxed) && n >= UNSTABLE_PDQ_MIN
         && u128::BITS - (s.hi - s.lo).leading_zeros() > UNSTABLE_WIDE_BITS.load(std::sync::atomic::Ordering::Relaxed)
     {
+        trace!("std_unstable_wide");
         arr.sort_unstable_by_key(|x| enc(x));
         return;
     }
     if small_records && s.hi <= u64::MAX as u128 {
+        trace!("lsd_small");
         if LSD11_SMALL.load(std::sync::atomic::Ordering::Relaxed) {
             lsd::lsd11(arr, enc, s.lo as u64);
         } else {
@@ -541,17 +551,18 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // keys): up to 4096 distinct keys counted.
     if try_verge && WIDE.load(std::sync::atomic::Ordering::Relaxed)
         && (16 * s.turns <= n || (LSD_INCACHE.load(std::sync::atomic::Ordering::Relaxed) && sample_distinct(arr, enc) < 500))
-        && few::few_keys_wide(arr, enc)
+        && hit(few::few_keys_wide(arr, enc), "few_wide")
     {
         return;
     }
     // In the cache too: small records whose (key, index) needs a u128 (its
     // packed sort is slow on keys with many repeats: Zipf, clusters).
     let wide = (u128::BITS - (s.hi - s.lo).leading_zeros()) + (usize::BITS - (n - 1).leading_zeros()) > 64;
-    if LSD_INCACHE.load(std::sync::atomic::Ordering::Relaxed) && !beyond_cache && n >= 32768 && sample_distinct(arr, enc) < 500 && few::few_keys_wide(arr, enc) {
+    if LSD_INCACHE.load(std::sync::atomic::Ordering::Relaxed) && !beyond_cache && n >= 32768 && sample_distinct(arr, enc) < 500 && hit(few::few_keys_wide(arr, enc), "few_wide_cache") {
         return;
     }
     if LSD_INCACHE.load(std::sync::atomic::Ordering::Relaxed) && !beyond_cache && size <= 16 && n >= 32768 && wide && s.hi <= u64::MAX as u128 {
+        trace!("lsd11_cache");
         lsd::lsd11(arr, enc, s.lo as u64);
         return;
     }
@@ -560,6 +571,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // large as the record, and its gather reads at random). The byte
     // histograms are taken by one more read, only here.
     if size <= LSD_MAX.load(std::sync::atomic::Ordering::Relaxed) && beyond_cache && s.hi <= u64::MAX as u128 && LSD_TURNS.load(std::sync::atomic::Ordering::Relaxed) * s.turns > n {
+        trace!("lsd");
         if LSD11.load(std::sync::atomic::Ordering::Relaxed) {
             lsd::lsd11(arr, enc, s.lo as u64);
             return;
@@ -578,17 +590,21 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // In the cache the gather through a buffer is cheaper than scanning the
     // permutation first; beyond it, the permutation applied in place.
     if beyond_cache {
+        trace!("packed_in_place");
         if !sort_in_place(arr, enc, s.lo, key_bits) {
+            trace!("std_fallback");
             arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
         }
         return;
     }
+    trace!("packed");
     let mut buffer: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     // SAFETY: the records are moved into the buffer in key order, then the
     // buffer copied back over the array (see `sort_into`).
     unsafe {
         let dst = buffer.as_mut_ptr() as *mut T;
         if !sort_into(arr.as_ptr(), dst, n, enc, s.lo, key_bits) {
+            trace!("std_fallback");
             arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
             return;
         }

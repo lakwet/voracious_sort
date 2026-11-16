@@ -23,6 +23,7 @@ mod verge;
 
 pub use keys::SortKey;
 
+use super::trace::hit;
 use std::mem::MaybeUninit;
 
 use few::few_keys;
@@ -118,20 +119,23 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         scan::<T, E, false, false>(arr, enc, &mut hist)
     };
     if s.ascending {
+        trace!("presorted");
         return;
     }
     if s.strictly_descending {
+        trace!("reversed");
         arr.reverse();
         return;
     }
-    if few_keys(arr, enc) {
+    if hit(few_keys(arr, enc), "few") {
         return;
     }
     // Few turns: long runs likely.
-    if beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n && verge(arr, enc) {
+    if beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n && hit(verge(arr, enc), "verge") {
         return;
     }
     if small_records && s.hi <= u64::MAX as u128 {
+        trace!("lsd");
         lsd(arr, enc, &hist);
         return;
     }
@@ -139,17 +143,21 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // In the cache the gather through a buffer is cheaper than scanning the
     // permutation first; beyond it, the permutation applied in place.
     if beyond_cache {
+        trace!("packed_in_place");
         if !sort_in_place(arr, enc, s.lo, key_bits) {
+            trace!("std_fallback");
             arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
         }
         return;
     }
+    trace!("packed");
     let mut buffer: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     // SAFETY: the records are moved into the buffer in key order, then the
     // buffer copied back over the array (see `sort_into`).
     unsafe {
         let dst = buffer.as_mut_ptr() as *mut T;
         if !sort_into(arr.as_ptr(), dst, n, enc, s.lo, key_bits) {
+            trace!("std_fallback");
             arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
             return;
         }

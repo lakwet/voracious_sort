@@ -22,7 +22,7 @@ use std::sync::atomic::Ordering::Relaxed;
 
 /// Control cells: these types (one per family), sizes (in the L2, around
 /// the caches, beyond) and shapes, where they exist.
-const CONTROL_TYPES: [&str; 6] = ["u32", "i64", "f32", "f64", "u16", "u128"];
+const CONTROL_TYPES: [&str; 8] = ["u32", "i64", "f32", "f64", "u16", "u128", "r16u64", "ru16u64"];
 const CONTROL_SIZES: [usize; 3] = [10_000, 1_000_000, 30_000_000];
 const CONTROL_SHAPES: [&str; 10] = ["Unif", "Few 16", "Almost Asc", "Asc Saw", "Normale 20", "Runs 64", "Timestamps", "Clusters", "Gaussian", "Near sorted"];
 
