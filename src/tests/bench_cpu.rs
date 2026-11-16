@@ -50,7 +50,7 @@
 //! default half the RAM), `BENCH_TYPES` (filter), `BENCH_OUT` (output
 //! directory, default the repository root), `BENCH_PIN=0` (do not pin the
 //! thread to a fast core on hybrid CPUs; `slow`: pin it to a slow one),
-//! `BENCH_SIZES` (only these sizes, e.g. `10000,1000000`), `BENCH_SORTS`
+//! `BENCH_SIZES` (only these sizes, e.g. `10000,1000000`; `BENCH_BIG_SIZES` for `big`), `BENCH_SORTS`
 //! (only these sorts besides v2, e.g. `std,glidesort,blazing`),
 //! `BENCH_MIN_ARRAYS` (arrays sorted per measurement at least, default 5).
 //! A panic is written to the file before the run stops.
@@ -731,7 +731,9 @@ fn bench_cpu() {
         // RAM unless BENCH_MEM_MB says otherwise.
         let memory = if std::env::var("BENCH_MEM_MB").is_ok() { cfg.memory } else { total_ram().map_or(cfg.memory, |r| r / 4 * 3) };
         let big = Config { min_arrays: 1, memory, ..cfg.clone() };
-        let sizes: Vec<usize> = BIG_SIZES.iter().copied().filter(|&s| s >= cfg.min && s <= cfg.max).collect();
+        // `BENCH_BIG_SIZES`: other sizes (e.g. 1M to 100M, to place the threshold).
+        let listed: Option<Vec<usize>> = std::env::var("BENCH_BIG_SIZES").ok().map(|l| l.split(',').map(|x| x.trim().replace('_', "").parse().unwrap()).collect());
+        let sizes: Vec<usize> = listed.unwrap_or(BIG_SIZES.to_vec()).into_iter().filter(|&s| s >= cfg.min && s <= cfg.max).collect();
         let keep = |n: &str| { let n = short_name(n); ["Unif", "Normale 20", "Normale 30", "Zipf", "Clusters", "Aligned", "Prefix", "Asc Saw", "Timestamps", "Bimodal"].iter().any(|k| n.starts_with(k)) };
         macro_rules! big {
             ($ty:ty, $gens:expr, $budget:expr, $sort:expr, $ordered:expr) => {
