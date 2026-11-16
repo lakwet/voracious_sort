@@ -105,8 +105,28 @@ benchbig: export BENCH_REPS ?= 1
 benchbig: ## very large arrays, 30M to 1G keys: rollercoaster against LSD (a few hours, memory: 3 arrays)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
+benchlsd32: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchlsd32: export BENCH_PARTS = big
+benchlsd32: export BENCH_MAX = 1000000000
+benchlsd32: export BENCH_TYPES = u32,f32
+benchlsd32: export BENCH_BIG_SIZES = 1000000,3000000,10000000,30000000,100000000
+benchlsd32: export BENCH_REPS = 3
+benchlsd32: ## u32 / f32, 1M to 100M: current rule against LSD and rollercoaster forced (~15 min)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
+benchbigrivals: export RUSTFLAGS =
+benchbigrivals: export BENCH_PARTS = int,float
+benchbigrivals: export BENCH_TYPES = u32,f32
+benchbigrivals: export BENCH_SIZES = 30000000,100000000
+benchbigrivals: export BENCH_SORTS = v1,glidesort,blazing,radsort
+benchbigrivals: export BENCH_MIN_ARRAYS = 1
+benchbigrivals: ## u32 / f32 at 30M and 100M against v1, glidesort, blazing, radsort (~2 h)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
+benchnuit: benchlsd32 benchbigrivals ## the two above in a row (~2-3 h)
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
