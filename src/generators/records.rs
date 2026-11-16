@@ -167,24 +167,24 @@ pub mod stability {
         vec![7; n]
     }
     pub fn two_values(n: usize) -> Vec<u64> {
-        (0..n).map(|_| rand::rng().random_range(0..2)).collect()
+        (0..n).map(|_| crate::generators::rng().random_range(0..2)).collect()
     }
     pub fn few16(n: usize) -> Vec<u64> {
-        (0..n).map(|_| rand::rng().random_range(0..16)).collect()
+        (0..n).map(|_| crate::generators::rng().random_range(0..16)).collect()
     }
     // At the limit of the few-keys counting, and just above it.
     pub fn few256(n: usize) -> Vec<u64> {
-        (0..n).map(|_| rand::rng().random_range(0..256)).collect()
+        (0..n).map(|_| crate::generators::rng().random_range(0..256)).collect()
     }
     pub fn few257(n: usize) -> Vec<u64> {
-        (0..n).map(|_| rand::rng().random_range(0..257)).collect()
+        (0..n).map(|_| crate::generators::rng().random_range(0..257)).collect()
     }
     pub fn dups1000(n: usize) -> Vec<u64> {
-        (0..n).map(|_| rand::rng().random_range(0..1000)).collect()
+        (0..n).map(|_| crate::generators::rng().random_range(0..1000)).collect()
     }
     pub fn dups_quarter(n: usize) -> Vec<u64> {
         let k = (n as u64 / 4).max(1);
-        (0..n).map(|_| rand::rng().random_range(0..k)).collect()
+        (0..n).map(|_| crate::generators::rng().random_range(0..k)).collect()
     }
     // Ascending with runs of 8 equal keys (the presorted path).
     pub fn asc_dups(n: usize) -> Vec<u64> {
@@ -214,7 +214,7 @@ pub mod stability {
     }
     // 8 sorted runs over 100 values: many ties between runs.
     pub fn runs_dups(n: usize) -> Vec<u64> {
-        let mut v: Vec<u64> = (0..n).map(|_| rand::rng().random_range(0..100)).collect();
+        let mut v: Vec<u64> = (0..n).map(|_| crate::generators::rng().random_range(0..100)).collect();
         for r in 0..8 {
             v[r * n / 8..(r + 1) * n / 8].sort_unstable();
         }
@@ -224,11 +224,11 @@ pub mod stability {
     pub fn asc_tail_dups(n: usize) -> Vec<u64> {
         let cut = n * 9 / 10;
         let top = (cut as u64 / 4).max(1);
-        (0..n).map(|i| if i < cut { i as u64 / 4 } else { rand::rng().random_range(0..top) }).collect()
+        (0..n).map(|i| if i < cut { i as u64 / 4 } else { crate::generators::rng().random_range(0..top) }).collect()
     }
     // One value for 60 %, the rest among 100.
     pub fn heavy_dups(n: usize) -> Vec<u64> {
-        (0..n).map(|_| { let mut r = rand::rng(); if r.random_range(0..10) < 6 { 50 } else { r.random_range(0..100) } }).collect()
+        (0..n).map(|_| { let mut r = crate::generators::rng(); if r.random_range(0..10) < 6 { 50 } else { r.random_range(0..100) } }).collect()
     }
     pub fn alternate(n: usize) -> Vec<u64> {
         (0..n as u64).map(|i| i % 2).collect()

@@ -23,6 +23,50 @@
 use rand_distr::Distribution;
 use rayon::prelude::*;
 
+/// RNG of the generators: the thread RNG, or, once `seed` was called on
+/// the thread, a seeded generator (reproducible inputs for the decision
+/// trace; generate in a one-thread rayon pool, `seed` called inside it).
+pub struct GenRng(Option<rand::rngs::ThreadRng>);
+
+thread_local! {
+    static SEEDED: std::cell::RefCell<Option<rand::rngs::Xoshiro256PlusPlus>> = const { std::cell::RefCell::new(None) };
+}
+
+/// From now on, the generators of this thread draw from `seed`.
+pub fn seed(seed: u64) {
+    use rand::SeedableRng;
+    SEEDED.with(|r| *r.borrow_mut() = Some(rand::rngs::Xoshiro256PlusPlus::seed_from_u64(seed)));
+}
+
+pub fn rng() -> GenRng {
+    GenRng(if SEEDED.with(|r| r.borrow().is_some()) { None } else { Some(rand::rng()) })
+}
+
+impl rand::TryRng for GenRng {
+    type Error = std::convert::Infallible;
+    #[inline]
+    fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+        match &mut self.0 {
+            Some(t) => t.try_next_u32(),
+            None => SEEDED.with(|r| r.borrow_mut().as_mut().unwrap().try_next_u32()),
+        }
+    }
+    #[inline]
+    fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+        match &mut self.0 {
+            Some(t) => t.try_next_u64(),
+            None => SEEDED.with(|r| r.borrow_mut().as_mut().unwrap().try_next_u64()),
+        }
+    }
+    #[inline]
+    fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
+        match &mut self.0 {
+            Some(t) => t.try_fill_bytes(dst),
+            None => SEEDED.with(|r| r.borrow_mut().as_mut().unwrap().try_fill_bytes(dst)),
+        }
+    }
+}
+
 /// Zipf distribution (exponent 1, word frequencies in a text): `min(size,
 /// domain)` random values, the value of rank k drawn with a probability in
 /// 1 / k (the most frequent about 1 / ln(n) of the keys at n distinct
@@ -37,7 +81,7 @@ pub fn zipf<T: Copy + Send + Sync>(size: usize, domain: usize, value: impl Fn() 
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let k = z.sample(&mut rand::rng()) as usize;
+            let k = z.sample(&mut crate::generators::rng()) as usize;
             table[k.clamp(1, n) - 1]
         })
         .collect()

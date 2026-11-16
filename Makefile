@@ -125,8 +125,25 @@ benchbigrivals: ## u32 / f32 at 30M and 100M against v1, glidesort, blazing, rad
 
 benchnuit: benchlsd32 benchbigrivals ## the two above in a row (~2-3 h)
 
+# Method (see src/tests/trace.rs, src/tests/sentinel.rs): a change goes
+# trace-ab (which cells move) -> sentinel (time those cells and controls).
+trace: ## decision trace against the reference of this CPU (no timing; ~10 min, TRACE_MAX=10M ~1 min)
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+
+trace-ab: export TRACE_AB = 1
+trace-ab: ## cells moved by the rule under test (v2::ab), list in traces/moved.txt
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+
+trace-write: export TRACE_WRITE = 1
+trace-write: ## write the reference trace of this CPU (after a commit that moves cells)
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+
+sentinel: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+sentinel: ## rule under test off / on on the moved cells + controls (minutes)
+	@cargo test --release --lib --features "voracious_multithread" tests::sentinel -- --ignored --nocapture --test-threads=1
+
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help

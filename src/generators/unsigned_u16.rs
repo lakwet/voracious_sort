@@ -6,7 +6,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_u16(size: usize) -> Vec<u16> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<u16>())
+        .map(|_| crate::generators::rng().random::<u16>())
         .collect::<Vec<u16>>()
 }
 
@@ -14,7 +14,7 @@ pub fn helper_random_array_uniform_u16(size: usize) -> Vec<u16> {
 pub fn helper_random_array_small_u16(size: usize) -> Vec<u16> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..255))
+        .map(|_| crate::generators::rng().random_range(0..255))
         .collect::<Vec<u16>>()
 }
 
@@ -33,19 +33,19 @@ pub fn helper_random_array_desc_sawtooth_u16(size: usize) -> Vec<u16> {
 
 // All equals
 pub fn helper_random_array_allequals_u16(size: usize) -> Vec<u16> {
-    vec![rand::rng().random(); size]
+    vec![crate::generators::rng().random(); size]
 }
 
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_u16(size: usize) -> Vec<u16> {
-    super::zipf(size, 1 << 16, || rand::rng().random::<u16>())
+    super::zipf(size, 1 << 16, || crate::generators::rng().random::<u16>())
 }
 
 // Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
 // log2(n) distinct values, geometric frequencies)
 pub fn helper_random_array_fakezipf_u16(size: usize) -> Vec<u16> {
     let mut array: Vec<u16> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u16 = 0;

@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<u64>())
+        .map(|_| crate::generators::rng().random::<u64>())
         .collect::<Vec<u64>>()
 }
 
@@ -15,7 +15,7 @@ pub fn helper_random_array_uniform_u64(size: usize) -> Vec<u64> {
 pub fn helper_random_array_uniform_10_9_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..1_000_000_000))
+        .map(|_| crate::generators::rng().random_range(0..1_000_000_000))
         .collect::<Vec<u64>>()
 }
 
@@ -29,7 +29,7 @@ fn helper_asc_xth_start(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i < size / frac {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 i as u64
             }
@@ -57,7 +57,7 @@ fn helper_asc_xth(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i > size - (size / frac) {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 i as u64
             }
@@ -90,7 +90,7 @@ fn helper_desc_xthst(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i < size / frac {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 (size - i) as u64
             }
@@ -118,7 +118,7 @@ fn helper_desc_xth(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i > size - (size / frac) {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 (size - i) as u64
             }
@@ -143,7 +143,7 @@ pub fn helper_random_array_desc10pct_u64(size: usize) -> Vec<u64> {
 
 // All equals
 pub fn helper_random_array_allequals_u64(size: usize) -> Vec<u64> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let value: u64 = rng.random();
 
     vec![value; size]
@@ -153,20 +153,20 @@ pub fn helper_random_array_allequals_u64(size: usize) -> Vec<u64> {
 pub fn helper_random_array_alternating16_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..16))
+        .map(|_| crate::generators::rng().random_range(0..16))
         .collect::<Vec<u64>>()
 }
 
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_u64(size: usize) -> Vec<u64> {
-    super::zipf(size, usize::MAX, || rand::rng().random::<u64>())
+    super::zipf(size, usize::MAX, || crate::generators::rng().random::<u64>())
 }
 
 // Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
 // log2(n) distinct values, geometric frequencies)
 pub fn helper_random_array_fakezipf_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u64 = 0;
@@ -197,7 +197,7 @@ fn helper_small(size: usize, range: u64) -> Vec<u64> {
 
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..range))
+        .map(|_| crate::generators::rng().random_range(0..range))
         .collect::<Vec<u64>>()
 }
 
@@ -238,7 +238,7 @@ pub fn helper_random_array_small_size7_u64(size: usize) -> Vec<u64> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_u64(size: usize) -> Vec<u64> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<u64> = Vec::with_capacity(size);
 
@@ -268,7 +268,7 @@ pub fn helper_random_array_almost_asc_u64(size: usize) -> Vec<u64> {
         return helper_random_array_uniform_u64(size);
     }
 
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut array = helper_random_array_ascending_u64(size);
 
     for _ in 0..((size as f64).log2() as usize) {
@@ -289,7 +289,7 @@ pub fn helper_random_array_almost_desc_u64(size: usize) -> Vec<u64> {
         return helper_random_array_uniform_u64(size);
     }
 
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut array = helper_random_array_descending_u64(size);
 
     for _ in 0..((size as f64).log2() as usize) {
@@ -397,7 +397,7 @@ fn helper_normal(size: usize, bound: f64) -> Vec<u64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let v: f64 = normal.sample(&mut rand::rng());
+            let v: f64 = normal.sample(&mut crate::generators::rng());
             v.abs() as u64
         })
         .collect::<Vec<u64>>()

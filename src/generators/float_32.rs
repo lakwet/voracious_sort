@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<f32>())
+        .map(|_| crate::generators::rng().random::<f32>())
         .collect::<Vec<f32>>()
 }
 
@@ -15,7 +15,7 @@ pub fn helper_random_array_uniform_f32(size: usize) -> Vec<f32> {
 pub fn helper_random_array_small_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(-1_000_000.0..1_000_000.0))
+        .map(|_| crate::generators::rng().random_range(-1_000_000.0..1_000_000.0))
         .collect::<Vec<f32>>()
 }
 
@@ -31,14 +31,14 @@ pub fn helper_random_array_desc_f32(size: usize) -> Vec<f32> {
 
 // Equal
 pub fn helper_random_array_equal_f32(size: usize) -> Vec<f32> {
-    vec![rand::rng().random(); size]
+    vec![crate::generators::rng().random(); size]
 }
 
 fn helper_pareto(size: usize, arg: f32) -> Vec<f32> {
     let pareto = Pareto::new(0.1, arg).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| pareto.sample(&mut rand::rng()))
+        .map(|_| pareto.sample(&mut crate::generators::rng()))
         .collect::<Vec<f32>>()
 }
 
@@ -61,7 +61,7 @@ fn helper_normal(size: usize, standard_deviation: f32) -> Vec<f32> {
     let normal = Normal::new(0.0, standard_deviation).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut rand::rng()))
+        .map(|_| normal.sample(&mut crate::generators::rng()))
         .collect::<Vec<f32>>()
 }
 
@@ -82,7 +82,7 @@ pub fn helper_random_array_normale_30_f32(size: usize) -> Vec<f32> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_f32(size: usize) -> Vec<f32> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<f32> = Vec::with_capacity(size);
 
@@ -120,8 +120,8 @@ pub fn helper_random_array_almost_asc_f32(size: usize) -> Vec<f32> {
     let mut array = helper_random_array_asc_f32(size);
 
     for _ in 0..((size as f64).log2() as usize) {
-        let i = rand::rng().random_range(0..size);
-        let j = rand::rng().random_range(0..size);
+        let i = crate::generators::rng().random_range(0..size);
+        let j = crate::generators::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -140,8 +140,8 @@ pub fn helper_random_array_almost_desc_f32(size: usize) -> Vec<f32> {
     let mut array = helper_random_array_desc_f32(size);
 
     for _ in 0..((size as f64).log2() as usize) {
-        let i = rand::rng().random_range(0..size);
-        let j = rand::rng().random_range(0..size);
+        let i = crate::generators::rng().random_range(0..size);
+        let j = crate::generators::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -212,14 +212,14 @@ pub fn helper_random_array_push_middle_f32(size: usize) -> Vec<f32> {
 
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_f32(size: usize) -> Vec<f32> {
-    super::zipf(size, usize::MAX, || rand::rng().random::<f32>())
+    super::zipf(size, usize::MAX, || crate::generators::rng().random::<f32>())
 }
 
 // Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
 // log2(n) distinct values, geometric frequencies)
 pub fn helper_random_array_fakezipf_f32(size: usize) -> Vec<f32> {
     let mut array: Vec<f32> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut value: f32 = 0.0;
     while quantity > 2 {
@@ -240,14 +240,14 @@ pub fn helper_random_array_fakezipf_f32(size: usize) -> Vec<f32> {
 pub fn helper_random_array_int_narrow_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..=100u32) as f32)
+        .map(|_| crate::generators::rng().random_range(0..=100u32) as f32)
         .collect::<Vec<f32>>()
 }
 
 // Integer-valued floats in a wide range (ids stored as floats): shuffled 0..n
 pub fn helper_random_array_int_wide_f32(size: usize) -> Vec<f32> {
     let mut array = (0..size).map(|i| i as f32).collect::<Vec<f32>>();
-    array.as_mut_slice().shuffle(&mut rand::rng());
+    array.as_mut_slice().shuffle(&mut crate::generators::rng());
     array
 }
 
@@ -255,7 +255,7 @@ pub fn helper_random_array_int_wide_f32(size: usize) -> Vec<f32> {
 pub fn helper_random_array_grid_quarter_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(-128..128i32) as f32 * 0.25)
+        .map(|_| crate::generators::rng().random_range(-128..128i32) as f32 * 0.25)
         .collect::<Vec<f32>>()
 }
 
@@ -263,13 +263,13 @@ pub fn helper_random_array_grid_quarter_f32(size: usize) -> Vec<f32> {
 pub fn helper_random_array_prices_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..100_000u32) as f32 / 100.0)
+        .map(|_| crate::generators::rng().random_range(0..100_000u32) as f32 / 100.0)
         .collect::<Vec<f32>>()
 }
 
 // Few distinct values: 16 random values
 pub fn helper_random_array_few16_f32(size: usize) -> Vec<f32> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let values: Vec<f32> = (0..16).map(|_| rng.random_range(-1000.0..1000.0)).collect();
     (0..size).map(|_| values[rng.random_range(0..16)]).collect::<Vec<f32>>()
 }
@@ -279,7 +279,7 @@ pub fn helper_random_array_sparse90_f32(size: usize) -> Vec<f32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             if rng.random_range(0..10) == 0 { rng.random_range(-1000.0..1000.0) } else { 0.0 }
         })
         .collect()
@@ -287,7 +287,7 @@ pub fn helper_random_array_sparse90_f32(size: usize) -> Vec<f32> {
 
 // Heavy hitters: 60 % of the keys among 4 values, the rest random
 pub fn helper_random_array_heavy4_f32(size: usize) -> Vec<f32> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let values: Vec<f32> = (0..4).map(|_| rng.random_range(-1000.0..1000.0)).collect();
     (0..size)
         .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random_range(-1000.0..1000.0) })
@@ -314,7 +314,7 @@ pub fn helper_random_array_few16_late_f32(size: usize) -> Vec<f32> {
 
 // Detector worst case: ascending for 90 %, random tail
 pub fn helper_random_array_asc_random_tail_f32(size: usize) -> Vec<f32> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let cut = size * 9 / 10;
     (0..size)
         .map(|i| if i < cut { i as f32 } else { rng.random_range(0.0..size as f32) })
@@ -344,7 +344,7 @@ pub fn helper_random_array_sorted_runs64_f32(size: usize) -> Vec<f32> {
 // Tight clusters (measurements around n / 200 random values, relative noise
 // 1e-5, a few ulps of f32), shuffled.
 pub fn helper_random_array_clusters_f32(size: usize) -> Vec<f32> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let k = (size / 200).max(1);
     let centers: Vec<f32> = (0..k).map(|_| rng.random::<f32>() * 1000.0).collect();
     let mut array: Vec<f32> =

@@ -3,14 +3,14 @@ use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_u128(size: usize) -> Vec<u128> {
-    (0..size).into_par_iter().map(|_| rand::rng().random()).collect::<Vec<u128>>()
+    (0..size).into_par_iter().map(|_| crate::generators::rng().random()).collect::<Vec<u128>>()
 }
 
 // Uniform 10^9
 pub fn helper_random_array_uniform_10_9_u128(size: usize) -> Vec<u128> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..1_000_000_000))
+        .map(|_| crate::generators::rng().random_range(0..1_000_000_000))
         .collect::<Vec<u128>>()
 }
 

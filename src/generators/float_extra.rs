@@ -13,7 +13,7 @@ macro_rules! float_extra {
 
             fn pareto(size: usize, shape: f64) -> Vec<$t> {
                 let p = Pareto::new(0.1, shape).unwrap();
-                (0..size).into_par_iter().map(|_| p.sample(&mut rand::rng()) as $t).collect()
+                (0..size).into_par_iter().map(|_| p.sample(&mut crate::generators::rng()) as $t).collect()
             }
 
             // Heavy-tailed sizes, prices, populations.
@@ -37,7 +37,7 @@ macro_rules! float_extra {
             pub fn timestamps(size: usize) -> Vec<$t> {
                 (0..size)
                     .into_par_iter()
-                    .map(|i| (1.7e9 + i as f64 * 0.01 + rand::rng().random_range(0.0..0.05)) as $t)
+                    .map(|i| (1.7e9 + i as f64 * 0.01 + crate::generators::rng().random_range(0.0..0.05)) as $t)
                     .collect()
             }
 
@@ -46,7 +46,7 @@ macro_rules! float_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|i| {
-                        let v = 1e6 + rand::rng().random_range(0.0..1000.0);
+                        let v = 1e6 + crate::generators::rng().random_range(0.0..1000.0);
                         (if i % 2 == 0 { -v } else { v }) as $t
                     })
                     .collect()
@@ -57,7 +57,7 @@ macro_rules! float_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|_| {
-                        let mut rng = rand::rng();
+                        let mut rng = crate::generators::rng();
                         let v = 10f64.powf(rng.random_range(-10.0..10.0));
                         (if rng.random::<bool>() { -v } else { v }) as $t
                     })
@@ -68,7 +68,7 @@ macro_rules! float_extra {
             pub fn sensor(size: usize) -> Vec<$t> {
                 (0..size)
                     .into_par_iter()
-                    .map(|_| (rand::rng().random_range(1500..2500) as f64 / 100.0) as $t)
+                    .map(|_| (crate::generators::rng().random_range(1500..2500) as f64 / 100.0) as $t)
                     .collect()
             }
 
@@ -77,7 +77,7 @@ macro_rules! float_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|_| {
-                        let mut rng = rand::rng();
+                        let mut rng = crate::generators::rng();
                         match rng.random_range(0..20) {
                             0 | 1 => rng.random_range(-1e3..1e3) as $t,
                             k if k % 2 == 0 => -0.0,

@@ -9,7 +9,7 @@ pub fn helper_random_array_uniform_structbool(size: usize) -> Vec<StructBool> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<bool>();
             StructBool { value, other }
@@ -27,7 +27,7 @@ pub fn helper_random_array_uniform_structchar(size: usize) -> Vec<StructChar> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<char>();
             StructChar { value, other }
@@ -45,7 +45,7 @@ pub fn helper_random_array_uniform_structf32(size: usize) -> Vec<StructF32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<f32>();
             StructF32 { value, other }
@@ -58,7 +58,7 @@ pub fn helper_random_array_109_structf32(size: usize) -> Vec<StructF32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random_range(-1_000_000.0..1_000_000.0);
             StructF32 { value, other }
@@ -71,8 +71,8 @@ fn helper_pareto_structf32(size: usize, arg: f32) -> Vec<StructF32> {
     (0..size)
         .into_par_iter()
         .map(|_| StructF32 {
-            value: pareto.sample(&mut rand::rng()),
-            other: rand::rng().random::<i64>() as isize,
+            value: pareto.sample(&mut crate::generators::rng()),
+            other: crate::generators::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructF32>>()
 }
@@ -100,8 +100,8 @@ fn helper_normal_structf32(
     (0..size)
         .into_par_iter()
         .map(|_| StructF32 {
-            value: normal.sample(&mut rand::rng()),
-            other: rand::rng().random::<i64>() as isize,
+            value: normal.sample(&mut crate::generators::rng()),
+            other: crate::generators::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructF32>>()
 }
@@ -140,7 +140,7 @@ pub fn helper_random_array_uniform_structf64(size: usize) -> Vec<StructF64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<f64>();
             StructF64 { value, other }
@@ -153,7 +153,7 @@ pub fn helper_random_array_109_structf64(size: usize) -> Vec<StructF64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random_range(-1_000_000.0..1_000_000.0);
             StructF64 { value, other }
@@ -174,7 +174,7 @@ pub fn helper_random_array_uniform_structu8(size: usize) -> Vec<StructU8> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<u8>();
             StructU8 { value, other }
@@ -192,7 +192,7 @@ pub fn helper_random_array_uniform_structu16(size: usize) -> Vec<StructU16> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<u16>();
             StructU16 { value, other }
@@ -210,7 +210,7 @@ pub fn helper_random_array_uniform_structu32(size: usize) -> Vec<StructU32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<u32>();
             StructU32 { value, other }
@@ -228,7 +228,7 @@ pub fn helper_random_array_uniform_structu64(size: usize) -> Vec<StructU64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<u64>();
             StructU64 { value, other }
@@ -246,7 +246,7 @@ pub fn helper_random_array_uniform_structu128(size: usize) -> Vec<StructU128> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value: u128 = rng.random::<u128>();
             StructU128 { value, other }
@@ -264,7 +264,7 @@ pub fn helper_random_array_uniform_structi8(size: usize) -> Vec<StructI8> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<i8>();
             StructI8 { value, other }
@@ -282,7 +282,7 @@ pub fn helper_random_array_uniform_structi16(size: usize) -> Vec<StructI16> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<i16>();
             StructI16 { value, other }
@@ -300,7 +300,7 @@ pub fn helper_random_array_uniform_structi32(size: usize) -> Vec<StructI32> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<i32>();
             StructI32 { value, other }
@@ -318,7 +318,7 @@ pub fn helper_random_array_uniform_structi64(size: usize) -> Vec<StructI64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value = rng.random::<i64>();
             StructI64 { value, other }
@@ -336,7 +336,7 @@ pub fn helper_random_array_uniform_structi128(size: usize) -> Vec<StructI128> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let mut rng = rand::rng();
+            let mut rng = crate::generators::rng();
             let other = rng.random::<i64>() as isize;
             let value: i128 = rng.random::<i128>();
             StructI128 { value, other }
@@ -356,8 +356,8 @@ pub fn helper_random_array_uniform_structisize(
     (0..size)
         .into_par_iter()
         .map(|_| StructIsize {
-            value: rand::rng().random::<i64>() as isize,
-            other: rand::rng().random::<i64>() as isize,
+            value: crate::generators::rng().random::<i64>() as isize,
+            other: crate::generators::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructIsize>>()
 }
@@ -374,8 +374,8 @@ pub fn helper_random_array_uniform_structusize(
     (0..size)
         .into_par_iter()
         .map(|_| StructUsize {
-            value: rand::rng().random::<u64>() as usize,
-            other: rand::rng().random::<i64>() as isize,
+            value: crate::generators::rng().random::<u64>() as usize,
+            other: crate::generators::rng().random::<i64>() as isize,
         })
         .collect::<Vec<StructUsize>>()
 }

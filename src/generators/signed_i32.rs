@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<i32>())
+        .map(|_| crate::generators::rng().random::<i32>())
         .collect::<Vec<i32>>()
 }
 
@@ -15,7 +15,7 @@ pub fn helper_random_array_uniform_i32(size: usize) -> Vec<i32> {
 pub fn helper_random_array_109_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(-1_000_000_000..1_000_000_000))
+        .map(|_| crate::generators::rng().random_range(-1_000_000_000..1_000_000_000))
         .collect::<Vec<i32>>()
 }
 
@@ -23,7 +23,7 @@ pub fn helper_random_array_109_i32(size: usize) -> Vec<i32> {
 pub fn helper_random_array_small_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(-64_000..64_000))
+        .map(|_| crate::generators::rng().random_range(-64_000..64_000))
         .collect::<Vec<i32>>()
 }
 
@@ -39,7 +39,7 @@ pub fn helper_random_array_descending_i32(size: usize) -> Vec<i32> {
 
 // All equals
 pub fn helper_random_array_allequals_i32(size: usize) -> Vec<i32> {
-    vec![rand::rng().random(); size]
+    vec![crate::generators::rng().random(); size]
 }
 
 // Alternating 16 values
@@ -48,9 +48,9 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
         .into_par_iter()
         .map(|i| {
             if i % 2 == 0 {
-                rand::rng().random_range(0..16) as i32
+                crate::generators::rng().random_range(0..16) as i32
             } else {
-                -(rand::rng().random_range(0..16) as i32)
+                -(crate::generators::rng().random_range(0..16) as i32)
             }
         })
         .collect::<Vec<i32>>()
@@ -58,14 +58,14 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
 
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_i32(size: usize) -> Vec<i32> {
-    super::zipf(size, usize::MAX, || rand::rng().random::<i32>())
+    super::zipf(size, usize::MAX, || crate::generators::rng().random::<i32>())
 }
 
 // Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
 // log2(n) distinct values, geometric frequencies)
 pub fn helper_random_array_fakezipf_i32(size: usize) -> Vec<i32> {
     let mut array: Vec<i32> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: i32 = 0;
@@ -91,7 +91,7 @@ pub fn helper_random_array_fakezipf_i32(size: usize) -> Vec<i32> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_i32(size: usize) -> Vec<i32> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<i32> = Vec::with_capacity(size);
 
@@ -124,8 +124,8 @@ pub fn helper_random_array_almost_asc_i32(size: usize) -> Vec<i32> {
     let mut array = helper_random_array_ascending_i32(size);
 
     for _ in 0..((size as f64).sqrt() as usize) {
-        let i = rand::rng().random_range(0..size);
-        let j = rand::rng().random_range(0..size);
+        let i = crate::generators::rng().random_range(0..size);
+        let j = crate::generators::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -144,8 +144,8 @@ pub fn helper_random_array_almost_desc_i32(size: usize) -> Vec<i32> {
     let mut array = helper_random_array_descending_i32(size);
 
     for _ in 0..((size as f64).sqrt() as usize) {
-        let i = rand::rng().random_range(0..size);
-        let j = rand::rng().random_range(0..size);
+        let i = crate::generators::rng().random_range(0..size);
+        let j = crate::generators::rng().random_range(0..size);
         array.swap(i, j);
     }
 
@@ -218,7 +218,7 @@ fn helper_normal(size: usize, range: f32) -> Vec<i32> {
     let normal = Normal::new(0.0, range).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut rand::rng()) as i32)
+        .map(|_| normal.sample(&mut crate::generators::rng()) as i32)
         .collect::<Vec<i32>>()
 }
 

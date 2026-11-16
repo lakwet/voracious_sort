@@ -7,10 +7,15 @@
 //! - `detect`: distributions sorted faster than by a radix sort;
 //! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
 //! - `small`: sorting networks and merges for short arrays;
-//! - `cache`: cache sizes detected at run time.
+//! - `cache`: cache sizes detected at run time;
+//! - `trace`: the decision trace (feature `v2_trace`); `ab`: the rule
+//!   under test (trace and sentinel bench compare both sides).
 
 #![allow(dead_code)]
 
+#[macro_use]
+pub(crate) mod trace;
+pub(crate) mod ab;
 pub(crate) mod cache;
 #[macro_use]
 pub(crate) mod detect;

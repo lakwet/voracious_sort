@@ -14,19 +14,19 @@ macro_rules! int_extra {
 
             // Narrow range (ratings, ages, counters): 0..=100
             pub fn int_narrow(size: usize) -> Vec<$t> {
-                (0..size).into_par_iter().map(|_| rand::rng().random_range(0..=100) as $t).collect()
+                (0..size).into_par_iter().map(|_| crate::generators::rng().random_range(0..=100) as $t).collect()
             }
 
             // Identifiers: shuffled 0..n
             pub fn int_wide(size: usize) -> Vec<$t> {
                 let mut array: Vec<$t> = (0..size).map(|i| i as $t).collect();
-                array.as_mut_slice().shuffle(&mut rand::rng());
+                array.as_mut_slice().shuffle(&mut crate::generators::rng());
                 array
             }
 
             // Few distinct values: 16 random full-range values
             pub fn few16(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let values: Vec<$t> = (0..16).map(|_| rng.random::<$t>()).collect();
                 (0..size).map(|_| values[rng.random_range(0..16)]).collect()
             }
@@ -51,7 +51,7 @@ macro_rules! int_extra {
 
             // Detector worst case: ascending for 90 %, random tail
             pub fn asc_random_tail(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let cut = size * 9 / 10;
                 (0..size)
                     .map(|i| if i < cut { i as $t } else { rng.random_range(0..size.max(1)) as $t })
@@ -61,7 +61,7 @@ macro_rules! int_extra {
             // Concatenation of k independently sorted random sources
             // (sorted logs from several machines).
             fn sorted_runs(size: usize, k: usize) -> Vec<$t> {
-                let mut array: Vec<$t> = (0..size).into_par_iter().map(|_| rand::rng().random::<$t>()).collect();
+                let mut array: Vec<$t> = (0..size).into_par_iter().map(|_| crate::generators::rng().random::<$t>()).collect();
                 for r in 0..k {
                     array[r * size / k..(r + 1) * size / k].sort_unstable();
                 }
@@ -79,7 +79,7 @@ macro_rules! int_extra {
             // Tight clusters: n / 200 random centres, each key within 2^10 of
             // its centre, shuffled. The top bits name the cluster.
             pub fn clusters(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let k = (size / 200).max(1);
                 let centres: Vec<$t> = (0..k).map(|_| rng.random::<$t>() >> 1).collect();
                 let mut array: Vec<$t> =
@@ -91,7 +91,7 @@ macro_rules! int_extra {
             // Timestamps: a large common prefix (an epoch), increasing with
             // jitter (events logged slightly out of order).
             pub fn timestamps(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 (0..size)
                     .map(|i| ($stamp_base as $t).wrapping_add((i as $t).wrapping_mul(16)).wrapping_add(rng.random_range(0..256) as $t))
                     .collect()
@@ -99,13 +99,13 @@ macro_rules! int_extra {
 
             // Aligned addresses: random multiples of 2^16 (low digits all zero)
             pub fn aligned(size: usize) -> Vec<$t> {
-                (0..size).into_par_iter().map(|_| rand::rng().random::<$t>() & !0xFFFF).collect()
+                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<$t>() & !0xFFFF).collect()
             }
 
             // Common high prefix: a fixed random prefix, 20 random low bits
             pub fn prefix20(size: usize) -> Vec<$t> {
-                let prefix = rand::rng().random::<$t>() & !0xF_FFFF;
-                (0..size).into_par_iter().map(|_| prefix | (rand::rng().random_range(0..1 << 20) as $t)).collect()
+                let prefix = crate::generators::rng().random::<$t>() & !0xF_FFFF;
+                (0..size).into_par_iter().map(|_| prefix | (crate::generators::rng().random_range(0..1 << 20) as $t)).collect()
             }
 
             // Bimodal: half near zero, half near the top of the range
@@ -113,7 +113,7 @@ macro_rules! int_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|i| {
-                        let v = rand::rng().random_range(0..1 << 20) as $t;
+                        let v = crate::generators::rng().random_range(0..1 << 20) as $t;
                         if i % 2 == 0 { v } else { <$t>::MAX - v }
                     })
                     .collect()
@@ -124,7 +124,7 @@ macro_rules! int_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|_| {
-                        let mut rng = rand::rng();
+                        let mut rng = crate::generators::rng();
                         if rng.random_range(0..10) == 0 { rng.random::<$t>() } else { 0 }
                     })
                     .collect()
@@ -132,7 +132,7 @@ macro_rules! int_extra {
 
             // Heavy hitters: 60 % of the keys among 4 values, the rest random
             pub fn heavy4(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
                 (0..size)
                     .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random::<$t>() })
@@ -143,7 +143,7 @@ macro_rules! int_extra {
             // low half random
             pub fn composite(size: usize) -> Vec<$t> {
                 const HALF: u32 = <$t>::BITS / 2;
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let highs: Vec<$t> = (0..64).map(|_| rng.random::<$t>() >> HALF << HALF).collect();
                 (0..size).map(|_| highs[rng.random_range(0..64)] | rng.random_range(0..1u64 << HALF) as $t).collect()
             }
@@ -154,7 +154,7 @@ macro_rules! int_extra {
                 const HALF: u32 = <$t>::BITS / 2;
                 let width = 1u64 << (<$t>::BITS / 4 + 2);
                 let base = ((1 as $t) << HALF).wrapping_sub((width / 2) as $t);
-                (0..size).into_par_iter().map(|_| base.wrapping_add(rand::rng().random_range(0..width) as $t)).collect()
+                (0..size).into_par_iter().map(|_| base.wrapping_add(crate::generators::rng().random_range(0..width) as $t)).collect()
             }
 
             pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<$t>, &'static str)> {

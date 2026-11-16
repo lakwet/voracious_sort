@@ -1,5 +1,8 @@
 mod bench_cpu;
 mod bench_portable;
+mod cells;
+mod sentinel;
+mod trace;
 mod comparative_sort;
 mod dedicated;
 mod v2;

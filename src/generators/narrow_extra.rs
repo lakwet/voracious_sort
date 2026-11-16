@@ -21,20 +21,20 @@ macro_rules! narrow_extra {
             const MID: $t = <$t>::MIN / 2 + <$t>::MAX / 2 + 1;
 
             fn random_vec(size: usize) -> Vec<$t> {
-                (0..size).into_par_iter().map(|_| rand::rng().random::<$t>()).collect()
+                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<$t>()).collect()
             }
 
             // Very low cardinality: 4 random values
             pub fn few4(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
                 (0..size).map(|_| values[rng.random_range(0..4)]).collect()
             }
 
             // Tiny range: 16 consecutive values starting at a random one
             pub fn range16(size: usize) -> Vec<$t> {
-                let base = rand::rng().random_range(<$t>::MIN..=<$t>::MAX - 16);
-                (0..size).into_par_iter().map(|_| base + rand::rng().random_range(0..16) as $t).collect()
+                let base = crate::generators::rng().random_range(<$t>::MIN..=<$t>::MAX - 16);
+                (0..size).into_par_iter().map(|_| base + crate::generators::rng().random_range(0..16) as $t).collect()
             }
 
             // Random values already sorted (duplicates included)
@@ -54,7 +54,7 @@ macro_rules! narrow_extra {
             // Sorted, then 1 % of the positions swapped at random
             pub fn near_sorted(size: usize) -> Vec<$t> {
                 let mut array = sorted(size);
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 for _ in 0..size / 100 {
                     let (i, j) = (rng.random_range(0..size), rng.random_range(0..size));
                     array.swap(i, j);
@@ -101,7 +101,7 @@ macro_rules! narrow_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|_| {
-                        let mut rng = rand::rng();
+                        let mut rng = crate::generators::rng();
                         if rng.random_range(0..10) == 0 { rng.random::<$t>() } else { 0 }
                     })
                     .collect()
@@ -112,7 +112,7 @@ macro_rules! narrow_extra {
                 (0..size)
                     .into_par_iter()
                     .map(|i| {
-                        let v = rand::rng().random_range(0..16) as $t;
+                        let v = crate::generators::rng().random_range(0..16) as $t;
                         if i % 2 == 0 { <$t>::MIN + v } else { <$t>::MAX - v }
                     })
                     .collect()
@@ -125,25 +125,25 @@ macro_rules! narrow_extra {
                 let normal = Normal::new(MID as f64, sd).unwrap();
                 (0..size)
                     .into_par_iter()
-                    .map(|_| normal.sample(&mut rand::rng()).clamp(<$t>::MIN as f64, <$t>::MAX as f64) as $t)
+                    .map(|_| normal.sample(&mut crate::generators::rng()).clamp(<$t>::MIN as f64, <$t>::MAX as f64) as $t)
                     .collect()
             }
 
             // Sensor values: 3/4 of the bits used (12 bits for 16-bit keys)
             pub fn sensor(size: usize) -> Vec<$t> {
                 let top = 1u32 << (BITS * 3 / 4);
-                (0..size).into_par_iter().map(|_| rand::rng().random_range(0..top) as $t).collect()
+                (0..size).into_par_iter().map(|_| crate::generators::rng().random_range(0..top) as $t).collect()
             }
 
             // Aligned values: the low half of the bits is zero
             pub fn aligned(size: usize) -> Vec<$t> {
                 let mask = !(((1u32 << (BITS / 2)) - 1) as $t);
-                (0..size).into_par_iter().map(|_| rand::rng().random::<$t>() & mask).collect()
+                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<$t>() & mask).collect()
             }
 
             // 60 % of the keys among 4 values, the rest random
             pub fn heavy4(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
                 (0..size)
                     .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random::<$t>() })
@@ -152,7 +152,7 @@ macro_rules! narrow_extra {
 
             // Tight clusters: 16 random centres, each key within 8 of its centre
             pub fn clusters(size: usize) -> Vec<$t> {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 let centres: Vec<$t> = (0..16).map(|_| rng.random::<$t>()).collect();
                 (0..size).map(|_| centres[rng.random_range(0..16)].wrapping_add(rng.random_range(0..8) as $t)).collect()
             }
@@ -197,7 +197,7 @@ pub mod extra_char {
     const TEXT: &str = "eeeeeeeeeeeettttttttttaaaaaaaaoooooooiiiiiiinnnnnnnsssssshhhhhhrrrrrrdddddllllcccuuummwwffggyyppbbvkjxqzETAOINSHRDL0123456789                  ,,,..'-";
 
     fn text_from(alphabet: &[char], size: usize) -> Vec<char> {
-        (0..size).into_par_iter().map(|_| alphabet[rand::rng().random_range(0..alphabet.len())]).collect()
+        (0..size).into_par_iter().map(|_| alphabet[crate::generators::rng().random_range(0..alphabet.len())]).collect()
     }
 
     // English-like ASCII text
@@ -222,12 +222,12 @@ pub mod extra_char {
 
     // CJK text: 3000 ideographs of U+4E00..U+9FFF, Zipf-like frequencies
     pub fn cjk_text(size: usize) -> Vec<char> {
-        let mut rng = rand::rng();
+        let mut rng = crate::generators::rng();
         let common: Vec<char> = (0..3000).map(|_| chr(rng.random_range(0x4E00..0xA000))).collect();
         (0..size)
             .into_par_iter()
             .map(|_| {
-                let u: f64 = rand::rng().random();
+                let u: f64 = crate::generators::rng().random();
                 common[(3000f64.powf(u) as usize - 1).min(2999)]
             })
             .collect()
@@ -235,7 +235,7 @@ pub mod extra_char {
 
     // Emoji (U+1F300..U+1FAFF)
     pub fn emoji(size: usize) -> Vec<char> {
-        (0..size).into_par_iter().map(|_| chr(rand::rng().random_range(0x1F300..0x1FB00))).collect()
+        (0..size).into_par_iter().map(|_| chr(crate::generators::rng().random_range(0x1F300..0x1FB00))).collect()
     }
 
     // Web page: 85 % ASCII text, 10 % accented Latin, 3 % CJK, 2 % emoji
@@ -245,7 +245,7 @@ pub mod extra_char {
         (0..size)
             .into_par_iter()
             .map(|_| {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 match rng.random_range(0..100) {
                     0..=84 => ascii[rng.random_range(0..ascii.len())],
                     85..=94 => accents[rng.random_range(0..accents.len())],
@@ -283,7 +283,7 @@ pub mod extra_char {
         (0..size)
             .into_par_iter()
             .map(|_| {
-                let c = rand::rng().random_range(0..0xF800u32);
+                let c = crate::generators::rng().random_range(0..0xF800u32);
                 chr(if c < 0xD800 { c } else { c + 0x800 })
             })
             .collect()
@@ -299,7 +299,7 @@ pub mod extra_char {
     // Sorted text with 1 % of the characters swapped at random
     pub fn near_sorted_text(size: usize) -> Vec<char> {
         let mut array = sorted_text(size);
-        let mut rng = rand::rng();
+        let mut rng = crate::generators::rng();
         for _ in 0..size / 100 {
             let (i, j) = (rng.random_range(0..size), rng.random_range(0..size));
             array.swap(i, j);
@@ -322,7 +322,7 @@ pub mod extra_char {
         (0..size)
             .into_par_iter()
             .map(|_| {
-                let mut rng = rand::rng();
+                let mut rng = crate::generators::rng();
                 if rng.random_range(0..10) == 0 { alphabet[rng.random_range(0..alphabet.len())] } else { ' ' }
             })
             .collect()
@@ -333,7 +333,7 @@ pub mod extra_char {
         (0..size)
             .into_par_iter()
             .map(|_| {
-                let c = rand::rng().random_range(0..0x10F800u32);
+                let c = crate::generators::rng().random_range(0..0x10F800u32);
                 chr(if c < 0xD800 { c } else { c + 0x800 })
             })
             .collect()

@@ -21,6 +21,7 @@ use super::engines::roller::{r32, r64};
 use super::pipeline::presorted::{presorted, Unsorted};
 use super::pipeline::radix_path;
 use super::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use super::trace::hit;
 
 /// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
 /// the radix path, median over the distributions, Snapdragon X Elite).
@@ -135,6 +136,7 @@ impl RavenousSort2 for f32 {
     #[inline]
     fn ravenous_sort2_impl(arr: &mut [f32]) {
         if arr.len() <= NETWORK_MAX {
+            trace!("network");
             network_sort(f32_bits::bits(arr), f32_bits::encode, f32_bits::decode);
         } else {
             sort_f32(arr);
@@ -146,6 +148,7 @@ impl RavenousSort2 for f64 {
     #[inline]
     fn ravenous_sort2_impl(arr: &mut [f64]) {
         if arr.len() <= NETWORK_MAX {
+            trace!("network");
             network_sort(f64_bits::bits(arr), f64_bits::encode, f64_bits::decode);
         } else {
             sort_f64(arr);
@@ -164,10 +167,11 @@ const PRESORTED_FIRST_MIN: usize = 4096;
 fn sort_f32(arr: &mut [f32]) {
     let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
     if !presorted_first {
-        if detect32(arr) {
+        if hit(detect32(arr), "float_detect") {
             return;
         }
         if arr.len() <= SMALL_F32 {
+            trace!("std_small");
             f32_bits::sort_small(f32_bits::bits(arr));
             return;
         }
@@ -177,6 +181,7 @@ fn sort_f32(arr: &mut [f32]) {
     let known = if presorted_first {
         match presorted(arr) {
             Ok(()) => {
+                trace!("presorted");
                 f32_bits::order_signed_zeros(arr);
                 return;
             }
@@ -185,11 +190,13 @@ fn sort_f32(arr: &mut [f32]) {
     } else {
         Unsorted::default()
     };
-    let detect = |a: &mut [f32], _| (presorted_first && detect32(a)) || few32(a) || heavy_from(a, HEAVY_MIN, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less);
+    let detect = |a: &mut [f32], _| (presorted_first && hit(detect32(a), "float_detect")) || hit(few32(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less), "heavy");
     let sort_chunk = |chunk: &mut [f32]| {
         if chunk.len() >= roller_min_f32() {
+            trace!("roller");
             r32::roller(f32_bits::bits(chunk));
         } else {
+            trace!("lsd");
             w32::lsd(f32_bits::bits(chunk));
         }
     };
@@ -203,10 +210,11 @@ fn sort_f32(arr: &mut [f32]) {
 fn sort_f64(arr: &mut [f64]) {
     let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
     if !presorted_first {
-        if detect64(arr) {
+        if hit(detect64(arr), "float_detect") {
             return;
         }
         if arr.len() <= SMALL_F64 {
+            trace!("std_small");
             f64_bits::sort_small(f64_bits::bits(arr));
             return;
         }
@@ -216,6 +224,7 @@ fn sort_f64(arr: &mut [f64]) {
     let known = if presorted_first {
         match presorted(arr) {
             Ok(()) => {
+                trace!("presorted");
                 f64_bits::order_signed_zeros(arr);
                 return;
             }
@@ -225,11 +234,13 @@ fn sort_f64(arr: &mut [f64]) {
         Unsorted::default()
     };
     let buffer = std::cell::RefCell::new(Vec::new());
-    let detect = |a: &mut [f64], _| (presorted_first && detect64(a)) || few64(a) || heavy_from(a, HEAVY_MIN, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less);
+    let detect = |a: &mut [f64], _| (presorted_first && hit(detect64(a), "float_detect")) || hit(few64(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less), "heavy");
     let sort_chunk = |chunk: &mut [f64]| {
         if chunk.len() >= roller_min_f64() {
+            trace!("roller");
             r64::roller(f64_bits::bits(chunk));
         } else {
+            trace!("dlsd");
             d64::dlsd_with(f64_bits::bits(chunk), &mut buffer.borrow_mut());
         }
     };

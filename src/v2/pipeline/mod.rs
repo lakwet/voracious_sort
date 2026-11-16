@@ -52,6 +52,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     let n = arr.len();
     let p = known.ascending_prefix;
     if tail_first(n, p) {
+        trace!("tail_first");
         // A short tail: sorted (or reversed) as it is, else the engine (the
         // whole path needs more keys).
         let tail = &mut arr[p..];
@@ -70,10 +71,18 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     } else {
         repair_nearly_sorted(arr, known)
     };
-    if sorted || detect(arr, equal_pairs) {
+    if random_runs {
+        trace!("random_runs");
+    }
+    if sorted {
+        trace!("repaired");
+        return;
+    }
+    if detect(arr, equal_pairs) {
         return;
     }
     if random_runs || can_skip_verge(arr) {
+        trace!("no_verge");
         sort(arr);
         return;
     }
@@ -91,9 +100,11 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS.load(std::sync::atomic::Ordering::Relaxed);
     let unpredictable = merges_unpredictable(arr, &separators, &chunks, levels);
     if unpredictable && !simd_merge {
+        trace!("verge_whole");
         sort(arr);
         return;
     }
+    trace!(if unpredictable { "verge_simd_merge" } else { "verge_merge" });
     for &(start, len) in chunks.iter() {
         sort(&mut arr[start..start + len]);
     }

@@ -81,28 +81,37 @@ fn bits_of<T: Key128>(arr: &mut [T]) -> &mut [u128] {
 pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
     let n = arr.len();
     if n <= SMALL {
+        trace!("std_small");
         arr.sort_unstable();
         return;
     }
     let known = match presorted(arr) {
-        Ok(()) => return,
+        Ok(()) => {
+            trace!("presorted");
+            return;
+        }
         Err(known) => known,
     };
     // A long sorted prefix goes to the tail-first path of `radix_path`
     // without the narrowing scan.
     let tail_first = super::super::pipeline::tail_first(n, known.ascending_prefix);
-    if !tail_first && narrow(arr) {
+    if !tail_first && super::super::trace::hit(narrow(arr), "narrow128") {
         return;
     }
     radix_path(
         arr,
         known,
         true,
-        &|a: &mut [T], _| few(a) || heavy_from(a, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y),
+        &|a: &mut [T], _| {
+            use super::super::trace::hit;
+            hit(few(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y), "heavy")
+        },
         &|chunk: &mut [T]| {
             if chunk.len() >= roller_min() {
+                trace!("roller");
                 T::roller(bits_of(chunk));
             } else {
+                trace!("dlsd");
                 T::dlsd(bits_of(chunk));
             }
         },

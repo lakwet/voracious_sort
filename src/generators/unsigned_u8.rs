@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_u8(size: usize) -> Vec<u8> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<u8>())
+        .map(|_| crate::generators::rng().random::<u8>())
         .collect::<Vec<u8>>()
 }
 
@@ -23,19 +23,19 @@ pub fn helper_random_array_desc_sawtooth_u8(size: usize) -> Vec<u8> {
 
 // All equals
 pub fn helper_random_array_allequals_u8(size: usize) -> Vec<u8> {
-    vec![rand::rng().random(); size]
+    vec![crate::generators::rng().random(); size]
 }
 
 // Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_u8(size: usize) -> Vec<u8> {
-    super::zipf(size, 1 << 8, || rand::rng().random::<u8>())
+    super::zipf(size, 1 << 8, || crate::generators::rng().random::<u8>())
 }
 
 // Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
 // log2(n) distinct values, geometric frequencies)
 pub fn helper_random_array_fakezipf_u8(size: usize) -> Vec<u8> {
     let mut array: Vec<u8> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u8 = 0;
@@ -64,7 +64,7 @@ pub fn helper_random_array_normale_10_u8(size: usize) -> Vec<u8> {
     let normal = Normal::new(0.0, 1024.0).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut rand::rng()) as u8)
+        .map(|_| normal.sample(&mut crate::generators::rng()) as u8)
         .collect::<Vec<u8>>()
 }
 

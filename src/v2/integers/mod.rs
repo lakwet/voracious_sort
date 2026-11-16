@@ -31,6 +31,7 @@ use super::engines::roller::{ri32, ri64, ru32, ru64};
 use super::pipeline::presorted::presorted;
 use super::pipeline::radix_path;
 use super::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use super::trace::hit;
 use keys::*;
 
 mod sealed {
@@ -98,19 +99,25 @@ trait IntSort: DevourSort2 + BitsOf {
 fn sort_integers<T: IntSort>(arr: &mut [T]) {
     let n = arr.len();
     if n <= MERGE_MAX {
+        trace!("merge_small");
         merge_sort(bits_of(arr), T::encode, T::decode);
         return;
     }
     let known = match presorted(arr) {
-        Ok(()) => return,
+        Ok(()) => {
+            trace!("presorted");
+            return;
+        }
         Err(known) => known,
     };
     // 8-bit keys: counting over the 256 values beats any detection.
     if T::Bits::MAX_U64 == u8::MAX as u64 && n >= 256 && n <= u32::MAX as usize {
+        trace!("count8");
         domain_count(bits_of(arr), T::encode, T::decode);
         return;
     }
     if n <= T::SMALL {
+        trace!("std_small");
         arr.sort_unstable();
         return;
     }
@@ -124,26 +131,56 @@ fn sort_integers<T: IntSort>(arr: &mut [T]) {
 /// among the probes of the near-sorted repair.
 fn detect<T: IntSort>(arr: &mut [T], equal_pairs: usize) -> bool {
     let mut sample = spread(arr);
-    T::range(arr, &sample)
-        || plateaus(arr, equal_pairs)
-        || T::few(arr, &sample)
+    hit(T::range(arr, &sample), "range")
+        || hit(plateaus(arr, equal_pairs), "plateaus")
+        || hit(T::few(arr, &sample), "few")
         || (arr.len() >= HEAVY_MIN
             && (arr.len() >= DENSE_MIN || may_be_heavy(&sample, |x, y| x == y))
             && {
             sample.sort_unstable();
-            heavy_sorted_by(arr, &sample, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y)
-                || (arr.len() >= DENSE_MIN && T::dense(arr, &sample))
+            hit(heavy_sorted_by(arr, &sample, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y), "heavy")
+                || (arr.len() >= DENSE_MIN && hit(T::dense(arr, &sample), "dense"))
         })
 }
 
-/// 8 to 32 bits: the fused LSD (the rollercoaster beyond `roller_min`).
+/// Beyond the largest cache: whether 32-bit keys still take the
+/// rollercoaster. Rule under test: only when the keys are ordered locally
+/// or globally (else the fused LSD).
+#[inline]
+fn roller_beyond<U: Copy + PartialOrd>(bits: &[U]) -> bool {
+    !super::ab::new_rule() || locally_ordered(bits) || globally_ordered(bits)
+}
+
+/// Sampled keys (65 spread over the slice) mostly in one order: a global
+/// trend under local noise (timestamps with jitter).
+fn globally_ordered<U: Copy + PartialOrd>(bits: &[U]) -> bool {
+    const PAIRS: usize = 64;
+    let step = bits.len() / (PAIRS + 1);
+    let asc = (0..PAIRS).filter(|&k| bits[k * step] <= bits[(k + 1) * step]).count();
+    let desc = (0..PAIRS).filter(|&k| bits[k * step] >= bits[(k + 1) * step]).count();
+    asc >= PAIRS * 7 / 8 || desc >= PAIRS * 7 / 8
+}
+
+/// Sampled neighbours (64 pairs spread over the keys) mostly in one order:
+/// sawteeth, timestamps, runs. The MSD pass first then writes in few,
+/// sequential streams, where the LSD's first pass on the low digit scatters.
+fn locally_ordered<U: Copy + PartialOrd>(bits: &[U]) -> bool {
+    const PAIRS: usize = 64;
+    let step = bits.len() / (PAIRS + 1);
+    let asc = (1..=PAIRS).filter(|&k| bits[k * step] <= bits[k * step + 1]).count();
+    let desc = (1..=PAIRS).filter(|&k| bits[k * step] >= bits[k * step + 1]).count();
+    asc >= PAIRS * 7 / 8 || desc >= PAIRS * 7 / 8
+}
+
 macro_rules! lsd_chunks {
     ($uint:ty, $lsd:ident, $roller:expr, $roller_min:ident) => {
         #[inline(always)]
         fn sort_chunk(bits: &mut [$uint], _: &mut Vec<MaybeUninit<$uint>>) {
-            if bits.len() >= $roller_min() {
+            if bits.len() >= $roller_min() && roller_beyond(bits) {
+                trace!("roller");
                 $roller(bits);
             } else {
+                trace!("lsd");
                 $lsd::lsd(bits);
             }
         }
@@ -157,12 +194,17 @@ macro_rules! dlsd_chunks {
         #[inline(always)]
         fn sort_chunk(bits: &mut [u64], buffer: &mut Vec<MaybeUninit<u64>>) {
             if bits.len() >= roller_min_64() {
+                trace!("roller");
                 $roller::roller(bits);
             } else if bits.len() >= DENSE_MIN {
-                if !$dlsd::dlsd_unless(bits, buffer, |sample: &[u64]| clustered(sample)) {
+                if $dlsd::dlsd_unless(bits, buffer, |sample: &[u64]| clustered(sample)) {
+                    trace!("dlsd");
+                } else {
+                    trace!("lsd_clustered");
                     $lsd::lsd(bits);
                 }
             } else {
+                trace!("dlsd");
                 $dlsd::dlsd_with(bits, buffer);
             }
         }
@@ -202,6 +244,7 @@ macro_rules! int_type {
             #[inline]
             fn devour_sort2_impl(arr: &mut [$t]) {
                 if arr.len() <= NETWORK_MAX {
+                    trace!("network");
                     network_sort(bits_of(arr), $encode, $decode);
                 } else {
                     sort_integers(arr);
