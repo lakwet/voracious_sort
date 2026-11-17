@@ -138,6 +138,14 @@ trace-write: export TRACE_WRITE = 1
 trace-write: ## write the reference trace of this CPU (after a commit that moves cells)
 	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
 
+trace-ref: export TRACE_WRITE = 1
+trace-ref: ## new machine: update dev, write its reference trace, show the file to send (~20-30 min, no timing)
+	git checkout dev
+	git pull
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+	@echo "File to send:"
+	@git status --short --untracked-files=all traces
+
 sentinel: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
 sentinel: ## rule under test off / on on the moved cells + controls (minutes)
 	@cargo test --release --lib --features "voracious_multithread" tests::sentinel -- --ignored --nocapture --test-threads=1
@@ -146,4 +154,4 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write trace-ref sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
