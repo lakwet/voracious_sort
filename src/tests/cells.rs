@@ -119,7 +119,9 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
     rec!("r16u64", u64, 2, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
     rec!("r32u64", u64, 6, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
     rec!("r128u32", u32, 31, keys_u32(), by_key::devour_sort_by_key, 1_000_000);
+    rec!("ru8u32", u32, 1, keys_u32(), by_key::devour_sort_unstable_by_key, usize::MAX);
     rec!("ru16u64", u64, 2, keys_u64(), by_key::devour_sort_unstable_by_key, usize::MAX);
+    rec!("ru128u32", u32, 31, keys_u32(), by_key::devour_sort_unstable_by_key, 1_000_000);
 }
 
 /// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment.
