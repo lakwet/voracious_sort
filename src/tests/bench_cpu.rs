@@ -558,7 +558,8 @@ fn bench_cpu() {
         wide!(i128, all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()));
     }
 
-    // Records sorted by key (stable; rdst and v1 are not stable).
+    // Records sorted by key (v2 and v1 in both versions: stable, unstable;
+    // rdst and std unstable are not stable).
     {
         use rdst::RadixSort as Rdst;
         macro_rules! records {
@@ -574,6 +575,9 @@ fn bench_cpu() {
                         variant("rdst", |a: &mut [$ty]| a.radix_sort_unstable()),
                         variant("turbosort", |a: &mut [$ty]| turbosort::sort_by_key(a, |x| x.key)),
                         variant("v1", |a: &mut [$ty]| a.voracious_sort()),
+                        // Like for like: unstable against unstable, stable against stable.
+                        variant("v2 unstable", |a: &mut [$ty]| by_key::devour_sort_unstable_by_key(a, |x| x.key)),
+                        variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
                     ];
                     bench(r, &cfg, concat!("records ", $label), &$gens, &keep_sorts(variants), ordered_by_key!($ty), 0);
                 }

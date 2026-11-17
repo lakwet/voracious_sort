@@ -1,7 +1,7 @@
 //! Cache and page sizes asked to the system (Windows, Linux, macOS);
 //! `None` elsewhere or when the query fails.
 
-#[cfg(windows)]
+#[cfg(all(windows, not(miri)))]
 mod imp {
     // Layouts from the Windows SDK (winnt.h, sysinfoapi.h).
     const RELATION_CACHE: u32 = 2;
@@ -95,7 +95,7 @@ mod imp {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(miri)))]
 mod imp {
     extern "C" {
         fn sysconf(name: i32) -> i64;
@@ -159,7 +159,7 @@ mod imp {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", not(miri)))]
 mod imp {
     extern "C" {
         fn sysctlbyname(
@@ -208,7 +208,8 @@ mod imp {
     }
 }
 
-#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
+// Other systems, and Miri (no foreign calls): the default sizes.
+#[cfg(any(miri, not(any(windows, target_os = "linux", target_os = "macos"))))]
 mod imp {
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         (None, None)
