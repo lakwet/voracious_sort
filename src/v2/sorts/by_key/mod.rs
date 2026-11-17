@@ -15,7 +15,6 @@ mod merge;
 mod packed;
 mod permute;
 mod small;
-mod unstable;
 mod verge;
 
 mod keys;
@@ -402,7 +401,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         // organ: one merge) or breaks scattered in ascending order (the
         // repair of nearly sorted data).
         "msd_unstable" if msd_ok && s.turns > 2 && !nearly_sorted(arr, enc, &s, &drops)
-            => do { unstable::msd(arr, enc, s.lo, s.hi) };
+            => do { crate::v2::engines::msd::msd(arr, enc, s.lo, s.hi) };
         // The MSD, whose buckets of equal keys end at once, was slower.
         "unstable_dups" if small_unstable && sample_distinct(arr, enc) < MANY_DISTINCT
             => do { arr.sort_unstable_by_key(|x| enc(x)) };

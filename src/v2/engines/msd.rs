@@ -1,5 +1,7 @@
-//! Sorting records by a key, unstably: equal keys may come out in any
-//! order. What the freedom buys: an in-place MSD radix sort on the records
+//! In-place MSD radix sort.
+//!
+//! `msd`: records by a key, unstably (equal keys may come out in any
+//! order). What the freedom buys: an in-place MSD radix sort on the records
 //! (no buffer, no (key, index) pairs): each pass counts one byte of the
 //! key, then moves every record to its bucket by cycles of swaps (American
 //! flag sort, McIlroy, Bostic & McIlroy 1993; the cycle loop as in
@@ -123,5 +125,75 @@ fn insertion<T, K: Digits, F: Fn(&T) -> K>(arr: &mut [T], key: &F) {
         if j < i {
             arr[j..=i].rotate_right(1);
         }
+    }
+}
+
+/// In-place permutation of `arr` into buckets (ska sort's swap loop): bucket
+/// `b` spans `heads[b]..ends[b]` (its first free slot to its end), `digit`
+/// gives the bucket of an element. Rounds over the unsorted part of every
+/// bucket, each element swapped to the next free slot of its bucket. The
+/// largest bucket is never scanned: it is complete when the others are.
+/// Used by the rollercoaster (`roller`).
+#[inline(always)]
+pub(crate) fn permute<T, D: Fn(&T) -> usize>(
+    arr: &mut [T],
+    heads: &mut [usize],
+    ends: &[usize],
+    digit: D,
+) {
+    let mut todo: Vec<usize> = (0..heads.len()).filter(|&b| ends[b] > heads[b]).collect();
+    if let Some(pos) = (0..todo.len()).max_by_key(|&i| ends[todo[i]] - heads[todo[i]]) {
+        todo.swap_remove(pos);
+    }
+    let p = arr.as_mut_ptr();
+    // SAFETY: every index read or written is a slot of a bucket region,
+    // below `arr.len()`: `o` runs over `heads[b]..ends[b]` and the head of a
+    // bucket stays below its end while elements of that bucket remain to
+    // place (the caller counted exactly the elements of each bucket).
+    while !todo.is_empty() {
+        todo.retain(|&b| {
+            let (start, end) = (heads[b], ends[b]);
+            let mut o = start;
+            unsafe {
+                while o + 4 <= end {
+                    let d0 = digit(&*p.add(o));
+                    let d1 = digit(&*p.add(o + 1));
+                    let d2 = digit(&*p.add(o + 2));
+                    let d3 = digit(&*p.add(o + 3));
+                    if d0 == d1 && d0 == d2 && d0 == d3 {
+                        // Same bucket: one counter update instead of a chain
+                        // of 4 dependent ones (same swaps as below).
+                        let i = heads[d0];
+                        heads[d0] += 4;
+                        std::ptr::swap(p.add(o), p.add(i));
+                        std::ptr::swap(p.add(o + 1), p.add(i + 1));
+                        std::ptr::swap(p.add(o + 2), p.add(i + 2));
+                        std::ptr::swap(p.add(o + 3), p.add(i + 3));
+                        o += 4;
+                        continue;
+                    }
+                    let i0 = heads[d0];
+                    heads[d0] += 1;
+                    let i1 = heads[d1];
+                    heads[d1] += 1;
+                    let i2 = heads[d2];
+                    heads[d2] += 1;
+                    let i3 = heads[d3];
+                    heads[d3] += 1;
+                    std::ptr::swap(p.add(o), p.add(i0));
+                    std::ptr::swap(p.add(o + 1), p.add(i1));
+                    std::ptr::swap(p.add(o + 2), p.add(i2));
+                    std::ptr::swap(p.add(o + 3), p.add(i3));
+                    o += 4;
+                }
+                while o < end {
+                    let d = digit(&*p.add(o));
+                    std::ptr::swap(p.add(o), p.add(heads[d]));
+                    heads[d] += 1;
+                    o += 1;
+                }
+            }
+            heads[b] < ends[b]
+        });
     }
 }

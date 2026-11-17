@@ -139,10 +139,8 @@ macro_rules! roller_width {
                 total
             }
 
-            /// In-place permutation by bucket `map[(key - min) >> shift]` (ska
-            /// sort's swap loop): rounds over the unsorted part of every bucket,
-            /// each key swapped to the next free slot of its bucket. The largest
-            /// bucket is never scanned: it is complete when the others are.
+            /// In-place permutation by bucket `map[(key - min) >> shift]`
+            /// (`msd::permute`).
             fn permute(
                 keys: &mut [$uint],
                 heads: &mut [usize],
@@ -153,65 +151,10 @@ macro_rules! roller_width {
             ) {
                 let mask = (map.len() - 1) as $uint;
                 // SAFETY: the masked digit indexes `map`.
-                let digit = |k: $uint| unsafe {
+                let digit = |k: &$uint| unsafe {
                     *map.get_unchecked(((k.wrapping_sub(min) >> shift) & mask) as usize) as usize
                 };
-                let mut todo: Vec<usize> =
-                    (0..heads.len()).filter(|&b| ends[b] > heads[b]).collect();
-                if let Some(pos) = (0..todo.len()).max_by_key(|&i| ends[todo[i]] - heads[todo[i]]) {
-                    todo.swap_remove(pos);
-                }
-                let p = keys.as_mut_ptr();
-                // SAFETY: every index read or written is a slot of a bucket region,
-                // below `keys.len()`: `o` runs over `heads[b]..ends[b]` and the head of a
-                // bucket stays below its end while keys of that bucket remain to place
-                // (the histogram counted exactly the keys of each bucket).
-                while !todo.is_empty() {
-                    todo.retain(|&b| {
-                        let (start, end) = (heads[b], ends[b]);
-                        let mut o = start;
-                        unsafe {
-                            while o + 4 <= end {
-                                let d0 = digit(*p.add(o));
-                                let d1 = digit(*p.add(o + 1));
-                                let d2 = digit(*p.add(o + 2));
-                                let d3 = digit(*p.add(o + 3));
-                                if d0 == d1 && d0 == d2 && d0 == d3 {
-                                    // Same bucket: one counter update instead of a chain
-                                    // of 4 dependent ones (same swaps as below).
-                                    let i = heads[d0];
-                                    heads[d0] += 4;
-                                    std::ptr::swap(p.add(o), p.add(i));
-                                    std::ptr::swap(p.add(o + 1), p.add(i + 1));
-                                    std::ptr::swap(p.add(o + 2), p.add(i + 2));
-                                    std::ptr::swap(p.add(o + 3), p.add(i + 3));
-                                    o += 4;
-                                    continue;
-                                }
-                                let i0 = heads[d0];
-                                heads[d0] += 1;
-                                let i1 = heads[d1];
-                                heads[d1] += 1;
-                                let i2 = heads[d2];
-                                heads[d2] += 1;
-                                let i3 = heads[d3];
-                                heads[d3] += 1;
-                                std::ptr::swap(p.add(o), p.add(i0));
-                                std::ptr::swap(p.add(o + 1), p.add(i1));
-                                std::ptr::swap(p.add(o + 2), p.add(i2));
-                                std::ptr::swap(p.add(o + 3), p.add(i3));
-                                o += 4;
-                            }
-                            while o < end {
-                                let d = digit(*p.add(o));
-                                std::ptr::swap(p.add(o), p.add(heads[d]));
-                                heads[d] += 1;
-                                o += 1;
-                            }
-                        }
-                        heads[b] < ends[b]
-                    });
-                }
+                super::super::msd::permute(keys, heads, ends, digit);
             }
         }
     };
