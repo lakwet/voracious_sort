@@ -44,7 +44,13 @@ unsafe fn corank<T: PartialOrd>(l: *const T, ln: usize, r: *const T, rn: usize, 
 /// # Safety
 /// As stated.
 #[inline(always)]
-unsafe fn fwd_gap<T: Copy + PartialOrd>(mut l: *const T, ln: usize, mut r: *const T, rn: usize, mut d: *mut T) {
+unsafe fn fwd_gap<T: Copy + PartialOrd>(
+    mut l: *const T,
+    ln: usize,
+    mut r: *const T,
+    rn: usize,
+    mut d: *mut T,
+) {
     let (le, re) = (l.add(ln), r.add(rn));
     while l < le && r < re {
         let t = *r < *l;
@@ -80,7 +86,13 @@ unsafe fn bwd_gap<T: Copy + PartialOrd>(l: *const T, ln: usize, r: *const T, rn:
 /// # Safety
 /// Valid, non-overlapping ranges.
 #[inline(always)]
-unsafe fn fwd<T: Copy + PartialOrd>(mut l: *const T, ln: usize, mut r: *const T, rn: usize, mut d: *mut T) {
+unsafe fn fwd<T: Copy + PartialOrd>(
+    mut l: *const T,
+    ln: usize,
+    mut r: *const T,
+    rn: usize,
+    mut d: *mut T,
+) {
     let (le, re) = (l.add(ln), r.add(rn));
     while l < le && r < re {
         let t = *r < *l;
@@ -146,7 +158,13 @@ unsafe fn ext4<T: Copy + PartialOrd>(l: *const T, ln: usize, r: *const T, rn: us
 ///
 /// # Safety
 /// `l` does not overlap `d[..ln + rn]`; `r == d + ln`.
-unsafe fn gap_left<T: Copy + PartialOrd>(mut l: *const T, mut ln: usize, mut r: *const T, mut rn: usize, mut d: *mut T) {
+unsafe fn gap_left<T: Copy + PartialOrd>(
+    mut l: *const T,
+    mut ln: usize,
+    mut r: *const T,
+    mut rn: usize,
+    mut d: *mut T,
+) {
     while ln > 0 {
         if rn == 0 {
             std::ptr::copy_nonoverlapping(l, d, ln);

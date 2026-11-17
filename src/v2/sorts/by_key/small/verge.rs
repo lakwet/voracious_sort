@@ -1,8 +1,8 @@
 //! Verge on the records: long runs kept, the gaps sorted, all merged.
 
-use crate::v2::runs::verge::compute_big_enough_run;
 use super::merge::{merge_all, merge_two};
 use super::sort_encoded;
+use crate::v2::runs::verge::compute_big_enough_run;
 
 /// Shortest array tried for Verge on the elements.
 pub(super) const VERGE_MIN: usize = 4096;
@@ -75,8 +75,19 @@ pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
 /// increasing order), at most 16 switches between the two runs, or a
 /// pattern periodic with a period of at most 16 (pipe organs alternate one
 /// by one).
-fn predictable<T, E: Fn(&T) -> u128>(arr: &[T], a: (usize, usize, bool), b: (usize, usize, bool), enc: &E) -> bool {
-    let at = |r: (usize, usize, bool), i: usize| if r.2 { enc(&arr[r.1 - 1 - i]) } else { enc(&arr[r.0 + i]) };
+fn predictable<T, E: Fn(&T) -> u128>(
+    arr: &[T],
+    a: (usize, usize, bool),
+    b: (usize, usize, bool),
+    enc: &E,
+) -> bool {
+    let at = |r: (usize, usize, bool), i: usize| {
+        if r.2 {
+            enc(&arr[r.1 - 1 - i])
+        } else {
+            enc(&arr[r.0 + i])
+        }
+    };
     let (la, lb) = (a.1 - a.0, b.1 - b.0);
     let (mut i, mut j, mut bits) = (0, 0, 0u64);
     for step in 0..64 {

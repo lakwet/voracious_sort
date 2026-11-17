@@ -48,7 +48,11 @@ fn direction(a: u128, b: u128) -> i8 {
 /// Reads every key once. `TURNS`: the turns counted; `HIST`: the byte
 /// histograms of the low 64 bits taken in `hist`.
 #[inline(always)]
-fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(arr: &[T], enc: &E, hist: &mut [[usize; 256]]) -> Scan {
+fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(
+    arr: &[T],
+    enc: &E,
+    hist: &mut [[usize; 256]],
+) -> Scan {
     let count = |hist: &mut [[usize; 256]], k: u128| {
         for (d, h) in hist.iter_mut().enumerate() {
             h[((k as u64 >> (8 * d)) & 0xFF) as usize] += 1;
@@ -87,7 +91,8 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // Beyond half the L2 the moves of the records dominate: the LSD on small
     // records, Verge on the records (both fed by the first read).
     let size = std::mem::size_of::<T>();
-    let beyond_cache = n.saturating_mul(size) > crate::v2::cache::budget(crate::v2::cache::Budget::Records) / 2;
+    let beyond_cache =
+        n.saturating_mul(size) > crate::v2::cache::budget(crate::v2::cache::Budget::Records) / 2;
     let small_records = size <= 8 && beyond_cache;
     let mut hist = if small_records { vec![[0usize; 256]; 8] } else { Vec::new() };
     let s = if small_records {

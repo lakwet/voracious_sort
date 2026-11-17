@@ -23,7 +23,13 @@ pub(crate) const HEAVY_MIN: usize = 2048;
 /// `total_cmp`, so that -0.0 and +0.0 stay apart). From `min` keys (wider
 /// keys: each comparison and move costs more, the extraction pays off on
 /// shorter arrays).
-pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], min: usize, sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
+pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(
+    arr: &mut [T],
+    min: usize,
+    sort: &dyn Fn(&mut [T]),
+    eq: E,
+    lt: L,
+) -> bool {
     if arr.len() < min {
         return false;
     }
@@ -48,7 +54,10 @@ pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> boo
 /// it occurs at least `SAMPLE / 8` times. A heavy value holds at least an
 /// eighth of the sample and the heavy values a quarter: 8 picks miss them
 /// all with odds below (3/4)^8 = 10 %.
-pub(crate) fn may_be_heavy<T: Copy, E: Fn(T, T) -> bool + Copy>(sample: &[T; SAMPLE], eq: E) -> bool {
+pub(crate) fn may_be_heavy<T: Copy, E: Fn(T, T) -> bool + Copy>(
+    sample: &[T; SAMPLE],
+    eq: E,
+) -> bool {
     (0..8).any(|k| {
         let v = sample[k * (SAMPLE / 8)];
         sample.iter().fold(0usize, |c, &x| c + eq(x, v) as usize) >= SAMPLE / 8
@@ -56,7 +65,14 @@ pub(crate) fn may_be_heavy<T: Copy, E: Fn(T, T) -> bool + Copy>(sample: &[T; SAM
 }
 
 /// `heavy_by` on a spread sample already sorted (by `lt`).
-pub(crate) fn heavy_sorted_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sample: &[T; SAMPLE], min: usize, sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
+pub(crate) fn heavy_sorted_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(
+    arr: &mut [T],
+    sample: &[T; SAMPLE],
+    min: usize,
+    sort: &dyn Fn(&mut [T]),
+    eq: E,
+    lt: L,
+) -> bool {
     let n = arr.len();
     if n < min {
         return false;
@@ -104,7 +120,11 @@ pub(crate) fn heavy_sorted_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -
 /// Moves the keys not among `values[..H]` to the front (in order, in place)
 /// and counts each value: one pass without branches.
 #[inline]
-fn compact<T: Copy, E: Fn(T, T) -> bool, const H: usize>(arr: &mut [T], values: [T; 4], eq: E) -> (usize, [usize; 4]) {
+fn compact<T: Copy, E: Fn(T, T) -> bool, const H: usize>(
+    arr: &mut [T],
+    values: [T; 4],
+    eq: E,
+) -> (usize, [usize; 4]) {
     let mut counts = [0usize; 4];
     let mut j = 0;
     for i in 0..arr.len() {

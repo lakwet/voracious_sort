@@ -17,7 +17,14 @@ use crate::v2::sorts::devour::keys::Key;
 /// count on 4 lanes (repeated keys would otherwise wait on the previous
 /// increment of the same counter). At most 2^32 - 1 keys.
 #[inline]
-pub(crate) fn window_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: E, decode: D) -> bool {
+pub(crate) fn window_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
+    keys: &mut [U],
+    lo: U,
+    hi: U,
+    limit: usize,
+    encode: E,
+    decode: D,
+) -> bool {
     window_count_split(keys, lo, hi, limit, encode, decode, 0)
 }
 
@@ -25,7 +32,15 @@ pub(crate) fn window_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(k
 /// the ones below it (keys counted rotated by half the domain: written back
 /// in their true order, no rotation of the array afterwards).
 #[inline]
-pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], lo: U, hi: U, limit: usize, encode: E, decode: D, split: u64) -> bool {
+pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
+    keys: &mut [U],
+    lo: U,
+    hi: U,
+    limit: usize,
+    encode: E,
+    decode: D,
+    split: u64,
+) -> bool {
     let n = keys.len();
     let (lo, hi) = (encode(lo).to_u64(), encode(hi).to_u64());
     let mut width = ((hi - lo + 1) as usize * 2).max(256).min(limit);
@@ -108,7 +123,8 @@ const LANES_MAX_WIDTH: usize = 8192;
 /// keys: a fixed 4096-counter cap was 1-2 % slower at 3M-10M (12 MiB L2).
 #[inline]
 fn lanes_for(width: usize, n: usize) -> usize {
-    if width <= LANES_MAX_WIDTH && 4 * width * 4 <= budget(Budget::CountLanes) / 8 && 2 * width <= n {
+    if width <= LANES_MAX_WIDTH && 4 * width * 4 <= budget(Budget::CountLanes) / 8 && 2 * width <= n
+    {
         4
     } else {
         1
@@ -139,7 +155,11 @@ fn fill_run<U: Copy>(keys: &mut [U], start: usize, c: usize, v: U) {
 /// when the domain is not wider than the narrow-range limit (8- and 16-bit
 /// keys): no sample, no min / max, no bound check. At most 2^32 - 1 keys.
 #[inline]
-pub(crate) fn domain_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], encode: E, decode: D) {
+pub(crate) fn domain_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
+    keys: &mut [U],
+    encode: E,
+    decode: D,
+) {
     let width = (U::MAX_U64 + 1) as usize;
     // Wide domains (16-bit keys): 4 lanes only when keys repeat nearby. One
     // lane keeps a quarter of the table in cache (u16 at 1M-10M, against 4
@@ -180,14 +200,26 @@ fn repeats_near<U: Key>(keys: &[U]) -> bool {
     for i in 0..256u64 {
         let p = (((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * (n - 4) as u64) >> 32) as usize;
         let k = keys[p].to_u64();
-        hits += (k == keys[p + 1].to_u64() || k == keys[p + 2].to_u64() || k == keys[p + 3].to_u64()) as usize;
+        hits += (k == keys[p + 1].to_u64()
+            || k == keys[p + 2].to_u64()
+            || k == keys[p + 3].to_u64()) as usize;
     }
     hits >= 16
 }
 
 #[inline(always)]
 /// `domain_count` with the index mixing and the lanes fixed.
-fn domain_count_with<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy, const MIX: bool, const FOUR: bool>(keys: &mut [U], encode: E, decode: D) {
+fn domain_count_with<
+    U: Key,
+    E: Fn(U) -> U + Copy,
+    D: Fn(U) -> U + Copy,
+    const MIX: bool,
+    const FOUR: bool,
+>(
+    keys: &mut [U],
+    encode: E,
+    decode: D,
+) {
     let n = keys.len();
     let width = (U::MAX_U64 + 1) as usize;
     let lanes = if FOUR { 4 } else { 1 };
@@ -198,7 +230,11 @@ fn domain_count_with<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy, const M
     // L1 sets (u16 multiples of 256 at 1M-10M: 4.3 to 0.35 ns per key).
     let idx = |k: U| {
         let e = encode(k).to_u64() as usize;
-        if MIX { e ^ ((e >> 8) & 0xFF) } else { e }
+        if MIX {
+            e ^ ((e >> 8) & 0xFF)
+        } else {
+            e
+        }
     };
     let mut quads = keys.chunks_exact(4);
     if lanes == 4 {
@@ -279,7 +315,13 @@ fn domain_count_with<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy, const M
 /// at most 2^32 - 1 keys; 4 lanes of counters when the table is small
 /// against the keys.
 #[inline]
-pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(keys: &mut [U], base: U, width: usize, encode: E, decode: D) {
+pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
+    keys: &mut [U],
+    base: U,
+    width: usize,
+    encode: E,
+    decode: D,
+) {
     let n = keys.len();
     let base = base.to_u64();
     let lanes = lanes_for(width, n);
@@ -309,7 +351,14 @@ pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(ke
 /// Counts `keys`, all within `base..base + size` (`size` a power of two),
 /// in `lanes` tables of `size` counters: offsets masked, no bound check.
 #[inline(always)]
-fn count_masked<U: Key, E: Fn(U) -> U + Copy>(keys: &[U], encode: E, base: u64, size: usize, lanes: usize, counts: &mut [u32]) {
+fn count_masked<U: Key, E: Fn(U) -> U + Copy>(
+    keys: &[U],
+    encode: E,
+    base: u64,
+    size: usize,
+    lanes: usize,
+    counts: &mut [u32],
+) {
     let mask = size - 1;
     let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize & mask;
     let mut quads = keys.chunks_exact(4);
@@ -351,7 +400,14 @@ fn count_masked<U: Key, E: Fn(U) -> U + Copy>(keys: &[U], encode: E, base: u64, 
 /// keys `base..base + width`); stops at the first group of keys holding one
 /// outside the window, uncounted, and returns its position.
 #[inline(always)]
-fn count_window<U: Key, E: Fn(U) -> U + Copy>(keys: &[U], encode: E, base: u64, width: usize, lanes: usize, counts: &mut [u32]) -> Option<usize> {
+fn count_window<U: Key, E: Fn(U) -> U + Copy>(
+    keys: &[U],
+    encode: E,
+    base: u64,
+    width: usize,
+    lanes: usize,
+    counts: &mut [u32],
+) -> Option<usize> {
     let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize;
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(width);

@@ -14,12 +14,12 @@
 //!   apart there), then the small groups sharing that prefix finished; the
 //!   rollercoaster above the cache.
 
-use crate::v2::special::heavy::heavy_from;
+use super::{devour_sort2, DevourSort2};
+use crate::v2::decide::path::radix_path;
 use crate::v2::engines::dlsd::{di128, du128};
 use crate::v2::engines::roller::{ri128, ru128};
 use crate::v2::inspect::presorted::presorted;
-use crate::v2::decide::path::radix_path;
-use super::{devour_sort2, DevourSort2};
+use crate::v2::special::heavy::heavy_from;
 
 /// Up to this size: `sort_unstable`.
 const SMALL: usize = 64;
@@ -89,7 +89,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         Ok(()) => {
             trace!("presorted");
             return;
-        }
+        },
         Err(known) => known,
     };
     // A long sorted prefix goes to the tail-first path of `radix_path`
@@ -104,10 +104,22 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         true,
         &|a: &mut [T], _| {
             use crate::v2::dev::trace::hit;
-            hit(few(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y), "heavy")
+            hit(few(a), "few")
+                || hit(
+                    heavy_from(
+                        a,
+                        HEAVY_MIN,
+                        &|r: &mut [T]| devour_sort2(r),
+                        |x, y| x == y,
+                        |x, y| x < y,
+                    ),
+                    "heavy",
+                )
         },
         &|chunk: &mut [T]| {
-            if crate::v2::decide::chunks::wide(chunk.len()) == crate::v2::decide::chunks::Engine::Roller {
+            if crate::v2::decide::chunks::wide(chunk.len())
+                == crate::v2::decide::chunks::Engine::Roller
+            {
                 trace!("roller");
                 T::roller(bits_of(chunk));
             } else {
@@ -216,7 +228,8 @@ fn few<T: Key128>(arr: &mut [T]) -> bool {
     }
     let hash = |v: T| {
         let e = v.enc();
-        (((e as u64) ^ ((e >> 64) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize
+        (((e as u64) ^ ((e >> 64) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15)
+            >> (64 - FEW_TABLE_BITS)) as usize
     };
     // One table for the sample and the count: only the occupancy is
     // initialised (keys of 16 bytes: 8 KiB per table otherwise).
@@ -284,7 +297,13 @@ fn few<T: Key128>(arr: &mut [T]) -> bool {
 /// Narrowing inside the DLSD (a group whose range fits in 64 bits): `keys`
 /// read through `enc`, sorted as `key - min` on 64 or 32 bits, written back
 /// through `dec`.
-pub(crate) fn narrow_keys(keys: &mut [u128], min: u128, range: u128, enc: impl Fn(u128) -> u128, dec: impl Fn(u128) -> u128) {
+pub(crate) fn narrow_keys(
+    keys: &mut [u128],
+    min: u128,
+    range: u128,
+    enc: impl Fn(u128) -> u128,
+    dec: impl Fn(u128) -> u128,
+) {
     if range <= u32::MAX as u128 {
         narrow_with::<u32>(keys, min, &enc, &dec);
     } else {
@@ -292,7 +311,12 @@ pub(crate) fn narrow_keys(keys: &mut [u128], min: u128, range: u128, enc: impl F
     }
 }
 
-fn narrow_with<U: Narrow>(keys: &mut [u128], min: u128, enc: &impl Fn(u128) -> u128, dec: &impl Fn(u128) -> u128) {
+fn narrow_with<U: Narrow>(
+    keys: &mut [u128],
+    min: u128,
+    enc: &impl Fn(u128) -> u128,
+    dec: &impl Fn(u128) -> u128,
+) {
     let n = keys.len();
     let wide = keys.as_mut_ptr();
     let small = wide as *mut U;

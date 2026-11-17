@@ -149,10 +149,10 @@ fn scalar<E: Lane, const M: u8>(a: &[E], b: &[E], dst: &mut [E]) {
 }
 
 /// The block merge streams, given in scope the key type `E`, a vector type
-/// `V` holding four keys and the
-/// always-inlined `ld`, `st`, `pick` (select of the next block) and `net` (merge network of two sorted blocks
-/// of four: the four smallest and the four largest, each sorted), and the
-/// target feature of the entry point.
+/// `V` holding four keys and the always-inlined `ld`, `st`, `pick` (select
+/// of the next block) and `net` (merge network of two sorted blocks of four:
+/// the four smallest and the four largest, each sorted), and the target
+/// feature of the entry point.
 #[allow(unused_macros)]
 macro_rules! streams {
     ($feature:literal) => {
@@ -215,7 +215,14 @@ macro_rules! streams {
             let (lo, hi) = net(ld::<M>(a.as_ptr()), ld::<M>(b.as_ptr()));
             st::<M>(d, lo);
             let (pa, pb) = (a.as_ptr(), b.as_ptr());
-            Stream { pa: pa.add(4), ea: pa.add(a.len()), pb: pb.add(4), eb: pb.add(b.len()), pd: d.add(4), hi }
+            Stream {
+                pa: pa.add(4),
+                ea: pa.add(a.len()),
+                pb: pb.add(4),
+                eb: pb.add(b.len()),
+                pd: d.add(4),
+                hi,
+            }
         }
 
         /// Runs the streams together while they all have room, then each
@@ -235,20 +242,20 @@ macro_rules! streams {
                             step::<M>(s2);
                             step::<M>(s3);
                         }
-                    }
+                    },
                     [s0, s1] => {
                         for _ in 0..m {
                             step::<M>(s0);
                             step::<M>(s1);
                         }
-                    }
+                    },
                     _ => {
                         for s in streams.iter_mut() {
                             for _ in 0..m {
                                 step::<M>(s);
                             }
                         }
-                    }
+                    },
                 }
             }
             for s in streams.iter_mut() {
@@ -274,7 +281,13 @@ macro_rules! streams {
         #[target_feature(enable = $feature)]
         pub(super) unsafe fn merge_split<const M: u8>(a: &[E], b: &[E], dst: &mut [E], k: usize) {
             let n = a.len() + b.len();
-            let k = if k >= 4 { 4 } else if k >= 2 { 2 } else { 1 };
+            let k = if k >= 4 {
+                4
+            } else if k >= 2 {
+                2
+            } else {
+                1
+            };
             let mut cut = [(0usize, 0usize); 5];
             for p in 1..k {
                 let d = p * n / k;
@@ -299,7 +312,8 @@ macro_rules! streams {
             }
             // SAFETY: the first `count` streams are written (`Stream` has no
             // drop).
-            let streams = std::slice::from_raw_parts_mut(streams.as_mut_ptr() as *mut Stream, count);
+            let streams =
+                std::slice::from_raw_parts_mut(streams.as_mut_ptr() as *mut Stream, count);
             run_all::<M>(streams);
         }
     };
@@ -319,7 +333,10 @@ mod neon {
         match M {
             0 => v,
             1 => veorq_u32(v, sign),
-            _ => veorq_u32(v, vorrq_u32(vreinterpretq_u32_s32(vshrq_n_s32::<31>(vreinterpretq_s32_u32(v))), sign)),
+            _ => veorq_u32(
+                v,
+                vorrq_u32(vreinterpretq_u32_s32(vshrq_n_s32::<31>(vreinterpretq_s32_u32(v))), sign),
+            ),
         }
     }
 
@@ -330,7 +347,13 @@ mod neon {
         match M {
             0 => v,
             1 => veorq_u32(v, sign),
-            _ => veorq_u32(v, vorrq_u32(vreinterpretq_u32_s32(vshrq_n_s32::<31>(vreinterpretq_s32_u32(vmvnq_u32(v)))), sign)),
+            _ => veorq_u32(
+                v,
+                vorrq_u32(
+                    vreinterpretq_u32_s32(vshrq_n_s32::<31>(vreinterpretq_s32_u32(vmvnq_u32(v)))),
+                    sign,
+                ),
+            ),
         }
     }
 
@@ -347,7 +370,11 @@ mod neon {
     /// A plain select: LLVM makes it a `csel` here.
     #[inline(always)]
     fn pick(c: bool, a: *const u32, b: *const u32) -> *const u32 {
-        if c { a } else { b }
+        if c {
+            a
+        } else {
+            b
+        }
     }
 
     /// Bitonic merge of two sorted blocks of four: the four smallest and
@@ -360,8 +387,10 @@ mod neon {
         let lo = vminq_u32(a, b);
         let hi = vmaxq_u32(a, b);
         // Distance 2 within each half.
-        let x = vreinterpretq_u32_u64(vzip1q_u64(vreinterpretq_u64_u32(lo), vreinterpretq_u64_u32(hi)));
-        let y = vreinterpretq_u32_u64(vzip2q_u64(vreinterpretq_u64_u32(lo), vreinterpretq_u64_u32(hi)));
+        let x =
+            vreinterpretq_u32_u64(vzip1q_u64(vreinterpretq_u64_u32(lo), vreinterpretq_u64_u32(hi)));
+        let y =
+            vreinterpretq_u32_u64(vzip2q_u64(vreinterpretq_u64_u32(lo), vreinterpretq_u64_u32(hi)));
         let m = vminq_u32(x, y);
         let n = vmaxq_u32(x, y);
         // Distance 1.
@@ -400,7 +429,10 @@ mod sse {
         match M {
             0 => v,
             1 => _mm_xor_si128(v, sign),
-            _ => _mm_xor_si128(v, _mm_or_si128(_mm_srai_epi32::<31>(_mm_xor_si128(v, _mm_set1_epi32(-1))), sign)),
+            _ => _mm_xor_si128(
+                v,
+                _mm_or_si128(_mm_srai_epi32::<31>(_mm_xor_si128(v, _mm_set1_epi32(-1))), sign),
+            ),
         }
     }
 
@@ -458,7 +490,10 @@ mod neon64 {
         match M {
             0 => v,
             1 => veorq_u64(v, sign),
-            _ => veorq_u64(v, vorrq_u64(vreinterpretq_u64_s64(vshrq_n_s64::<63>(vreinterpretq_s64_u64(v))), sign)),
+            _ => veorq_u64(
+                v,
+                vorrq_u64(vreinterpretq_u64_s64(vshrq_n_s64::<63>(vreinterpretq_s64_u64(v))), sign),
+            ),
         }
     }
 
@@ -470,8 +505,14 @@ mod neon64 {
             1 => veorq_u64(v, sign),
             _ => {
                 let not = veorq_u64(v, vdupq_n_u64(u64::MAX));
-                veorq_u64(v, vorrq_u64(vreinterpretq_u64_s64(vshrq_n_s64::<63>(vreinterpretq_s64_u64(not))), sign))
-            }
+                veorq_u64(
+                    v,
+                    vorrq_u64(
+                        vreinterpretq_u64_s64(vshrq_n_s64::<63>(vreinterpretq_s64_u64(not))),
+                        sign,
+                    ),
+                )
+            },
         }
     }
 
@@ -488,7 +529,11 @@ mod neon64 {
 
     #[inline(always)]
     fn pick(c: bool, a: *const u64, b: *const u64) -> *const u64 {
-        if c { a } else { b }
+        if c {
+            a
+        } else {
+            b
+        }
     }
 
     /// Compare-exchange lane by lane (no 64-bit min / max in NEON).

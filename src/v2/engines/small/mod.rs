@@ -27,7 +27,11 @@ fn cswap<K: Copy + Ord, const N: usize>(a: &mut [K; N], i: usize, j: usize) {
 /// Sorts at most `NETWORK_MAX` raw keys in place: `encode` maps them to keys
 /// whose unsigned order is the wanted order, `decode` maps them back.
 #[inline]
-pub(crate) fn network_sort<K: Copy + Ord>(keys: &mut [K], encode: impl Fn(K) -> K, decode: impl Fn(K) -> K) {
+pub(crate) fn network_sort<K: Copy + Ord>(
+    keys: &mut [K],
+    encode: impl Fn(K) -> K,
+    decode: impl Fn(K) -> K,
+) {
     let n = keys.len();
     debug_assert!(n <= NETWORK_MAX);
     if n < 2 {
@@ -114,7 +118,11 @@ pub(crate) fn block_merge_sort<K: Copy + Ord>(keys: &mut [K]) {
 /// Sorts at most `MERGE_MAX` raw keys in place: encode, order probe,
 /// `block_merge_sort`, decode.
 #[inline]
-pub(crate) fn merge_sort<K: Copy + Ord>(keys: &mut [K], encode: impl Fn(K) -> K, decode: impl Fn(K) -> K) {
+pub(crate) fn merge_sort<K: Copy + Ord>(
+    keys: &mut [K],
+    encode: impl Fn(K) -> K,
+    decode: impl Fn(K) -> K,
+) {
     keys.iter_mut().for_each(|k| *k = encode(*k));
     if !sort_if_monotone(keys) {
         block_merge_sort(keys);

@@ -13,7 +13,10 @@ macro_rules! int_few {
             if n < FEW_MIN || n > u32::MAX as usize {
                 return false;
             }
-            let hash = |v: $t| ((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize;
+            let hash = |v: $t| {
+                ((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS))
+                    as usize
+            };
             let s = (n / 32).clamp(16, 256);
             let mut keys = [0 as $t; FEW_TABLE];
             let mut used = [false; FEW_TABLE];
@@ -23,7 +26,8 @@ macro_rules! int_few {
                 let v = if (i as usize) < SAMPLE {
                     sample[i as usize]
                 } else {
-                    values[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize]
+                    values[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32)
+                        as usize]
                 };
                 let mut h = hash(v);
                 while used[h] && keys[h] != v {
@@ -55,7 +59,9 @@ macro_rules! int_few {
             let n = values.len();
             let bits = TABLE.trailing_zeros();
             let mask = TABLE - 1;
-            let hash = |v: $t| ((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - bits)) as usize;
+            let hash = |v: $t| {
+                ((v as $uint as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - bits)) as usize
+            };
             let mut keys = [0 as $t; TABLE];
             let mut used = [false; TABLE];
             let mut counts = [[0u32; TABLE]; 4];
@@ -92,7 +98,15 @@ macro_rules! int_few {
             }
             let mut found: Vec<($t, usize)> = (0..=mask)
                 .filter(|&h| used[h])
-                .map(|h| (keys[h], counts[0][h] as usize + counts[1][h] as usize + counts[2][h] as usize + counts[3][h] as usize))
+                .map(|h| {
+                    (
+                        keys[h],
+                        counts[0][h] as usize
+                            + counts[1][h] as usize
+                            + counts[2][h] as usize
+                            + counts[3][h] as usize,
+                    )
+                })
                 .collect();
             found.sort_unstable_by_key(|&(v, _)| v);
             let mut start = 0;

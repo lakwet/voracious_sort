@@ -2,8 +2,8 @@
 
 mod bidir;
 mod classic;
-mod gap;
 mod gallop;
+mod gap;
 mod predictable;
 pub(crate) mod simd;
 mod two_way;
@@ -61,7 +61,6 @@ pub(crate) fn simd_rule_applies<T>(n: usize) -> bool {
     let min64 = SIMD_MIN_ARRAY_SIZE;
     simd_applies::<T>() && simd_flip::<T>().is_some_and(|(w, _)| w == 32 || n >= min64)
 }
-
 
 /// Balanced merge of `a` and `b` into `dst`, two-ended: branchy when the
 /// interleaving is predictable, else the SIMD block merge where it applies,
@@ -124,16 +123,20 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
         return;
     }
     // Several merges: allocate the scratch once (as the original merge).
-    let mut copy: Vec<T> = if separators.len() > 3 {
-        vec![arr[0]; arr.len() / 2 + 2]
-    } else {
-        Vec::new()
-    };
+    let mut copy: Vec<T> =
+        if separators.len() > 3 { vec![arr[0]; arr.len() / 2 + 2] } else { Vec::new() };
     while separators.len() > 2 {
         let half = (separators.len() - 1) / 2;
         for i in 0..half {
             let i2 = i * 2;
-            merge_in_place(arr, &mut copy, separators[i2], separators[i2 + 1], separators[i2 + 2], separators.len() == 3);
+            merge_in_place(
+                arr,
+                &mut copy,
+                separators[i2],
+                separators[i2 + 1],
+                separators[i2 + 2],
+                separators.len() == 3,
+            );
         }
         for i in 0..half {
             separators.remove(i + 1);
@@ -156,21 +159,23 @@ pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &
     match simd_flip::<T>() {
         Some((32, 2)) => {
             // SAFETY: `T` is f32 (checked by name in `simd_flip`): 32 bits.
-            let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
+            let keys =
+                unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
             keys.iter_mut().for_each(|k| *k ^= (((*k as i32) >> 31) as u32) | (1 << 31));
             pingpong(keys, separators);
             keys.iter_mut().for_each(|k| *k ^= (*k >> 31).wrapping_sub(1) | (1 << 31));
             return;
-        }
+        },
         Some((64, 2)) => {
             // SAFETY: `T` is f64 (checked by name in `simd_flip`): 64 bits.
-            let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u64, arr.len()) };
+            let keys =
+                unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u64, arr.len()) };
             keys.iter_mut().for_each(|k| *k ^= (((*k as i64) >> 63) as u64) | (1 << 63));
             pingpong(keys, separators);
             keys.iter_mut().for_each(|k| *k ^= (*k >> 63).wrapping_sub(1) | (1 << 63));
             return;
-        }
-        _ => {}
+        },
+        _ => {},
     }
     pingpong(arr, separators);
 }
@@ -182,7 +187,8 @@ fn pingpong<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut Vec<usize>) {
     let mut in_buf = false;
     while separators.len() > 2 {
         {
-            let (src, dst): (&[T], &mut [T]) = if in_buf { (&buf[..], &mut arr[..]) } else { (&arr[..], &mut buf[..]) };
+            let (src, dst): (&[T], &mut [T]) =
+                if in_buf { (&buf[..], &mut arr[..]) } else { (&arr[..], &mut buf[..]) };
             let segs = separators.len() - 1;
             let mut i = 0;
             while i + 1 < segs {
@@ -275,4 +281,3 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
 pub(crate) fn bidir_pub<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
     merge_bidir::<T, false>(a, b, dst)
 }
-

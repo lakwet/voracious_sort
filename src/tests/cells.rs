@@ -6,11 +6,12 @@
 use super::super::generators as g;
 use super::super::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
 use super::super::v2::sorts::by_key;
-use super::super::v2::sorts::ravenous::ravenous_sort2;
 use super::super::v2::sorts::devour::devour_sort2;
+use super::super::v2::sorts::ravenous::ravenous_sort2;
 
 /// Sizes of every type; the 32- and 64-bit keys add `BIG`.
-pub(super) const SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000];
+pub(super) const SIZES: [usize; 10] =
+    [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000];
 pub(super) const BIG: [usize; 2] = [30_000_000, 100_000_000];
 
 /// What is done with each cell.
@@ -18,7 +19,13 @@ pub(super) trait Visit {
     /// Whether the cell (`key`: see `key`) is visited.
     fn wants(&self, key: &str) -> bool;
     /// `keys()`: the cell's input (seeded, the same at every call).
-    fn cell<T: Copy + PartialOrd + Send + 'static>(&mut self, key: &str, n: usize, keys: &dyn Fn() -> Vec<T>, sort: fn(&mut [T]));
+    fn cell<T: Copy + PartialOrd + Send + 'static>(
+        &mut self,
+        key: &str,
+        n: usize,
+        keys: &dyn Fn() -> Vec<T>,
+        sort: fn(&mut [T]),
+    );
 }
 
 /// The key of a cell: `type size name`, single spaces.
@@ -50,12 +57,25 @@ unsafe impl<T> Sync for Shared<T> {}
 
 /// The cells of one type. Inputs are drawn from a seed of the cell (FNV-1a
 /// of its key) in a one-thread pool.
-fn cells<T: Copy + PartialOrd + Send + 'static, V: Visit>(v: &mut V, pool: &rayon::ThreadPool, label: &str, gens: Gens<T>, sort: fn(&mut [T]), big: bool, max: usize) {
+fn cells<T: Copy + PartialOrd + Send + 'static, V: Visit>(
+    v: &mut V,
+    pool: &rayon::ThreadPool,
+    label: &str,
+    gens: Gens<T>,
+    sort: fn(&mut [T]),
+    big: bool,
+    max: usize,
+) {
     let sizes = SIZES.iter().chain(if big { BIG.iter() } else { [].iter() });
     for &n in sizes.filter(|&&n| n <= max) {
         let mut seen: Vec<String> = Vec::new();
         for (gen, name) in gens.iter() {
-            let mut name = name.trim_start_matches("-- ").trim_end_matches(':').split_whitespace().collect::<Vec<_>>().join(" ");
+            let mut name = name
+                .trim_start_matches("-- ")
+                .trim_end_matches(':')
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
             // Same name twice in a type: numbered.
             let base = name.clone();
             let mut k = 2;
@@ -68,7 +88,9 @@ fn cells<T: Copy + PartialOrd + Send + 'static, V: Visit>(v: &mut V, pool: &rayo
             if !v.wants(&key) {
                 continue;
             }
-            let seed = key.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3));
+            let seed = key.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
+                (h ^ b as u64).wrapping_mul(0x100_0000_01b3)
+            });
             let gen = Shared(*gen);
             let keys = move || {
                 pool.install(move || {
@@ -93,25 +115,98 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
             }
         };
     }
-    ty!("u32", all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators()), |a| devour_sort2(a), true);
-    ty!("i32", all(g::signed_i32::generators_i32(), g::int_extra::extra_i32::generators()), |a| devour_sort2(a), true);
-    ty!("u64", all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()), |a| devour_sort2(a), true);
-    ty!("i64", all(g::signed_i64::generators_i64(), g::int_extra::extra_i64::generators()), |a| devour_sort2(a), true);
-    ty!("f32", all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()), |a| ravenous_sort2(a), true);
-    ty!("f64", all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()), |a| ravenous_sort2(a), true);
-    ty!("u16", all(g::unsigned_u16::generators_u16(), g::narrow_extra::extra_u16::generators()), |a| devour_sort2(a), false);
-    ty!("i16", all(g::signed_i16::generators_i16(), g::narrow_extra::extra_i16::generators()), |a| devour_sort2(a), false);
-    ty!("u8", all(g::unsigned_u8::generators_u8(), g::narrow_extra::extra_u8::generators()), |a| devour_sort2(a), false);
-    ty!("i8", all(g::signed_i8::generators_i8(), g::narrow_extra::extra_i8::generators()), |a| devour_sort2(a), false);
-    ty!("char", all(g::char::generators_char(), g::narrow_extra::extra_char::generators()), |a| devour_sort2(a), false);
-    ty!("u128", all(g::unsigned_u128::generators_u128(), g::int128_extra::extra_u128::generators()), |a| devour_sort2(a), false);
-    ty!("i128", all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()), |a| devour_sort2(a), false);
+    ty!(
+        "u32",
+        all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators()),
+        |a| devour_sort2(a),
+        true
+    );
+    ty!(
+        "i32",
+        all(g::signed_i32::generators_i32(), g::int_extra::extra_i32::generators()),
+        |a| devour_sort2(a),
+        true
+    );
+    ty!(
+        "u64",
+        all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()),
+        |a| devour_sort2(a),
+        true
+    );
+    ty!(
+        "i64",
+        all(g::signed_i64::generators_i64(), g::int_extra::extra_i64::generators()),
+        |a| devour_sort2(a),
+        true
+    );
+    ty!(
+        "f32",
+        all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()),
+        |a| ravenous_sort2(a),
+        true
+    );
+    ty!(
+        "f64",
+        all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()),
+        |a| ravenous_sort2(a),
+        true
+    );
+    ty!(
+        "u16",
+        all(g::unsigned_u16::generators_u16(), g::narrow_extra::extra_u16::generators()),
+        |a| devour_sort2(a),
+        false
+    );
+    ty!(
+        "i16",
+        all(g::signed_i16::generators_i16(), g::narrow_extra::extra_i16::generators()),
+        |a| devour_sort2(a),
+        false
+    );
+    ty!(
+        "u8",
+        all(g::unsigned_u8::generators_u8(), g::narrow_extra::extra_u8::generators()),
+        |a| devour_sort2(a),
+        false
+    );
+    ty!(
+        "i8",
+        all(g::signed_i8::generators_i8(), g::narrow_extra::extra_i8::generators()),
+        |a| devour_sort2(a),
+        false
+    );
+    ty!(
+        "char",
+        all(g::char::generators_char(), g::narrow_extra::extra_char::generators()),
+        |a| devour_sort2(a),
+        false
+    );
+    ty!(
+        "u128",
+        all(g::unsigned_u128::generators_u128(), g::int128_extra::extra_u128::generators()),
+        |a| devour_sort2(a),
+        false
+    );
+    ty!(
+        "i128",
+        all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()),
+        |a| devour_sort2(a),
+        false
+    );
     // Records sorted by key (stable, but the last), as in the CPU bench;
     // 128-byte records up to 1M keys.
     macro_rules! rec {
         ($label:expr, $k:ty, $w:expr, $keys:expr, $sort:path, $cap:expr) => {
             if wants($label) {
-                cells(v, &pool, $label, wrap($keys, rec::<$k, $w>), |a: &mut [Rec<$k, $w>]| $sort(a, |x| x.key), false, max.min($cap));
+                cells(
+                    v,
+                    &pool,
+                    $label,
+                    wrap($keys, rec::<$k, $w>),
+                    |a: &mut [Rec<$k, $w>]| $sort(a, |x| x.key),
+                    false,
+                    max.min($cap),
+                );
             }
         };
     }
@@ -126,7 +221,9 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
 
 /// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment.
 pub(super) fn env_list(var: &str) -> Option<Vec<String>> {
-    std::env::var(var).ok().map(|s| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect())
+    std::env::var(var)
+        .ok()
+        .map(|s| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect())
 }
 
 /// A size from the environment (`10M`, `1G`, `30000` accepted).

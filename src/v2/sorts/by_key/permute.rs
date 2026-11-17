@@ -13,7 +13,12 @@ const NEAR: usize = 64;
 /// buffer over the span that moves: following a cycle chains its random
 /// reads one after another, while the gather issues them independently
 /// (random records of 32 bytes at 1M: 103 against 27 ns per key).
-pub(super) fn permute<T, P: Copy>(arr: &mut [T], perm: &mut [P], index: impl Fn(P) -> usize, set: impl Fn(&mut P, usize)) {
+pub(super) fn permute<T, P: Copy>(
+    arr: &mut [T],
+    perm: &mut [P],
+    index: impl Fn(P) -> usize,
+    set: impl Fn(&mut P, usize),
+) {
     let n = arr.len();
     let (mut far, mut first, mut last) = (0usize, n, 0usize);
     for (j, &p) in perm.iter().enumerate() {

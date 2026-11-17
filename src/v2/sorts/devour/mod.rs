@@ -20,18 +20,18 @@ pub(crate) mod wide128;
 use std::mem::MaybeUninit;
 
 use crate::v2::decide::chunks::{self, Engine};
+use crate::v2::decide::path::radix_path;
 use crate::v2::decide::shape::clustered;
+use crate::v2::dev::trace::hit;
 use crate::v2::engines::counting::domain_count;
-use crate::v2::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
-use crate::v2::special::plateaus::plateaus;
-use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
 use crate::v2::engines::dlsd::{di64, du64};
 use crate::v2::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
 use crate::v2::engines::roller::{ri32, ri64, ru32, ru64};
-use crate::v2::inspect::presorted::presorted;
-use crate::v2::decide::path::radix_path;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-use crate::v2::dev::trace::hit;
+use crate::v2::inspect::presorted::presorted;
+use crate::v2::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
+use crate::v2::special::plateaus::plateaus;
+use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
 use keys::*;
 
 mod sealed {
@@ -89,7 +89,7 @@ fn sort_integers<T: IntSort>(arr: &mut [T]) {
         Ok(()) => {
             trace!("presorted");
             return;
-        }
+        },
         Err(known) => known,
     };
     // 8-bit keys: counting over the 256 values beats any detection.
@@ -119,10 +119,19 @@ fn detect<T: IntSort>(arr: &mut [T], equal_pairs: usize) -> bool {
         || (arr.len() >= HEAVY_MIN
             && (arr.len() >= DENSE_MIN || may_be_heavy(&sample, |x, y| x == y))
             && {
-            sample.sort_unstable();
-            hit(heavy_sorted_by(arr, &sample, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y), "heavy")
-                || (arr.len() >= DENSE_MIN && hit(T::dense(arr, &sample), "dense"))
-        })
+                sample.sort_unstable();
+                hit(
+                    heavy_sorted_by(
+                        arr,
+                        &sample,
+                        HEAVY_MIN,
+                        &|r: &mut [T]| devour_sort2(r),
+                        |x, y| x == y,
+                        |x, y| x < y,
+                    ),
+                    "heavy",
+                ) || (arr.len() >= DENSE_MIN && hit(T::dense(arr, &sample), "dense"))
+            })
 }
 
 /// 8 to 32 bits: the fused LSD or the rollercoaster (`decide::chunks`).
@@ -151,7 +160,7 @@ macro_rules! dlsd_chunks {
                 Engine::Roller => {
                     trace!("roller");
                     $roller::roller(bits);
-                }
+                },
                 Engine::DlsdOrLsdOnClusters => {
                     if $dlsd::dlsd_unless(bits, buffer, |sample: &[u64]| clustered(sample)) {
                         trace!("dlsd");
@@ -159,11 +168,11 @@ macro_rules! dlsd_chunks {
                         trace!("lsd_clustered");
                         $lsd::lsd(bits);
                     }
-                }
+                },
                 _ => {
                     trace!("dlsd");
                     $dlsd::dlsd_with(bits, buffer);
-                }
+                },
             }
         }
     };
@@ -214,16 +223,88 @@ macro_rules! int_type {
 
 // Small-array limits: in-process A/B, Snapdragon X Elite (much lower than
 // for floats: the integer detectors often apply).
-int_type!(u32, u32, detect_u32, id32, id32, 200, chunks::roller_min_32, lsd_chunks!(u32, wu32, ru32::roller, chunks::int32));
-int_type!(i32, u32, detect_i32, flip32, flip32, 150, chunks::roller_min_32, lsd_chunks!(u32, wi32, ri32::roller, chunks::int32));
-int_type!(u64, u64, detect_u64, id64, id64, 150, chunks::roller_min_64, dlsd_chunks!(du64, wu64, ru64));
-int_type!(i64, u64, detect_i64, flip64, flip64, 150, chunks::roller_min_64, dlsd_chunks!(di64, wi64, ri64));
+int_type!(
+    u32,
+    u32,
+    detect_u32,
+    id32,
+    id32,
+    200,
+    chunks::roller_min_32,
+    lsd_chunks!(u32, wu32, ru32::roller, chunks::int32)
+);
+int_type!(
+    i32,
+    u32,
+    detect_i32,
+    flip32,
+    flip32,
+    150,
+    chunks::roller_min_32,
+    lsd_chunks!(u32, wi32, ri32::roller, chunks::int32)
+);
+int_type!(
+    u64,
+    u64,
+    detect_u64,
+    id64,
+    id64,
+    150,
+    chunks::roller_min_64,
+    dlsd_chunks!(du64, wu64, ru64)
+);
+int_type!(
+    i64,
+    u64,
+    detect_i64,
+    flip64,
+    flip64,
+    150,
+    chunks::roller_min_64,
+    dlsd_chunks!(di64, wi64, ri64)
+);
 // 8 and 16 bits: from 2^16 keys the narrow-range counting always applies;
 // below, the fused LSD on bytes.
-int_type!(u16, u16, detect_u16, id16, id16, 150, chunks::no_roller, lsd_chunks!(u16, wu16, wu16::lsd, chunks::narrow));
-int_type!(i16, u16, detect_i16, flip16, flip16, 150, chunks::no_roller, lsd_chunks!(u16, wi16, wi16::lsd, chunks::narrow));
-int_type!(u8, u8, detect_u8, id8, id8, 150, chunks::no_roller, lsd_chunks!(u8, wu8, wu8::lsd, chunks::narrow));
-int_type!(i8, u8, detect_i8, flip8, flip8, 150, chunks::no_roller, lsd_chunks!(u8, wi8, wi8::lsd, chunks::narrow));
+int_type!(
+    u16,
+    u16,
+    detect_u16,
+    id16,
+    id16,
+    150,
+    chunks::no_roller,
+    lsd_chunks!(u16, wu16, wu16::lsd, chunks::narrow)
+);
+int_type!(
+    i16,
+    u16,
+    detect_i16,
+    flip16,
+    flip16,
+    150,
+    chunks::no_roller,
+    lsd_chunks!(u16, wi16, wi16::lsd, chunks::narrow)
+);
+int_type!(
+    u8,
+    u8,
+    detect_u8,
+    id8,
+    id8,
+    150,
+    chunks::no_roller,
+    lsd_chunks!(u8, wu8, wu8::lsd, chunks::narrow)
+);
+int_type!(
+    i8,
+    u8,
+    detect_i8,
+    flip8,
+    flip8,
+    150,
+    chunks::no_roller,
+    lsd_chunks!(u8, wi8, wi8::lsd, chunks::narrow)
+);
 
 /// `char`: sorted as its code point (the order of `char`; sorting permutes
 /// valid values only).
@@ -232,7 +313,8 @@ impl DevourSort2 for char {
     fn devour_sort2_impl(arr: &mut [char]) {
         // SAFETY: `char` has the size and alignment of `u32`, every `char`
         // is a valid `u32`, and the sorted slice holds the same values.
-        let codes = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
+        let codes =
+            unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
         u32::devour_sort2_impl(codes);
     }
 }
@@ -245,7 +327,9 @@ macro_rules! pointer_width {
             fn devour_sort2_impl(arr: &mut [$t]) {
                 const _: () = assert!(std::mem::size_of::<$t>() == std::mem::size_of::<$as>());
                 // SAFETY: same size, alignment and value representation.
-                let same = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $as, arr.len()) };
+                let same = unsafe {
+                    std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $as, arr.len())
+                };
                 <$as as DevourSort2>::devour_sort2_impl(same);
             }
         }

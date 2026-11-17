@@ -108,7 +108,14 @@ pub(super) fn merge_all<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], e
 /// # Safety
 /// The ranges are valid in both, `src` and `dst` do not overlap; the
 /// elements are moved (bitwise).
-unsafe fn merge_into<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, s: usize, m: usize, e: usize, enc: &E) {
+unsafe fn merge_into<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    s: usize,
+    m: usize,
+    e: usize,
+    enc: &E,
+) {
     if m > s && m < e && enc(&*src.add(m - 1)) <= enc(&*src.add(m)) {
         std::ptr::copy_nonoverlapping(src.add(s), dst.add(s), e - s);
         return;

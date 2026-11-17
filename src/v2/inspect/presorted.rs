@@ -109,7 +109,10 @@ fn all_equal<T: Copy + PartialEq>(arr: &[T], first: T) -> bool {
 /// elements), as seen on the 32 spread pairs; returns whether it is now
 /// sorted, and the number of equal pairs (read by the plateaus detector).
 /// Below 64 keys: no repair.
-pub(crate) fn repair_nearly_sorted<T: Copy + PartialOrd>(arr: &mut [T], known: Unsorted) -> (bool, usize) {
+pub(crate) fn repair_nearly_sorted<T: Copy + PartialOrd>(
+    arr: &mut [T],
+    known: Unsorted,
+) -> (bool, usize) {
     let n = arr.len();
     if n < 64 {
         return (false, 0);
@@ -117,8 +120,8 @@ pub(crate) fn repair_nearly_sorted<T: Copy + PartialOrd>(arr: &mut [T], known: U
     let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
     let Probes { ascending, descending } = probes;
     // Equal pairs fit both directions: the unequal pairs decide, or the ends.
-    let mostly_descending =
-        ascending <= AGAINST_MAX && (descending > ascending || (descending == ascending && arr[0] > arr[n - 1]));
+    let mostly_descending = ascending <= AGAINST_MAX
+        && (descending > ascending || (descending == ascending && arr[0] > arr[n - 1]));
     if mostly_descending {
         arr.reverse();
         return (repair_ascending(arr), probes.equal());

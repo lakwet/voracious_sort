@@ -138,7 +138,8 @@ pub(crate) fn largest_bytes() -> usize {
 /// Benchmarks: L2 size forced (0: the detected one), to check on a machine
 /// that the thresholds derived from it hold.
 #[cfg(test)]
-pub(crate) static L2_OVERRIDE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+pub(crate) static L2_OVERRIDE: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
 
 /// The L2 size as the OS reports it (`None`: not read, the default is used).
 pub(crate) fn reported_l2() -> Option<usize> {

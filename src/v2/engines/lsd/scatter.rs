@@ -134,7 +134,12 @@ macro_rules! lsd_scatters {
         /// # Safety
         /// Same contract as `scatter`.
         #[inline(always)]
-        unsafe fn scatter_staged<C: Counter, const R: usize, const FIRST: bool, const LAST: bool>(
+        unsafe fn scatter_staged<
+            C: Counter,
+            const R: usize,
+            const FIRST: bool,
+            const LAST: bool,
+        >(
             src: &[$uint],
             dst: *mut $uint,
             heads: &mut [C; R],

@@ -21,7 +21,11 @@ macro_rules! dlsd_prefix {
 
         /// `len` slots for the sample, on the stack when they fit.
         #[inline(always)]
-        fn sample_slots<'a>(stack: &'a mut [$uint; STACK_SAMPLE], heap: &'a mut Vec<$uint>, len: usize) -> &'a mut [$uint] {
+        fn sample_slots<'a>(
+            stack: &'a mut [$uint; STACK_SAMPLE],
+            heap: &'a mut Vec<$uint>,
+            len: usize,
+        ) -> &'a mut [$uint] {
             if len <= STACK_SAMPLE {
                 &mut stack[..len]
             } else {
@@ -32,7 +36,12 @@ macro_rules! dlsd_prefix {
 
         /// Prefix length (bits of `key - min` from the top of the range, at
         /// most `top`). `pre`: the sorted sample of the encoded keys, if taken.
-        fn prefix_bits<const RAW: bool>(keys: &[$uint], min: $uint, top: u32, pre: Option<&mut [$uint]>) -> u32 {
+        fn prefix_bits<const RAW: bool>(
+            keys: &[$uint],
+            min: $uint,
+            top: u32,
+            pre: Option<&mut [$uint]>,
+        ) -> u32 {
             let n = keys.len();
             let mut stack = [0 as $uint; STACK_SAMPLE];
             let mut heap: Vec<$uint> = Vec::new();
@@ -41,7 +50,7 @@ macro_rules! dlsd_prefix {
                 Some(sample) => {
                     sample.iter_mut().for_each(|k| *k = k.wrapping_sub(min));
                     sample
-                }
+                },
                 None => {
                     let sample = sample_slots(&mut stack, &mut heap, sample_size(n));
                     for (i, slot) in sample.iter_mut().enumerate() {
@@ -49,7 +58,7 @@ macro_rules! dlsd_prefix {
                     }
                     sample.sort_unstable();
                     sample
-                }
+                },
             };
             prefix_from_sample(sample, n, top)
         }
@@ -69,7 +78,8 @@ macro_rules! dlsd_prefix {
             let mut m = 0;
             for pair in sample.windows(2) {
                 if pair[0] != pair[1] {
-                    need_all[m] = ((pair[0] ^ pair[1]).leading_zeros() + 1).saturating_sub(<$uint>::BITS - top);
+                    need_all[m] = ((pair[0] ^ pair[1]).leading_zeros() + 1)
+                        .saturating_sub(<$uint>::BITS - top);
                     m += 1;
                 }
             }

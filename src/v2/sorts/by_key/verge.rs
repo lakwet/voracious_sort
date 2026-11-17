@@ -8,7 +8,6 @@
 use super::merge::{merge_all_half, merge_all_kway, merge_asc_desc, merge_two};
 use super::sort_encoded;
 
-
 /// Runs kept: at least `max(n / RUN_DIV, RUN_MIN)` keys; Verge tried when
 /// `decide::records::TURN_DIV * turns <= n`.
 pub(crate) const RUN_DIV: usize = 64;
@@ -29,7 +28,11 @@ pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
 /// `verge`; with `unpredictable_only`, declined when the first two runs
 /// would merge predictably (sawtooth: the packed sort is faster in the
 /// cache).
-pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictable_only: bool) -> bool {
+pub(super) fn verge_if<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    unpredictable_only: bool,
+) -> bool {
     // The first two ascending runs first: a predictable merge declines
     // before reading the whole array.
     if unpredictable_only {
@@ -67,7 +70,8 @@ pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictab
             if j < n {
                 breaks += 1;
                 let (a, b) = (enc(&arr[j - 1]), enc(&arr[j]));
-                isolated += ((j >= 2 && b < enc(&arr[j - 2])) || (j + 1 < n && enc(&arr[j + 1]) < a)) as usize;
+                isolated += ((j >= 2 && b < enc(&arr[j - 2]))
+                    || (j + 1 < n && enc(&arr[j + 1]) < a)) as usize;
             }
         } else {
             while j < n && enc(&arr[j]) >= enc(&arr[j - 1]) {
@@ -78,7 +82,8 @@ pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictab
             if j < n {
                 breaks += 1;
                 let (a, b) = (enc(&arr[j - 1]), enc(&arr[j]));
-                isolated += ((j >= 2 && b >= enc(&arr[j - 2])) || (j + 1 < n && enc(&arr[j + 1]) >= a)) as usize;
+                isolated += ((j >= 2 && b >= enc(&arr[j - 2]))
+                    || (j + 1 < n && enc(&arr[j + 1]) >= a)) as usize;
             }
         }
         if j - start >= long {
@@ -97,7 +102,11 @@ pub(super) fn verge_if<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, unpredictab
 /// (positions `j` with `key[j] < key[j - 1]`, in order): the runs are the
 /// stretches between them, no second read of the keys (only the
 /// neighbours of each break, for the near-sorted test).
-pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, drops: &[usize]) -> bool {
+pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    drops: &[usize],
+) -> bool {
     let n = arr.len();
     let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
     let mut runs: Vec<(usize, usize, bool)> = Vec::new();
@@ -111,7 +120,8 @@ pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, dr
         }
         if k < drops.len() {
             let (a, b) = (enc(&arr[j - 1]), enc(&arr[j]));
-            isolated += ((j >= 2 && b >= enc(&arr[j - 2])) || (j + 1 < n && enc(&arr[j + 1]) >= a)) as usize;
+            isolated += ((j >= 2 && b >= enc(&arr[j - 2])) || (j + 1 < n && enc(&arr[j + 1]) >= a))
+                as usize;
         }
         start = j;
     }
@@ -125,13 +135,18 @@ pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, dr
 /// stretch of breaks gives a strictly descending run, a stretch without an
 /// ascending one; a lone break in ascending order (or the reverse) is
 /// tested for the near-sorted rule.
-pub(super) fn verge_from_turns<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, turn_at: &[usize]) -> bool {
+pub(super) fn verge_from_turns<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    turn_at: &[usize],
+) -> bool {
     let n = arr.len();
     let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
     let mut runs: Vec<(usize, usize, bool)> = Vec::new();
     let (mut covered, mut breaks, mut isolated) = (0, 0, 0);
     // The first stretch: descending when the first pair breaks.
-    let (mut start, mut desc, from) = if turn_at.first() == Some(&1) { (0, true, 1) } else { (0, false, 0) };
+    let (mut start, mut desc, from) =
+        if turn_at.first() == Some(&1) { (0, true, 1) } else { (0, false, 0) };
     let mut prev_len = 0;
     for &p in turn_at[from..].iter().chain(std::iter::once(&n)) {
         let len = p - start;
@@ -163,7 +178,14 @@ pub(super) fn verge_from_turns<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, tur
 }
 
 /// The rest of Verge once the runs are known.
-fn finish<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, runs: Vec<(usize, usize, bool)>, covered: usize, breaks: usize, isolated: usize) -> bool {
+fn finish<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    runs: Vec<(usize, usize, bool)>,
+    covered: usize,
+    breaks: usize,
+    isolated: usize,
+) -> bool {
     let n = arr.len();
     // Nearly sorted (most breaks isolated): the packed sort with the
     // permutation applied in place moves almost nothing; merging the
@@ -198,7 +220,8 @@ fn finish<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, runs: Vec<(usize, usize,
     }
     // Predictable merges (the first two segments, now ascending; the rule
     // of the keys' Verge): branches; else branch-free k-way rounds.
-    let branchy = bounds.len() >= 3 && predictable(arr, (bounds[0], bounds[1], false), (bounds[1], bounds[2], false), enc);
+    let branchy = bounds.len() >= 3
+        && predictable(arr, (bounds[0], bounds[1], false), (bounds[1], bounds[2], false), enc);
     if bounds.len() == 3 {
         merge_two(arr, bounds[1], enc, branchy);
     } else if !branchy || std::mem::size_of::<T>() >= KWAY_BRANCHY_MIN {
@@ -214,8 +237,19 @@ fn finish<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, runs: Vec<(usize, usize,
 /// increasing order), at most 16 switches between the two runs, or a
 /// pattern periodic with a period of at most 16 (pipe organs alternate one
 /// by one).
-pub(super) fn predictable<T, E: Fn(&T) -> u128>(arr: &[T], a: (usize, usize, bool), b: (usize, usize, bool), enc: &E) -> bool {
-    let at = |r: (usize, usize, bool), i: usize| if r.2 { enc(&arr[r.1 - 1 - i]) } else { enc(&arr[r.0 + i]) };
+pub(super) fn predictable<T, E: Fn(&T) -> u128>(
+    arr: &[T],
+    a: (usize, usize, bool),
+    b: (usize, usize, bool),
+    enc: &E,
+) -> bool {
+    let at = |r: (usize, usize, bool), i: usize| {
+        if r.2 {
+            enc(&arr[r.1 - 1 - i])
+        } else {
+            enc(&arr[r.0 + i])
+        }
+    };
     let (la, lb) = (a.1 - a.0, b.1 - b.0);
     let (mut i, mut j, mut bits) = (0, 0, 0u64);
     for step in 0..64 {

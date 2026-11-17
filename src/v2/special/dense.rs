@@ -68,7 +68,13 @@ macro_rules! int_dense {
             if 2 * (b - a) < n {
                 return false;
             }
-            exact_count(bits_of(&mut values[a..b]), $encode(lo as $uint), (hi as i128 - lo as i128 + 1) as usize, $encode, $decode);
+            exact_count(
+                bits_of(&mut values[a..b]),
+                $encode(lo as $uint),
+                (hi as i128 - lo as i128 + 1) as usize,
+                $encode,
+                $decode,
+            );
             <$t as DevourSort2>::devour_sort2_impl(&mut values[..a]);
             <$t as DevourSort2>::devour_sort2_impl(&mut values[b..]);
             true

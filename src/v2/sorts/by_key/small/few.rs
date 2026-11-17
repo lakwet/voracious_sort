@@ -17,25 +17,30 @@ pub(super) fn few_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     if n < 128 {
         return false;
     }
-    let hash = |e: u128| (((e as u64) ^ ((e >> 64) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize;
+    let hash = |e: u128| {
+        (((e as u64) ^ ((e >> 64) as u64)).wrapping_mul(0x9E37_79B9_7F4A_7C15)
+            >> (64 - FEW_TABLE_BITS)) as usize
+    };
     let mut keys = [0u128; FEW_TABLE];
     let mut used = [false; FEW_TABLE];
-    let find = |e: u128, keys: &mut [u128; FEW_TABLE], used: &mut [bool; FEW_TABLE]| -> (usize, bool) {
-        let mut h = hash(e);
-        while used[h] && keys[h] != e {
-            h = (h + 1) & (FEW_TABLE - 1);
-        }
-        let new = !used[h];
-        if new {
-            used[h] = true;
-            keys[h] = e;
-        }
-        (h, new)
-    };
+    let find =
+        |e: u128, keys: &mut [u128; FEW_TABLE], used: &mut [bool; FEW_TABLE]| -> (usize, bool) {
+            let mut h = hash(e);
+            while used[h] && keys[h] != e {
+                h = (h + 1) & (FEW_TABLE - 1);
+            }
+            let new = !used[h];
+            if new {
+                used[h] = true;
+                keys[h] = e;
+            }
+            (h, new)
+        };
     let s = (n / 32).clamp(16, 256);
     let mut distinct = 0;
     for i in 0..s as u64 {
-        let e = enc(&arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize]);
+        let e =
+            enc(&arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize]);
         if find(e, &mut keys, &mut used).1 {
             distinct += 1;
             if distinct > s / 2 {

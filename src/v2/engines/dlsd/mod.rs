@@ -56,26 +56,54 @@ fn alias_min_bytes_int() -> usize {
 pub(crate) trait WideNarrow: Copy {
     /// `keys` encoded (raw bits if `raw`), `min` and `range` of the encoded
     /// keys. Returns whether the keys were sorted (and decoded).
-    fn narrow(keys: &mut [Self], min: Self, range: Self, raw: bool, enc: fn(Self) -> Self, dec: fn(Self) -> Self) -> bool;
+    fn narrow(
+        keys: &mut [Self],
+        min: Self,
+        range: Self,
+        raw: bool,
+        enc: fn(Self) -> Self,
+        dec: fn(Self) -> Self,
+    ) -> bool;
 }
 
 impl WideNarrow for u32 {
     #[inline(always)]
-    fn narrow(_: &mut [Self], _: Self, _: Self, _: bool, _: fn(Self) -> Self, _: fn(Self) -> Self) -> bool {
+    fn narrow(
+        _: &mut [Self],
+        _: Self,
+        _: Self,
+        _: bool,
+        _: fn(Self) -> Self,
+        _: fn(Self) -> Self,
+    ) -> bool {
         false
     }
 }
 
 impl WideNarrow for u64 {
     #[inline(always)]
-    fn narrow(_: &mut [Self], _: Self, _: Self, _: bool, _: fn(Self) -> Self, _: fn(Self) -> Self) -> bool {
+    fn narrow(
+        _: &mut [Self],
+        _: Self,
+        _: Self,
+        _: bool,
+        _: fn(Self) -> Self,
+        _: fn(Self) -> Self,
+    ) -> bool {
         false
     }
 }
 
 impl WideNarrow for u128 {
     #[inline]
-    fn narrow(keys: &mut [Self], min: Self, range: Self, raw: bool, enc: fn(Self) -> Self, dec: fn(Self) -> Self) -> bool {
+    fn narrow(
+        keys: &mut [Self],
+        min: Self,
+        range: Self,
+        raw: bool,
+        enc: fn(Self) -> Self,
+        dec: fn(Self) -> Self,
+    ) -> bool {
         if range > u64::MAX as u128 {
             return false;
         }

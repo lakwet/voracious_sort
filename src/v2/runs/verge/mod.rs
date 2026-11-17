@@ -82,7 +82,14 @@ fn handle_part<T: Copy + PartialOrd, const STABLE: bool>(
 ) -> (usize, usize) {
     let mut keep = |start: usize, end: usize, reverse: bool| {
         keep_run::<T, STABLE>(
-            arr, start, end, reverse, last_sorted, separators, radix, fallback_sort,
+            arr,
+            start,
+            end,
+            reverse,
+            last_sorted,
+            separators,
+            radix,
+            fallback_sort,
         )
     };
     match get_growth_pattern(b_pattern, f_pattern) {
@@ -177,4 +184,3 @@ where
 
     separators
 }
-

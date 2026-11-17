@@ -31,7 +31,10 @@ const FLUSH: usize = 1 << 30;
 /// Adds the 4 lanes of `counts` to `totals` and clears them.
 fn flush(counts: &mut [[u32; 256]; 4], totals: &mut [usize; 256]) {
     for b in 0..256 {
-        totals[b] += counts[0][b] as usize + counts[1][b] as usize + counts[2][b] as usize + counts[3][b] as usize;
+        totals[b] += counts[0][b] as usize
+            + counts[1][b] as usize
+            + counts[2][b] as usize
+            + counts[3][b] as usize;
     }
     *counts = [[0; 256]; 4];
 }
@@ -202,7 +205,8 @@ macro_rules! float_detect {
             let first = values[0].to_bits();
             values[n / 2].to_bits() == first
                 && values[n - 1].to_bits() == first
-                && validation_blocks(values).all(|block| block.iter().fold(0, |d, v| d | (v.to_bits() ^ first)) == 0)
+                && validation_blocks(values)
+                    .all(|block| block.iter().fold(0, |d, v| d | (v.to_bits() ^ first)) == 0)
         }
 
         /// Few distinct values (at most `FEW_MAX`): a spread sample rejects
@@ -214,7 +218,9 @@ macro_rules! float_detect {
             if n < DETECT_MIN {
                 return false;
             }
-            let hash = |b: $uint| (((b as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)) >> (64 - FEW_TABLE_BITS)) as usize;
+            let hash = |b: $uint| {
+                (((b as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)) >> (64 - FEW_TABLE_BITS)) as usize
+            };
             // Sample: distinct values among s spread keys (golden ratio
             // positions), counted in the table; stop as soon as half of
             // them are distinct.

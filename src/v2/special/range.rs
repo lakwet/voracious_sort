@@ -55,7 +55,16 @@ macro_rules! int_range {
                 let span = (hi as i128 - lo as i128) as u64 + 1;
                 let rspan = (rot(rhi) - rot(rlo)) as u64 + 1;
                 let tiny = limit / 64;
-                if span <= tiny && window_count(bits_of(values), lo as $uint, hi as $uint, limit as usize, $encode, $decode) {
+                if span <= tiny
+                    && window_count(
+                        bits_of(values),
+                        lo as $uint,
+                        hi as $uint,
+                        limit as usize,
+                        $encode,
+                        $decode,
+                    )
+                {
                     return true;
                 }
                 if span > tiny && rspan <= tiny && wrapped_count(values, rlo, rhi, limit as usize) {
@@ -77,7 +86,8 @@ macro_rules! int_range {
                 }
                 // Values at both ends of the domain, wider than a window (u64
                 // at 1k-1M: 6.7-9.0 to 3.0-4.0 ns per key; u32 3.1 to 2.1).
-                if <$uint>::BITS >= 32 && n < $roller_min() && offset_sort(values, lo, hi, rlo, rhi) {
+                if <$uint>::BITS >= 32 && n < $roller_min() && offset_sort(values, lo, hi, rlo, rhi)
+                {
                     return true;
                 }
                 // Wide range, counted all the same when its counters fit in
@@ -86,12 +96,20 @@ macro_rules! int_range {
                 // bits at 10M keys: 3.5 to 1.1 ns per key; u64 sawtooth at 3M-10M:
                 // 5.4 to 0.9).
                 if <$uint>::BITS >= 32 && n <= u32::MAX as usize {
-                    let wide = ((budget(Budget::WideCount) / 8).min(n / WIDE_KEYS_PER_COUNTER)) as u128;
+                    let wide =
+                        ((budget(Budget::WideCount) / 8).min(n / WIDE_KEYS_PER_COUNTER)) as u128;
                     if (hi as i128 - lo as i128) as u128 + 1 <= wide {
-                        let (lo, hi) = values.iter().fold((lo, hi), |(l, h), &v| (l.min(v), h.max(v)));
+                        let (lo, hi) =
+                            values.iter().fold((lo, hi), |(l, h), &v| (l.min(v), h.max(v)));
                         let span = (hi as i128 - lo as i128) as u128 + 1;
                         if span <= wide {
-                            exact_count(bits_of(values), $encode(lo as $uint), span as usize, $encode, $decode);
+                            exact_count(
+                                bits_of(values),
+                                $encode(lo as $uint),
+                                span as usize,
+                                $encode,
+                                $decode,
+                            );
                             return true;
                         }
                     }
@@ -181,7 +199,13 @@ macro_rules! int_range {
                     return false;
                 }
                 let low = k0 & (((1 as $uint) << tz) - 1);
-                exact_count(keys, kmin >> tz, span as usize, move |k: $uint| $encode(k) >> tz, move |v: $uint| $decode((v << tz) | low));
+                exact_count(
+                    keys,
+                    kmin >> tz,
+                    span as usize,
+                    move |k: $uint| $encode(k) >> tz,
+                    move |v: $uint| $decode((v << tz) | low),
+                );
                 true
             }
 
@@ -196,14 +220,29 @@ macro_rules! int_range {
                 fn rdec(k: $uint) -> $uint {
                     $decode(k ^ TOP)
                 }
-                window_count_split(bits_of(values), rlo as $uint, rhi as $uint, limit, renc, rdec, TOP as u64)
+                window_count_split(
+                    bits_of(values),
+                    rlo as $uint,
+                    rhi as $uint,
+                    limit,
+                    renc,
+                    rdec,
+                    TOP as u64,
+                )
             }
 
             let small = n <= u32::MAX as usize;
             // Sample range narrow against the limit: count in a window
             // around it, in one pass.
             if small && 2 * (hi as i128 - lo as i128 + 1) < limit as i128 {
-                return window_count(bits_of(values), lo as $uint, hi as $uint, limit as usize, $encode, $decode);
+                return window_count(
+                    bits_of(values),
+                    lo as $uint,
+                    hi as $uint,
+                    limit as usize,
+                    $encode,
+                    $decode,
+                );
             }
             let (lo, hi) = values.iter().fold((lo, hi), |(l, h), &v| (l.min(v), h.max(v)));
             let span = (hi as i128 - lo as i128) as u64 + 1;

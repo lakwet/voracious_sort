@@ -91,4 +91,3 @@ pub fn explore_backward_desc<T: PartialOrd>(arr: &[T], start: usize, min: usize)
 pub fn explore_backward_plateau<T: PartialOrd>(arr: &[T], start: usize, min: usize) -> usize {
     scan_backward(arr, start, min, |a, b| a == b)
 }
-

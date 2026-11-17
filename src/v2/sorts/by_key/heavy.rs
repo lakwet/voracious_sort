@@ -35,7 +35,9 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
         return false;
     }
     let mut sample: Vec<u128> = (0..SAMPLE as u64)
-        .map(|i| enc(&arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize]))
+        .map(|i| {
+            enc(&arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize])
+        })
         .collect();
     sample.sort_unstable();
     let mut heavy: Vec<u128> = Vec::new();

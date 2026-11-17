@@ -24,7 +24,18 @@ use std::sync::atomic::Ordering::Relaxed;
 /// the caches, beyond) and shapes, where they exist.
 const CONTROL_TYPES: [&str; 8] = ["u32", "i64", "f32", "f64", "u16", "u128", "r16u64", "ru16u64"];
 const CONTROL_SIZES: [usize; 3] = [10_000, 1_000_000, 30_000_000];
-const CONTROL_SHAPES: [&str; 10] = ["Unif", "Few 16", "Almost Asc", "Asc Saw", "Normale 20", "Runs 64", "Timestamps", "Clusters", "Gaussian", "Near sorted"];
+const CONTROL_SHAPES: [&str; 10] = [
+    "Unif",
+    "Few 16",
+    "Almost Asc",
+    "Asc Saw",
+    "Normale 20",
+    "Runs 64",
+    "Timestamps",
+    "Clusters",
+    "Gaussian",
+    "Near sorted",
+];
 
 /// Keys sorted per measurement at least (several arrays for small sizes).
 const BATCH_KEYS: usize = 4_000_000;
@@ -40,7 +51,9 @@ struct Sentinel {
 fn is_control(key: &str) -> bool {
     let mut it = key.splitn(3, ' ');
     let (t, n, name) = (it.next().unwrap_or(""), it.next().unwrap_or(""), it.next().unwrap_or(""));
-    CONTROL_TYPES.contains(&t) && n.parse().map_or(false, |n: usize| CONTROL_SIZES.contains(&n)) && CONTROL_SHAPES.contains(&name)
+    CONTROL_TYPES.contains(&t)
+        && n.parse().map_or(false, |n: usize| CONTROL_SIZES.contains(&n))
+        && CONTROL_SHAPES.contains(&name)
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -52,7 +65,13 @@ impl Visit for Sentinel {
     fn wants(&self, key: &str) -> bool {
         self.moved.contains(key) || (self.controls && is_control(key))
     }
-    fn cell<T: Copy + PartialOrd + Send + 'static>(&mut self, key: &str, n: usize, keys: &dyn Fn() -> Vec<T>, sort: fn(&mut [T])) {
+    fn cell<T: Copy + PartialOrd + Send + 'static>(
+        &mut self,
+        key: &str,
+        n: usize,
+        keys: &dyn Fn() -> Vec<T>,
+        sort: fn(&mut [T]),
+    ) {
         let a = keys();
         let count = (BATCH_KEYS / n.max(1)).max(1);
         let mut times = [Vec::new(), Vec::new()];
@@ -67,13 +86,25 @@ impl Visit for Sentinel {
                 }
                 times[side].push(start.elapsed().as_nanos() as f64 / (count * n) as f64);
                 NEW_RULE.store(false, Relaxed);
-                assert!(work[0].windows(2).all(|p| !(p[1] < p[0])), "not sorted: {} (rule {})", key, side);
+                assert!(
+                    work[0].windows(2).all(|p| !(p[1] < p[0])),
+                    "not sorted: {} (rule {})",
+                    key,
+                    side
+                );
             }
         }
         let [old, new] = times;
         let (old, new) = (median(old), median(new));
         let moved = self.moved.contains(key);
-        println!("{:42} {:>5} old {:7.2} new {:7.2} new/old {:5.2}", key, if moved { "moved" } else { "ctrl" }, old, new, new / old);
+        println!(
+            "{:42} {:>5} old {:7.2} new {:7.2} new/old {:5.2}",
+            key,
+            if moved { "moved" } else { "ctrl" },
+            old,
+            new,
+            new / old
+        );
         self.rows.push((key.to_string(), moved, old, new));
     }
 }
@@ -86,28 +117,55 @@ fn geo(r: &[f64]) -> f64 {
 #[ignore]
 fn sentinel() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let list = std::env::var("SENT_CELLS").map(std::path::PathBuf::from).unwrap_or_else(|_| root.join("traces").join("moved.txt"));
-    let moved: BTreeSet<String> = std::fs::read_to_string(&list).map(|t| t.lines().filter_map(parse_key).collect()).unwrap_or_default();
+    let list = std::env::var("SENT_CELLS")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| root.join("traces").join("moved.txt"));
+    let moved: BTreeSet<String> = std::fs::read_to_string(&list)
+        .map(|t| t.lines().filter_map(parse_key).collect())
+        .unwrap_or_default();
     let controls = std::env::var("SENT_CONTROLS").map_or(true, |v| v != "0");
     let reps = std::env::var("SENT_REPS").ok().and_then(|s| s.parse().ok()).unwrap_or(5);
     let max = env_size("SENT_MAX").unwrap_or(usize::MAX);
-    println!("{} moved cells from {}, controls {}", moved.len(), list.display(), if controls { "on" } else { "off" });
+    println!(
+        "{} moved cells from {}, controls {}",
+        moved.len(),
+        list.display(),
+        if controls { "on" } else { "off" }
+    );
     let mut s = Sentinel { moved, controls, reps, rows: Vec::new() };
     visit(&mut s, None, max);
 
     let mut text = String::new();
     for (k, m, o, n) in s.rows.iter() {
-        text.push_str(&format!("{:42} {:>5} old {:7.2} new {:7.2} new/old {:5.2}\n", k, if *m { "moved" } else { "ctrl" }, o, n, n / o));
+        text.push_str(&format!(
+            "{:42} {:>5} old {:7.2} new {:7.2} new/old {:5.2}\n",
+            k,
+            if *m { "moved" } else { "ctrl" },
+            o,
+            n,
+            n / o
+        ));
     }
     // Noise: the spread of new/old on the controls the rule does not move.
     let ctrl: Vec<f64> = s.rows.iter().filter(|r| !r.1).map(|r| r.3 / r.2).collect();
     let mov: Vec<f64> = s.rows.iter().filter(|r| r.1).map(|r| r.3 / r.2).collect();
     let spread = ctrl.iter().map(|r| (r.ln()).abs()).fold(0f64, f64::max).exp();
-    let mut summary = format!("controls: {} cells, geo new/old {:.3}, widest {:.3} (noise)\n", ctrl.len(), geo(&ctrl), spread);
+    let mut summary = format!(
+        "controls: {} cells, geo new/old {:.3}, widest {:.3} (noise)\n",
+        ctrl.len(),
+        geo(&ctrl),
+        spread
+    );
     if !mov.is_empty() {
         let losses = mov.iter().filter(|&&r| r > spread.max(1.05)).count();
         let wins = mov.iter().filter(|&&r| r < 1.0 / spread.max(1.05)).count();
-        summary.push_str(&format!("moved: {} cells, geo new/old {:.3}, {} faster and {} slower beyond the noise\n", mov.len(), geo(&mov), wins, losses));
+        summary.push_str(&format!(
+            "moved: {} cells, geo new/old {:.3}, {} faster and {} slower beyond the noise\n",
+            mov.len(),
+            geo(&mov),
+            wins,
+            losses
+        ));
         let mut worst: Vec<&(String, bool, f64, f64)> = s.rows.iter().filter(|r| r.1).collect();
         worst.sort_by(|a, b| (b.3 / b.2).total_cmp(&(a.3 / a.2)));
         for r in worst.iter().take(5) {

@@ -8,7 +8,16 @@ macro_rules! dlsd_kernels {
         /// `K` known at compile time: the digit loop is unrolled.
         #[inline(always)]
         #[allow(clippy::too_many_arguments)]
-        fn hist_k<const K: usize, const RAW: bool>(keys: &[$uint], min: $uint, base: u32, w: u32, mask: $uint, r: usize, t0: &mut [u32], t1: &mut [u32]) {
+        fn hist_k<const K: usize, const RAW: bool>(
+            keys: &[$uint],
+            min: $uint,
+            base: u32,
+            w: u32,
+            mask: $uint,
+            r: usize,
+            t0: &mut [u32],
+            t1: &mut [u32],
+        ) {
             let mut pairs = keys.chunks_exact(2);
             for pr in &mut pairs {
                 let a = enc::<RAW>(pr[0]).wrapping_sub(min) >> base;
@@ -156,7 +165,11 @@ macro_rules! dlsd_kernels {
                         if line >= from {
                             std::ptr::copy_nonoverlapping(stage.add(b * WB), dst.add(line), WB);
                         } else {
-                            std::ptr::copy_nonoverlapping(stage.add(b * WB + (from & (WB - 1))), dst.add(from), p + 1 - from);
+                            std::ptr::copy_nonoverlapping(
+                                stage.add(b * WB + (from & (WB - 1))),
+                                dst.add(from),
+                                p + 1 - from,
+                            );
                         }
                     }
                 }
@@ -164,7 +177,11 @@ macro_rules! dlsd_kernels {
                     let end = heads[b] as usize;
                     let from = (end & !(WB - 1)).max(starts[b] as usize);
                     if end > from {
-                        std::ptr::copy_nonoverlapping(stage.add(b * WB + (from & (WB - 1))), dst.add(from), end - from);
+                        std::ptr::copy_nonoverlapping(
+                            stage.add(b * WB + (from & (WB - 1))),
+                            dst.add(from),
+                            end - from,
+                        );
                     }
                 }
             }

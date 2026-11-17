@@ -40,7 +40,13 @@ fn count_front_lower<T: Copy + PartialOrd>(a: &[T], v: T) -> usize {
 /// (galloping, as in TimSort), instead of one at a time. A short run
 /// merged into a long one (a sawtooth with a short last tooth, a few late
 /// elements) moves the long stretches with memmove.
-pub(super) fn gallop_back<T: Copy + PartialOrd>(arr: &mut [T], buf: &mut [T], start: usize, middle: usize, end: usize) {
+pub(super) fn gallop_back<T: Copy + PartialOrd>(
+    arr: &mut [T],
+    buf: &mut [T],
+    start: usize,
+    middle: usize,
+    end: usize,
+) {
     buf.copy_from_slice(&arr[middle..end]);
     let (mut j, mut i, mut pos) = (middle, buf.len(), end);
     while i > 0 && j > start {
@@ -68,7 +74,13 @@ pub(super) fn gallop_back<T: Copy + PartialOrd>(arr: &mut [T], buf: &mut [T], st
 /// Mirror of `gallop_back`: a short left run (copied to `buf`) merged into
 /// a long right run from the front, the right elements lower than each
 /// left element moved as one block.
-pub(super) fn gallop_forward<T: Copy + PartialOrd>(arr: &mut [T], buf: &mut [T], start: usize, middle: usize, end: usize) {
+pub(super) fn gallop_forward<T: Copy + PartialOrd>(
+    arr: &mut [T],
+    buf: &mut [T],
+    start: usize,
+    middle: usize,
+    end: usize,
+) {
     buf.copy_from_slice(&arr[start..middle]);
     let m = buf.len();
     let (mut j, mut i, mut pos) = (middle, 0, start);

@@ -103,10 +103,18 @@ macro_rules! lsd_passes {
                         };
                         let (st, sb) = (&mut staging[..], &mut starts[..]);
                         match (ENC && pass == 0, pass == last) {
-                            (true, true) => scatter_staged::<C, R, true, true>(src, dst, heads, shift, st, sb),
-                            (true, false) => scatter_staged::<C, R, true, false>(src, dst, heads, shift, st, sb),
-                            (false, true) => scatter_staged::<C, R, false, true>(src, dst, heads, shift, st, sb),
-                            (false, false) => scatter_staged::<C, R, false, false>(src, dst, heads, shift, st, sb),
+                            (true, true) => {
+                                scatter_staged::<C, R, true, true>(src, dst, heads, shift, st, sb)
+                            },
+                            (true, false) => {
+                                scatter_staged::<C, R, true, false>(src, dst, heads, shift, st, sb)
+                            },
+                            (false, true) => {
+                                scatter_staged::<C, R, false, true>(src, dst, heads, shift, st, sb)
+                            },
+                            (false, false) => {
+                                scatter_staged::<C, R, false, false>(src, dst, heads, shift, st, sb)
+                            },
                         }
                     }
                     continue;
@@ -152,7 +160,10 @@ macro_rules! lsd_passes {
 
         /// Sorts with 11-bit digits when they save a pass and stay in the
         /// cache (and their passes are not aliased), else bytes.
-        fn sort_with<C: Counter, const ENC: bool>(bits: &mut [$uint], buffer: &mut Vec<MaybeUninit<$uint>>) {
+        fn sort_with<C: Counter, const ENC: bool>(
+            bits: &mut [$uint],
+            buffer: &mut Vec<MaybeUninit<$uint>>,
+        ) {
             let wide = match () {
                 // Encoded input (leaves of the rollercoaster, whose top
                 // bits are equal): exact count of the passes.
@@ -161,20 +172,25 @@ macro_rules! lsd_passes {
                         let first = bits[0];
                         let diff = bits.iter().fold(0, |acc: $uint, &k| acc | (k ^ first));
                         let passes = |step: u32| {
-                            (0..BITS).step_by(step as usize).filter(|&s| (diff >> s) & ((1 << step) - 1) != 0).count()
+                            (0..BITS)
+                                .step_by(step as usize)
+                                .filter(|&s| (diff >> s) & ((1 << step) - 1) != 0)
+                                .count()
                         };
                         passes(11) < passes(8)
                     }
-                }
+                },
                 () => {
                     bits.len() >= WIDE_MIN
                         && (BITS == 64 || bits.len() <= wide_max_32())
                         && variation(bits) >= WIDE_BITS
-                }
+                },
             };
             if wide {
-                let shifts: [u32; ((BITS + 10) / 11) as usize] = std::array::from_fn(|t| 11 * t as u32);
-                let mut tables = hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
+                let shifts: [u32; ((BITS + 10) / 11) as usize] =
+                    std::array::from_fn(|t| 11 * t as u32);
+                let mut tables =
+                    hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
                 // The aliasing fix exists for byte digits only: aliased
                 // 11-bit passes fall back to bytes.
                 if !wide_aliased(&tables, bits.len()) {

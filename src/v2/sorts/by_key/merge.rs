@@ -6,8 +6,6 @@ use std::mem::MaybeUninit;
 /// shorter one: each element moved once (the shorter run copied out, the
 /// merge writing from the end or the start into the array).
 
-
-
 pub(super) fn merge_two<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, branchy: bool) {
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(m.min(arr.len() - m));
     prefault(&mut buf);
@@ -17,7 +15,13 @@ pub(super) fn merge_two<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, 
 /// `merge_two` with a buffer of at least the shorter run (capacity).
 /// `branchy`: branches on the comparison (faster when the merge is
 /// predictable), else selects without branches.
-pub(super) fn merge_two_with<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, buf: &mut Vec<MaybeUninit<T>>, branchy: bool) {
+pub(super) fn merge_two_with<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    m: usize,
+    enc: &E,
+    buf: &mut Vec<MaybeUninit<T>>,
+    branchy: bool,
+) {
     // Balanced runs only: a short run merged into a long one is mostly
     // block moves, which the one-chain merge with its trim does as well.
     if !branchy && 16 * m.min(arr.len() - m) >= arr.len() {
@@ -31,7 +35,12 @@ pub(super) fn merge_two_with<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc:
 }
 
 #[inline(always)]
-fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(arr: &mut [T], m: usize, enc: &E, buf: &mut Vec<MaybeUninit<T>>) {
+fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(
+    arr: &mut [T],
+    m: usize,
+    enc: &E,
+    buf: &mut Vec<MaybeUninit<T>>,
+) {
     let n = arr.len();
     if m == 0 || m == n || enc(&arr[m - 1]) <= enc(&arr[m]) {
         return;
@@ -83,7 +92,8 @@ fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(arr: &mut [T], m: u
             std::ptr::copy_nonoverlapping(a, b, len);
             // The right keys below every left key move as one block.
             let bottom = enc(&*b);
-            let q = m + std::slice::from_raw_parts(a.add(m), n - m).partition_point(|x| enc(x) < bottom);
+            let q = m + std::slice::from_raw_parts(a.add(m), n - m)
+                .partition_point(|x| enc(x) < bottom);
             std::ptr::copy(a.add(m), a, q - m);
             let (mut i, mut j, mut k) = (0, q, q - m);
             while i < len && j < n {
@@ -114,7 +124,12 @@ fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(arr: &mut [T], m: u
 /// Stable merge of the sorted segments `bounds[i]..bounds[i + 1]`, pairs of
 /// neighbours per round, each merged in the array through one buffer of
 /// half the array (`merge_two_with`): half the memory of `merge_all`.
-pub(super) fn merge_all_half<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], enc: &E, branchy: bool) {
+pub(super) fn merge_all_half<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    bounds: &[usize],
+    enc: &E,
+    branchy: bool,
+) {
     let mut bounds = bounds.to_vec();
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(arr.len() / 2 + 1);
     while bounds.len() > 2 {
@@ -146,9 +161,15 @@ pub(super) fn merge_all_half<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usiz
 /// the latency of a merge step: 32 on the Snapdragon X (2-way four-chain
 /// 0.7-1.3 ns per level, 4-way 1.9-2.3 per two levels, 128 B 5.0 against
 /// 10.4); to be measured on x86 (bench-cpu).
-pub(crate) static FOUR_WAY_MIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(32);
+pub(crate) static FOUR_WAY_MIN: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(32);
 
-pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], enc: &E, branchy: bool) {
+pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    bounds: &[usize],
+    enc: &E,
+    branchy: bool,
+) {
     let n = arr.len();
     let segs = bounds.len() - 1;
     if segs <= 1 {
@@ -188,9 +209,15 @@ pub(super) fn merge_all_kway<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usiz
                 match g {
                     4 => merge4m(src, dst, [r(0), r(1), r(2), r(3)], bounds[i], enc),
                     3 => merge3(src, dst, [r(0), r(1), r(2)], bounds[i], enc),
-                    2 if two && branchy => merge_into_b(src, dst, bounds[i], bounds[i + 1], bounds[i + 2], enc),
+                    2 if two && branchy => {
+                        merge_into_b(src, dst, bounds[i], bounds[i + 1], bounds[i + 2], enc)
+                    },
                     2 => merge_into_p4(src, dst, bounds[i], bounds[i + 1], bounds[i + 2], enc),
-                    _ => std::ptr::copy_nonoverlapping(src.add(bounds[i]), dst.add(bounds[i]), bounds[i + 1] - bounds[i]),
+                    _ => std::ptr::copy_nonoverlapping(
+                        src.add(bounds[i]),
+                        dst.add(bounds[i]),
+                        bounds[i + 1] - bounds[i],
+                    ),
                 }
                 i += g;
                 next.push(bounds[i]);
@@ -226,7 +253,13 @@ fn argmin4(k: [u128; 4]) -> usize {
 /// The ranges are valid in both, `src` and `dst` do not overlap; the
 /// elements are moved (bitwise).
 #[inline(never)]
-unsafe fn merge4f<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, usize); 4], d0: usize, enc: &E) {
+unsafe fn merge4f<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    r: [(usize, usize); 4],
+    d0: usize,
+    enc: &E,
+) {
     let mut i = [r[0].0, r[1].0, r[2].0, r[3].0];
     let e = [r[0].1, r[1].1, r[2].1, r[3].1];
     let mut d = d0;
@@ -236,7 +269,12 @@ unsafe fn merge4f<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, 
             break;
         }
         for _ in 0..safe {
-            let k = [enc(&*src.add(i[0])), enc(&*src.add(i[1])), enc(&*src.add(i[2])), enc(&*src.add(i[3]))];
+            let k = [
+                enc(&*src.add(i[0])),
+                enc(&*src.add(i[1])),
+                enc(&*src.add(i[2])),
+                enc(&*src.add(i[3])),
+            ];
             let m = argmin4(k);
             dst.add(d).write(std::ptr::read(src.add(i[m])));
             d += 1;
@@ -260,7 +298,13 @@ unsafe fn merge4f<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, 
 /// The ranges are valid in `src`, `src` and `dst` do not overlap,
 /// `dst[d0..]` has room for all the runs; the elements are moved (bitwise).
 #[inline(never)]
-unsafe fn merge3<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, usize); 3], d0: usize, enc: &E) {
+unsafe fn merge3<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    r: [(usize, usize); 3],
+    d0: usize,
+    enc: &E,
+) {
     let mut i = [r[0].0, r[1].0, r[2].0];
     let e = [r[0].1, r[1].1, r[2].1];
     let mut d = d0;
@@ -295,12 +339,18 @@ unsafe fn merge3<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, u
 ///
 /// # Safety
 /// As `merge3`.
-unsafe fn merge_rest<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, rest: &[(usize, usize)], d: usize, enc: &E) {
+unsafe fn merge_rest<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    rest: &[(usize, usize)],
+    d: usize,
+    enc: &E,
+) {
     match rest.len() {
         3 => merge3(src, dst, [rest[0], rest[1], rest[2]], d, enc),
         2 => merge2r(src, dst, rest[0], rest[1], d, enc),
         1 => std::ptr::copy_nonoverlapping(src.add(rest[0].0), dst.add(d), rest[0].1 - rest[0].0),
-        _ => {}
+        _ => {},
     }
 }
 
@@ -310,7 +360,14 @@ unsafe fn merge_rest<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, rest: &[(
 /// # Safety
 /// As `merge3`.
 #[inline(never)]
-unsafe fn merge2r<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, x: (usize, usize), y: (usize, usize), d: usize, enc: &E) {
+unsafe fn merge2r<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    x: (usize, usize),
+    y: (usize, usize),
+    d: usize,
+    enc: &E,
+) {
     let (mut lf, mut le, mut rf, mut re) = (x.0, x.1, y.0, y.1);
     let (mut df, mut de) = (d, d + (x.1 - x.0) + (y.1 - y.0));
     let steps = (x.1 - x.0).min(y.1 - y.0);
@@ -352,7 +409,13 @@ pub(super) fn prefault<T>(buf: &mut Vec<MaybeUninit<T>>) {
     // `merge_all_kway`: 0.01 ns per element instead of 0.74, and the faults
     // back in the first merge round; journal §71). If the first merge round
     // slows down again, write one byte per page with `write_volatile`.
-    unsafe { std::ptr::write_bytes(buf.as_mut_ptr() as *mut u8, 0, buf.capacity() * std::mem::size_of::<T>()) };
+    unsafe {
+        std::ptr::write_bytes(
+            buf.as_mut_ptr() as *mut u8,
+            0,
+            buf.capacity() * std::mem::size_of::<T>(),
+        )
+    };
 }
 
 /// Stable merge of `src[s..m]` and `src[m..e]` into `dst[s..e]` from both
@@ -363,7 +426,14 @@ pub(super) fn prefault<T>(buf: &mut Vec<MaybeUninit<T>>) {
 /// The ranges are valid in both, `src` and `dst` do not overlap; the
 /// elements are moved (bitwise).
 #[inline(never)]
-unsafe fn merge_into_b<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, s: usize, m: usize, e: usize, enc: &E) {
+unsafe fn merge_into_b<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    s: usize,
+    m: usize,
+    e: usize,
+    enc: &E,
+) {
     if m == s || m == e || enc(&*src.add(m - 1)) <= enc(&*src.add(m)) {
         std::ptr::copy_nonoverlapping(src.add(s), dst.add(s), e - s);
         return;
@@ -434,7 +504,14 @@ pub(super) fn merge_asc_desc<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc:
 ///
 /// # Safety
 /// The ranges are valid in `src`; `d <= e - s`.
-unsafe fn corank<T, E: Fn(&T) -> u128>(src: *const T, s: usize, m: usize, e: usize, d: usize, enc: &E) -> usize {
+unsafe fn corank<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    s: usize,
+    m: usize,
+    e: usize,
+    d: usize,
+    enc: &E,
+) -> usize {
     let (mut lo, mut hi) = (d.saturating_sub(e - m), d.min(m - s));
     while lo < hi {
         let i = (lo + hi) / 2;
@@ -453,7 +530,16 @@ unsafe fn corank<T, E: Fn(&T) -> u128>(src: *const T, s: usize, m: usize, e: usi
 /// The ranges are valid in both, `src` and `dst` do not overlap; the
 /// elements are moved (bitwise).
 #[inline(always)]
-unsafe fn merge_fwd_b<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, mut lf: usize, le: usize, mut rf: usize, re: usize, mut df: usize, enc: &E) {
+unsafe fn merge_fwd_b<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    mut lf: usize,
+    le: usize,
+    mut rf: usize,
+    re: usize,
+    mut df: usize,
+    enc: &E,
+) {
     while lf < le && rf < re {
         if enc(&*src.add(rf)) < enc(&*src.add(lf)) {
             dst.add(df).write(std::ptr::read(src.add(rf)));
@@ -490,16 +576,26 @@ fn pick<T>(c: bool, a: *const T, b: *const T) -> *const T {
 /// The ranges are valid in both, `src` and `dst` do not overlap; the
 /// elements are moved (bitwise).
 #[inline(never)]
-pub(super) unsafe fn merge_into_p4<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, s: usize, m: usize, e: usize, enc: &E) {
+pub(super) unsafe fn merge_into_p4<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    s: usize,
+    m: usize,
+    e: usize,
+    enc: &E,
+) {
     if m == s || m == e || enc(&*src.add(m - 1)) <= enc(&*src.add(m)) {
         std::ptr::copy_nonoverlapping(src.add(s), dst.add(s), e - s);
         return;
     }
     let d = (e - s) / 2;
     let i = corank(src, s, m, e, d, enc);
-    let (mut alf, mut ale, mut arf, mut are) = (src.add(s), src.add(s + i), src.add(m), src.add(m + d - i));
-    let (mut blf, mut ble, mut brf, mut bre) = (src.add(s + i), src.add(m), src.add(m + d - i), src.add(e));
-    let (mut adf, mut ade, mut bdf, mut bde) = (dst.add(s), dst.add(s + d), dst.add(s + d), dst.add(e));
+    let (mut alf, mut ale, mut arf, mut are) =
+        (src.add(s), src.add(s + i), src.add(m), src.add(m + d - i));
+    let (mut blf, mut ble, mut brf, mut bre) =
+        (src.add(s + i), src.add(m), src.add(m + d - i), src.add(e));
+    let (mut adf, mut ade, mut bdf, mut bde) =
+        (dst.add(s), dst.add(s + d), dst.add(s + d), dst.add(e));
     let steps = i.min(d - i).min(m - s - i).min(e - m - d + i);
     for _ in 0..steps {
         let r = enc(&*arf) < enc(&*alf);
@@ -544,7 +640,14 @@ const X2_SMALL: usize = 64;
 ///
 /// # Safety
 /// `l`, `r` valid for `ln`, `rn` elements; `d <= ln + rn`.
-unsafe fn corank2<T, E: Fn(&T) -> u128>(l: *const T, ln: usize, r: *const T, rn: usize, d: usize, enc: &E) -> usize {
+unsafe fn corank2<T, E: Fn(&T) -> u128>(
+    l: *const T,
+    ln: usize,
+    r: *const T,
+    rn: usize,
+    d: usize,
+    enc: &E,
+) -> usize {
     let (mut lo, mut hi) = (d.saturating_sub(rn), d.min(ln));
     while lo < hi {
         let i = (lo + hi) / 2;
@@ -565,7 +668,14 @@ unsafe fn corank2<T, E: Fn(&T) -> u128>(l: *const T, ln: usize, r: *const T, rn:
 /// # Safety
 /// As stated.
 #[inline(always)]
-unsafe fn merge_fwd_gap<T, E: Fn(&T) -> u128>(mut l: *const T, ln: usize, mut r: *const T, rn: usize, mut d: *mut T, enc: &E) {
+unsafe fn merge_fwd_gap<T, E: Fn(&T) -> u128>(
+    mut l: *const T,
+    ln: usize,
+    mut r: *const T,
+    rn: usize,
+    mut d: *mut T,
+    enc: &E,
+) {
     let (le, re) = (l.add(ln), r.add(rn));
     while l < le && r < re {
         let t = enc(&*r) < enc(&*l);
@@ -586,7 +696,14 @@ unsafe fn merge_fwd_gap<T, E: Fn(&T) -> u128>(mut l: *const T, ln: usize, mut r:
 /// # Safety
 /// As stated.
 #[inline(always)]
-unsafe fn merge_bwd_gap<T, E: Fn(&T) -> u128>(l: *const T, ln: usize, r: *const T, rn: usize, d: *mut T, enc: &E) {
+unsafe fn merge_bwd_gap<T, E: Fn(&T) -> u128>(
+    l: *const T,
+    ln: usize,
+    r: *const T,
+    rn: usize,
+    d: *mut T,
+    enc: &E,
+) {
     let (mut le, mut re, mut de) = (l.add(ln), r.add(rn), d.add(ln + rn));
     while le > l && re > r {
         let t = enc(&*re.sub(1)) < enc(&*le.sub(1));
@@ -605,7 +722,14 @@ unsafe fn merge_bwd_gap<T, E: Fn(&T) -> u128>(l: *const T, ln: usize, r: *const 
 /// # Safety
 /// Valid, non-overlapping ranges.
 #[inline(always)]
-unsafe fn merge_fwd_b_ptr<T, E: Fn(&T) -> u128>(mut l: *const T, ln: usize, mut r: *const T, rn: usize, mut d: *mut T, enc: &E) {
+unsafe fn merge_fwd_b_ptr<T, E: Fn(&T) -> u128>(
+    mut l: *const T,
+    ln: usize,
+    mut r: *const T,
+    rn: usize,
+    mut d: *mut T,
+    enc: &E,
+) {
     let (le, re) = (l.add(ln), r.add(rn));
     while l < le && r < re {
         if enc(&*r) < enc(&*l) {
@@ -629,7 +753,14 @@ unsafe fn merge_fwd_b_ptr<T, E: Fn(&T) -> u128>(mut l: *const T, ln: usize, mut 
 /// # Safety
 /// Valid, non-overlapping ranges.
 #[inline(never)]
-unsafe fn merge_ext4<T, E: Fn(&T) -> u128>(l: *const T, ln: usize, r: *const T, rn: usize, d: *mut T, enc: &E) {
+unsafe fn merge_ext4<T, E: Fn(&T) -> u128>(
+    l: *const T,
+    ln: usize,
+    r: *const T,
+    rn: usize,
+    d: *mut T,
+    enc: &E,
+) {
     if ln == 0 || rn == 0 || enc(&*l.add(ln - 1)) <= enc(&*r) {
         std::ptr::copy_nonoverlapping(l, d, ln);
         std::ptr::copy_nonoverlapping(r, d.add(ln), rn);
@@ -677,7 +808,14 @@ unsafe fn merge_ext4<T, E: Fn(&T) -> u128>(l: *const T, ln: usize, r: *const T, 
 ///
 /// # Safety
 /// `l` does not overlap `d[..ln + rn]`; `r == d + ln`.
-unsafe fn gap_left<T, E: Fn(&T) -> u128>(mut l: *const T, mut ln: usize, mut r: *mut T, mut rn: usize, mut d: *mut T, enc: &E) {
+unsafe fn gap_left<T, E: Fn(&T) -> u128>(
+    mut l: *const T,
+    mut ln: usize,
+    mut r: *mut T,
+    mut rn: usize,
+    mut d: *mut T,
+    enc: &E,
+) {
     while ln > 0 {
         if rn == 0 {
             std::ptr::copy_nonoverlapping(l, d, ln);
@@ -704,7 +842,13 @@ unsafe fn gap_left<T, E: Fn(&T) -> u128>(mut l: *const T, mut ln: usize, mut r: 
 ///
 /// # Safety
 /// `r` does not overlap `l[..ln + rn]`.
-unsafe fn gap_right<T, E: Fn(&T) -> u128>(l: *mut T, mut ln: usize, r: *const T, mut rn: usize, enc: &E) {
+unsafe fn gap_right<T, E: Fn(&T) -> u128>(
+    l: *mut T,
+    mut ln: usize,
+    r: *const T,
+    mut rn: usize,
+    enc: &E,
+) {
     while rn > 0 {
         if ln == 0 {
             std::ptr::copy_nonoverlapping(r, l, rn);
@@ -725,7 +869,12 @@ unsafe fn gap_right<T, E: Fn(&T) -> u128>(l: *mut T, mut ln: usize, r: *const T,
 
 /// Stable merge of `arr[..m]` and `arr[m..]` with a buffer of at least the
 /// shorter run.
-pub(super) fn merge_two_x<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, buf: &mut Vec<MaybeUninit<T>>) {
+pub(super) fn merge_two_x<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    m: usize,
+    enc: &E,
+    buf: &mut Vec<MaybeUninit<T>>,
+) {
     let n = arr.len();
     if m == 0 || m == n || enc(&arr[m - 1]) <= enc(&arr[m]) {
         return;
@@ -768,7 +917,13 @@ fn pick_k(c: bool, x: u128, y: u128) -> u128 {
 /// # Safety
 /// As `merge4b`.
 #[inline(never)]
-pub(super) unsafe fn merge4m<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r: [(usize, usize); 4], d0: usize, enc: &E) {
+pub(super) unsafe fn merge4m<T, E: Fn(&T) -> u128>(
+    src: *const T,
+    dst: *mut T,
+    r: [(usize, usize); 4],
+    d0: usize,
+    enc: &E,
+) {
     let p = |i: usize| src.add(i);
     let (mut f0, mut f1, mut f2, mut f3) = (p(r[0].0), p(r[1].0), p(r[2].0), p(r[3].0));
     let (mut b0, mut b1, mut b2, mut b3) = (p(r[0].1), p(r[1].1), p(r[2].1), p(r[3].1));
@@ -794,7 +949,8 @@ pub(super) unsafe fn merge4m<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r
             f1 = f1.add((!right & ab) as usize);
             f2 = f2.add((right & !cd) as usize);
             f3 = f3.add((right & cd) as usize);
-            let (k0, k1, k2, k3) = (enc(&*b0.sub(1)), enc(&*b1.sub(1)), enc(&*b2.sub(1)), enc(&*b3.sub(1)));
+            let (k0, k1, k2, k3) =
+                (enc(&*b0.sub(1)), enc(&*b1.sub(1)), enc(&*b2.sub(1)), enc(&*b3.sub(1)));
             let ab = k1 >= k0;
             let (kab, iab) = (pick_k(ab, k1, k0), pick(ab, b1, b0));
             let cd = k3 >= k2;
@@ -823,4 +979,3 @@ pub(super) unsafe fn merge4m<T, E: Fn(&T) -> u128>(src: *const T, dst: *mut T, r
         _ => merge_rest(src, dst, &rest[..c], df, enc),
     }
 }
-

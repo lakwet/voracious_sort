@@ -16,7 +16,11 @@
 /// selects for the values and the indices (`select_unpredictable`), for
 /// irregular ones, where a branch mispredicts one step in two.
 #[inline]
-pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(a: &[T], b: &[T], dst: &mut [T]) {
+pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(
+    a: &[T],
+    b: &[T],
+    dst: &mut [T],
+) {
     let len = a.len() + b.len();
     debug_assert!(dst.len() == len && !a.is_empty() && !b.is_empty());
     let steps = a.len().min(b.len());

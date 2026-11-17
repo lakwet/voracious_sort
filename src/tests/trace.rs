@@ -20,8 +20,8 @@
 
 #![cfg(feature = "v2_trace")]
 
-use super::super::v2::dev::ab::NEW_RULE;
 use super::super::v2::cache::{l2_bytes, largest_bytes};
+use super::super::v2::dev::ab::NEW_RULE;
 use super::super::v2::dev::trace;
 use super::cells::{env_list, env_size, parse_key, visit, Visit};
 use std::collections::BTreeMap;
@@ -37,7 +37,13 @@ impl Visit for Tracer {
     fn wants(&self, _: &str) -> bool {
         true
     }
-    fn cell<T: Copy + PartialOrd + Send + 'static>(&mut self, key: &str, _: usize, keys: &dyn Fn() -> Vec<T>, sort: fn(&mut [T])) {
+    fn cell<T: Copy + PartialOrd + Send + 'static>(
+        &mut self,
+        key: &str,
+        _: usize,
+        keys: &dyn Fn() -> Vec<T>,
+        sort: fn(&mut [T]),
+    ) {
         let mut path = |new: bool| {
             NEW_RULE.store(new, Relaxed);
             let mut a = keys();
@@ -85,26 +91,33 @@ fn trace_decisions() {
     let reference: BTreeMap<String, String> = if ab {
         t.out.iter().map(|(k, p, _)| (k.clone(), p.clone())).collect()
     } else {
-        let text = std::fs::read_to_string(&file).unwrap_or_else(|_| panic!("no reference {} (make trace-write)", file.display()));
-        text.lines().filter_map(|l| Some((parse_key(l)?, l.split_once(" : ")?.1.to_string()))).collect()
+        let text = std::fs::read_to_string(&file)
+            .unwrap_or_else(|_| panic!("no reference {} (make trace-write)", file.display()));
+        text.lines()
+            .filter_map(|l| Some((parse_key(l)?, l.split_once(" : ")?.1.to_string())))
+            .collect()
     };
     let mut moved = String::new();
     let mut count = 0;
     for (k, p, q) in t.out.iter() {
         let new = if ab { q } else { p };
         match reference.get(k) {
-            Some(old) if old == new => {}
+            Some(old) if old == new => {},
             Some(old) => {
                 count += 1;
                 let line = format!("{} : {}  ->  {}", show(k), old, new);
                 println!("{}", line);
                 moved.push_str(&line);
                 moved.push('\n');
-            }
+            },
             None => println!("{} : (new) {}", show(k), new),
         }
     }
     std::fs::write(dir.join("moved.txt"), &moved).unwrap();
-    let against = if ab { "rule under test off -> on".to_string() } else { format!("reference {}", file.display()) };
+    let against = if ab {
+        "rule under test off -> on".to_string()
+    } else {
+        format!("reference {}", file.display())
+    };
     println!("{} cells, {} moved ({}); list in traces/moved.txt", t.out.len(), count, against);
 }

@@ -1,29 +1,40 @@
 //! The thresholds of the records sort (`sorts::by_key::sort_encoded`), whose
-//! chain reads (first matching line wins, `trace!` label in brackets):
+//! chain reads (first matching rule wins, `trace!` label in brackets):
 //!
-//! | records    | when                                          | then                         |
-//! |------------|-----------------------------------------------|------------------------------|
-//! | unstable   | `size >= UNSTABLE_MSD_MIN`, n < `UNSTABLE_PDQ_MAX` | `sort_unstable` [std_unstable_large] |
-//! | all        | runs at both ends cover most of it            | middle sorted, merged [ends] |
-//! | <= 8 B     | unstable, n >= `UNSTABLE_PDQ_MIN`, many repeats | `sort_unstable` [std_unstable_dups] |
-//! |            | a few heavy keys                              | extracted [heavy]            |
-//! |            | locally sorted, unpredictable merges          | Verge [verge_runs]           |
-//! |            | else                                          | `by_key::small` [small_path] |
-//! | > 8 B      | ascending / strictly descending (first read)  | done / reversed              |
-//! |            | unstable, large, up to twice the cache, not   | in-place MSD [msd_unstable]  |
-//! |            | nearly sorted                                 |                              |
-//! |            | unstable, small, n >= `UNSTABLE_PDQ_MIN`, many repeats | `sort_unstable` [unstable_dups] |
-//! |            | at most 256 distinct keys                     | counting [few]               |
-//! |            | a few heavy keys                              | extracted [heavy]            |
-//! |            | in the cache, breaks <= n / `IN_CACHE_BREAKS_DIV` | Verge [verge_few]        |
-//! |            | beyond, turns <= n / `TURN_DIV`               | Verge [verge]                |
-//! |            | unstable, small, keys over `UNSTABLE_WIDE_BITS` bits | `sort_unstable` [std_unstable_wide] |
-//! |            | beyond, few turns or many repeats             | counting <= 4096 keys [few_wide] |
-//! |            | in the cache, n >= `IN_CACHE_MIN`, many repeats | counting <= 4096 keys [few_wide_cache] |
-//! |            | in the cache, <= 16 B, (key, index) > 64 bits | LSD 11 bits [lsd11_cache]    |
-//! |            | beyond, <= `LSD_MAX` B, turns > n / `LSD_TURNS` | LSD on the records [lsd]   |
-//! |            | beyond                                        | packed sort, permutation in place [packed_in_place] |
-//! |            | else                                          | packed sort via a buffer [packed] |
+//! 0. unstable, records of `UNSTABLE_MSD_MIN` bytes or more, fewer than
+//!    `UNSTABLE_PDQ_MAX`: `sort_unstable` [std_unstable_large];
+//! 1. runs at both ends covering most of the array: the middle sorted, all
+//!    merged [ends];
+//! 2. records of at most `SMALL_RECORD` bytes: unstable with many repeats,
+//!    `sort_unstable` [std_unstable_dups]; a few heavy keys, extracted
+//!    [heavy]; locally sorted with unpredictable merges, Verge [verge_runs];
+//!    else their own path `by_key::small` [small_path];
+//!
+//! larger records, after one read of the keys:
+//!
+//! 3. ascending: done; strictly descending: reversed [presorted, reversed];
+//! 4. unstable, large, up to twice the cache, not nearly sorted: the
+//!    in-place MSD [msd_unstable];
+//! 5. unstable, small, from `UNSTABLE_PDQ_MIN`, many repeats:
+//!    `sort_unstable` [unstable_dups];
+//! 6. at most 256 distinct keys: counting [few];
+//! 7. a few heavy keys: extracted [heavy];
+//! 8. in the cache, at most n / `IN_CACHE_BREAKS_DIV` breaks: Verge
+//!    [verge_few];
+//! 9. beyond, at most n / `TURN_DIV` turns: Verge [verge];
+//! 10. unstable, small, keys over `UNSTABLE_WIDE_BITS` bits: `sort_unstable`
+//!     [std_unstable_wide];
+//! 11. beyond, few turns or many repeats: counting up to 4096 keys
+//!     [few_wide];
+//! 12. in the cache, from `IN_CACHE_MIN`, many repeats: counting up to 4096
+//!     keys [few_wide_cache];
+//! 13. in the cache, up to `IN_CACHE_LSD_MAX` bytes, (key, index) over 64
+//!     bits: the 11-bit LSD [lsd11_cache];
+//! 14. beyond, up to `LSD_MAX` bytes, more than n / `LSD_TURNS` turns: the
+//!     LSD on the records [lsd];
+//! 15. beyond: the packed (key, index) sort, permutation in place
+//!     [packed_in_place];
+//! 16. else: the packed sort through a buffer [packed].
 //!
 //! "Beyond": the records take more than half the `Records` budget (L2).
 //! "Many repeats": fewer than `MANY_DISTINCT` distinct keys in a sample of

@@ -54,7 +54,12 @@ macro_rules! roller_width {
             }
 
             /// Sorts encoded keys (all in `min..=max`) and writes them back decoded.
-            fn msd(keys: &mut [$uint], min: $uint, max: $uint, scratch: &mut Vec<MaybeUninit<$uint>>) {
+            fn msd(
+                keys: &mut [$uint],
+                min: $uint,
+                max: $uint,
+                scratch: &mut Vec<MaybeUninit<$uint>>,
+            ) {
                 let range = max - min;
                 if range == 0 {
                     keys.iter_mut().for_each(|k| *k = w::decode_key(*k));
@@ -63,11 +68,13 @@ macro_rules! roller_width {
                 // `key - min` fits in `top` bits; the digit takes the top `width`.
                 let top = <$uint>::BITS - range.leading_zeros();
                 let log_n = usize::BITS - keys.len().leading_zeros();
-                let width = log_n.saturating_sub(KEYS_PER_DIGIT_LOG).clamp(MIN_BITS, MAX_BITS).min(top);
+                let width =
+                    log_n.saturating_sub(KEYS_PER_DIGIT_LOG).clamp(MIN_BITS, MAX_BITS).min(top);
                 let shift = top - width;
                 let counts = histogram(keys, min, shift, 1 << width);
                 let (map, ends) = group_digits(&counts, keys.len());
-                let starts: Vec<usize> = std::iter::once(0).chain(ends[..ends.len() - 1].iter().copied()).collect();
+                let starts: Vec<usize> =
+                    std::iter::once(0).chain(ends[..ends.len() - 1].iter().copied()).collect();
                 if ends.len() > 1 {
                     permute(keys, &mut starts.clone(), &ends, min, shift, &map);
                 }
@@ -136,11 +143,21 @@ macro_rules! roller_width {
             /// sort's swap loop): rounds over the unsorted part of every bucket,
             /// each key swapped to the next free slot of its bucket. The largest
             /// bucket is never scanned: it is complete when the others are.
-            fn permute(keys: &mut [$uint], heads: &mut [usize], ends: &[usize], min: $uint, shift: u32, map: &[u32]) {
+            fn permute(
+                keys: &mut [$uint],
+                heads: &mut [usize],
+                ends: &[usize],
+                min: $uint,
+                shift: u32,
+                map: &[u32],
+            ) {
                 let mask = (map.len() - 1) as $uint;
                 // SAFETY: the masked digit indexes `map`.
-                let digit = |k: $uint| unsafe { *map.get_unchecked(((k.wrapping_sub(min) >> shift) & mask) as usize) as usize };
-                let mut todo: Vec<usize> = (0..heads.len()).filter(|&b| ends[b] > heads[b]).collect();
+                let digit = |k: $uint| unsafe {
+                    *map.get_unchecked(((k.wrapping_sub(min) >> shift) & mask) as usize) as usize
+                };
+                let mut todo: Vec<usize> =
+                    (0..heads.len()).filter(|&b| ends[b] > heads[b]).collect();
                 if let Some(pos) = (0..todo.len()).max_by_key(|&i| ends[todo[i]] - heads[todo[i]]) {
                     todo.swap_remove(pos);
                 }

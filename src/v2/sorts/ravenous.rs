@@ -13,16 +13,16 @@
 //!
 //! NaN is not supported yet (the Verge step compares with `<`).
 
-use crate::v2::special::floats::{detect32, detect64, few32, few64};
-use crate::v2::special::heavy::{heavy_from, HEAVY_MIN};
+use crate::v2::decide::chunks::{self, Engine};
+use crate::v2::decide::path::radix_path;
+use crate::v2::dev::trace::hit;
 use crate::v2::engines::dlsd::d64;
 use crate::v2::engines::lsd::w32;
 use crate::v2::engines::roller::{r32, r64};
-use crate::v2::inspect::presorted::{presorted, Unsorted};
-use crate::v2::decide::path::radix_path;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-use crate::v2::decide::chunks::{self, Engine};
-use crate::v2::dev::trace::hit;
+use crate::v2::inspect::presorted::{presorted, Unsorted};
+use crate::v2::special::floats::{detect32, detect64, few32, few64};
+use crate::v2::special::heavy::{heavy_from, HEAVY_MIN};
 
 /// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
 /// the radix path, median over the distributions, Snapdragon X Elite).
@@ -173,13 +173,26 @@ fn sort_f32(arr: &mut [f32]) {
                 trace!("presorted");
                 f32_bits::order_signed_zeros(arr);
                 return;
-            }
+            },
             Err(known) => known,
         }
     } else {
         Unsorted::default()
     };
-    let detect = |a: &mut [f32], _| (presorted_first && hit(detect32(a), "float_detect")) || hit(few32(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less), "heavy");
+    let detect = |a: &mut [f32], _| {
+        (presorted_first && hit(detect32(a), "float_detect"))
+            || hit(few32(a), "few")
+            || hit(
+                heavy_from(
+                    a,
+                    HEAVY_MIN,
+                    &|r: &mut [f32]| ravenous_sort2(r),
+                    f32_bits::same,
+                    f32_bits::less,
+                ),
+                "heavy",
+            )
+    };
     let sort_chunk = |chunk: &mut [f32]| {
         if chunks::f32(chunk.len()) == Engine::Roller {
             trace!("roller");
@@ -216,14 +229,27 @@ fn sort_f64(arr: &mut [f64]) {
                 trace!("presorted");
                 f64_bits::order_signed_zeros(arr);
                 return;
-            }
+            },
             Err(known) => known,
         }
     } else {
         Unsorted::default()
     };
     let buffer = std::cell::RefCell::new(Vec::new());
-    let detect = |a: &mut [f64], _| (presorted_first && hit(detect64(a), "float_detect")) || hit(few64(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less), "heavy");
+    let detect = |a: &mut [f64], _| {
+        (presorted_first && hit(detect64(a), "float_detect"))
+            || hit(few64(a), "few")
+            || hit(
+                heavy_from(
+                    a,
+                    HEAVY_MIN,
+                    &|r: &mut [f64]| ravenous_sort2(r),
+                    f64_bits::same,
+                    f64_bits::less,
+                ),
+                "heavy",
+            )
+    };
     let sort_chunk = |chunk: &mut [f64]| {
         if chunks::f64(chunk.len()) == Engine::Roller {
             trace!("roller");

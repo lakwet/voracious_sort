@@ -12,7 +12,9 @@ macro_rules! lsd_histograms {
         /// top byte of floats does not chain every increment on one
         /// counter), for short arrays.
         #[inline(always)]
-        fn hist_stack<C: Counter, const P: usize, const ENC: bool>(bits: &[$uint]) -> [[C; 256]; P] {
+        fn hist_stack<C: Counter, const P: usize, const ENC: bool>(
+            bits: &[$uint],
+        ) -> [[C; 256]; P] {
             let mut a = [[C::ZERO; 256]; P];
             let mut b = [[C::ZERO; 256]; P];
             let mut pairs = bits.chunks_exact(2);
@@ -41,7 +43,13 @@ macro_rules! lsd_histograms {
         /// buckets) of the encoded keys, in `L` lanes (key `i` counted in
         /// lane `i % L`, so that consecutive keys sharing a digit do not
         /// wait on the same counter); the digit loop is unrolled.
-        fn hist_const<C: Counter, const R: usize, const P: usize, const L: usize, const ENC: bool>(
+        fn hist_const<
+            C: Counter,
+            const R: usize,
+            const P: usize,
+            const L: usize,
+            const ENC: bool,
+        >(
             bits: &[$uint],
             step: u32,
         ) -> Vec<[C; R]> {
@@ -69,7 +77,8 @@ macro_rules! lsd_histograms {
                 for b in &mut blocks {
                     let keys: [$uint; 8] = std::array::from_fn(|i| encode(b[i]));
                     for t in 0..P {
-                        let d: [usize; 8] = std::array::from_fn(|i| digit::<R>(keys[i], step * t as u32));
+                        let d: [usize; 8] =
+                            std::array::from_fn(|i| digit::<R>(keys[i], step * t as u32));
                         if !flat[t] {
                             for i in 0..8 {
                                 lanes[i % L][t][d[i]] += C::ONE;

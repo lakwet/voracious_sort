@@ -45,13 +45,8 @@ pub enum ForwardGrowth {
     PN,
 }
 
-
-
 #[inline]
-pub fn get_growth_pattern(
-    b: BackwardGrowth,
-    f: ForwardGrowth,
-) -> GrowthPattern {
+pub fn get_growth_pattern(b: BackwardGrowth, f: ForwardGrowth) -> GrowthPattern {
     match (b, f) {
         (BackwardGrowth::AP, ForwardGrowth::PD) => GrowthPattern::AscThenDesc,
         (BackwardGrowth::AP, ForwardGrowth::ND) => GrowthPattern::AscThenDesc,
@@ -96,7 +91,6 @@ pub fn get_growth_pattern(
         (BackwardGrowth::NN, ForwardGrowth::NN) => GrowthPattern::Neither,
     }
 }
-
 
 #[inline]
 fn backward_orientation<T: PartialOrd>(arr: &[T], position: usize) -> Orientation {

@@ -24,7 +24,11 @@ mod imp {
 
     #[link(name = "kernel32")]
     extern "system" {
-        fn GetLogicalProcessorInformationEx(relationship: u32, buffer: *mut u8, returned_length: *mut u32) -> i32;
+        fn GetLogicalProcessorInformationEx(
+            relationship: u32,
+            buffer: *mut u8,
+            returned_length: *mut u32,
+        ) -> i32;
         fn GetSystemInfo(info: *mut SystemInfo);
     }
 
@@ -58,13 +62,16 @@ mod imp {
         // u64 storage: entries are 8-byte aligned.
         let mut buf = vec![0u64; (len as usize).div_ceil(8)];
         // SAFETY: the buffer holds at least `len` bytes.
-        let ok = unsafe { GetLogicalProcessorInformationEx(RELATION_CACHE, buf.as_mut_ptr() as *mut u8, &mut len) };
+        let ok = unsafe {
+            GetLogicalProcessorInformationEx(RELATION_CACHE, buf.as_mut_ptr() as *mut u8, &mut len)
+        };
         if ok == 0 {
             return None;
         }
         // SAFETY: `len <= 8 * buf.len()` bytes were written by the call.
         let bytes = unsafe { std::slice::from_raw_parts(buf.as_ptr() as *const u8, len as usize) };
-        let u32_at = |o: usize| bytes.get(o..o + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+        let u32_at =
+            |o: usize| bytes.get(o..o + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
         let mut smallest: Option<usize> = None;
         let mut off = 0;
         // Entries: Relationship u32, Size u32, then CACHE_RELATIONSHIP:
@@ -125,16 +132,23 @@ mod imp {
         for cpu in cpus.flatten() {
             let name = cpu.file_name();
             let name = name.to_string_lossy();
-            if !name.starts_with("cpu") || !name[3..].chars().all(|c| c.is_ascii_digit()) || name.len() == 3 {
+            if !name.starts_with("cpu")
+                || !name[3..].chars().all(|c| c.is_ascii_digit())
+                || name.len() == 3
+            {
                 continue;
             }
             let Ok(indexes) = std::fs::read_dir(cpu.path().join("cache")) else { continue };
             for index in indexes.flatten() {
                 let read = |f: &str| std::fs::read_to_string(index.path().join(f)).ok();
-                let (Some(level), Some(kind), Some(size)) = (read("level"), read("type"), read("size")) else {
+                let (Some(level), Some(kind), Some(size)) =
+                    (read("level"), read("type"), read("size"))
+                else {
                     continue;
                 };
-                if level.trim().parse::<u32>().ok() == Some(wanted) && matches!(kind.trim(), "Data" | "Unified") {
+                if level.trim().parse::<u32>().ok() == Some(wanted)
+                    && matches!(kind.trim(), "Data" | "Unified")
+                {
                     if let Some(v) = parse_size(&size) {
                         smallest = Some(smallest.map_or(v, |s| s.min(v)));
                     }
@@ -148,7 +162,13 @@ mod imp {
 #[cfg(target_os = "macos")]
 mod imp {
     extern "C" {
-        fn sysctlbyname(name: *const u8, oldp: *mut u8, oldlenp: *mut usize, newp: *mut u8, newlen: usize) -> i32;
+        fn sysctlbyname(
+            name: *const u8,
+            oldp: *mut u8,
+            oldlenp: *mut usize,
+            newp: *mut u8,
+            newlen: usize,
+        ) -> i32;
     }
 
     /// Integer sysctl value (`name` NUL-terminated).
@@ -157,7 +177,15 @@ mod imp {
         let mut len = std::mem::size_of::<u64>();
         // SAFETY: `name` is NUL-terminated, `v` holds `len` bytes; the call
         // writes at most `len` bytes and updates `len`.
-        let r = unsafe { sysctlbyname(name.as_ptr(), &mut v as *mut u64 as *mut u8, &mut len, std::ptr::null_mut(), 0) };
+        let r = unsafe {
+            sysctlbyname(
+                name.as_ptr(),
+                &mut v as *mut u64 as *mut u8,
+                &mut len,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
         if r != 0 || (len != 4 && len != 8) {
             return None;
         }
@@ -166,10 +194,11 @@ mod imp {
 
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         // Apple Silicon: one value per performance level, else the global one.
-        let levels: Vec<usize> = [&b"hw.perflevel0.l2cachesize\0"[..], &b"hw.perflevel1.l2cachesize\0"[..]]
-            .iter()
-            .filter_map(|n| sysctl(n))
-            .collect();
+        let levels: Vec<usize> =
+            [&b"hw.perflevel0.l2cachesize\0"[..], &b"hw.perflevel1.l2cachesize\0"[..]]
+                .iter()
+                .filter_map(|n| sysctl(n))
+                .collect();
         let l2 = levels.into_iter().min().or_else(|| sysctl(b"hw.l2cachesize\0"));
         (l2, sysctl(b"hw.pagesize\0"))
     }

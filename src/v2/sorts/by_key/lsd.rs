@@ -78,7 +78,8 @@ pub(super) fn lsd11<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u64) {
             let (src, dst) = if in_buf { (b as *const T, a) } else { (a as *const T, b) };
             for i in 0..n {
                 let x = &*src.add(i);
-                let digit = (((enc(x) as u64).wrapping_sub(lo) >> (R * d)) & (B as u64 - 1)) as usize;
+                let digit =
+                    (((enc(x) as u64).wrapping_sub(lo) >> (R * d)) & (B as u64 - 1)) as usize;
                 dst.add(*heads.get_unchecked(digit)).write(std::ptr::read(x));
                 *heads.get_unchecked_mut(digit) += 1;
             }

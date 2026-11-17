@@ -22,7 +22,11 @@ macro_rules! dlsd_sort {
         /// encoded keys that sizes the prefix (the caller's own decision read
         /// on the same sample). Returns whether the keys were sorted.
         #[allow(dead_code)]
-        pub(crate) fn dlsd_unless<F: FnOnce(&[$uint]) -> bool>(bits: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, reject: F) -> bool {
+        pub(crate) fn dlsd_unless<F: FnOnce(&[$uint]) -> bool>(
+            bits: &mut [$uint],
+            scratch: &mut Vec<MaybeUninit<$uint>>,
+            reject: F,
+        ) -> bool {
             let n = bits.len();
             if n > u32::MAX as usize || n <= SMALL {
                 dlsd_with(bits, scratch);
@@ -100,7 +104,11 @@ macro_rules! dlsd_sort {
 
         /// `RAW`: `keys` hold raw bits, else encoded keys; output: raw bits.
         /// `pre`: the sorted spread sample of the encoded keys, when taken.
-        fn dlsd_rec<const RAW: bool>(keys: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, pre: Option<&mut [$uint]>) {
+        fn dlsd_rec<const RAW: bool>(
+            keys: &mut [$uint],
+            scratch: &mut Vec<MaybeUninit<$uint>>,
+            pre: Option<&mut [$uint]>,
+        ) {
             let n = keys.len();
             if n <= small_limit() {
                 sort_small::<RAW>(keys);
@@ -153,7 +161,14 @@ macro_rules! dlsd_sort {
             let n = keys.len();
             if <$uint>::BITS == 128 && n > GROUP_INSERTION {
                 let (min, max) = min_max::<RAW>(keys);
-                if <$uint as WideNarrow>::narrow(keys, min, max - min, RAW, w::encode_key, w::decode_key) {
+                if <$uint as WideNarrow>::narrow(
+                    keys,
+                    min,
+                    max - min,
+                    RAW,
+                    w::encode_key,
+                    w::decode_key,
+                ) {
                     return;
                 }
             }
@@ -181,7 +196,11 @@ macro_rules! dlsd_sort {
 
         /// `len` zeroed counters, on the stack when they fit.
         #[inline(always)]
-        fn zeroed_counters<'a>(stack: &'a mut std::mem::MaybeUninit<[u32; STACK_COUNTERS]>, heap: &'a mut Vec<u32>, len: usize) -> &'a mut [u32] {
+        fn zeroed_counters<'a>(
+            stack: &'a mut std::mem::MaybeUninit<[u32; STACK_COUNTERS]>,
+            heap: &'a mut Vec<u32>,
+            len: usize,
+        ) -> &'a mut [u32] {
             if len <= STACK_COUNTERS {
                 // SAFETY: the first `len` counters are zeroed before the slice
                 // over them is formed.
@@ -200,7 +219,12 @@ macro_rules! dlsd_sort {
         /// holds both: `digits * buckets` counters each; summed into the first).
         /// Up to 4 digits the digit loop is unrolled (`hist_k`).
         #[inline(always)]
-        fn count_digits<const RAW: bool>(keys: &[$uint], min: $uint, layout: &Layout, tables: &mut [u32]) {
+        fn count_digits<const RAW: bool>(
+            keys: &[$uint],
+            min: $uint,
+            layout: &Layout,
+            tables: &mut [u32],
+        ) {
             let Layout { width, digits, base, buckets, mask } = *layout;
             let (t0, t1) = tables.split_at_mut(digits * buckets);
             match digits {
@@ -217,8 +241,10 @@ macro_rules! dlsd_sort {
                             let s = t as u32 * width;
                             // SAFETY: masked digits index a table of `buckets` counters.
                             unsafe {
-                                *t0.get_unchecked_mut(t * buckets + ((a >> s) & mask) as usize) += 1;
-                                *t1.get_unchecked_mut(t * buckets + ((b >> s) & mask) as usize) += 1;
+                                *t0.get_unchecked_mut(t * buckets + ((a >> s) & mask) as usize) +=
+                                    1;
+                                *t1.get_unchecked_mut(t * buckets + ((b >> s) & mask) as usize) +=
+                                    1;
                             }
                         }
                     }
@@ -231,7 +257,7 @@ macro_rules! dlsd_sort {
                     for i in 0..digits * buckets {
                         t0[i] += t1[i];
                     }
-                }
+                },
             }
         }
 
@@ -239,7 +265,13 @@ macro_rules! dlsd_sort {
         /// every key has all of them in the bucket of the first key), keys and
         /// buffer alternating; a pass whose bucket starts alias in the cache is
         /// staged. Decodes in the last pass when the prefix is exact.
-        fn scatter_passes<const RAW: bool>(keys: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, tables: &mut [u32], min: $uint, layout: &Layout) {
+        fn scatter_passes<const RAW: bool>(
+            keys: &mut [$uint],
+            scratch: &mut Vec<MaybeUninit<$uint>>,
+            tables: &mut [u32],
+            min: $uint,
+            layout: &Layout,
+        ) {
             let n = keys.len();
             let Layout { width, digits, base, buckets, mask } = *layout;
             let exact = base == 0;
@@ -247,7 +279,10 @@ macro_rules! dlsd_sort {
             let mut varying = [0usize; 64];
             let mut passes = 0;
             for t in 0..digits {
-                if tables[t * buckets + ((first_prefix >> (t as u32 * width)) & mask) as usize] as usize != n {
+                if tables[t * buckets + ((first_prefix >> (t as u32 * width)) & mask) as usize]
+                    as usize
+                    != n
+                {
                     varying[passes] = t;
                     passes += 1;
                 }
@@ -295,7 +330,16 @@ macro_rules! dlsd_sort {
                     macro_rules! pass {
                         ($first:expr, $decode:expr) => {
                             if staged[i] {
-                                scatter_staged::<$first, $decode>(src, dst, heads, min, shift, mask, &mut staging, &mut starts)
+                                scatter_staged::<$first, $decode>(
+                                    src,
+                                    dst,
+                                    heads,
+                                    min,
+                                    shift,
+                                    mask,
+                                    &mut staging,
+                                    &mut starts,
+                                )
                             } else {
                                 scatter::<$first, $decode>(src, dst, heads, min, shift, mask)
                             }
@@ -363,7 +407,12 @@ macro_rules! dlsd_sort {
 
         /// Groups of equal prefix finished one by one: insertion sort, or the
         /// DLSD again at the scale of the group (its own min and max).
-        fn finish_groups(keys: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, min: $uint, low: u32) {
+        fn finish_groups(
+            keys: &mut [$uint],
+            scratch: &mut Vec<MaybeUninit<$uint>>,
+            min: $uint,
+            low: u32,
+        ) {
             let n = keys.len();
             let prefix = |k: $uint| k.wrapping_sub(min) >> low;
             let mut i = 0;
