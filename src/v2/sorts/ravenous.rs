@@ -155,15 +155,10 @@ const PRESORTED_FIRST_MIN: usize = 4096;
 #[inline(never)]
 fn sort_f32(arr: &mut [f32]) {
     let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
-    if !presorted_first {
-        if hit(detect32(arr), "float_detect") {
-            return;
-        }
-        if arr.len() <= SMALL_F32 {
-            trace!("std_small");
-            f32_bits::sort_small(f32_bits::bits(arr));
-            return;
-        }
+    chain! {
+        "float_detect" if !presorted_first => try detect32(arr);
+        "std_small" if !presorted_first && arr.len() <= SMALL_F32
+            => do { f32_bits::sort_small(f32_bits::bits(arr)) };
     }
     // As for integers: the presorted check first, then the repair of nearly
     // sorted arrays, and only then the detectors (in `detect`).
@@ -211,15 +206,10 @@ fn sort_f32(arr: &mut [f32]) {
 #[inline(never)]
 fn sort_f64(arr: &mut [f64]) {
     let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
-    if !presorted_first {
-        if hit(detect64(arr), "float_detect") {
-            return;
-        }
-        if arr.len() <= SMALL_F64 {
-            trace!("std_small");
-            f64_bits::sort_small(f64_bits::bits(arr));
-            return;
-        }
+    chain! {
+        "float_detect" if !presorted_first => try detect64(arr);
+        "std_small" if !presorted_first && arr.len() <= SMALL_F64
+            => do { f64_bits::sort_small(f64_bits::bits(arr)) };
     }
     // As for integers: the presorted check first, then the repair of nearly
     // sorted arrays, and only then the detectors (in `detect`).

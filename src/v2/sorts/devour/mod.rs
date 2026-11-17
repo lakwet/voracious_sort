@@ -80,10 +80,8 @@ trait IntSort: DevourSort2 + BitsOf {
 #[inline(never)]
 fn sort_integers<T: IntSort>(arr: &mut [T]) {
     let n = arr.len();
-    if n <= MERGE_MAX {
-        trace!("merge_small");
-        merge_sort(bits_of(arr), T::encode, T::decode);
-        return;
+    chain! {
+        "merge_small" if n <= MERGE_MAX => do { merge_sort(bits_of(arr), T::encode, T::decode) };
     }
     let known = match presorted(arr) {
         Ok(()) => {
@@ -92,16 +90,11 @@ fn sort_integers<T: IntSort>(arr: &mut [T]) {
         },
         Err(known) => known,
     };
-    // 8-bit keys: counting over the 256 values beats any detection.
-    if T::Bits::MAX_U64 == u8::MAX as u64 && n >= 256 && n <= u32::MAX as usize {
-        trace!("count8");
-        domain_count(bits_of(arr), T::encode, T::decode);
-        return;
-    }
-    if n <= T::SMALL {
-        trace!("std_small");
-        arr.sort_unstable();
-        return;
+    chain! {
+        // 8-bit keys: counting over the 256 values beats any detection.
+        "count8" if T::Bits::MAX_U64 == u8::MAX as u64 && n >= 256 && n <= u32::MAX as usize
+            => do { domain_count(bits_of(arr), T::encode, T::decode) };
+        "std_small" if n <= T::SMALL => do { arr.sort_unstable() };
     }
     let buffer = std::cell::RefCell::new(Vec::new());
     let sort_chunk = |chunk: &mut [T]| T::sort_chunk(bits_of(chunk), &mut buffer.borrow_mut());

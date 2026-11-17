@@ -54,28 +54,27 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     detect: &dyn Fn(&mut [T], usize) -> bool,
     sort: &dyn Fn(&mut [T]),
 ) {
-    // A sorted prefix of at least half the array (seen by the presorted
-    // check): the tail alone goes through the path, then one merge, instead
-    // of scanning the prefix again (repair, Verge). u128 sorted + 10 % random
-    // tail 100k 2.96 to 2.07 ns per key.
     let n = arr.len();
     let p = known.ascending_prefix;
-    if tail_first(n, p) {
-        trace!("tail_first");
-        // A short tail: sorted (or reversed) as it is, else the engine (the
-        // whole path needs more keys).
-        let tail = &mut arr[p..];
-        if tail.len() >= TAIL_PATH_MIN {
-            radix_path(tail, Unsorted::default(), check_random_runs, detect, sort);
-        } else if crate::v2::inspect::presorted::presorted(tail).is_err() {
-            sort(tail);
-        }
-        merge_runs(arr, &mut vec![0, p, n]);
-        return;
+    chain! {
+        // A sorted prefix of at least half the array (seen by the presorted
+        // check): the tail alone goes through the path, then one merge,
+        // instead of scanning the prefix again (repair, Verge). u128 sorted
+        // + 10 % random tail 100k 2.96 to 2.07 ns per key. A short tail:
+        // sorted (or reversed) as it is, else the engine (the whole path
+        // needs more keys).
+        "tail_first" if tail_first(n, p) => do {
+            let tail = &mut arr[p..];
+            if tail.len() >= TAIL_PATH_MIN {
+                radix_path(tail, Unsorted::default(), check_random_runs, detect, sort);
+            } else if crate::v2::inspect::presorted::presorted(tail).is_err() {
+                sort(tail);
+            }
+            merge_runs(arr, &mut vec![0, p, n]);
+        };
     }
-    let simd_rule = merge::simd_rule_applies::<T>(arr.len());
-    let random_runs =
-        check_random_runs && !simd_rule && starts_with_random_runs(arr, known.ascending_prefix);
+    let simd_rule = merge::simd_rule_applies::<T>(n);
+    let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, p);
     let (sorted, equal_pairs) = if random_runs {
         (false, known.probes.map_or(0, |p| p.equal()))
     } else {
@@ -84,17 +83,10 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     if random_runs {
         trace!("random_runs");
     }
-    if sorted {
-        trace!("repaired");
-        return;
-    }
-    if detect(arr, equal_pairs) {
-        return;
-    }
-    if random_runs || can_skip_verge(arr) {
-        trace!("no_verge");
-        sort(arr);
-        return;
+    chain! {
+        "repaired" if sorted => do {};
+        _ => try detect(arr, equal_pairs);
+        "no_verge" if random_runs || can_skip_verge(arr) => do { sort(arr) };
     }
     // Verge: the unsorted chunks are recorded, sorted after the merge rule.
     let base = arr.as_ptr() as usize;
@@ -110,19 +102,21 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
     let levels = (usize::BITS - segments.saturating_sub(1).leading_zeros()) as usize;
     let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS;
     let unpredictable = merges_unpredictable(arr, &separators, &chunks, levels);
-    if unpredictable && !simd_merge {
-        trace!("verge_whole");
-        sort(arr);
-        return;
-    }
-    trace!(if unpredictable { "verge_simd_merge" } else { "verge_merge" });
-    for &(start, len) in chunks.iter() {
-        sort(&mut arr[start..start + len]);
-    }
-    if unpredictable {
-        merge::merge_runs_simd(arr, &mut separators);
-    } else {
-        merge_runs(arr, &mut separators);
+    let sort_chunks = |arr: &mut [T]| {
+        for &(start, len) in chunks.iter() {
+            sort(&mut arr[start..start + len]);
+        }
+    };
+    chain! {
+        "verge_whole" if unpredictable && !simd_merge => do { sort(arr) };
+        "verge_simd_merge" if unpredictable => do {
+            sort_chunks(arr);
+            merge::merge_runs_simd(arr, &mut separators);
+        };
+        "verge_merge" => do {
+            sort_chunks(arr);
+            merge_runs(arr, &mut separators);
+        };
     }
 }
 

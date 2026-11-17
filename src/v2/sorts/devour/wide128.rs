@@ -80,10 +80,8 @@ fn bits_of<T: Key128>(arr: &mut [T]) -> &mut [u128] {
 
 pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
     let n = arr.len();
-    if n <= SMALL {
-        trace!("std_small");
-        arr.sort_unstable();
-        return;
+    chain! {
+        "std_small" if n <= SMALL => do { arr.sort_unstable() };
     }
     let known = match presorted(arr) {
         Ok(()) => {
@@ -95,8 +93,8 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
     // A long sorted prefix goes to the tail-first path of `radix_path`
     // without the narrowing scan.
     let tail_first = crate::v2::decide::path::tail_first(n, known.ascending_prefix);
-    if !tail_first && crate::v2::dev::trace::hit(narrow(arr), "narrow128") {
-        return;
+    chain! {
+        "narrow128" if !tail_first => try narrow(arr);
     }
     radix_path(
         arr,
