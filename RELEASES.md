@@ -1,3 +1,27 @@
+# Version **1.2.2** (November 2026)
+
+### Bug fix:
+
+- Sorting `f32` / `f64` arrays (or structs with a float key) that contain NaN
+panicked, from about ten elements on (the comparison parts of the sorts, such
+as the small-array fallbacks and the run detection, cannot compare a NaN).
+NaNs are now set aside before sorting: negative NaNs first, positive NaNs
+last (each group in the order of its bits), the other values sorted between
+them. This applies to the trait methods (`voracious_sort`,
+`voracious_stable_sort`, `voracious_mt_sort`) and to the public sorts
+(`american_flag_sort`, `counting_sort`, `dlsd_radixsort`, `lsd_radixsort`,
+`lsd_stable_radixsort`, `msd_radixsort`, `msd_stable_radixsort`,
+`peeka_sort`, `rollercoaster_sort`, `ska_sort`, `thiel_radixsort`,
+`voracious_sort`).
+
+### Performance:
+
+- Float sorts read the array once more before sorting, to find NaNs; an
+already sorted float array is now returned at once. Integer types are not
+affected. **The performance of this release has not been measured**: small
+regressions are possible on float arrays. Version 2.0 will replace these
+sorts.
+
 # Version **1.2.1** (November 15<sup>th</sup> 2026)
 
 ### Bug fix:
