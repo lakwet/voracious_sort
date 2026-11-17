@@ -8,14 +8,11 @@
 use super::merge::{merge_all_half, merge_all_kway, merge_asc_desc, merge_two};
 use super::sort_encoded;
 
-/// Shortest array tried for Verge on the elements.
-pub(super) const VERGE_MIN: usize = 4096;
 
 /// Runs kept: at least `max(n / RUN_DIV, RUN_MIN)` keys; Verge tried when
-/// `TURN_DIV * turns <= n`.
+/// `decide::records::TURN_DIV * turns <= n`.
 pub(crate) const RUN_DIV: usize = 64;
 pub(crate) const RUN_MIN: usize = 64;
-pub(crate) const TURN_DIV: usize = 4;
 /// Predictable merges of more than two segments of records of at least
 /// this size: k-way rounds too (below, rounds through half a buffer).
 pub(crate) const KWAY_BRANCHY_MIN: usize = 128;
