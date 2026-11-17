@@ -1,7 +1,4 @@
 //! Stable LSD on the records themselves (small records beyond the cache).
-//! (Kept apart from `by_key::lsd`, which prefaults its buffer: 14-23 %
-//! faster on 8-byte records Unif / Small1 at 3M-10M but 1.6 times slower on
-//! Int 0..n at 10M, Surface sentinel 2026-11-17: to understand first.)
 
 use std::mem::MaybeUninit;
 

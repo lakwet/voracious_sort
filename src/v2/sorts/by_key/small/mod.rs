@@ -14,6 +14,7 @@
 //!
 //! Keys too wide for a u128 with their index fall back to `sort_by`.
 
+mod few;
 mod lsd;
 mod merge;
 mod verge;
@@ -22,7 +23,7 @@ use crate::v2::dev::trace::hit;
 use std::mem::MaybeUninit;
 
 use super::packed::{sort_in_place, sort_into};
-use super::few::few_keys;
+use few::few_keys;
 use lsd::lsd;
 use verge::{verge, VERGE_MIN};
 
