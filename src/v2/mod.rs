@@ -2,8 +2,10 @@
 //! library.
 //!
 //! - `integers`, `floats`, `records`: the sorts (entry points);
-//! - `pipeline`: the steps shared by every key type (presorted check,
-//!   near-sorted repair, Verge, merges);
+//! - `pipeline`: the radix path shared by every key type (presorted check,
+//!   near-sorted repair, detectors, Verge, merges);
+//! - `inspect`: already sorted, nearly sorted (and its repair);
+//! - `runs`: Verge (long runs kept) and the merges;
 //! - `detect`: distributions sorted faster than by a radix sort;
 //! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
 //! - `engines`: also the sorting networks and merges for short arrays
@@ -24,5 +26,7 @@ pub(crate) mod detect;
 pub(crate) mod engines;
 pub(crate) mod floats;
 pub(crate) mod integers;
+pub(crate) mod inspect;
 pub(crate) mod pipeline;
 pub(crate) mod records;
+pub(crate) mod runs;

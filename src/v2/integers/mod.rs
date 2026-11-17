@@ -28,7 +28,7 @@ use super::detect::{spread, DENSE_MIN, SAMPLE};
 use super::engines::dlsd::{di64, du64};
 use super::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
 use super::engines::roller::{ri32, ri64, ru32, ru64};
-use super::pipeline::presorted::presorted;
+use super::inspect::presorted::presorted;
 use super::pipeline::radix_path;
 use super::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::dev::trace::hit;

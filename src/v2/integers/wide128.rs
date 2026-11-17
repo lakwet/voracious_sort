@@ -17,7 +17,7 @@
 use super::super::detect::heavy::heavy_from;
 use super::super::engines::dlsd::{di128, du128};
 use super::super::engines::roller::{ri128, ru128};
-use super::super::pipeline::presorted::presorted;
+use super::super::inspect::presorted::presorted;
 use super::super::pipeline::radix_path;
 use super::{devour_sort2, DevourSort2};
 

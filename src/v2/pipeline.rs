@@ -7,14 +7,9 @@
 //!    segments merged — or the whole array sorted when the merges would be
 //!    unpredictable (they then cost more than a radix sort).
 
-pub(crate) mod merge;
-mod near_sorted;
-pub(crate) mod presorted;
-pub(crate) mod verge;
-
-use merge::{merge_runs, predictable_merge};
-use presorted::{repair_nearly_sorted, Unsorted};
-use verge::{compute_big_enough_run, explore_forward_asc, verge_sort_preprocessing_fast};
+use super::inspect::presorted::{repair_nearly_sorted, Unsorted};
+use super::runs::merge::{self, merge_runs, predictable_merge};
+use super::runs::verge::{compute_big_enough_run, explore_forward_asc, verge_sort_preprocessing_fast};
 
 /// Merge levels from which dense merges cost more than a radix sort (see
 /// `merges_unpredictable`).
@@ -58,7 +53,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
         let tail = &mut arr[p..];
         if tail.len() >= TAIL_PATH_MIN {
             radix_path(tail, Unsorted::default(), check_random_runs, detect, sort);
-        } else if presorted::presorted(tail).is_err() {
+        } else if super::inspect::presorted::presorted(tail).is_err() {
             sort(tail);
         }
         merge_runs(arr, &mut vec![0, p, n]);

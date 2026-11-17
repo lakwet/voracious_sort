@@ -159,7 +159,7 @@ pub(super) fn merge_all<T, E: Fn(&T) -> u128>(arr: &mut [T], bounds: &[usize], e
 
 /// Stable merge of `src[s..m]` and `src[m..e]` into `dst[s..e]`, from both
 /// ends at once without branches (two independent chains of loads and
-/// selects, as `pipeline::merge::bidir`): as many two-ended steps as the
+/// selects, as `runs::merge::bidir`): as many two-ended steps as the
 /// shorter run has elements, then the middle merged forward.
 ///
 /// # Safety

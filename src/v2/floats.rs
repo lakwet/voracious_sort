@@ -18,7 +18,7 @@ use super::detect::heavy::{heavy_from, HEAVY_MIN};
 use super::engines::dlsd::d64;
 use super::engines::lsd::w32;
 use super::engines::roller::{r32, r64};
-use super::pipeline::presorted::{presorted, Unsorted};
+use super::inspect::presorted::{presorted, Unsorted};
 use super::pipeline::radix_path;
 use super::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::dev::trace::hit;

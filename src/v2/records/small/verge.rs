@@ -1,6 +1,6 @@
 //! Verge on the records: long runs kept, the gaps sorted, all merged.
 
-use super::super::super::pipeline::verge::compute_big_enough_run;
+use super::super::super::runs::verge::compute_big_enough_run;
 use super::merge::{merge_all, merge_two};
 use super::sort_encoded;
 
