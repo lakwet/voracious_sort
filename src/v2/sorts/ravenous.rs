@@ -7,7 +7,7 @@
 //! 1. at most 32 keys: a sorting network;
 //! 2. detectors: constant array, integer range, power-of-two grid;
 //! 3. small arrays: `sort_unstable` on the encoded keys;
-//! 4. the radix path (`pipeline`), with few distinct values and heavy
+//! 4. the radix path (`decide::path`), with few distinct values and heavy
 //!    hitters as detectors; chunks sorted by the fused LSD (f32) or the DLSD
 //!    (f64), the rollercoaster beyond the cache.
 //!
@@ -19,7 +19,7 @@ use crate::v2::engines::dlsd::d64;
 use crate::v2::engines::lsd::w32;
 use crate::v2::engines::roller::{r32, r64};
 use crate::v2::inspect::presorted::{presorted, Unsorted};
-use crate::v2::pipeline::radix_path;
+use crate::v2::decide::path::radix_path;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::decide::chunks::{self, Engine};
 use crate::v2::dev::trace::hit;

@@ -7,7 +7,7 @@
 //! 2. already sorted, reversed or constant arrays (one scan);
 //! 3. 8-bit keys: counted over their 256 values;
 //! 4. small arrays: `sort_unstable`;
-//! 5. the radix path (`pipeline`), with the integer detectors (ranges,
+//! 5. the radix path (`decide::path`), with the integer detectors (ranges,
 //!    plateaus, few values, heavy hitters, dense ranges); chunks sorted by
 //!    the fused LSD (8 to 32 bits) or the DLSD (64 bits), the rollercoaster
 //!    beyond the cache (32 bits: only on ordered keys).
@@ -29,7 +29,7 @@ use crate::v2::engines::dlsd::{di64, du64};
 use crate::v2::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
 use crate::v2::engines::roller::{ri32, ri64, ru32, ru64};
 use crate::v2::inspect::presorted::presorted;
-use crate::v2::pipeline::radix_path;
+use crate::v2::decide::path::radix_path;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::dev::trace::hit;
 use keys::*;

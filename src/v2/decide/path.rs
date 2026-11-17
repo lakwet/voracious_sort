@@ -1,11 +1,22 @@
-//! The radix path shared by all key types, after the presorted check:
+//! The radix path shared by all key types, after the presorted check. The
+//! first matching line wins (`trace!` label in brackets):
 //!
-//! 1. sorted random runs (sorted sources interleaved): straight to step 4;
-//! 2. repair of nearly sorted arrays;
-//! 3. the detectors of the key type (few values, ranges, heavy hitters...);
-//! 4. Verge: long runs kept, the rest sorted by the engine (`sort`), the
-//!    segments merged — or the whole array sorted when the merges would be
-//!    unpredictable (they then cost more than a radix sort).
+//! | when                                             | then                                         |
+//! |--------------------------------------------------|----------------------------------------------|
+//! | sorted prefix of at least n / 2 keys             | the tail alone through the path (from        |
+//! |                                                  | `TAIL_PATH_MIN` keys), one merge [tail_first] |
+//! | two long ascending runs first (n / log2 n),      | no repair, no Verge: detectors, then the     |
+//! | merged unpredictably, no SIMD merge rule         | engine on the whole array [random_runs]      |
+//! | few breaks of order (presorted probes)           | repaired in place [repaired]                 |
+//! | a detector of the key type sorts it              | done [range, few, heavy, dense, plateaus...] |
+//! | no monotone run of n / log2 n (`RUN_PROBE`       | the engine on the whole array [no_verge]     |
+//! | pairs probed on a grid)                          |                                              |
+//! | merges unpredictable (`merges_unpredictable`),   | the engine on the whole array [verge_whole]  |
+//! | no SIMD merge                                    |                                              |
+//! | else                                             | Verge: runs kept, gaps by the engine, merged |
+//! |                                                  | [verge_merge; verge_simd_merge by blocks]    |
+//!
+//! The engine of each chunk: `decide::chunks`.
 
 use crate::v2::inspect::presorted::{repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs, predictable_merge};

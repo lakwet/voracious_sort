@@ -1,18 +1,17 @@
 //! Version 2: the radix sorts with all the improvements, beside the 1.x
 //! library.
 //!
-//! - `sorts`: the sorts (entry points): `devour` (integers, `char`),
-//!   `ravenous` (floats), `by_key` (records);
-//! - `pipeline`: the radix path shared by every key type (presorted check,
-//!   near-sorted repair, detectors, Verge, merges);
+//! - `sorts`: the entry points: `devour` (integers, `char`), `ravenous`
+//!   (floats), `by_key` (records);
+//! - `decide`: the rules, as tables: the radix path every key type goes
+//!   through (`path`), the engine of each chunk (`chunks`), the shapes read
+//!   on samples (`shape`);
 //! - `inspect`: already sorted, nearly sorted (and its repair);
+//! - `special`: distributions sorted faster than by a radix sort (narrow
+//!   ranges, few values, heavy hitters, dense ranges, plateaus);
 //! - `runs`: Verge (long runs kept) and the merges;
-//! - `special`: distributions sorted faster than by a radix sort
-//!   (narrow ranges, few values, heavy hitters, dense ranges, plateaus);
-//! - `decide`: the rules (which engine, which path), as tables;
-//! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
-//! - `engines`: also the sorting networks and merges for short arrays
-//!   (`small`);
+//! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster), the
+//!   counting sort, the sorting networks and merges of short arrays;
 //! - `cache`: cache sizes detected at run time;
 //! - `dev`: the decision trace (feature `v2_trace`) and the switch of the
 //!   rule under test (trace and sentinel bench compare both sides).
@@ -23,12 +22,11 @@
 
 #[macro_use]
 pub(crate) mod dev;
-pub(crate) mod cache;
 #[macro_use]
 pub(crate) mod special;
+pub(crate) mod cache;
 pub(crate) mod decide;
 pub(crate) mod engines;
 pub(crate) mod inspect;
-pub(crate) mod pipeline;
 pub(crate) mod runs;
 pub(crate) mod sorts;
