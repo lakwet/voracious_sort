@@ -11,35 +11,43 @@
 //! The chains of the sorts are written with `chain!`: one line per rule.
 
 /// A decision chain: rules tried in order, the first one that sorts the
-/// array returns from the function. A rule is a trace label, an optional
-/// guard (`if ...`), then either
+/// array returns from the function (or closure). A rule is a trace label,
+/// an optional guard (`if ...`), then either
 /// - `do { ... }`: an action that always sorts (its label noted first), or
 /// - `try expr`: an attempt returning whether it sorted (the label noted
 ///   when it did).
 ///
 /// `_` in place of the label: an attempt noting its own labels (a group of
-/// detectors). It expands to the plain `if` chain (no indirection).
+/// detectors). A first line `return value;` gives the value returned (the
+/// detector groups return `true`). It expands to the plain `if` chain (no
+/// indirection).
 macro_rules! chain {
-    () => {};
-    ($label:literal $(if $cond:expr)? => do $body:block; $($rest:tt)*) => {
+    (@ ($($r:expr)?)) => {};
+    (@ ($($r:expr)?) $label:literal $(if $cond:expr)? => do $body:block; $($rest:tt)*) => {
         if true $(&& $cond)? {
             trace!($label);
             $body;
-            return;
+            return $($r)?;
         }
-        chain!($($rest)*);
+        chain!(@ ($($r)?) $($rest)*);
     };
-    ($label:literal $(if $cond:expr)? => try $e:expr; $($rest:tt)*) => {
+    (@ ($($r:expr)?) $label:literal $(if $cond:expr)? => try $e:expr; $($rest:tt)*) => {
         if true $(&& $cond)? && $crate::v2::dev::trace::hit($e, $label) {
-            return;
+            return $($r)?;
         }
-        chain!($($rest)*);
+        chain!(@ ($($r)?) $($rest)*);
     };
-    (_ $(if $cond:expr)? => try $e:expr; $($rest:tt)*) => {
+    (@ ($($r:expr)?) _ $(if $cond:expr)? => try $e:expr; $($rest:tt)*) => {
         if true $(&& $cond)? && $e {
-            return;
+            return $($r)?;
         }
-        chain!($($rest)*);
+        chain!(@ ($($r)?) $($rest)*);
+    };
+    (return $r:expr; $($rules:tt)*) => {
+        chain!(@ ($r) $($rules)*);
+    };
+    ($($rules:tt)*) => {
+        chain!(@ () $($rules)*);
     };
 }
 

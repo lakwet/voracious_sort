@@ -22,7 +22,6 @@ use std::mem::MaybeUninit;
 use crate::v2::decide::chunks::{self, Engine};
 use crate::v2::decide::path::radix_path;
 use crate::v2::decide::shape::clustered;
-use crate::v2::dev::trace::hit;
 use crate::v2::engines::counting::domain_count;
 use crate::v2::engines::dlsd::{di64, du64};
 use crate::v2::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
@@ -106,25 +105,30 @@ fn sort_integers<T: IntSort>(arr: &mut [T]) {
 /// among the probes of the near-sorted repair.
 fn detect<T: IntSort>(arr: &mut [T], equal_pairs: usize) -> bool {
     let mut sample = spread(arr);
-    hit(T::range(arr, &sample), "range")
-        || hit(plateaus(arr, equal_pairs), "plateaus")
-        || hit(T::few(arr, &sample), "few")
-        || (arr.len() >= HEAVY_MIN
-            && (arr.len() >= DENSE_MIN || may_be_heavy(&sample, |x, y| x == y))
-            && {
-                sample.sort_unstable();
-                hit(
-                    heavy_sorted_by(
-                        arr,
-                        &sample,
-                        HEAVY_MIN,
-                        &|r: &mut [T]| devour_sort2(r),
-                        |x, y| x == y,
-                        |x, y| x < y,
-                    ),
-                    "heavy",
-                ) || (arr.len() >= DENSE_MIN && hit(T::dense(arr, &sample), "dense"))
-            })
+    chain! {
+        return true;
+        "range" => try T::range(arr, &sample);
+        "plateaus" => try plateaus(arr, equal_pairs);
+        "few" => try T::few(arr, &sample);
+    }
+    // Heavy keys and dense ranges: the sample in order.
+    if arr.len() < HEAVY_MIN || (arr.len() < DENSE_MIN && !may_be_heavy(&sample, |x, y| x == y)) {
+        return false;
+    }
+    sample.sort_unstable();
+    chain! {
+        return true;
+        "heavy" => try heavy_sorted_by(
+            arr,
+            &sample,
+            HEAVY_MIN,
+            &|r: &mut [T]| devour_sort2(r),
+            |x, y| x == y,
+            |x, y| x < y,
+        );
+        "dense" if arr.len() >= DENSE_MIN => try T::dense(arr, &sample);
+    }
+    false
 }
 
 /// 8 to 32 bits: the fused LSD or the rollercoaster (`decide::chunks`).

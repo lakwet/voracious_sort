@@ -15,7 +15,6 @@
 
 use crate::v2::decide::chunks::{self, Engine};
 use crate::v2::decide::path::radix_path;
-use crate::v2::dev::trace::hit;
 use crate::v2::engines::dlsd::d64;
 use crate::v2::engines::lsd::w32;
 use crate::v2::engines::roller::{r32, r64};
@@ -175,18 +174,19 @@ fn sort_f32(arr: &mut [f32]) {
         Unsorted::default()
     };
     let detect = |a: &mut [f32], _| {
-        (presorted_first && hit(detect32(a), "float_detect"))
-            || hit(few32(a), "few")
-            || hit(
-                heavy_from(
-                    a,
-                    HEAVY_MIN,
-                    &|r: &mut [f32]| ravenous_sort2(r),
-                    f32_bits::same,
-                    f32_bits::less,
-                ),
-                "heavy",
-            )
+        chain! {
+            return true;
+            "float_detect" if presorted_first => try detect32(a);
+            "few" => try few32(a);
+            "heavy" => try heavy_from(
+                a,
+                HEAVY_MIN,
+                &|r: &mut [f32]| ravenous_sort2(r),
+                f32_bits::same,
+                f32_bits::less,
+            );
+        }
+        false
     };
     let sort_chunk = |chunk: &mut [f32]| {
         if chunks::f32(chunk.len()) == Engine::Roller {
@@ -227,18 +227,19 @@ fn sort_f64(arr: &mut [f64]) {
     };
     let buffer = std::cell::RefCell::new(Vec::new());
     let detect = |a: &mut [f64], _| {
-        (presorted_first && hit(detect64(a), "float_detect"))
-            || hit(few64(a), "few")
-            || hit(
-                heavy_from(
-                    a,
-                    HEAVY_MIN,
-                    &|r: &mut [f64]| ravenous_sort2(r),
-                    f64_bits::same,
-                    f64_bits::less,
-                ),
-                "heavy",
-            )
+        chain! {
+            return true;
+            "float_detect" if presorted_first => try detect64(a);
+            "few" => try few64(a);
+            "heavy" => try heavy_from(
+                a,
+                HEAVY_MIN,
+                &|r: &mut [f64]| ravenous_sort2(r),
+                f64_bits::same,
+                f64_bits::less,
+            );
+        }
+        false
     };
     let sort_chunk = |chunk: &mut [f64]| {
         if chunks::f64(chunk.len()) == Engine::Roller {

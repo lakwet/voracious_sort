@@ -101,18 +101,18 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         known,
         true,
         &|a: &mut [T], _| {
-            use crate::v2::dev::trace::hit;
-            hit(few(a), "few")
-                || hit(
-                    heavy_from(
-                        a,
-                        HEAVY_MIN,
-                        &|r: &mut [T]| devour_sort2(r),
-                        |x, y| x == y,
-                        |x, y| x < y,
-                    ),
-                    "heavy",
-                )
+            chain! {
+                return true;
+                "few" => try few(a);
+                "heavy" => try heavy_from(
+                    a,
+                    HEAVY_MIN,
+                    &|r: &mut [T]| devour_sort2(r),
+                    |x, y| x == y,
+                    |x, y| x < y,
+                );
+            }
+            false
         },
         &|chunk: &mut [T]| {
             if crate::v2::decide::chunks::wide(chunk.len())
