@@ -143,31 +143,44 @@ struct Variant<'a, T> {
 
 /// The two fastest rivals of each type (geometric mean over every
 /// distribution and size, benchbilan of 2026-11-17 on the Ryzen 3950X, Core
-/// Ultra 185H and Core i5-4690K: `tools/bench_best_rivals.py`). char: the
-/// only two rivals that sort it. Records without measures: as the measured
-/// record of their size class.
-fn best_rivals(label: &str) -> [&'static str; 2] {
+/// Ultra 185H and Core i5-4690K: `tools/bench_best_rivals.py`), and a third
+/// one where it beats the v2 on cases the two do not
+/// (`tools/bench_third_rival.py`; in brackets its strongest case, time over
+/// v2's). char: the only two rivals that sort it. Records without measures:
+/// as the measured record of their size class.
+fn best_rivals(label: &str) -> &'static [&'static str] {
     match label {
-        "u32" | "i32" | "f32" | "u16" | "u8" => ["blazing", "turbosort"],
-        "u64" | "i64" => ["blazing", "glidesort"],
-        "i16" | "i8" => ["blazing", "radsort"],
-        "f64" => ["turbosort", "glidesort"],
-        "u128" | "i128" => ["radsort", "rdst"],
-        "char" => ["radsort", "glidesort"],
-        l if l.starts_with("records") && l.ends_with(" 8B") => ["radsort", "rdst"],
-        l if l.starts_with("records") => ["glidesort", "radsort"],
-        _ => ["", ""],
+        // glidesort: Runs 8 10M 0.63, Sparse 90 % 1k 0.63-0.66.
+        "u32" | "i32" => &["blazing", "turbosort", "glidesort"],
+        // glidesort: Sparse 90 % / Zeros +- 1k 0.73-0.76.
+        "f32" => &["blazing", "turbosort", "glidesort"],
+        "u16" | "u8" => &["blazing", "turbosort"],
+        // rdst: Clusters 10M 0.84.
+        "u64" => &["blazing", "glidesort", "rdst"],
+        // turbosort: Asc / Desc 0.89-0.91.
+        "i64" => &["blazing", "glidesort", "turbosort"],
+        // glidesort: Asc Saw 100k 0.79.
+        "i16" => &["blazing", "radsort", "glidesort"],
+        "i8" => &["blazing", "radsort"],
+        // radsort: Timestamps 50k 0.71.
+        "f64" => &["turbosort", "glidesort", "radsort"],
+        "u128" | "i128" => &["radsort", "rdst"],
+        "char" => &["radsort", "glidesort"],
+        // glidesort: Asc / Desc Saw 5M 0.35-0.38 (139 cases).
+        l if l.starts_with("records") && l.ends_with(" 8B") => &["radsort", "rdst", "glidesort"],
+        // rdst: Unif / Composite 1M-10M 0.59-0.61 (54 cases).
+        l if l.starts_with("records") => &["glidesort", "radsort", "rdst"],
+        _ => &[],
     }
 }
 
 /// `BENCH_SORTS`: the sorts kept (the first one, v2, always: the reference);
-/// `best`: std, v1, v2 (stable and unstable for the records) and the two
-/// best rivals of the type (`best_rivals`).
+/// `best`: std, v1, v2 (stable and unstable for the records) and the best
+/// rivals of the type (`best_rivals`).
 fn keep_sorts<'a, T>(label: &str, v: Vec<Variant<'a, T>>) -> Vec<Variant<'a, T>> {
     let list = match std::env::var("BENCH_SORTS") {
         Ok(list) if list.trim() == "best" => {
-            let [a, b] = best_rivals(label);
-            format!("std,std unstable,v1,v1 stable,v2 unstable,{},{}", a, b)
+            format!("std,std unstable,v1,v1 stable,v2 unstable,{}", best_rivals(label).join(","))
         },
         Ok(list) => list,
         Err(_) => return v,

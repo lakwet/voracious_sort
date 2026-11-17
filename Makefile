@@ -99,7 +99,8 @@ benchbilan: ## every type against every sort, 1k to 10M, generic build: the list
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
 # Benchmarks by type (src/tests/bench): v2, v1, std (stable or unstable as
-# the case) and the two best rivals of the type (bench_cpu: best_rivals),
+# the case) and the best rivals of the type: two, a third when it beats
+# the v2 on its own cases (bench_cpu: best_rivals),
 # 1k to 10M, generic build, one output file bench-cpu-*.txt.
 #   make bench-type T=u32      one key type (u8 ... i128, f32, f64, char)
 #   make bench-keys            every key type
