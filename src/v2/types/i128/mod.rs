@@ -1,4 +1,4 @@
-//! u128: the whole decision chain of this type (copy of the shared 128-bit
+//! i128: the whole decision chain of this type (copy of the shared 128-bit
 //! chain of 2026-11-17; edit here only, see `types`). Narrowing, few values
 //! and the 128-bit engines: `sorts::devour::wide128`.
 //!
@@ -11,7 +11,7 @@
 use crate::v2::cache::{budget, Budget};
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
 use crate::v2::dev::ab::new_rule;
-use crate::v2::fixes::presorted128;
+mod presorted;
 use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
@@ -30,12 +30,12 @@ const HEAVY_MIN: usize = 512;
 /// 64-bit threshold L2 / 12).
 fn roller_min() -> usize { budget(Budget::Roller128) / 24 }
 
-pub(crate) fn sort(arr: &mut [u128]) {
+pub(crate) fn sort(arr: &mut [i128]) {
     let n = arr.len();
     chain! {
         "std_small" if n <= SMALL => do { arr.sort_unstable() };
     }
-    let checked = if new_rule() { presorted128::presorted(arr) } else { presorted(arr) };
+    let checked = if new_rule() { self::presorted::presorted(arr) } else { presorted(arr) };
     let known = match checked {
         Ok(()) => {
             trace!("presorted");
@@ -51,7 +51,7 @@ pub(crate) fn sort(arr: &mut [u128]) {
     path(
         arr,
         known,
-        &|a: &mut [u128], _| {
+        &|a: &mut [i128], _| {
             // One spread sample for both (heavy reads it from `HEAVY_MIN`).
             let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
             chain! {
@@ -61,20 +61,20 @@ pub(crate) fn sort(arr: &mut [u128]) {
                     a,
                     sample.unwrap(),
                     HEAVY_MIN,
-                    &|r: &mut [u128]| sort(r),
+                    &|r: &mut [i128]| sort(r),
                     |x, y| x == y,
                     |x, y| x < y,
                 );
             }
             false
         },
-        &|chunk: &mut [u128]| {
+        &|chunk: &mut [i128]| {
             if chunk.len() >= roller_min() {
                 trace!("roller");
-                <u128 as Key128>::roller(bits_of(chunk));
+                <i128 as Key128>::roller(bits_of(chunk));
             } else {
                 trace!("dlsd");
-                <u128 as Key128>::dlsd(bits_of(chunk));
+                <i128 as Key128>::dlsd(bits_of(chunk));
             }
         },
     );
@@ -83,10 +83,10 @@ pub(crate) fn sort(arr: &mut [u128]) {
 /// The radix path (copy of `decide::path` of 2026-11-17); the first matching
 /// rule wins.
 fn path(
-    arr: &mut [u128],
+    arr: &mut [i128],
     known: Unsorted,
-    detect: &dyn Fn(&mut [u128], usize) -> bool,
-    sort: &dyn Fn(&mut [u128]),
+    detect: &dyn Fn(&mut [i128], usize) -> bool,
+    sort: &dyn Fn(&mut [i128]),
 ) {
     let n = arr.len();
     let p = known.ascending_prefix;
@@ -104,7 +104,7 @@ fn path(
             merge_runs(arr, &mut vec![0, p, n]);
         };
     }
-    let simd_rule = merge::simd_rule_applies::<u128>(n);
+    let simd_rule = merge::simd_rule_applies::<i128>(n);
     let random_runs = !simd_rule && starts_with_random_runs(arr, p);
     let (sorted, equal_pairs) = if random_runs {
         (false, known.probes.map_or(0, |p| p.equal()))
@@ -123,8 +123,8 @@ fn path(
     let base = arr.as_ptr() as usize;
     let chunks: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
     let mut separators =
-        verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [u128], _| {
-            let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<u128>();
+        verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [i128], _| {
+            let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<i128>();
             chunks.borrow_mut().push((start, chunk.len()));
         });
     let chunks = chunks.into_inner();
@@ -133,7 +133,7 @@ fn path(
     let levels = (usize::BITS - segments.saturating_sub(1).leading_zeros()) as usize;
     let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS;
     let unpredictable = merges_unpredictable(arr, &separators, &chunks, levels);
-    let sort_chunks = |arr: &mut [u128]| {
+    let sort_chunks = |arr: &mut [i128]| {
         for &(start, len) in chunks.iter() {
             sort(&mut arr[start..start + len]);
         }

@@ -1,4 +1,4 @@
-//! Copy of `inspect::presorted::presorted` for the 128-bit keys (v1 lost by
+//! i128: copy of `inspect::presorted::presorted` (v1 lost by
 //! 12-18 % on sorted u128 / i128): the ascending scan is the v1 one, 4
 //! pairs at a time with an exit at the first descent.
 

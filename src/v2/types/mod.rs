@@ -1,8 +1,10 @@
 //! One decision chain per key type: everything that decides how an array of
 //! that type is sorted (small arrays, presorted check, detector order, radix
 //! path rules, engine of each chunk, thresholds). A fix for one type is made
-//! in its file only, so no other type moves (method of 2026-11-17: copy,
-//! route, change the copy only; factor what is shared once every type wins).
+//! in its file only, so no other type moves; a type that needs a changed
+//! piece of shared code gets a folder with its copy (`u128/presorted.rs`).
+//! Method of 2026-11-17: copy, route, change the copy only; factor what is
+//! shared once every type wins.
 //!
 //! Shared by all (not decisions): the engines (`engines`), the detectors
 //! themselves (`special`), the inspections (`inspect`, `decide::shape`,
@@ -12,15 +14,15 @@
 //! Inventory, against the shared chain the files were copied from
 //! (2026-11-17):
 //!
-//! | file        | differences                                          |
-//! |-------------|------------------------------------------------------|
-//! | u8, i8      | none                                                 |
-//! | u16, i16    | none                                                 |
-//! | u32, i32    | none                                                 |
-//! | u64, i64    | none                                                 |
-//! | u128, i128  | none (`presorted128` under test, behind `new_rule`)  |
-//! | f32, f64    | none                                                 |
-//! | char        | none (its own copy of the u32 chain)                 |
+//! | file        | differences                                             |
+//! |-------------|---------------------------------------------------------|
+//! | u8, i8      | none                                                    |
+//! | u16, i16    | none                                                    |
+//! | u32, i32    | none                                                    |
+//! | u64, i64    | none                                                    |
+//! | u128, i128  | own `presorted` (v1 scan by 4 pairs), behind `new_rule` |
+//! | f32, f64    | none                                                    |
+//! | char        | none (its own copy of the u32 chain)                    |
 //!
 //! `usize` / `isize` go to the type of their width (`sorts::devour`).
 //!

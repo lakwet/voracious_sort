@@ -22,7 +22,6 @@
 
 #[macro_use]
 pub(crate) mod dev;
-pub(crate) mod fixes;
 #[macro_use]
 pub(crate) mod special;
 pub(crate) mod cache;
