@@ -57,13 +57,13 @@
 use std::io::Write;
 use std::sync::atomic::Ordering::Relaxed;
 
-use super::super::generators as g;
-use super::super::generators::records::*;
-use super::super::v2::cache::{l2_bytes, page_bytes, reported_l2, reported_levels, Budget, BUDGETS, BUDGET_OVERRIDE, L2_OVERRIDE};
-use super::super::v2::sorts::ravenous::ravenous_sort2;
-use super::super::v2::sorts::devour::devour_sort2;
-use super::super::v2::sorts::by_key;
-use super::super::RadixSort;
+use crate::generators as g;
+use crate::generators::records::*;
+use crate::v2::cache::{l2_bytes, page_bytes, reported_l2, reported_levels, Budget, BUDGETS, BUDGET_OVERRIDE, L2_OVERRIDE};
+use crate::v2::sorts::ravenous::ravenous_sort2;
+use crate::v2::sorts::devour::devour_sort2;
+use crate::v2::sorts::by_key;
+use crate::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
@@ -593,7 +593,7 @@ fn bench_cpu() {
     // merges go 4-way (one move per two levels) instead of 2-way (cheaper
     // steps): the default 32 was measured on the Snapdragon X.
     if cfg.part("rparams") {
-        use super::super::v2::sorts::by_key::FOUR_WAY_MIN;
+        use crate::v2::sorts::by_key::FOUR_WAY_MIN;
         let with = |b: usize| move || FOUR_WAY_MIN.store(b, Relaxed);
         macro_rules! rparams {
             ($label:expr, $ty:ty, $gens:expr) => {
@@ -634,7 +634,7 @@ fn bench_cpu() {
         // bytes (256 buckets, eight passes). 2048 write streams need more
         // L1 lines and TLB entries than some cores have (Zen 2: 32 KiB L1).
         if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
-            use super::super::v2::sorts::by_key::LSD11;
+            use crate::v2::sorts::by_key::LSD11;
             type R = Rec<u64, 2>;
             let disorder: Gens<R> = wrap(keys_u64(), rec::<u64, 2>)
                 .into_iter()
@@ -727,7 +727,7 @@ fn bench_cpu() {
     // the LSD is faster at 10M+ on the Core Ultra 9 185H, the MSD on the
     // Ryzen 9 3950X up to 1G in 2020). One array per measurement.
     if cfg.part("big") {
-        use super::super::v2::cache::Budget as B;
+        use crate::v2::cache::Budget as B;
         // Three arrays live (batch, working copy, buffer): up to 3/4 of the
         // RAM unless BENCH_MEM_MB says otherwise.
         let memory = if std::env::var("BENCH_MEM_MB").is_ok() { cfg.memory } else { total_ram().map_or(cfg.memory, |r| r / 4 * 3) };

@@ -2,7 +2,7 @@ use rayon::prelude::*;
 
 use std::time::Instant;
 
-use super::super::{RadixKey, Radixable};
+use crate::{RadixKey, Radixable};
 
 /// Sample standard deviation of the measured times (Bessel's correction:
 /// divided by `n - 1`, since the mean is estimated from the same runs).

@@ -15,7 +15,7 @@
 //! side, default 5, the median kept). Results also go to
 //! `traces/sentinel-last.txt`.
 
-use super::super::v2::dev::ab::NEW_RULE;
+use crate::v2::dev::ab::NEW_RULE;
 use super::cells::{env_size, parse_key, visit, Visit};
 use std::collections::BTreeSet;
 use std::sync::atomic::Ordering::Relaxed;

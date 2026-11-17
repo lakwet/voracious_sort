@@ -1,14 +1,11 @@
-mod bench_cpu;
-mod cells;
-mod sentinel;
-mod trace;
+mod bench;
+mod tools;
 mod comparative_sort;
 mod dedicated;
 mod v2;
 mod v2_cases;
 mod v2_matrix;
 mod histograms;
-mod miri;
 mod nan;
 mod regions_graph;
 #[rustfmt::skip] mod sorts;
@@ -17,7 +14,3 @@ mod types;
 mod utils;
 mod utils_mt;
 mod verge_sort_heuristic;
-
-mod test_helpers;
-#[rustfmt::skip] mod speed_sort;
-// #[rustfmt::skip] mod speed_sort_ded;

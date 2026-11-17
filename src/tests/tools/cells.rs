@@ -3,11 +3,11 @@
 //! at every run, whatever the cells kept). Records: `r<bytes><key>`
 //! (`ru…`: the unstable sort).
 
-use super::super::generators as g;
-use super::super::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
-use super::super::v2::sorts::by_key;
-use super::super::v2::sorts::devour::devour_sort2;
-use super::super::v2::sorts::ravenous::ravenous_sort2;
+use crate::generators as g;
+use crate::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
+use crate::v2::sorts::by_key;
+use crate::v2::sorts::devour::devour_sort2;
+use crate::v2::sorts::ravenous::ravenous_sort2;
 
 /// Sizes of every type; the 32- and 64-bit keys add `BIG`.
 pub(super) const SIZES: [usize; 10] =

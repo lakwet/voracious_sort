@@ -32,7 +32,7 @@ build-release-single: ## build in release mode without multithread sort
 	@cargo build --release
 
 # Usage: make bench speed_test_u64 (any test name or filter, e.g. speed_dedicated)
-# The speed modules must be enabled in src/tests/mod.rs (see README).
+# The speed modules must be enabled in src/tests/bench/mod.rs (see README).
 BENCH_ARGS := $(filter-out bench,$(MAKECMDGOALS))
 ifeq ($(OS),Windows_NT)
 # Avoid the dlltool dependency of getrandom on the windows-gnu toolchain.
@@ -125,30 +125,30 @@ benchbigrivals: ## u32 / f32 at 30M and 100M against v1, glidesort, blazing, rad
 
 benchnuit: benchlsd32 benchbigrivals ## the two above in a row (~2-3 h)
 
-# Method (see src/tests/trace.rs, src/tests/sentinel.rs): a change goes
+# Method (see src/tests/tools/trace.rs, src/tests/tools/sentinel.rs): a change goes
 # trace-ab (which cells move) -> sentinel (time those cells and controls).
 trace: ## decision trace against the reference of this CPU (no timing; ~10 min, TRACE_MAX=10M ~1 min)
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
 
 trace-ab: export TRACE_AB = 1
 trace-ab: ## cells moved by the rule under test (v2::dev::ab), list in traces/moved.txt
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
 
 trace-write: export TRACE_WRITE = 1
 trace-write: ## write the reference trace of this CPU (after a commit that moves cells)
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
 
 trace-ref: export TRACE_WRITE = 1
 trace-ref: ## new machine: update dev, write its reference trace, show the file to send (~20-30 min, no timing)
 	git checkout dev
 	git pull
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
+	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
 	@echo "File to send:"
 	@git status --short --untracked-files=all traces
 
 sentinel: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
 sentinel: ## rule under test off / on on the moved cells + controls (minutes)
-	@cargo test --release --lib --features "voracious_multithread" tests::sentinel -- --ignored --nocapture --test-threads=1
+	@cargo test --release --lib --features "voracious_multithread" tests::tools::sentinel -- --ignored --nocapture --test-threads=1
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

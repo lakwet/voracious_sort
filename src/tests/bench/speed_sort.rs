@@ -2,67 +2,67 @@
 use rayon::prelude::*;
 
 #[allow(unused_imports)]
-use super::super::{RadixSort, Radixable, RadixKey};
+use crate::{RadixSort, Radixable, RadixKey};
 
 #[allow(unused_imports)]
-use super::super::sorts::american_flag_sort::american_flag_sort;
+use crate::sorts::american_flag_sort::american_flag_sort;
 #[allow(unused_imports)]
-use super::super::sorts::boolean_sort::boolean_sort;
+use crate::sorts::boolean_sort::boolean_sort;
 #[allow(unused_imports)]
-use super::super::sorts::comparative_sort::insertion_sort;
+use crate::sorts::comparative_sort::insertion_sort;
 #[allow(unused_imports)]
-use super::super::sorts::counting_sort::counting_sort;
+use crate::sorts::counting_sort::counting_sort;
 #[allow(unused_imports)]
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
+use crate::sorts::dlsd_sort::dlsd_radixsort;
 #[allow(unused_imports)]
-use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
+use crate::sorts::rollercoaster_sort::rollercoaster_sort;
 #[allow(unused_imports)]
-use super::super::sorts::lsd_sort::{lsd_radixsort, lsd_radixsort_heu};
+use crate::sorts::lsd_sort::{lsd_radixsort, lsd_radixsort_heu};
 #[allow(unused_imports)]
-use super::super::sorts::lsd_stable_sort::lsd_stable_radixsort;
+use crate::sorts::lsd_stable_sort::lsd_stable_radixsort;
 #[allow(unused_imports)]
-use super::super::sorts::msd_sort::msd_radixsort;
+use crate::sorts::msd_sort::msd_radixsort;
 #[allow(unused_imports)]
-use super::super::sorts::msd_stable_sort::msd_stable_radixsort;
+use crate::sorts::msd_stable_sort::msd_stable_radixsort;
 #[allow(unused_imports)]
-use super::super::sorts::ska_sort::ska_sort;
+use crate::sorts::ska_sort::ska_sort;
 #[allow(unused_imports)]
-use super::super::sorts::peeka_sort::peeka_sort;
+use crate::sorts::peeka_sort::peeka_sort;
 #[allow(unused_imports)]
-use super::super::sorts::awardofthesky_sort::awardofthesky_sort;
+use crate::sorts::awardofthesky_sort::awardofthesky_sort;
 #[allow(unused_imports)]
-use super::super::sorts::voracious_sort::{voracious_sort, voracious_sort_heu};
+use crate::sorts::voracious_sort::{voracious_sort, voracious_sort_heu};
 
 #[allow(unused_imports)]
-use super::super::generators::boolean::*;
+use crate::generators::boolean::*;
 #[allow(unused_imports)]
-use super::super::generators::char::*;
+use crate::generators::char::*;
 #[allow(unused_imports)]
-use super::super::generators::custom::*;
+use crate::generators::custom::*;
 #[allow(unused_imports)]
-use super::super::generators::float_32::*;
+use crate::generators::float_32::*;
 #[allow(unused_imports)]
-use super::super::generators::float_64::*;
+use crate::generators::float_64::*;
 #[allow(unused_imports)]
-use super::super::generators::signed_i128::*;
+use crate::generators::signed_i128::*;
 #[allow(unused_imports)]
-use super::super::generators::signed_i16::*;
+use crate::generators::signed_i16::*;
 #[allow(unused_imports)]
-use super::super::generators::signed_i32::*;
+use crate::generators::signed_i32::*;
 #[allow(unused_imports)]
-use super::super::generators::signed_i64::*;
+use crate::generators::signed_i64::*;
 #[allow(unused_imports)]
-use super::super::generators::signed_i8::*;
+use crate::generators::signed_i8::*;
 #[allow(unused_imports)]
-use super::super::generators::unsigned_u128::*;
+use crate::generators::unsigned_u128::*;
 #[allow(unused_imports)]
-use super::super::generators::unsigned_u16::*;
+use crate::generators::unsigned_u16::*;
 #[allow(unused_imports)]
-use super::super::generators::unsigned_u32::*;
+use crate::generators::unsigned_u32::*;
 #[allow(unused_imports)]
-use super::super::generators::unsigned_u64::*;
+use crate::generators::unsigned_u64::*;
 #[allow(unused_imports)]
-use super::super::generators::unsigned_u8::*;
+use crate::generators::unsigned_u8::*;
 
 use super::test_helpers::helper_sort_aux;
 

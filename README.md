@@ -214,7 +214,7 @@ The speed tests are regular `#[test]` functions hidden in the test suite. They
 are disabled by default because they are slow and print a colored table meant
 for humans.
 
-1. **Enable the modules** in `src/tests/mod.rs` by uncommenting these lines
+1. **Enable the modules** in `src/tests/bench/mod.rs` by uncommenting these lines
    (`test_helpers` is required by both speed modules):
    ```rust
    mod test_helpers;
@@ -222,7 +222,7 @@ for humans.
    #[rustfmt::skip] mod speed_sort_ded;
    ```
 
-2. **Pick what to compare** in `src/tests/speed_sort.rs`, function
+2. **Pick what to compare** in `src/tests/bench/speed_sort.rs`, function
    `helper_sort`:
    - `sorts_name`: the column titles, uncomment the sorts you want.
    - the `helper_sort_aux(...)` calls: uncomment the matching sorts, **in the
@@ -238,7 +238,7 @@ for humans.
    - for floats (`f32`, `f64`), replace the `T: Ord` bound of `helper_sort` with
      the commented `T: PartialOrd` one.
 
-   `src/tests/speed_sort_ded.rs` benchmarks the dedicated sorts (`lsd_f32`,
+   `src/tests/bench/speed_sort_ded.rs` benchmarks the dedicated sorts (`lsd_f32`,
    `lsd_u32`, `cs_u16`) against `blazing-radix`.
 
 3. **Run** in release mode, with `--nocapture` to see the output and a single
