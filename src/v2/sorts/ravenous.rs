@@ -13,14 +13,14 @@
 //!
 //! NaN is not supported yet (the Verge step compares with `<`).
 
-use super::special::floats::{detect32, detect64, few32, few64};
-use super::special::heavy::{heavy_from, HEAVY_MIN};
-use super::engines::dlsd::d64;
-use super::engines::lsd::w32;
-use super::engines::roller::{r32, r64};
-use super::inspect::presorted::{presorted, Unsorted};
-use super::pipeline::radix_path;
-use super::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use crate::v2::special::floats::{detect32, detect64, few32, few64};
+use crate::v2::special::heavy::{heavy_from, HEAVY_MIN};
+use crate::v2::engines::dlsd::d64;
+use crate::v2::engines::lsd::w32;
+use crate::v2::engines::roller::{r32, r64};
+use crate::v2::inspect::presorted::{presorted, Unsorted};
+use crate::v2::pipeline::radix_path;
+use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::dev::trace::hit;
 
 /// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
@@ -31,13 +31,13 @@ const SMALL_F64: usize = 700;
 /// From this chunk size f64 goes to the rollercoaster instead of the DLSD:
 /// L2 / 48, where the DLSD's keys and buffer take a third of the L2.
 fn roller_min_f64() -> usize {
-    super::cache::budget(super::cache::Budget::RollerF64) / 48
+    crate::v2::cache::budget(crate::v2::cache::Budget::RollerF64) / 48
 }
 
 /// From this chunk size f32 goes to the rollercoaster instead of the fused
 /// LSD: L2 / 12.
 fn roller_min_f32() -> usize {
-    super::cache::budget(super::cache::Budget::RollerF32) / 12
+    crate::v2::cache::budget(crate::v2::cache::Budget::RollerF32) / 12
 }
 
 mod sealed {

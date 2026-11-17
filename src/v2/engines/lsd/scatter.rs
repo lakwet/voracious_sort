@@ -118,7 +118,7 @@ macro_rules! lsd_scatters {
         /// buckets of a top digit never reach it). The 16 relates to the
         /// cache associativity: machine dependent, measured on ARM only.
         fn aliased<C: Counter, const R: usize>(heads: &[C; R], size: usize) -> bool {
-            super::super::super::cache::crowded((0..R).map(|b| {
+            crate::v2::cache::crowded((0..R).map(|b| {
                 let start = heads[b].get();
                 let end = if b + 1 < R { heads[b + 1].get() } else { size };
                 (start * std::mem::size_of::<$uint>(), (end - start) * std::mem::size_of::<$uint>())

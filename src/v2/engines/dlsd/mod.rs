@@ -43,13 +43,13 @@ const GROUP_INSERTION: usize = 16;
 /// bytes of keys (below, keys and buffer mostly stay in L2, where staging
 /// costs more than it saves).
 fn alias_min_bytes() -> usize {
-    super::super::cache::budget(super::super::cache::Budget::AliasFloat) / 3 * 4
+    crate::v2::cache::budget(crate::v2::cache::Budget::AliasFloat) / 3 * 4
 }
 
 /// Integers: from L2 / 32 bytes (integer sequences give regular bucket sizes
 /// whose aliased streams cost even inside L2).
 fn alias_min_bytes_int() -> usize {
-    super::super::cache::budget(super::super::cache::Budget::AliasInt) / 32
+    crate::v2::cache::budget(crate::v2::cache::Budget::AliasInt) / 32
 }
 
 /// Keys narrowed to 64 or 32 bits when their range fits (128-bit keys only).
@@ -80,9 +80,9 @@ impl WideNarrow for u128 {
             return false;
         }
         if raw {
-            super::super::integers::wide128::narrow_keys(keys, min, range, enc, dec);
+            crate::v2::sorts::devour::wide128::narrow_keys(keys, min, range, enc, dec);
         } else {
-            super::super::integers::wide128::narrow_keys(keys, min, range, |k| k, dec);
+            crate::v2::sorts::devour::wide128::narrow_keys(keys, min, range, |k| k, dec);
         }
         true
     }

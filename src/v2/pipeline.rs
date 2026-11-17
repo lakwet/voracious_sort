@@ -7,9 +7,9 @@
 //!    segments merged — or the whole array sorted when the merges would be
 //!    unpredictable (they then cost more than a radix sort).
 
-use super::inspect::presorted::{repair_nearly_sorted, Unsorted};
-use super::runs::merge::{self, merge_runs, predictable_merge};
-use super::runs::verge::{compute_big_enough_run, explore_forward_asc, verge_sort_preprocessing_fast};
+use crate::v2::inspect::presorted::{repair_nearly_sorted, Unsorted};
+use crate::v2::runs::merge::{self, merge_runs, predictable_merge};
+use crate::v2::runs::verge::{compute_big_enough_run, explore_forward_asc, verge_sort_preprocessing_fast};
 
 /// Merge levels from which dense merges cost more than a radix sort (see
 /// `merges_unpredictable`).
@@ -53,7 +53,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
         let tail = &mut arr[p..];
         if tail.len() >= TAIL_PATH_MIN {
             radix_path(tail, Unsorted::default(), check_random_runs, detect, sort);
-        } else if super::inspect::presorted::presorted(tail).is_err() {
+        } else if crate::v2::inspect::presorted::presorted(tail).is_err() {
             sort(tail);
         }
         merge_runs(arr, &mut vec![0, p, n]);
@@ -159,7 +159,7 @@ fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
 /// cheaper (f32 600k 4.9 against 7.2, f64 100k 4.6 against 6.5). Chunks are
 /// not sorted yet: only run-run pairs are sampled.
 fn merges_unpredictable<T: Copy + PartialOrd>(arr: &[T], separators: &[usize], chunks: &[(usize, usize)], levels: usize) -> bool {
-    let beyond = std::mem::size_of_val(arr) > super::cache::largest_bytes() / 4;
+    let beyond = std::mem::size_of_val(arr) > crate::v2::cache::largest_bytes() / 4;
     let dense_levels = beyond && levels >= DENSE_LEVELS;
     let narrow = std::mem::size_of::<T>() <= 2;
     if separators.len() < if narrow { 3 } else { 4 } {

@@ -1,7 +1,7 @@
 //! Tight clusters: where the DLSD's prefix would be sized for a few pairs
 //! of keys, the LSD is used instead.
 
-use super::super::integers::keys::Key;
+use crate::v2::sorts::devour::keys::Key;
 
 /// Tight clusters (many groups of nearby keys spread over the whole
 /// range): on a sorted spread sample, the bits that separate neighbours

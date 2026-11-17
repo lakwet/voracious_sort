@@ -19,18 +19,18 @@ pub(crate) mod wide128;
 
 use std::mem::MaybeUninit;
 
-use super::cache::{budget, Budget};
-use super::special::clusters::clustered;
-use super::engines::counting::domain_count;
-use super::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
-use super::special::plateaus::plateaus;
-use super::special::{spread, DENSE_MIN, SAMPLE};
-use super::engines::dlsd::{di64, du64};
-use super::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
-use super::engines::roller::{ri32, ri64, ru32, ru64};
-use super::inspect::presorted::presorted;
-use super::pipeline::radix_path;
-use super::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use crate::v2::cache::{budget, Budget};
+use crate::v2::special::clusters::clustered;
+use crate::v2::engines::counting::domain_count;
+use crate::v2::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
+use crate::v2::special::plateaus::plateaus;
+use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
+use crate::v2::engines::dlsd::{di64, du64};
+use crate::v2::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
+use crate::v2::engines::roller::{ri32, ri64, ru32, ru64};
+use crate::v2::inspect::presorted::presorted;
+use crate::v2::pipeline::radix_path;
+use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::dev::trace::hit;
 use keys::*;
 

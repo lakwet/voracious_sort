@@ -3,7 +3,7 @@
 //! they fit, else a u128: sorted by `devour_sort2`, equal keys keep their
 //! index order (stable).
 
-use super::super::integers::devour_sort2;
+use crate::v2::sorts::devour::devour_sort2;
 use super::permute::permute;
 
 /// The packed (key, index) sort, then the permutation applied in place by

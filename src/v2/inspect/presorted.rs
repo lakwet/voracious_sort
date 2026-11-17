@@ -3,7 +3,7 @@
 //! sorted ones. What a failed scan learned is passed on.
 
 use super::near_sorted::{repair_ascending, repair_ascending_from};
-use super::super::runs::verge::{explore_forward_asc, explore_forward_desc};
+use crate::v2::runs::verge::{explore_forward_asc, explore_forward_desc};
 
 /// From this size the direction of a descending-ended array is first
 /// checked on spread pairs (below, a direct scan costs less).

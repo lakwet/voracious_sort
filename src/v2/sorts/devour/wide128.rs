@@ -14,11 +14,11 @@
 //!   apart there), then the small groups sharing that prefix finished; the
 //!   rollercoaster above the cache.
 
-use super::super::special::heavy::heavy_from;
-use super::super::engines::dlsd::{di128, du128};
-use super::super::engines::roller::{ri128, ru128};
-use super::super::inspect::presorted::presorted;
-use super::super::pipeline::radix_path;
+use crate::v2::special::heavy::heavy_from;
+use crate::v2::engines::dlsd::{di128, du128};
+use crate::v2::engines::roller::{ri128, ru128};
+use crate::v2::inspect::presorted::presorted;
+use crate::v2::pipeline::radix_path;
 use super::{devour_sort2, DevourSort2};
 
 /// Up to this size: `sort_unstable`.
@@ -94,7 +94,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
     };
     // A long sorted prefix goes to the tail-first path of `radix_path`
     // without the narrowing scan.
-    let tail_first = super::super::pipeline::tail_first(n, known.ascending_prefix);
+    let tail_first = crate::v2::pipeline::tail_first(n, known.ascending_prefix);
     if !tail_first && crate::v2::dev::trace::hit(narrow(arr), "narrow128") {
         return;
     }
@@ -122,7 +122,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
 /// leaves in cache) instead of the DLSD: L2 / 24 (keys of 16 bytes, as the
 /// 64-bit threshold L2 / 12).
 fn roller_min() -> usize {
-    super::super::cache::budget(super::super::cache::Budget::Roller128) / 24
+    crate::v2::cache::budget(crate::v2::cache::Budget::Roller128) / 24
 }
 
 /// Narrowing (see the module doc). Returns whether the keys were sorted.

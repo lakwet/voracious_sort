@@ -1,11 +1,11 @@
 //! Verge on the records: long runs kept, the gaps sorted, all merged.
 
-use super::super::runs::verge::compute_big_enough_run;
+use crate::v2::runs::verge::compute_big_enough_run;
 use super::merge::{merge_all, merge_two};
 use super::sort_encoded;
 
-
-
+/// Shortest array tried for Verge on the elements.
+pub(super) const VERGE_MIN: usize = 4096;
 
 /// Verge on the elements: runs of at least n / log2(n) keys (ascending, or
 /// strictly descending and then reversed: still stable) are kept, the gaps
@@ -63,9 +63,9 @@ pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
         bounds.push(n);
     }
     if bounds.len() == 3 {
-        merge_two(arr, bounds[1], enc, true);
+        merge_two(arr, bounds[1], enc);
     } else {
-        merge_all(arr, &bounds, enc, true);
+        merge_all(arr, &bounds, enc);
     }
     true
 }

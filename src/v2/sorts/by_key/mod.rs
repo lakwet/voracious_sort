@@ -401,13 +401,13 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // Beyond half the L2 the moves of the records dominate: the LSD on small
     // records, Verge on the records (both fed by the first read).
     let size = std::mem::size_of::<T>();
-    let beyond_cache = n.saturating_mul(size) > super::cache::budget(super::cache::Budget::Records) / 2;
+    let beyond_cache = n.saturating_mul(size) > crate::v2::cache::budget(crate::v2::cache::Budget::Records) / 2;
     let small_records = size <= 8 && beyond_cache;
     let mut hist = if small_records { vec![[0usize; 256]; 8] } else { Vec::new() };
     // The MSD's passes read and swap at random across the array: up to
     // twice the cache (beyond, the packed sort moves each record once).
     let msd_ok = unstable() && size >= UNSTABLE_MSD_MIN && n >= VERGE_MIN
-        && n.saturating_mul(size) <= 2 * super::cache::budget(super::cache::Budget::Records);
+        && n.saturating_mul(size) <= 2 * crate::v2::cache::budget(crate::v2::cache::Budget::Records);
     let try_verge = n >= VERGE_MIN && beyond_cache;
     let mut drops = if small_records || try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
     let mut turn_at = if small_records || try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };

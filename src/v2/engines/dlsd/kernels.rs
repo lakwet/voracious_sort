@@ -49,7 +49,7 @@ macro_rules! dlsd_kernels {
         /// Whether the bucket starts (`heads`, exclusive prefix sums) crowd on a few
         /// line positions of a page (see `cache::crowded`).
         fn aliased(heads: &[u32], n: usize) -> bool {
-            super::super::super::cache::crowded((0..heads.len()).map(|b| {
+            crate::v2::cache::crowded((0..heads.len()).map(|b| {
                 let start = heads[b] as usize;
                 let end = if b + 1 < heads.len() { heads[b + 1] as usize } else { n };
                 (start * std::mem::size_of::<$uint>(), (end - start) * std::mem::size_of::<$uint>())

@@ -5,9 +5,9 @@
 
 use super::super::generators as g;
 use super::super::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
-use super::super::v2::records;
-use super::super::v2::floats::ravenous_sort2;
-use super::super::v2::integers::devour_sort2;
+use super::super::v2::sorts::by_key;
+use super::super::v2::sorts::ravenous::ravenous_sort2;
+use super::super::v2::sorts::devour::devour_sort2;
 
 /// Sizes of every type; the 32- and 64-bit keys add `BIG`.
 pub(super) const SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_000, 600_000, 1_000_000, 3_000_000, 10_000_000];
@@ -115,11 +115,11 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
             }
         };
     }
-    rec!("r8u32", u32, 1, keys_u32(), records::devour_sort_by_key, usize::MAX);
-    rec!("r16u64", u64, 2, keys_u64(), records::devour_sort_by_key, usize::MAX);
-    rec!("r32u64", u64, 6, keys_u64(), records::devour_sort_by_key, usize::MAX);
-    rec!("r128u32", u32, 31, keys_u32(), records::devour_sort_by_key, 1_000_000);
-    rec!("ru16u64", u64, 2, keys_u64(), records::devour_sort_unstable_by_key, usize::MAX);
+    rec!("r8u32", u32, 1, keys_u32(), by_key::devour_sort_by_key, usize::MAX);
+    rec!("r16u64", u64, 2, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
+    rec!("r32u64", u64, 6, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
+    rec!("r128u32", u32, 31, keys_u32(), by_key::devour_sort_by_key, 1_000_000);
+    rec!("ru16u64", u64, 2, keys_u64(), by_key::devour_sort_unstable_by_key, usize::MAX);
 }
 
 /// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment.

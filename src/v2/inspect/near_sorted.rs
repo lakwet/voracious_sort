@@ -15,7 +15,7 @@
 //! prefix is sorted), so the caller sorts it as usual. On random data it
 //! gives up after a few dozen elements.
 
-use super::super::runs::verge::explore_forward_asc;
+use crate::v2::runs::verge::explore_forward_asc;
 
 /// Most kept elements set aside at once by `misplaced_tail`.
 const TAIL_MAX: usize = 8;

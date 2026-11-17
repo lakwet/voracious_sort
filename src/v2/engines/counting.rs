@@ -4,8 +4,8 @@
 //! (repeated values would otherwise wait on the same counter). At most
 //! 2^32 - 1 keys (`u32` counters).
 
-use super::super::cache::{budget, Budget};
-use super::super::integers::keys::Key;
+use crate::v2::cache::{budget, Budget};
+use crate::v2::sorts::devour::keys::Key;
 
 /// Narrow-range counting in one pass over the keys, without a min / max
 /// pass: the keys are counted in a window around the sample range (twice

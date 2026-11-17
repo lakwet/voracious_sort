@@ -15,7 +15,7 @@ const BENCH_SIZES: [usize; 10] = [1_000, 10_000, 30_000, 50_000, 100_000, 200_00
 /// every type, every generator, every benchmark size and the thresholds.
 #[test]
 fn test_v2_devour_sort2() {
-    use super::super::v2::integers::{devour_sort2, DevourSort2};
+    use super::super::v2::sorts::devour::{devour_sort2, DevourSort2};
     use super::super::generators::char::generators_char;
     use super::super::generators::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
     use super::super::generators::narrow_extra::{extra_char, extra_i16, extra_i8, extra_u16, extra_u8};
@@ -62,7 +62,7 @@ fn test_v2_devour_sort2() {
 /// integer tests (thresholds and benchmarks), extreme values.
 #[test]
 fn test_v2_devour_sort2_128() {
-    use super::super::v2::integers::{devour_sort2, DevourSort2};
+    use super::super::v2::sorts::devour::{devour_sort2, DevourSort2};
     use super::super::generators::int128_extra::{extra_i128, extra_u128};
     use super::super::generators::signed_i128::generators_i128;
     use super::super::generators::unsigned_u128::generators_u128;
@@ -110,8 +110,8 @@ fn record_sizes(record: usize, max: usize) -> Vec<usize> {
 /// `devour_sort_by_key` checked against the stable `sort_by` on the key
 /// (records carry their original index, so any reordering of equal keys
 /// fails).
-fn check_by_key<T: Clone + PartialEq + std::fmt::Debug + Send, K: super::super::v2::records::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
-    use super::super::v2::records::devour_sort_by_key;
+fn check_by_key<T: Clone + PartialEq + std::fmt::Debug + Send, K: super::super::v2::sorts::by_key::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
+    use super::super::v2::sorts::by_key::devour_sort_by_key;
     for &size in sizes.iter().filter(|&&n| n <= quick_max()) {
         for (gen, name) in gens.iter() {
             let mut arr = gen(size);
@@ -127,8 +127,8 @@ fn check_by_key<T: Clone + PartialEq + std::fmt::Debug + Send, K: super::super::
 /// unstable sort with the keys in order and the same records (both sides
 /// put in one order: key, then the record, whose payload holds its
 /// original index).
-fn check_records<T: Clone + PartialEq + PartialOrd + std::fmt::Debug + Send, K: super::super::v2::records::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
-    use super::super::v2::records::{devour_sort_by_key, devour_sort_unstable_by_key};
+fn check_records<T: Clone + PartialEq + PartialOrd + std::fmt::Debug + Send, K: super::super::v2::sorts::by_key::SortKey>(gens: &super::super::generators::records::Gens<T>, key: fn(&T) -> K, sizes: &[usize], ty: &str) {
+    use super::super::v2::sorts::by_key::{devour_sort_by_key, devour_sort_unstable_by_key};
     let total = |a: &T, b: &T| key(a).encode().cmp(&key(b).encode()).then(a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     for &size in sizes.iter().filter(|&&n| n <= quick_max()) {
         for (gen, name) in gens.iter() {
@@ -224,7 +224,7 @@ fn test_v2_sort_by_key_stability_large() {
 /// same sizes as `ravenous_sort`.
 #[test]
 fn test_v2_ravenous_sort2() {
-    use super::super::v2::floats::ravenous_sort2;
+    use super::super::v2::sorts::ravenous::ravenous_sort2;
     super::dedicated::check_total_order_f32(&|a| ravenous_sort2(a));
     super::dedicated::check_total_order_f64(&|a| ravenous_sort2(a));
 }

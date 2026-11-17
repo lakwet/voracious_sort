@@ -75,7 +75,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
         // merge below (shorter run copied, long predictable stretches), and
         // so do merges beyond the cache, where the extra copy costs more.
         let len = end - start;
-        let in_cache = len * std::mem::size_of::<T>() <= super::super::super::cache::budget(super::super::super::cache::Budget::MergeTwoWay) / 2;
+        let in_cache = len * std::mem::size_of::<T>() <= crate::v2::cache::budget(crate::v2::cache::Budget::MergeTwoWay) / 2;
         // The only merge (two runs: a pipe organ), balanced, beyond the
         // cache: the gap merge (shorter run in the buffer, four chains, no
         // copy back) instead of the one-chain merge below (u64 pipe organ
