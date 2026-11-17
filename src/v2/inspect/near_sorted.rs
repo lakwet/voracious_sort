@@ -28,6 +28,8 @@ const TAIL_MAX: usize = 8;
 /// Out of line: it runs on misplaced elements only.
 #[cold]
 #[inline(never)]
+// `!(a < b)`, not `a >= b`: keys only partially ordered (floats).
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
 fn misplaced_tail<T: Copy + PartialOrd>(arr: &[T], kept: usize, i: usize, x: T) -> Option<usize> {
     if i + 1 >= arr.len() || !(arr[i + 1] < arr[kept - 1]) {
         return None;

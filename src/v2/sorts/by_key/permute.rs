@@ -43,8 +43,8 @@ pub(super) fn permute<T, P: Copy>(
         // span: each element moved once there and back, none dropped.
         unsafe {
             let b = buf.as_mut_ptr() as *mut T;
-            for j in first..=last {
-                b.add(j - first).write(std::ptr::read(a.add(index(perm[j]))));
+            for (j, &p) in perm[first..=last].iter().enumerate() {
+                b.add(j).write(std::ptr::read(a.add(index(p))));
             }
             std::ptr::copy_nonoverlapping(b, a.add(first), span);
         }

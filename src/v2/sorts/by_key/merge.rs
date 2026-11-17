@@ -5,7 +5,6 @@ use std::mem::MaybeUninit;
 /// Stable merge of `arr[..m]` and `arr[m..]` with a buffer the size of the
 /// shorter one: each element moved once (the shorter run copied out, the
 /// merge writing from the end or the start into the array).
-
 pub(super) fn merge_two<T, E: Fn(&T) -> u128>(arr: &mut [T], m: usize, enc: &E, branchy: bool) {
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(m.min(arr.len() - m));
     prefault(&mut buf);

@@ -31,7 +31,7 @@ pub(crate) fn plateaus<T: Copy + Ord>(arr: &mut [T], equal: usize) -> bool {
         runs.push((v, end - start));
         start = end;
     }
-    runs.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    runs.sort_unstable_by_key(|a| a.0);
     let mut pos = 0;
     for &(v, len) in runs.iter() {
         arr[pos..pos + len].fill(v);

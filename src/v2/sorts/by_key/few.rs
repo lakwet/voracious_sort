@@ -40,7 +40,7 @@ pub(super) fn few_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     let mut distinct = 0;
     for i in 0..s as u64 {
         let e =
-            enc(&arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize]);
+            enc(&arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize]);
         if find(e, &mut keys, &mut used).1 {
             distinct += 1;
             if distinct > s / 2 {

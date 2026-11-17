@@ -20,7 +20,7 @@ pub(super) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 
         let a = arr.as_mut_ptr();
         let b = buf.as_mut_ptr() as *mut T;
         for (d, h) in hist.iter().enumerate() {
-            if h.iter().any(|&c| c == n) {
+            if h.contains(&n) {
                 continue;
             }
             let mut heads = [0usize; 256];
@@ -67,7 +67,7 @@ pub(super) fn lsd11<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u64) {
         let b = buf.as_mut_ptr() as *mut T;
         let mut heads = vec![0usize; B];
         for (d, h) in hist.iter().enumerate() {
-            if h.iter().any(|&c| c == n) {
+            if h.contains(&n) {
                 continue;
             }
             let mut s = 0;

@@ -98,7 +98,7 @@ macro_rules! int_range {
                 if <$uint>::BITS >= 32 && n <= u32::MAX as usize {
                     let wide =
                         ((budget(Budget::WideCount) / 8).min(n / WIDE_KEYS_PER_COUNTER)) as u128;
-                    if (hi as i128 - lo as i128) as u128 + 1 <= wide {
+                    if ((hi as i128 - lo as i128) as u128) < wide {
                         let (lo, hi) =
                             values.iter().fold((lo, hi), |(l, h), &v| (l.min(v), h.max(v)));
                         let span = (hi as i128 - lo as i128) as u128 + 1;
@@ -129,7 +129,7 @@ macro_rules! int_range {
             /// DLSD already sizes its digits from a sample: 10-25 % slower.
             fn offset_sort(values: &mut [$t], lo: $t, hi: $t, rlo: $t, rhi: $t) -> bool {
                 const TOP: $uint = (1 as $uint) << (<$uint>::BITS - 1);
-                let bytes = |x: $uint| (<$uint>::BITS - x.leading_zeros() + 7) / 8;
+                let bytes = |x: $uint| (<$uint>::BITS - x.leading_zeros()).div_ceil(8);
                 let rot = |v: $t| $encode(v as $uint) ^ TOP;
                 let (elo, ehi) = ($encode(lo as $uint), $encode(hi as $uint));
                 let rspan = rot(rhi).wrapping_sub(rot(rlo));

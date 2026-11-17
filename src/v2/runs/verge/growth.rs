@@ -6,6 +6,7 @@
 use super::scan::*;
 
 #[derive(PartialEq, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Orientation {
     IsAsc,
     IsDesc,

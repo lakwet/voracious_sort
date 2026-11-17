@@ -28,6 +28,7 @@ use std::mem::MaybeUninit;
 use crate::v2::decide::records::*;
 use few::few_keys;
 use lsd::lsd;
+#[allow(unused_imports)] // the CPU bench sets it
 pub(crate) use merge::FOUR_WAY_MIN;
 use packed::{sort_in_place, sort_into};
 use verge::verge;
@@ -139,7 +140,7 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
 ) -> Scan {
     let n = arr.len();
     let first = enc(&arr[0]);
-    let (mut lo, mut hi, mut lo2, mut hi2) = (first, first, first, first);
+    let (mut lo, mut lo2, mut hi2) = (first, first, first);
     // `last`: kind of the previous pair (the first pair counts as a turn
     // when it breaks: turns then start with a descending stretch).
     let (mut down, mut turns, mut last) = (0usize, 0usize, false);
@@ -155,7 +156,8 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
         prev = k;
         i += 1;
     }
-    hi = prev;
+    // The prefix's largest key; `lo` stays its first.
+    let mut hi = prev;
     if i == n {
         return Scan { lo, hi, ascending: true, strictly_descending: n == 1, turns: 0, drops: 0 };
     }
@@ -237,7 +239,7 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
 fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E) -> usize {
     let n = arr.len() as u64;
     let mut sample: Vec<u128> = (0..512u64)
-        .map(|i| enc(&arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n >> 32) as usize]))
+        .map(|i| enc(&arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n) >> 32) as usize]))
         .collect();
     sample.sort_unstable();
     sample.dedup();
@@ -527,7 +529,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         trace!("packed_in_place");
         if !sort_in_place(arr, enc, s.lo, key_bits) {
             trace!("std_fallback");
-            arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
+            arr.sort_by_key(|x| enc(x));
         }
         return;
     }
@@ -539,7 +541,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         let dst = buffer.as_mut_ptr() as *mut T;
         if !sort_into(arr.as_ptr(), dst, n, enc, s.lo, key_bits) {
             trace!("std_fallback");
-            arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
+            arr.sort_by_key(|x| enc(x));
             return;
         }
         std::ptr::copy_nonoverlapping(dst, arr.as_mut_ptr(), n);

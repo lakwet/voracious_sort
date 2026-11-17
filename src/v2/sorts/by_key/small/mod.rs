@@ -130,7 +130,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         trace!("packed_in_place");
         if !sort_in_place(arr, enc, s.lo, key_bits) {
             trace!("std_fallback");
-            arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
+            arr.sort_by_key(|x| enc(x));
         }
         return;
     }
@@ -142,7 +142,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         let dst = buffer.as_mut_ptr() as *mut T;
         if !sort_into(arr.as_ptr(), dst, n, enc, s.lo, key_bits) {
             trace!("std_fallback");
-            arr.sort_by(|a, b| enc(a).cmp(&enc(b)));
+            arr.sort_by_key(|x| enc(x));
             return;
         }
         std::ptr::copy_nonoverlapping(dst, arr.as_mut_ptr(), n);

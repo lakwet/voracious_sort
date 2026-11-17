@@ -252,7 +252,7 @@ fn few<T: Key128>(arr: &mut [T]) -> bool {
     let mut distinct = 0;
     let mut seen = [0u8; FEW_TABLE];
     for i in 0..s as u64 {
-        let v = arr[((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64 >> 32) as usize];
+        let v = arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize];
         let (h, new) = find(v, &mut used);
         seen[h] = seen[h].saturating_add(1);
         if new {
@@ -285,7 +285,7 @@ fn few<T: Key128>(arr: &mut [T]) -> bool {
         // SAFETY: a counted slot holds a key.
         .map(|h| (unsafe { keys[h].assume_init() }, counts[h]))
         .collect();
-    found.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    found.sort_unstable_by_key(|a| a.0);
     let mut start = 0;
     for (v, c) in found {
         arr[start..start + c as usize].fill(v);

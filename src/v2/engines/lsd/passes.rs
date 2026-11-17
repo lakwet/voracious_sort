@@ -187,10 +187,10 @@ macro_rules! lsd_passes {
                 },
             };
             if wide {
-                let shifts: [u32; ((BITS + 10) / 11) as usize] =
+                let shifts: [u32; BITS.div_ceil(11) as usize] =
                     std::array::from_fn(|t| 11 * t as u32);
                 let mut tables =
-                    hist_const::<C, 2048, { ((BITS + 10) / 11) as usize }, 2, ENC>(bits, 11);
+                    hist_const::<C, 2048, { BITS.div_ceil(11) as usize }, 2, ENC>(bits, 11);
                 // The aliasing fix exists for byte digits only: aliased
                 // 11-bit passes fall back to bytes.
                 if !wide_aliased(&tables, bits.len()) {

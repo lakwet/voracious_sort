@@ -19,7 +19,7 @@ pub(super) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 
         let a = arr.as_mut_ptr();
         let b = buf.as_mut_ptr() as *mut T;
         for (d, h) in hist.iter().enumerate() {
-            if h.iter().any(|&c| c == n) {
+            if h.contains(&n) {
                 continue;
             }
             let mut heads = [0usize; 256];
