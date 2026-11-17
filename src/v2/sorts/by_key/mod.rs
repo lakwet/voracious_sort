@@ -135,6 +135,7 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
     enc: &E,
     drops: &mut [usize],
     turn_at: &mut [usize],
+    start: (usize, bool),
 ) -> Scan {
     let n = arr.len();
     let first = enc(&arr[0]);
@@ -144,6 +145,13 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
     let (mut down, mut turns, mut last) = (0usize, 0usize, false);
     let mut prev = first;
     let mut i = 1;
+    // `start`: the run at the start already read (by `ends`): ascending of
+    // that length, or descending (shorter than the array).
+    let (known, known_desc) = start;
+    if !known_desc && known > 1 {
+        i = known;
+        prev = enc(&arr[i - 1]);
+    }
     // Ascending prefix first (one comparison per key: sorted arrays read
     // as fast as by an is-sorted check); the scan goes on from its end.
     while i < n {
@@ -160,7 +168,7 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
         return Scan { lo, hi, ascending: true, strictly_descending: n == 1, turns: 0, drops: 0 };
     }
     // Strictly descending from the start: the same, for reversed arrays.
-    if i == 1 {
+    if i == 1 && !known_desc {
         let mut j = 1;
         let mut p = first;
         while j < n {
@@ -234,14 +242,52 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
 /// Distinct keys among 512 spread over the array: 500 or more when the
 /// array likely holds far more than 4096 distinct keys (about 481 expected
 /// for 4096 random keys, at most the number of keys when fewer).
-fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E) -> usize {
-    let n = arr.len() as u64;
-    let mut sample: Vec<u128> = (0..512u64)
-        .map(|i| enc(&arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n) >> 32) as usize]))
-        .collect();
-    sample.sort_unstable();
-    sample.dedup();
-    sample.len()
+fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, sample: &Sample) -> usize {
+    if let Some(d) = sample.distinct.get() {
+        return d;
+    }
+    let mut keys = sample.first(arr, enc, 512);
+    keys.sort_unstable();
+    keys.dedup();
+    sample.distinct.set(Some(keys.len()));
+    keys.len()
+}
+
+/// Encoded keys at the positions frac(i x golden ratio) x n, read as the
+/// tries of the chain ask for them, once per array: `few_keys` reads the
+/// first up to 256 (stopping early), `heavy_keys` the first 256,
+/// `sample_distinct` 512. Valid while nothing moved: the tries give up
+/// before moving anything.
+pub(super) struct Sample {
+    keys: std::cell::RefCell<Vec<u128>>,
+    distinct: std::cell::Cell<Option<usize>>,
+}
+
+impl Sample {
+    pub(super) fn new() -> Self {
+        Sample { keys: std::cell::RefCell::new(Vec::new()), distinct: std::cell::Cell::new(None) }
+    }
+
+    /// Key `i` of the sample.
+    #[inline]
+    pub(super) fn at<T, E: Fn(&T) -> u128>(&self, arr: &[T], enc: &E, i: usize) -> u128 {
+        let mut keys = self.keys.borrow_mut();
+        let n = arr.len() as u64;
+        while keys.len() <= i {
+            let j = keys.len() as u64;
+            let pos = (((j.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n) >> 32) as usize;
+            keys.push(enc(&arr[pos]));
+        }
+        keys[i]
+    }
+
+    /// A copy of the first `k` keys.
+    pub(super) fn first<T, E: Fn(&T) -> u128>(&self, arr: &[T], enc: &E, k: usize) -> Vec<u128> {
+        if k > 0 {
+            self.at(arr, enc, k - 1);
+        }
+        self.keys.borrow()[..k].to_vec()
+    }
 }
 
 /// 32 pairs of neighbours spread over the array all in order: long runs
@@ -306,9 +352,10 @@ fn run_at_end<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, floor: usize) -> (usize,
 /// and the run at the end cover at least 3/4 of the array, only the rest is
 /// sorted, then merged with them (the merges move the shorter side and the
 /// keys out of place). Sorted and strictly descending arrays end here too.
-fn ends<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+fn ends<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, start: &mut (usize, bool)) -> bool {
     let n = arr.len();
     let (p, pdesc) = run_at_start(arr, enc);
+    *start = (p, pdesc);
     if p == n {
         if pdesc {
             arr.reverse();
@@ -358,17 +405,20 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     // them too.
     let size = std::mem::size_of::<T>();
     let small = size <= SMALL_RECORD;
+    let sample = Sample::new();
+    // The run at the start, read by `ends`: not read again by the scan.
+    let mut start = (0, false);
     chain! {
-        "ends" if n >= ENDS_MIN_N => try ends(arr, enc);
+        "ends" if n >= ENDS_MIN_N => try ends(arr, enc, &mut start);
         "std_unstable_dups" if small
             && unstable()
             && n >= UNSTABLE_PDQ_MIN
-            && sample_distinct(arr, enc) < MANY_DISTINCT
+            && sample_distinct(arr, enc, &sample) < MANY_DISTINCT
             => do { arr.sort_unstable_by_key(|x| enc(x)) };
-        "heavy" if small => try heavy::heavy_keys(arr, enc);
+        "heavy" if small => try heavy::heavy_keys(arr, enc, &sample);
         "verge_runs" if small && n >= VERGE_MIN && locally_sorted(arr, enc)
             => try verge::verge_if(arr, enc, true);
-        "small_path" if small => do { small::sort_encoded(arr, enc) };
+        "small_path" if small => do { small::sort_encoded_with(arr, enc, &sample) };
     }
     // Larger records, after one read of the keys. Beyond half the L2 the
     // moves of the records dominate: Verge on the records (fed by the read).
@@ -384,9 +434,9 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     let mut drops = if try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
     let mut turn_at = if try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
     let s = if try_verge || msd_ok {
-        scan::<T, E, true>(arr, enc, &mut drops, &mut turn_at)
+        scan::<T, E, true>(arr, enc, &mut drops, &mut turn_at, start)
     } else {
-        scan::<T, E, false>(arr, enc, &mut drops, &mut turn_at)
+        scan::<T, E, false>(arr, enc, &mut drops, &mut turn_at, start)
     };
     let key_bits = u128::BITS - (s.hi - s.lo).leading_zeros();
     // (key, index) needs a u128 (its packed sort is slow on keys with many
@@ -403,10 +453,10 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         "msd_unstable" if msd_ok && s.turns > 2 && !nearly_sorted(arr, enc, &s, &drops)
             => do { crate::v2::engines::msd::msd(arr, enc, s.lo, s.hi) };
         // The MSD, whose buckets of equal keys end at once, was slower.
-        "unstable_dups" if small_unstable && sample_distinct(arr, enc) < MANY_DISTINCT
+        "unstable_dups" if small_unstable && sample_distinct(arr, enc, &sample) < MANY_DISTINCT
             => do { arr.sort_unstable_by_key(|x| enc(x)) };
-        "few" => try few_keys(arr, enc);
-        "heavy" => try heavy::heavy_keys(arr, enc);
+        "few" => try few_keys(arr, enc, &sample);
+        "heavy" => try heavy::heavy_keys(arr, enc, &sample);
         // In the cache: long runs only (concatenated sorted pieces), found
         // by a second read.
         "verge_few" if !beyond_cache && n >= VERGE_MIN && IN_CACHE_BREAKS_DIV * s.drops <= n
@@ -428,11 +478,12 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         // Keys changing direction rarely (blocks of equal keys): up to 4096
         // distinct keys counted.
         "few_wide" if try_verge
-            && (FEW_WIDE_TURN_DIV * s.turns <= n || sample_distinct(arr, enc) < MANY_DISTINCT)
+            && (FEW_WIDE_TURN_DIV * s.turns <= n
+                || sample_distinct(arr, enc, &sample) < MANY_DISTINCT)
             => try few::few_keys_wide(arr, enc);
         "few_wide_cache" if !beyond_cache
             && n >= IN_CACHE_MIN
-            && sample_distinct(arr, enc) < MANY_DISTINCT
+            && sample_distinct(arr, enc, &sample) < MANY_DISTINCT
             => try few::few_keys_wide(arr, enc);
         "lsd11_cache" if !beyond_cache
             && size <= IN_CACHE_LSD_MAX

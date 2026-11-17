@@ -14,7 +14,11 @@ const SAMPLE: usize = 256;
 /// heavy key's records in a block, all in their order: stable), the other
 /// records are sorted, and one pass moves everything back in key order.
 /// Two moves per record plus the sort of the rest.
-pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    sample: &super::Sample,
+) -> bool {
     let n = arr.len();
     if n < 4096 {
         return false;
@@ -34,11 +38,7 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     if !repeat {
         return false;
     }
-    let mut sample: Vec<u128> = (0..SAMPLE as u64)
-        .map(|i| {
-            enc(&arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize])
-        })
-        .collect();
+    let mut sample = sample.first(arr, enc, SAMPLE);
     sample.sort_unstable();
     let mut heavy: Vec<u128> = Vec::new();
     let mut held = 0;

@@ -21,7 +21,8 @@ use crate::v2::engines::roller::{r32, r64};
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::inspect::presorted::{presorted, Unsorted};
 use crate::v2::special::floats::{detect32, detect64, few32, few64};
-use crate::v2::special::heavy::{heavy_from, HEAVY_MIN};
+use crate::v2::special::heavy::{heavy_from_spread, HEAVY_MIN};
+use crate::v2::special::spread;
 
 /// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
 /// the radix path, median over the distributions, Snapdragon X Elite).
@@ -177,9 +178,15 @@ fn sort_f32(arr: &mut [f32]) {
         chain! {
             return true;
             "float_detect" if presorted_first => try detect32(a);
-            "few" => try few32(a);
-            "heavy" => try heavy_from(
+        }
+        // One spread sample for both (heavy reads it from `HEAVY_MIN`).
+        let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
+        chain! {
+            return true;
+            "few" => try few32(a, sample.as_ref());
+            "heavy" if sample.is_some() => try heavy_from_spread(
                 a,
+                sample.unwrap(),
                 HEAVY_MIN,
                 &|r: &mut [f32]| ravenous_sort2(r),
                 f32_bits::same,
@@ -230,9 +237,15 @@ fn sort_f64(arr: &mut [f64]) {
         chain! {
             return true;
             "float_detect" if presorted_first => try detect64(a);
-            "few" => try few64(a);
-            "heavy" => try heavy_from(
+        }
+        // One spread sample for both (heavy reads it from `HEAVY_MIN`).
+        let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
+        chain! {
+            return true;
+            "few" => try few64(a, sample.as_ref());
+            "heavy" if sample.is_some() => try heavy_from_spread(
                 a,
+                sample.unwrap(),
                 HEAVY_MIN,
                 &|r: &mut [f64]| ravenous_sort2(r),
                 f64_bits::same,

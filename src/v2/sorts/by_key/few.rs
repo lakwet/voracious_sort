@@ -12,7 +12,11 @@ const FEW_TABLE: usize = 1 << FEW_TABLE_BITS;
 /// beyond `FEW_MAX`, nothing moved), the distinct keys are sorted, and one
 /// pass moves every element to its key's next slot in a buffer (stable),
 /// copied back.
-pub(super) fn few_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+pub(super) fn few_keys<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    sample: &super::Sample,
+) -> bool {
     let n = arr.len();
     if n < 128 {
         return false;
@@ -38,9 +42,8 @@ pub(super) fn few_keys<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
         };
     let s = (n / 32).clamp(16, 256);
     let mut distinct = 0;
-    for i in 0..s as u64 {
-        let e =
-            enc(&arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize]);
+    for i in 0..s {
+        let e = sample.at(arr, enc, i);
         if find(e, &mut keys, &mut used).1 {
             distinct += 1;
             if distinct > s / 2 {

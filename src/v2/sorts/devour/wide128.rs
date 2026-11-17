@@ -19,7 +19,8 @@ use crate::v2::decide::path::radix_path;
 use crate::v2::engines::dlsd::{di128, du128};
 use crate::v2::engines::roller::{ri128, ru128};
 use crate::v2::inspect::presorted::presorted;
-use crate::v2::special::heavy::heavy_from;
+use crate::v2::special::heavy::heavy_from_spread;
+use crate::v2::special::{spread, SAMPLE};
 
 /// Up to this size: `sort_unstable`.
 const SMALL: usize = 64;
@@ -101,11 +102,14 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         known,
         true,
         &|a: &mut [T], _| {
+            // One spread sample for both (heavy reads it from `HEAVY_MIN`).
+            let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
             chain! {
                 return true;
-                "few" => try few(a);
-                "heavy" => try heavy_from(
+                "few" => try few(a, sample.as_ref());
+                "heavy" if sample.is_some() => try heavy_from_spread(
                     a,
+                    sample.unwrap(),
                     HEAVY_MIN,
                     &|r: &mut [T]| devour_sort2(r),
                     |x, y| x == y,
@@ -219,7 +223,9 @@ const FEW_MIN: usize = 129;
 /// open-addressing hash table, giving up beyond `FEW_MAX` values with
 /// nothing written; the values are sorted and the array rewritten (same
 /// scheme as the other integer widths).
-fn few<T: Key128>(arr: &mut [T]) -> bool {
+/// `spread`: the shared spread sample when already read (its keys are the
+/// first of this sample).
+fn few<T: Key128>(arr: &mut [T], spread: Option<&[T; SAMPLE]>) -> bool {
     let n = arr.len();
     if n < FEW_MIN || n > u32::MAX as usize {
         return false;
@@ -250,7 +256,10 @@ fn few<T: Key128>(arr: &mut [T]) -> bool {
     let mut distinct = 0;
     let mut seen = [0u8; FEW_TABLE];
     for i in 0..s as u64 {
-        let v = arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize];
+        let v = match spread {
+            Some(sp) if (i as usize) < SAMPLE => sp[i as usize],
+            _ => arr[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize],
+        };
         let (h, new) = find(v, &mut used);
         seen[h] = seen[h].saturating_add(1);
         if new {

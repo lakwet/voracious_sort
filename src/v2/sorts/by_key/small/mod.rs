@@ -21,6 +21,7 @@ mod verge;
 use super::packed::sort_in_place;
 use super::{packed_buffer, std_fallback};
 use super::few::few_keys;
+use super::Sample;
 use lsd::lsd;
 use verge::{verge, VERGE_MIN};
 
@@ -81,6 +82,12 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(
 }
 
 pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
+    sort_encoded_with(arr, enc, &Sample::new());
+}
+
+/// `sort_encoded` with the key sample of the parent chain (same array,
+/// nothing moved since).
+pub(crate) fn sort_encoded_with<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, sample: &Sample) {
     let n = arr.len();
     if n < 2 {
         return;
@@ -103,7 +110,7 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     chain! {
         "presorted" if s.ascending => do {};
         "reversed" if s.strictly_descending => do { arr.reverse() };
-        "few" => try few_keys(arr, enc);
+        "few" => try few_keys(arr, enc, sample);
         // Few turns: long runs likely.
         "verge" if beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n => try verge(arr, enc);
         "lsd" if small_records && s.hi <= u64::MAX as u128 => do { lsd(arr, enc, &hist) };

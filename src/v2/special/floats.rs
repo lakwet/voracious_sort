@@ -9,6 +9,8 @@
 //! A small sample only proposes a case; every value is verified before
 //! anything is written, so a failed detection leaves the array untouched.
 
+use super::SAMPLE;
+
 /// From this size the detectors are tried.
 pub(crate) const DETECT_MIN: usize = 129;
 /// Most distinct values sorted by counting (`few`), and its hash table size
@@ -213,7 +215,9 @@ macro_rules! float_detect {
         /// arrays mostly distinct; one pass counts every value in a small
         /// open-addressing hash table (4 lanes of counters), giving up beyond
         /// `FEW_MAX` values; the array is rewritten from the sorted values.
-        pub(crate) fn $few(values: &mut [$float]) -> bool {
+        /// `spread`: the shared spread sample when already read (its keys
+        /// are the first of this sample).
+        pub(crate) fn $few(values: &mut [$float], spread: Option<&[$float; SAMPLE]>) -> bool {
             let n = values.len();
             if n < DETECT_MIN {
                 return false;
@@ -229,8 +233,13 @@ macro_rules! float_detect {
             let mut used = [false; FEW_TABLE];
             let mut distinct = 0;
             for i in 0..s as u64 {
-                let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
-                let b = values[pos as usize].to_bits();
+                let b = match spread {
+                    Some(sp) if (i as usize) < SAMPLE => sp[i as usize].to_bits(),
+                    _ => {
+                        let pos = ((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32;
+                        values[pos as usize].to_bits()
+                    },
+                };
                 let mut h = hash(b);
                 while used[h] && keys[h] != b {
                     h = (h + 1) & (FEW_TABLE - 1);

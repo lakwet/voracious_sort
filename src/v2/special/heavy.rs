@@ -1,6 +1,6 @@
 //! Heavy hitters: a few values holding a large share of the keys.
 
-use super::{spread, DENSE_MIN, SAMPLE};
+use super::{DENSE_MIN, SAMPLE};
 
 /// Shortest array tried for heavy hitters (keys of 8 to 64 bits; below
 /// `DENSE_MIN` after the `may_be_heavy` filter). 4096 before: sparse data
@@ -22,9 +22,15 @@ pub(crate) const HEAVY_MIN: usize = 2048;
 /// `eq` and `lt`: the equality and order of the keys (floats: same bits and
 /// `total_cmp`, so that -0.0 and +0.0 stay apart). From `min` keys (wider
 /// keys: each comparison and move costs more, the extraction pays off on
-/// shorter arrays).
-pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(
+/// shorter arrays). `sample`: the spread sample (`special::spread`), read
+/// by the caller (shared with the other detectors).
+pub(crate) fn heavy_from_spread<
+    T: Copy,
+    E: Fn(T, T) -> bool + Copy,
+    L: Fn(T, T) -> bool + Copy,
+>(
     arr: &mut [T],
+    mut sample: [T; SAMPLE],
     min: usize,
     sort: &dyn Fn(&mut [T]),
     eq: E,
@@ -33,7 +39,6 @@ pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> boo
     if arr.len() < min {
         return false;
     }
-    let mut sample = spread(arr);
     if arr.len() < DENSE_MIN && !may_be_heavy(&sample, eq) {
         return false;
     }
