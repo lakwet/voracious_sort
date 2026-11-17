@@ -55,6 +55,28 @@ struct Shared<T: 'static>(&'static dyn Fn(usize) -> Vec<T>);
 unsafe impl<T> Send for Shared<T> {}
 unsafe impl<T> Sync for Shared<T> {}
 
+/// A record compared by its key only: the order check of the unstable sorts
+/// (`Rec` compares its payload too, and equal keys may come in any order).
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+struct ByKey<K, const W: usize>(Rec<K, W>);
+
+impl<K: PartialEq, const W: usize> PartialEq for ByKey<K, W> {
+    fn eq(&self, o: &Self) -> bool {
+        self.0.key == o.0.key
+    }
+}
+
+impl<K: PartialOrd, const W: usize> PartialOrd for ByKey<K, W> {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        self.0.key.partial_cmp(&o.0.key)
+    }
+}
+
+fn rec_by_key<K: Copy, const W: usize>(keys: Vec<K>) -> Vec<ByKey<K, W>> {
+    rec::<K, W>(keys).into_iter().map(ByKey).collect()
+}
+
 /// The cells of one type. Inputs are drawn from a seed of the cell (FNV-1a
 /// of its key) in a one-thread pool.
 fn cells<T: Copy + PartialOrd + Send + 'static, V: Visit>(
@@ -210,13 +232,29 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
             }
         };
     }
+    // Unstable: records compared by key only (equal keys in any order).
+    macro_rules! rec_unstable {
+        ($label:expr, $k:ty, $w:expr, $keys:expr, $cap:expr) => {
+            if wants($label) {
+                cells(
+                    v,
+                    &pool,
+                    $label,
+                    wrap($keys, rec_by_key::<$k, $w>),
+                    |a: &mut [ByKey<$k, $w>]| by_key::devour_sort_unstable_by_key(a, |x| x.0.key),
+                    false,
+                    max.min($cap),
+                );
+            }
+        };
+    }
     rec!("r8u32", u32, 1, keys_u32(), by_key::devour_sort_by_key, usize::MAX);
     rec!("r16u64", u64, 2, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
     rec!("r32u64", u64, 6, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
     rec!("r128u32", u32, 31, keys_u32(), by_key::devour_sort_by_key, 1_000_000);
-    rec!("ru8u32", u32, 1, keys_u32(), by_key::devour_sort_unstable_by_key, usize::MAX);
-    rec!("ru16u64", u64, 2, keys_u64(), by_key::devour_sort_unstable_by_key, usize::MAX);
-    rec!("ru128u32", u32, 31, keys_u32(), by_key::devour_sort_unstable_by_key, 1_000_000);
+    rec_unstable!("ru8u32", u32, 1, keys_u32(), usize::MAX);
+    rec_unstable!("ru16u64", u64, 2, keys_u64(), usize::MAX);
+    rec_unstable!("ru128u32", u32, 31, keys_u32(), 1_000_000);
 }
 
 /// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment.
