@@ -89,8 +89,28 @@ fn pass<T, K: Digits, F: Fn(&T) -> K>(arr: &mut [T], key: &F, lo: K, hi: K) {
         sum += count[b];
         tail[b] = sum;
     }
-    // Cycles: the record at the head of bucket `b` goes to the head of its
-    // own bucket, the record found there comes back, until one belongs.
+    cycles(arr, key, shift, &mut head, &tail);
+    let mut start = 0;
+    for b in 0..256 {
+        let end = tail[b];
+        if end - start > 1 && blo[b] != bhi[b] {
+            pass(&mut arr[start..end], key, blo[b], bhi[b]);
+        }
+        start = end;
+    }
+}
+
+/// Cycles: the record at the head of bucket `b` goes to the head of its own
+/// bucket, the record found there comes back, until one belongs. For records
+/// the cycles beat the rounds of `permute` (128-byte records 50k-1M, Surface
+/// sentinel: rounds 1.08 times slower, up to 1.6).
+fn cycles<T, K: Digits, F: Fn(&T) -> K>(
+    arr: &mut [T],
+    key: &F,
+    shift: u32,
+    head: &mut [usize; 256],
+    tail: &[usize; 256],
+) {
     for b in 0..256 {
         while head[b] < tail[b] {
             let i = head[b];
@@ -103,14 +123,6 @@ fn pass<T, K: Digits, F: Fn(&T) -> K>(arr: &mut [T], key: &F, lo: K, hi: K) {
             }
             head[b] = i + 1;
         }
-    }
-    let mut start = 0;
-    for b in 0..256 {
-        let end = tail[b];
-        if end - start > 1 && blo[b] != bhi[b] {
-            pass(&mut arr[start..end], key, blo[b], bhi[b]);
-        }
-        start = end;
     }
 }
 
@@ -133,7 +145,7 @@ fn insertion<T, K: Digits, F: Fn(&T) -> K>(arr: &mut [T], key: &F) {
 /// gives the bucket of an element. Rounds over the unsorted part of every
 /// bucket, each element swapped to the next free slot of its bucket. The
 /// largest bucket is never scanned: it is complete when the others are.
-/// Used by the rollercoaster (`roller`).
+/// Used by the rollercoaster (`roller`) on keys; records take `cycles`.
 #[inline(always)]
 pub(crate) fn permute<T, D: Fn(&T) -> usize>(
     arr: &mut [T],
