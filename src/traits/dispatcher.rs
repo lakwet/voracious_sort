@@ -72,7 +72,7 @@ impl<T: Radixable<char>> Dispatcher<T, char> for char {
                 100_000
             } else if arr.len() < 900_000_000 {
                 200_000
-            } else if arr.len() < 5_000_000_000 {
+            } else if (arr.len() as u64) < 5_000_000_000 {
                 300_000
             } else {
                 // Switch to regions sort algo
@@ -113,7 +113,7 @@ impl<T: Radixable<f32>> Dispatcher<T, f32> for f32 {
                 200_000
             } else if arr.len() < 600_000_000 {
                 150_000
-            } else if arr.len() < 5_000_000_000 {
+            } else if (arr.len() as u64) < 5_000_000_000 {
                 200_000
             } else {
                 // Switch to regions sort algo
@@ -156,7 +156,7 @@ impl<T: Radixable<f64>> Dispatcher<T, f64> for f64 {
                 150_000
             } else if arr.len() < 300_000_000 {
                 200_000
-            } else if arr.len() < 5_000_000_000 {
+            } else if (arr.len() as u64) < 5_000_000_000 {
                 300_000
             } else {
                 // Switch to regions sort algo
@@ -186,7 +186,7 @@ impl<T: Radixable<i8>> Dispatcher<T, i8> for i8 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -215,7 +215,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -243,7 +243,7 @@ impl<T: Radixable<i16>> Dispatcher<T, i16> for i16 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -272,7 +272,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -296,7 +296,7 @@ impl<T: Radixable<i32>> Dispatcher<T, i32> for i32 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -317,7 +317,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -353,7 +353,7 @@ impl<T: Radixable<i64>> Dispatcher<T, i64> for i64 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -390,7 +390,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -410,7 +410,7 @@ impl<T: Radixable<i128>> Dispatcher<T, i128> for i128 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -431,7 +431,7 @@ impl<T: Radixable<isize>> Dispatcher<T, isize> for isize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -459,7 +459,7 @@ impl<T: Radixable<u8>> Dispatcher<T, u8> for u8 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -488,7 +488,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -516,7 +516,7 @@ impl<T: Radixable<u16>> Dispatcher<T, u16> for u16 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -544,7 +544,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -564,7 +564,7 @@ impl<T: Radixable<u32>> Dispatcher<T, u32> for u32 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -585,7 +585,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 1_150_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -617,7 +617,7 @@ impl<T: Radixable<u64>> Dispatcher<T, u64> for u64 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -650,7 +650,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -670,7 +670,7 @@ impl<T: Radixable<u128>> Dispatcher<T, u128> for u128 {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo
@@ -691,7 +691,7 @@ impl<T: Radixable<usize>> Dispatcher<T, usize> for usize {
     fn voracious_mt_sort(&self, arr: &mut [T], thread_n: usize) {
         if arr.len() <= 256 {
             arr.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-        } else if arr.len() < 5_000_000_000 {
+        } else if (arr.len() as u64) < 5_000_000_000 {
             peeka_sort(arr, 8, 650_000, thread_n);
         } else {
             // Switch to regions sort algo

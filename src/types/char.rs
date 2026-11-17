@@ -203,7 +203,7 @@ impl Radixable<char> for char {
                 250_000
             } else if arr.len() < 100_000_000 {
                 400_000
-            } else if arr.len() < 5_000_000_000 {
+            } else if (arr.len() as u64) < 5_000_000_000 {
                 600_000
             } else {
                 // Switch to regions sort algo

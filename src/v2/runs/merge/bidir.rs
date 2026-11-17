@@ -38,7 +38,7 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(
                 if y < x {
                     *d.add(df) = y;
                     rf += 1;
-                    std::arch::asm!("", options(nomem, nostack, preserves_flags));
+                    keep_branch();
                 } else {
                     *d.add(df) = x;
                     lf += 1;
@@ -56,7 +56,7 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(
                 if y < x {
                     *d.add(de) = x;
                     le -= 1;
-                    std::arch::asm!("", options(nomem, nostack, preserves_flags));
+                    keep_branch();
                 } else {
                     *d.add(de) = y;
                     re -= 1;
@@ -84,4 +84,24 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(
     df += le - lf;
     dst[df..df + (re - rf)].copy_from_slice(&b[rf..re]);
     debug_assert_eq!(df + (re - rf), de);
+}
+
+/// An empty `asm!` in a branch: the compiler keeps the branch instead of
+/// turning it into a conditional move. Where inline assembly is not stable
+/// (wasm32...), nothing.
+#[inline(always)]
+fn keep_branch() {
+    #[cfg(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "arm",
+        target_arch = "aarch64",
+        target_arch = "riscv32",
+        target_arch = "riscv64",
+        target_arch = "loongarch64"
+    ))]
+    // SAFETY: an empty block, no memory, no stack, flags kept.
+    unsafe {
+        std::arch::asm!("", options(nomem, nostack, preserves_flags));
+    }
 }

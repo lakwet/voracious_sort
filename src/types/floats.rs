@@ -215,7 +215,7 @@ impl Radixable<f32> for f32 {
                 600_000
             } else if arr.len() < 600_000_000 {
                 150_000
-            } else if arr.len() < 5_000_000_000 {
+            } else if (arr.len() as u64) < 5_000_000_000 {
                 700_000
             } else {
                 // Switch to regions sort algo
@@ -727,7 +727,7 @@ impl Radixable<f64> for f64 {
                 500_000
             } else if arr.len() < 500_000_000 {
                 400_000
-            } else if arr.len() < 5_000_000_000 {
+            } else if (arr.len() as u64) < 5_000_000_000 {
                 500_000
             } else {
                 // Switch to regions sort algo

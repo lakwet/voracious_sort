@@ -10,8 +10,8 @@ documentation = "https://docs.rs/voracious_radix_sort/"
 repository = "https://github.com/lakwet/voracious_sort"
 keywords = ["sort", "algorithms", "radixsort", "research"]
 categories = ["algorithms", "science", "concurrency"]
-# Development files left out of the published crate.
-exclude = [".env", ".github/", "tools/", "traces/"]
+# Development files and old benchmark results left out of the published crate.
+exclude = [".env", ".github/", "results/", "tools/", "traces/"]
 
 [features]
 voracious_multithread = ["rayon"]

@@ -74,7 +74,7 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
     } else {
         arr.len() / block_count
     };
-    if init_size < 5_000_000_000 {
+    if (init_size as u64) < 5_000_000_000 {
         block_size = previous_block_count;
         block_count = previous_block_count;
     }
