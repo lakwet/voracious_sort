@@ -447,7 +447,23 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
             && beyond_cache
             && s.hi <= u64::MAX as u128
             && LSD_TURNS * s.turns > n
-            => do { lsd_records(arr, enc, s.lo as u64) };
+            => do {
+            // Written here, not in a function: as a call, the histogram loop
+            // came out 8 % slower (r16u64 1M Unif / Timestamps / Clusters,
+            // Surface binary A/B).
+            if LSD11.load(std::sync::atomic::Ordering::Relaxed) {
+                lsd::lsd11(arr, enc, s.lo as u64);
+                return;
+            }
+            let mut hist = vec![[0usize; 256]; 8];
+            for x in arr.iter() {
+                let k = enc(x) as u64;
+                for (d, h) in hist.iter_mut().enumerate() {
+                    h[((k >> (8 * d)) & 0xFF) as usize] += 1;
+                }
+            }
+            lsd(arr, enc, &hist);
+        };
         // Beyond the cache the permutation applied in place; in it, the
         // gather through a buffer (cheaper than scanning the permutation).
         "packed_in_place" if beyond_cache => do {
@@ -457,22 +473,6 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         };
         "packed" => do { packed_buffer(arr, enc, s.lo, key_bits) };
     }
-}
-
-/// The LSD on the records, byte digits (11-bit digits: `LSD11`).
-fn lsd_records<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u64) {
-    if LSD11.load(std::sync::atomic::Ordering::Relaxed) {
-        lsd::lsd11(arr, enc, lo);
-        return;
-    }
-    let mut hist = vec![[0usize; 256]; 8];
-    for x in arr.iter() {
-        let k = enc(x) as u64;
-        for (d, h) in hist.iter_mut().enumerate() {
-            h[((k >> (8 * d)) & 0xFF) as usize] += 1;
-        }
-    }
-    lsd(arr, enc, &hist);
 }
 
 /// The packed (key, index) sort through a buffer.
