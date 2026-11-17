@@ -11,7 +11,6 @@ mod few;
 mod range;
 
 pub(crate) mod clusters;
-pub(crate) mod counting;
 pub(crate) mod floats;
 pub(crate) mod heavy;
 pub(crate) mod plateaus;
@@ -59,8 +58,8 @@ macro_rules! int_detectors {
     ($m:ident, $t:ty, $uint:ty, $encode:expr, $decode:expr, $roller_min:path) => {
         pub(crate) mod $m {
             use super::super::cache::{budget, Budget};
-            use super::super::detect::counting::{domain_count, exact_count, window_count, window_count_split};
-            use super::super::detect::*;
+            use super::super::engines::counting::{domain_count, exact_count, window_count, window_count_split};
+            use super::super::special::*;
             use super::*;
 
             int_range!($t, $uint, $encode, $decode, $roller_min);

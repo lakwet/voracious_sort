@@ -14,7 +14,7 @@
 //!   apart there), then the small groups sharing that prefix finished; the
 //!   rollercoaster above the cache.
 
-use super::super::detect::heavy::heavy_from;
+use super::super::special::heavy::heavy_from;
 use super::super::engines::dlsd::{di128, du128};
 use super::super::engines::roller::{ri128, ru128};
 use super::super::inspect::presorted::presorted;

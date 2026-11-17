@@ -6,7 +6,8 @@
 //!   near-sorted repair, detectors, Verge, merges);
 //! - `inspect`: already sorted, nearly sorted (and its repair);
 //! - `runs`: Verge (long runs kept) and the merges;
-//! - `detect`: distributions sorted faster than by a radix sort;
+//! - `special`: distributions sorted faster than by a radix sort
+//!   (narrow ranges, few values, heavy hitters, dense ranges, plateaus);
 //! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
 //! - `engines`: also the sorting networks and merges for short arrays
 //!   (`small`);
@@ -22,7 +23,7 @@
 pub(crate) mod dev;
 pub(crate) mod cache;
 #[macro_use]
-pub(crate) mod detect;
+pub(crate) mod special;
 pub(crate) mod engines;
 pub(crate) mod floats;
 pub(crate) mod integers;

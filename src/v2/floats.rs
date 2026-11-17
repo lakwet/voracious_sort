@@ -13,8 +13,8 @@
 //!
 //! NaN is not supported yet (the Verge step compares with `<`).
 
-use super::detect::floats::{detect32, detect64, few32, few64};
-use super::detect::heavy::{heavy_from, HEAVY_MIN};
+use super::special::floats::{detect32, detect64, few32, few64};
+use super::special::heavy::{heavy_from, HEAVY_MIN};
 use super::engines::dlsd::d64;
 use super::engines::lsd::w32;
 use super::engines::roller::{r32, r64};

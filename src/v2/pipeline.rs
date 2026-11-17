@@ -16,7 +16,7 @@ use super::runs::verge::{compute_big_enough_run, explore_forward_asc, verge_sort
 const DENSE_LEVELS: usize = 4;
 
 /// Tails from this length go through the whole path (repair, detectors);
-/// shorter ones go to the engine. Same value as `DENSE_MIN` (detect), the
+/// shorter ones go to the engine. Same value as `DENSE_MIN` (special), the
 /// size from which the detectors pay off: could be tied to it.
 const TAIL_PATH_MIN: usize = 4096;
 
