@@ -19,8 +19,10 @@ mod lsd;
 mod merge;
 mod verge;
 
-use super::packed::sort_in_place;
-use super::{packed_buffer, std_fallback};
+use crate::v2::dev::trace::hit;
+use std::mem::MaybeUninit;
+
+use super::packed::{sort_in_place, sort_into};
 use few::few_keys;
 use lsd::lsd;
 use verge::{verge, VERGE_MIN};
@@ -100,21 +102,49 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     } else {
         scan::<T, E, false, false>(arr, enc, &mut hist)
     };
+    if s.ascending {
+        trace!("presorted");
+        return;
+    }
+    if s.strictly_descending {
+        trace!("reversed");
+        arr.reverse();
+        return;
+    }
+    if hit(few_keys(arr, enc), "few") {
+        return;
+    }
+    // Few turns: long runs likely.
+    if beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n && hit(verge(arr, enc), "verge") {
+        return;
+    }
+    if small_records && s.hi <= u64::MAX as u128 {
+        trace!("lsd");
+        lsd(arr, enc, &hist);
+        return;
+    }
     let key_bits = u128::BITS - (s.hi - s.lo).leading_zeros();
-    chain! {
-        "presorted" if s.ascending => do {};
-        "reversed" if s.strictly_descending => do { arr.reverse() };
-        "few" => try few_keys(arr, enc);
-        // Few turns: long runs likely.
-        "verge" if beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n => try verge(arr, enc);
-        "lsd" if small_records && s.hi <= u64::MAX as u128 => do { lsd(arr, enc, &hist) };
-        // Beyond the cache the permutation applied in place; in it, the
-        // gather through a buffer (cheaper than scanning the permutation).
-        "packed_in_place" if beyond_cache => do {
-            if !sort_in_place(arr, enc, s.lo, key_bits) {
-                std_fallback(arr, enc);
-            }
-        };
-        "packed" => do { packed_buffer(arr, enc, s.lo, key_bits) };
+    // In the cache the gather through a buffer is cheaper than scanning the
+    // permutation first; beyond it, the permutation applied in place.
+    if beyond_cache {
+        trace!("packed_in_place");
+        if !sort_in_place(arr, enc, s.lo, key_bits) {
+            trace!("std_fallback");
+            arr.sort_by_key(|x| enc(x));
+        }
+        return;
+    }
+    trace!("packed");
+    let mut buffer: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
+    // SAFETY: the records are moved into the buffer in key order, then the
+    // buffer copied back over the array (see `sort_into`).
+    unsafe {
+        let dst = buffer.as_mut_ptr() as *mut T;
+        if !sort_into(arr.as_ptr(), dst, n, enc, s.lo, key_bits) {
+            trace!("std_fallback");
+            arr.sort_by_key(|x| enc(x));
+            return;
+        }
+        std::ptr::copy_nonoverlapping(dst, arr.as_mut_ptr(), n);
     }
 }

@@ -25,7 +25,6 @@ pub(crate) mod dev;
 #[macro_use]
 pub(crate) mod special;
 pub(crate) mod cache;
-#[macro_use]
 pub(crate) mod decide;
 pub(crate) mod engines;
 pub(crate) mod inspect;
