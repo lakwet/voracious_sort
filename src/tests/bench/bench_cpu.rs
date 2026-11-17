@@ -141,12 +141,38 @@ struct Variant<'a, T> {
     sort: Box<dyn Fn(&mut [T]) + 'a>,
 }
 
-/// `BENCH_SORTS`: the sorts kept (the first one, v2, always: the reference).
-fn keep_sorts<T>(v: Vec<Variant<'_, T>>) -> Vec<Variant<'_, T>> {
-    match std::env::var("BENCH_SORTS") {
-        Ok(list) => v.into_iter().enumerate().filter(|(i, x)| *i == 0 || list.split(',').any(|n| n.trim() == x.name)).map(|(_, x)| x).collect(),
-        Err(_) => v,
+/// The two fastest rivals of each type (geometric mean over every
+/// distribution and size, benchbilan of 2026-11-17 on the Ryzen 3950X, Core
+/// Ultra 185H and Core i5-4690K: `tools/bench_best_rivals.py`). char: the
+/// only two rivals that sort it. Records without measures: as the measured
+/// record of their size class.
+fn best_rivals(label: &str) -> [&'static str; 2] {
+    match label {
+        "u32" | "i32" | "f32" | "u16" | "u8" => ["blazing", "turbosort"],
+        "u64" | "i64" => ["blazing", "glidesort"],
+        "i16" | "i8" => ["blazing", "radsort"],
+        "f64" => ["turbosort", "glidesort"],
+        "u128" | "i128" => ["radsort", "rdst"],
+        "char" => ["radsort", "glidesort"],
+        l if l.starts_with("records") && l.ends_with(" 8B") => ["radsort", "rdst"],
+        l if l.starts_with("records") => ["glidesort", "radsort"],
+        _ => ["", ""],
     }
+}
+
+/// `BENCH_SORTS`: the sorts kept (the first one, v2, always: the reference);
+/// `best`: std, v1, v2 (stable and unstable for the records) and the two
+/// best rivals of the type (`best_rivals`).
+fn keep_sorts<'a, T>(label: &str, v: Vec<Variant<'a, T>>) -> Vec<Variant<'a, T>> {
+    let list = match std::env::var("BENCH_SORTS") {
+        Ok(list) if list.trim() == "best" => {
+            let [a, b] = best_rivals(label);
+            format!("std,std unstable,v1,v1 stable,v2 unstable,{},{}", a, b)
+        },
+        Ok(list) => list,
+        Err(_) => return v,
+    };
+    v.into_iter().enumerate().filter(|(i, x)| *i == 0 || list.split(',').any(|n| n.trim() == x.name)).map(|(_, x)| x).collect()
 }
 
 fn variant<'a, T>(name: &'a str, sort: impl Fn(&mut [T]) + 'a) -> Variant<'a, T> {
@@ -464,7 +490,7 @@ fn bench_cpu() {
                         variant("glidesort", |a: &mut [$t]| glidesort::sort(a)),
                         $($extra),*
                     ];
-                    bench(r, &cfg, stringify!($t), &$gens, &keep_sorts(variants), |a, b| a <= b, 0);
+                    bench(r, &cfg, stringify!($t), &$gens, &keep_sorts(stringify!($t), variants), |a, b| a <= b, 0);
                 }
             };
         }
@@ -526,7 +552,7 @@ fn bench_cpu() {
             variant("radsort", |a: &mut [f32]| radsort::sort(a)),
             variant("turbosort", |a: &mut [f32]| turbosort::sort(a)),
         ];
-        bench(r, &cfg, "f32", &all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()), &keep_sorts(variants), ord_total_f32, 0);
+        bench(r, &cfg, "f32", &all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()), &keep_sorts("f32", variants), ord_total_f32, 0);
     }
     if cfg.wants("float", "f64") {
         let variants: Vec<Variant<f64>> = vec![
@@ -537,7 +563,7 @@ fn bench_cpu() {
             variant("radsort", |a: &mut [f64]| radsort::sort(a)),
             variant("turbosort", |a: &mut [f64]| turbosort::sort(a)),
         ];
-        bench(r, &cfg, "f64", &all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()), &keep_sorts(variants), ord_total_f64, 0);
+        bench(r, &cfg, "f64", &all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()), &keep_sorts("f64", variants), ord_total_f64, 0);
     }
 
     // 128-bit integers.
@@ -553,7 +579,7 @@ fn bench_cpu() {
                         variant("radsort", |a: &mut [$t]| radsort::sort(a)),
                         variant("rdst", |a: &mut [$t]| a.radix_sort_unstable()),
                     ];
-                    bench(r, &cfg, stringify!($t), &$gens, &keep_sorts(variants), |a, b| a <= b, 0);
+                    bench(r, &cfg, stringify!($t), &$gens, &keep_sorts(stringify!($t), variants), |a, b| a <= b, 0);
                 }
             };
         }
@@ -582,7 +608,7 @@ fn bench_cpu() {
                         variant("v2 unstable", |a: &mut [$ty]| by_key::devour_sort_unstable_by_key(a, |x| x.key)),
                         variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
                     ];
-                    bench(r, &cfg, concat!("records ", $label), &$gens, &keep_sorts(variants), ordered_by_key!($ty), 0);
+                    bench(r, &cfg, concat!("records ", $label), &$gens, &keep_sorts(concat!("records ", $label), variants), ordered_by_key!($ty), 0);
                 }
             };
         }

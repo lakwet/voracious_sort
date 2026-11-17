@@ -98,13 +98,14 @@ benchbilan: export BENCH_MIN_ARRAYS = 1
 benchbilan: ## every type against every sort, 1k to 10M, generic build: the list of losses (1-3 h)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
-# Benchmarks by type (src/tests/bench): the v2 against v1 and the rivals,
+# Benchmarks by type (src/tests/bench): v2, v1, std (stable or unstable as
+# the case) and the two best rivals of the type (bench_cpu: best_rivals),
 # 1k to 10M, generic build, one output file bench-cpu-*.txt.
 #   make bench-type T=u32      one key type (u8 ... i128, f32, f64, char)
 #   make bench-keys            every key type
 #   make bench-records         every record; T=u64: the records of u64 keys
 BENCH_BY_TYPE_SIZES = 1000,10000,50000,100000,1000000,5000000,10000000
-BENCH_BY_TYPE_SORTS = std,std unstable,std cached,v1,glidesort,blazing,radsort,rdst,turbosort,v2 unstable,v1 stable
+BENCH_BY_TYPE_SORTS = best
 
 bench-type: export RUSTFLAGS =
 bench-type: export BENCH_PARTS = int,float,wide
