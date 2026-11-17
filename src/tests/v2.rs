@@ -1,5 +1,4 @@
-//! Correctness of the `v2` sorts (same checks as for the work copies in
-//! `dedicated.rs`).
+//! Correctness of the `v2` sorts (edge cases in `v2_cases.rs`).
 
 use rayon::slice::ParallelSliceMut;
 use super::super::generators::unsigned_u32::generators_u32;
@@ -225,6 +224,6 @@ fn test_v2_sort_by_key_stability_large() {
 #[test]
 fn test_v2_ravenous_sort2() {
     use super::super::v2::sorts::ravenous::ravenous_sort2;
-    super::dedicated::check_total_order_f32(&|a| ravenous_sort2(a));
-    super::dedicated::check_total_order_f64(&|a| ravenous_sort2(a));
+    super::v2_cases::check_total_order_f32(&|a| ravenous_sort2(a));
+    super::v2_cases::check_total_order_f64(&|a| ravenous_sort2(a));
 }

@@ -5,7 +5,7 @@
 //! merged.
 
 mod growth;
-mod scan;
+pub(crate) mod scan;
 
 pub(crate) use scan::{explore_forward_asc, explore_forward_desc};
 

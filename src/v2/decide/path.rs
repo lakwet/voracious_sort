@@ -144,7 +144,7 @@ fn starts_with_random_runs<T: Copy + PartialOrd>(arr: &[T], prefix: usize) -> bo
 /// n / log2(n) keys): such a run would contain a point of a grid of half
 /// that step followed by `RUN_PROBE` monotone pairs. Random keys fail each
 /// probe within a couple of pairs.
-fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
+pub(crate) fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
     let n = arr.len();
     let step = compute_big_enough_run(n) / 2;
     if step <= RUN_PROBE {
