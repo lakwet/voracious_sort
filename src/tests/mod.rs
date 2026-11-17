@@ -7,6 +7,7 @@ mod dedicated;
 mod v2;
 mod v2_cases;
 mod histograms;
+mod miri;
 mod nan;
 mod regions_graph;
 #[rustfmt::skip] mod sorts;

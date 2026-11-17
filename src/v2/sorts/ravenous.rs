@@ -11,7 +11,8 @@
 //!    hitters as detectors; chunks sorted by the fused LSD (f32) or the DLSD
 //!    (f64), the rollercoaster beyond the cache.
 //!
-//! NaN is not supported yet (the Verge step compares with `<`).
+//! NaN: set aside before step 2 (one vectorised pass; the steps after compare
+//! with `<`), negative NaNs first and positive ones last, by their bits.
 
 use crate::v2::decide::chunks::{self, Engine};
 use crate::v2::decide::path::radix_path;
@@ -104,6 +105,40 @@ macro_rules! float_width {
                 arr[lo + negative..hi].fill(0.0);
             }
 
+            /// NaNs moved to the ends in `total_cmp` order (negative first,
+            /// positive last); the rest returned. One vectorised read when
+            /// there is none (the generic steps of the radix path compare
+            /// with `<`: a NaN broke the repair, Verge, the merges).
+            #[inline]
+            pub(super) fn nan_aside(arr: &mut [$float]) -> &mut [$float] {
+                if !arr.iter().fold(false, |a, x| a | x.is_nan()) {
+                    return arr;
+                }
+                split_nan(arr)
+            }
+
+            #[cold]
+            #[inline(never)]
+            fn split_nan(arr: &mut [$float]) -> &mut [$float] {
+                let mut nans: Vec<$float> = arr.iter().copied().filter(|x| x.is_nan()).collect();
+                nans.sort_unstable_by(|x, y| x.total_cmp(y));
+                let neg = nans.iter().filter(|x| x.is_sign_negative()).count();
+                let n = arr.len();
+                let mut kept = 0;
+                for i in 0..n {
+                    let x = arr[i];
+                    if !x.is_nan() {
+                        arr[kept] = x;
+                        kept += 1;
+                    }
+                }
+                // Kept values to the middle, then the NaNs around them.
+                arr.copy_within(0..kept, neg);
+                arr[..neg].copy_from_slice(&nans[..neg]);
+                arr[neg + kept..].copy_from_slice(&nans[neg..]);
+                &mut arr[neg..neg + kept]
+            }
+
             /// Total order on the floats (for the heavy hitters detector).
             #[inline(always)]
             pub(super) fn less(x: $float, y: $float) -> bool {
@@ -128,7 +163,12 @@ impl RavenousSort2 for f32 {
             trace!("network");
             network_sort(f32_bits::bits(arr), f32_bits::encode, f32_bits::decode);
         } else {
-            sort_f32(arr);
+            let rest = f32_bits::nan_aside(arr);
+            if rest.len() <= NETWORK_MAX {
+                network_sort(f32_bits::bits(rest), f32_bits::encode, f32_bits::decode);
+            } else {
+                sort_f32(rest);
+            }
         }
     }
 }
@@ -140,7 +180,12 @@ impl RavenousSort2 for f64 {
             trace!("network");
             network_sort(f64_bits::bits(arr), f64_bits::encode, f64_bits::decode);
         } else {
-            sort_f64(arr);
+            let rest = f64_bits::nan_aside(arr);
+            if rest.len() <= NETWORK_MAX {
+                network_sort(f64_bits::bits(rest), f64_bits::encode, f64_bits::decode);
+            } else {
+                sort_f64(rest);
+            }
         }
     }
 }

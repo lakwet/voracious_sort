@@ -43,7 +43,8 @@ impl SortKey for bool {
     }
 }
 
-// Floats in total order (`total_cmp`): -0.0 before +0.0, NaN not handled.
+// Floats in total order (`total_cmp`): -0.0 before +0.0, negative NaNs
+// first and positive NaNs last (the keys are only compared encoded).
 impl SortKey for f32 {
     #[inline(always)]
     fn encode(self) -> u128 {
