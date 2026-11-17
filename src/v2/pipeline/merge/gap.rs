@@ -3,7 +3,7 @@
 //! cut at crossover points into merges whose two inputs both lie outside
 //! their output, each done from both ends on both halves. Idea of
 //! glidesort (Orson Peters, 2023: gap merges split at the crossover
-//! point); the records' version is `records2::merge::merge_two_x`. Own
+//! point); the records' version is `records::merge::merge_two_x`. Own
 //! code.
 
 /// Below this many elements on the shorter side a gap merge is finished

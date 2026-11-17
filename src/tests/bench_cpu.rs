@@ -18,9 +18,8 @@
 //!   std, voracious 1.x and the radix crates (blazing, radsort, rdst,
 //!   turbosort) where they take the type;
 //! - `records`: sort by key (stable) of records of 8, 16, 32 and 128 bytes
-//!   (`v2` the work copy `records2`, `v2 old` the current `records`) against
-//!   std (stable and unstable), glidesort, radsort, rdst, turbosort and
-//!   voracious 1.x;
+//!   against std (stable and unstable), glidesort, radsort, rdst, turbosort
+//!   and voracious 1.x;
 //! - `rparams`: the CPU parameters of the records sort: the record size
 //!   from which run merges go 4-way instead of 2-way (`FOUR_WAY_MIN`), on
 //!   the shapes with runs, records of 16, 32 and 128 bytes; and the digit
@@ -63,8 +62,7 @@ use super::super::generators::records::*;
 use super::super::v2::cache::{l2_bytes, page_bytes, reported_l2, reported_levels, Budget, BUDGETS, BUDGET_OVERRIDE, L2_OVERRIDE};
 use super::super::v2::floats::ravenous_sort2;
 use super::super::v2::integers::devour_sort2;
-use super::super::v2::records::devour_sort_by_key;
-use super::super::v2::records2;
+use super::super::v2::records;
 use super::super::RadixSort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -567,8 +565,7 @@ fn bench_cpu() {
             ($label:expr, $ty:ty, $gens:expr) => {
                 if cfg.wants("records", $label) {
                     let variants: Vec<Variant<$ty>> = vec![
-                        variant("v2", |a: &mut [$ty]| records2::devour_sort_by_key(a, |x| x.key)),
-                        variant("v2 old", |a: &mut [$ty]| devour_sort_by_key(a, |x| x.key)),
+                        variant("v2", |a: &mut [$ty]| records::devour_sort_by_key(a, |x| x.key)),
                         variant("std", |a: &mut [$ty]| a.sort_by_key(|x| x.key)),
                         variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by_key(|x| x.key)),
                         variant("std cached", |a: &mut [$ty]| a.sort_by_cached_key(|x| x.key)),
@@ -592,7 +589,7 @@ fn bench_cpu() {
     // merges go 4-way (one move per two levels) instead of 2-way (cheaper
     // steps): the default 32 was measured on the Snapdragon X.
     if cfg.part("rparams") {
-        use super::super::v2::records2::FOUR_WAY_MIN;
+        use super::super::v2::records::FOUR_WAY_MIN;
         let with = |b: usize| move || FOUR_WAY_MIN.store(b, Relaxed);
         macro_rules! rparams {
             ($label:expr, $ty:ty, $gens:expr) => {
@@ -602,21 +599,21 @@ fn bench_cpu() {
                     let variants: Vec<Variant<$ty>> = vec![
                         variant("4-way from 32B", move |a: &mut [$ty]| {
                             w32();
-                            records2::devour_sort_by_key(a, |x| x.key);
+                            records::devour_sort_by_key(a, |x| x.key);
                         }),
                         variant("4-way from 16B", move |a: &mut [$ty]| {
                             w16();
-                            records2::devour_sort_by_key(a, |x| x.key);
+                            records::devour_sort_by_key(a, |x| x.key);
                             FOUR_WAY_MIN.store(32, Relaxed);
                         }),
                         variant("4-way from 64B", move |a: &mut [$ty]| {
                             w64();
-                            records2::devour_sort_by_key(a, |x| x.key);
+                            records::devour_sort_by_key(a, |x| x.key);
                             FOUR_WAY_MIN.store(32, Relaxed);
                         }),
                         variant("2-way only", move |a: &mut [$ty]| {
                             wnever();
-                            records2::devour_sort_by_key(a, |x| x.key);
+                            records::devour_sort_by_key(a, |x| x.key);
                             FOUR_WAY_MIN.store(32, Relaxed);
                         }),
                     ];
@@ -633,7 +630,7 @@ fn bench_cpu() {
         // bytes (256 buckets, eight passes). 2048 write streams need more
         // L1 lines and TLB entries than some cores have (Zen 2: 32 KiB L1).
         if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
-            use super::super::v2::records2::LSD11;
+            use super::super::v2::records::LSD11;
             type R = Rec<u64, 2>;
             let disorder: Gens<R> = wrap(keys_u64(), rec::<u64, 2>)
                 .into_iter()
@@ -642,11 +639,11 @@ fn bench_cpu() {
             let variants: Vec<Variant<R>> = vec![
                 variant("LSD 11 bits", |a: &mut [R]| {
                     LSD11.store(true, Relaxed);
-                    records2::devour_sort_by_key(a, |x| x.key);
+                    records::devour_sort_by_key(a, |x| x.key);
                 }),
                 variant("LSD 8 bits", |a: &mut [R]| {
                     LSD11.store(false, Relaxed);
-                    records2::devour_sort_by_key(a, |x| x.key);
+                    records::devour_sort_by_key(a, |x| x.key);
                     LSD11.store(true, Relaxed);
                 }),
             ];
@@ -708,11 +705,11 @@ fn bench_cpu() {
                         type R8 = Rec<u32, 1>;
                         type R16 = Rec<u64, 2>;
                         type R32 = Rec<u64, 6>;
-                        let v8: Vec<Variant<R8>> = tune_variants(b, |a: &mut [R8]| records2::devour_sort_by_key(a, |x| x.key));
+                        let v8: Vec<Variant<R8>> = tune_variants(b, |a: &mut [R8]| records::devour_sort_by_key(a, |x| x.key));
                         bench(r, &cfg, "tune records 8B", &wrap(keys_u32(), rec::<u32, 1>), &v8, ordered_by_key!(R8), 10_000);
-                        let v16: Vec<Variant<R16>> = tune_variants(b, |a: &mut [R16]| records2::devour_sort_by_key(a, |x| x.key));
+                        let v16: Vec<Variant<R16>> = tune_variants(b, |a: &mut [R16]| records::devour_sort_by_key(a, |x| x.key));
                         bench(r, &cfg, "tune records 16B", &wrap(keys_u64(), rec::<u64, 2>), &v16, ordered_by_key!(R16), 10_000);
-                        let v32: Vec<Variant<R32>> = tune_variants(b, |a: &mut [R32]| records2::devour_sort_by_key(a, |x| x.key));
+                        let v32: Vec<Variant<R32>> = tune_variants(b, |a: &mut [R32]| records::devour_sort_by_key(a, |x| x.key));
                         bench(r, &cfg, "tune records 32B", &wrap(keys_u64(), rec::<u64, 6>), &v32, ordered_by_key!(R32), 10_000);
                     }
                 }
@@ -805,25 +802,25 @@ fn bench_cpu() {
             let (half, double, quad, arm) = (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4), with_l2(ARM_L2));
             type R = Rec<u64, 6>;
             let variants: Vec<Variant<R>> = vec![
-                variant("detected L2", |a: &mut [R]| devour_sort_by_key(a, |x| x.key)),
+                variant("detected L2", |a: &mut [R]| records::devour_sort_by_key(a, |x| x.key)),
                 variant("L2 / 2", move |a: &mut [R]| {
                     half();
-                    devour_sort_by_key(a, |x| x.key);
+                    records::devour_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
                 variant("L2 x 2", move |a: &mut [R]| {
                     double();
-                    devour_sort_by_key(a, |x| x.key);
+                    records::devour_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
                 variant("L2 x 4", move |a: &mut [R]| {
                     quad();
-                    devour_sort_by_key(a, |x| x.key);
+                    records::devour_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
                 variant("L2 12 MiB", move |a: &mut [R]| {
                     arm();
-                    devour_sort_by_key(a, |x| x.key);
+                    records::devour_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
             ];
