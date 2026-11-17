@@ -30,8 +30,8 @@ use super::engines::lsd::{wi16, wi32, wi64, wi8, wu16, wu32, wu64, wu8};
 use super::engines::roller::{ri32, ri64, ru32, ru64};
 use super::pipeline::presorted::presorted;
 use super::pipeline::radix_path;
-use super::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-use super::trace::hit;
+use super::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use crate::v2::dev::trace::hit;
 use keys::*;
 
 mod sealed {

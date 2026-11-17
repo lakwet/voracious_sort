@@ -6,18 +6,18 @@
 //!   near-sorted repair, Verge, merges);
 //! - `detect`: distributions sorted faster than by a radix sort;
 //! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
-//! - `small`: sorting networks and merges for short arrays;
+//! - `engines`: also the sorting networks and merges for short arrays
+//!   (`small`);
 //! - `cache`: cache sizes detected at run time;
-//! - `trace`: the decision trace (feature `v2_trace`); `ab`: the rule
-//!   under test (trace and sentinel bench compare both sides).
+//! - `dev`: the decision trace (feature `v2_trace`) and the switch of the
+//!   rule under test (trace and sentinel bench compare both sides).
 
 // Outside the tests nothing calls v2 yet (the public API points to the 1.x
 // sorts until 2.0): dead code is only reported in test builds.
 #![cfg_attr(not(test), allow(dead_code))]
 
 #[macro_use]
-pub(crate) mod trace;
-pub(crate) mod ab;
+pub(crate) mod dev;
 pub(crate) mod cache;
 #[macro_use]
 pub(crate) mod detect;
@@ -26,4 +26,3 @@ pub(crate) mod floats;
 pub(crate) mod integers;
 pub(crate) mod pipeline;
 pub(crate) mod records;
-pub(crate) mod small;

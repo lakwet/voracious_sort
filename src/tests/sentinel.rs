@@ -1,4 +1,4 @@
-//! Sentinel bench: the rule under test (`v2::ab`) off against on, in one
+//! Sentinel bench: the rule under test (`v2::dev::ab`) off against on, in one
 //! process, on the cells the decision trace saw move plus a fixed set of
 //! control cells (one per type family, size band and shape). The controls
 //! give the noise of the machine: a change is judged on the moved cells
@@ -15,7 +15,7 @@
 //! side, default 5, the median kept). Results also go to
 //! `traces/sentinel-last.txt`.
 
-use super::super::v2::ab::NEW_RULE;
+use super::super::v2::dev::ab::NEW_RULE;
 use super::cells::{env_size, parse_key, visit, Visit};
 use std::collections::BTreeSet;
 use std::sync::atomic::Ordering::Relaxed;

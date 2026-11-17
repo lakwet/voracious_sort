@@ -19,7 +19,7 @@ mod lsd;
 mod merge;
 mod verge;
 
-use super::super::trace::hit;
+use crate::v2::dev::trace::hit;
 use std::mem::MaybeUninit;
 
 use super::packed::{sort_in_place, sort_into};

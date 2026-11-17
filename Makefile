@@ -131,7 +131,7 @@ trace: ## decision trace against the reference of this CPU (no timing; ~10 min, 
 	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
 
 trace-ab: export TRACE_AB = 1
-trace-ab: ## cells moved by the rule under test (v2::ab), list in traces/moved.txt
+trace-ab: ## cells moved by the rule under test (v2::dev::ab), list in traces/moved.txt
 	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::trace -- --ignored --nocapture --test-threads=1
 
 trace-write: export TRACE_WRITE = 1

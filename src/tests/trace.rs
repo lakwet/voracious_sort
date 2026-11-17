@@ -6,7 +6,7 @@
 //!
 //! ```text
 //! make trace        # compare with the reference of this CPU
-//! make trace-ab     # rule under test (v2::ab) off against on
+//! make trace-ab     # rule under test (v2::dev::ab) off against on
 //! make trace-write  # write the reference
 //! ```
 //!
@@ -20,9 +20,9 @@
 
 #![cfg(feature = "v2_trace")]
 
-use super::super::v2::ab::NEW_RULE;
+use super::super::v2::dev::ab::NEW_RULE;
 use super::super::v2::cache::{l2_bytes, largest_bytes};
-use super::super::v2::trace;
+use super::super::v2::dev::trace;
 use super::cells::{env_list, env_size, parse_key, visit, Visit};
 use std::collections::BTreeMap;
 use std::sync::atomic::Ordering::Relaxed;

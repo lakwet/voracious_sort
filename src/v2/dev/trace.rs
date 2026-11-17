@@ -8,7 +8,7 @@
 macro_rules! trace {
     ($step:expr) => {
         #[cfg(feature = "v2_trace")]
-        $crate::v2::trace::note($step);
+        $crate::v2::dev::trace::note($step);
     };
 }
 

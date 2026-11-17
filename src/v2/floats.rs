@@ -20,8 +20,8 @@ use super::engines::lsd::w32;
 use super::engines::roller::{r32, r64};
 use super::pipeline::presorted::{presorted, Unsorted};
 use super::pipeline::radix_path;
-use super::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-use super::trace::hit;
+use super::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use crate::v2::dev::trace::hit;
 
 /// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
 /// the radix path, median over the distributions, Snapdragon X Elite).

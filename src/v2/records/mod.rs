@@ -29,7 +29,7 @@ mod keys;
 
 pub use keys::SortKey;
 
-use super::trace::hit;
+use crate::v2::dev::trace::hit;
 use std::mem::MaybeUninit;
 
 use few::few_keys;

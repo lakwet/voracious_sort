@@ -95,7 +95,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
     // A long sorted prefix goes to the tail-first path of `radix_path`
     // without the narrowing scan.
     let tail_first = super::super::pipeline::tail_first(n, known.ascending_prefix);
-    if !tail_first && super::super::trace::hit(narrow(arr), "narrow128") {
+    if !tail_first && crate::v2::dev::trace::hit(narrow(arr), "narrow128") {
         return;
     }
     radix_path(
@@ -103,7 +103,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
         known,
         true,
         &|a: &mut [T], _| {
-            use super::super::trace::hit;
+            use crate::v2::dev::trace::hit;
             hit(few(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y), "heavy")
         },
         &|chunk: &mut [T]| {
