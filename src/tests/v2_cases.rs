@@ -49,7 +49,7 @@ pub(super) fn check_total_order_f64(sort: &dyn Fn(&mut [f64])) {
 fn test_v2_ravenous_sort_special_values() {
     let base_f64 = [
         0.0f64, -0.0, f64::INFINITY, f64::NEG_INFINITY, f64::MIN_POSITIVE, -f64::MIN_POSITIVE,
-        f64::from_bits(1), f64::from_bits(1) * -1.0, f64::MAX, f64::MIN, 1.0, -1.0,
+        f64::from_bits(1), -f64::from_bits(1), f64::MAX, f64::MIN, 1.0, -1.0,
     ];
     let no_nan64 = |x: f64| if x.is_nan() { 0.5 } else { x };
     let no_nan32 = |x: f32| if x.is_nan() { 0.5 } else { x };

@@ -7,7 +7,7 @@ const UNROLL_SIZE: usize = 4;
 
 pub fn ska_swap<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
-    heads: &mut Vec<usize>,
+    heads: &mut [usize],
     tails: &[usize],
     mask: <<T as Radixable<K>>::Key as RadixKey>::Key,
     shift: usize,

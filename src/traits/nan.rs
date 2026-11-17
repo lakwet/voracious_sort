@@ -45,7 +45,7 @@ fn scan<T: PartialOrd>(arr: &[T]) -> (bool, bool) {
         .iter()
         .zip(arr.iter().skip(1))
         .fold((false, true), |(nan, sorted), (a, b)| (nan | a.partial_cmp(a).is_none(), sorted & (a <= b)));
-    let nan = nan | arr.last().map_or(false, |x| x.partial_cmp(x).is_none());
+    let nan = nan | arr.last().is_some_and(|x| x.partial_cmp(x).is_none());
     (nan, sorted && !nan)
 }
 

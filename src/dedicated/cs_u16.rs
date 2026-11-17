@@ -15,7 +15,7 @@ pub fn cs_u16(arr: &mut [u16]) {
     for block in arr.chunks(1 << 31) {
         let remainder = block.len() % UNROLL_SIZE;
         let (block_main, block_remainder) = block.split_at(block.len() - remainder);
-        block_main.chunks_exact(UNROLL_SIZE).for_each(|chunk| {
+        block_main.as_chunks::<UNROLL_SIZE>().0.iter().for_each(|chunk| {
             block_counts[chunk[0] as usize] += 1;
             block_counts[chunk[1] as usize] += 1;
             block_counts[chunk[2] as usize] += 1;

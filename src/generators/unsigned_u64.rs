@@ -178,7 +178,7 @@ pub fn helper_random_array_fakezipf_u64(size: usize) -> Vec<u64> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);

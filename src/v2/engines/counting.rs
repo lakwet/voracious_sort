@@ -236,7 +236,7 @@ fn domain_count_with<
             e
         }
     };
-    let mut quads = keys.chunks_exact(4);
+    let (mut quads, mut tail) = keys.as_chunks::<4>();
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(width);
         let (c1, rest) = rest.split_at_mut(width);
@@ -246,10 +246,10 @@ fn domain_count_with<
             // faster than one load per key).
             // SAFETY: `U` is a 1-byte integer here.
             let bytes = unsafe { std::slice::from_raw_parts(keys.as_ptr() as *const u8, n) };
-            let mut words = bytes.chunks_exact(8);
+            let (words, rest) = bytes.as_chunks::<8>();
             let at = |w: u64, i: u32| idx(U::from_u64((w >> (8 * i)) & 0xFF));
-            for c in &mut words {
-                let w = u64::from_le_bytes(std::convert::TryInto::try_into(c).unwrap());
+            for c in words {
+                let w = u64::from_le_bytes(*c);
                 // SAFETY: an encoded key is below the domain size `width`.
                 unsafe {
                     *c0.get_unchecked_mut(at(w, 0)) += 1;
@@ -262,13 +262,13 @@ fn domain_count_with<
                     *c3.get_unchecked_mut(at(w, 7)) += 1;
                 }
             }
-            let done = n - words.remainder().len();
+            let done = n - rest.len();
             for &k in keys[done..].iter() {
                 c0[idx(k)] += 1;
             }
-            quads = keys[..0].chunks_exact(4);
+            (quads, tail) = (&[], &[]);
         }
-        for q in &mut quads {
+        for q in quads {
             // SAFETY: an encoded key is below the domain size `width`.
             unsafe {
                 *c0.get_unchecked_mut(idx(q[0])) += 1;
@@ -277,7 +277,7 @@ fn domain_count_with<
                 *c3.get_unchecked_mut(idx(q[3])) += 1;
             }
         }
-        for &k in quads.remainder() {
+        for &k in tail {
             c0[idx(k)] += 1;
         }
         for l in 1..4 {
@@ -287,7 +287,7 @@ fn domain_count_with<
             }
         }
     } else {
-        for q in &mut quads {
+        for q in quads {
             // SAFETY: as above.
             unsafe {
                 *counts.get_unchecked_mut(idx(q[0])) += 1;
@@ -296,7 +296,7 @@ fn domain_count_with<
                 *counts.get_unchecked_mut(idx(q[3])) += 1;
             }
         }
-        for &k in quads.remainder() {
+        for &k in tail {
             counts[idx(k)] += 1;
         }
     }
@@ -361,13 +361,13 @@ fn count_masked<U: Key, E: Fn(U) -> U + Copy>(
 ) {
     let mask = size - 1;
     let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize & mask;
-    let mut quads = keys.chunks_exact(4);
+    let (quads, tail) = keys.as_chunks::<4>();
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(size);
         let (c1, rest) = rest.split_at_mut(size);
         let (c2, c3) = rest.split_at_mut(size);
         let (c0, c1, c2, c3) = (&mut c0[..size], &mut c1[..size], &mut c2[..size], &mut c3[..size]);
-        for q in &mut quads {
+        for q in quads {
             // SAFETY: a masked offset is below `size`, the length of each table.
             unsafe {
                 *c0.get_unchecked_mut(off(q[0])) += 1;
@@ -376,12 +376,12 @@ fn count_masked<U: Key, E: Fn(U) -> U + Copy>(
                 *c3.get_unchecked_mut(off(q[3])) += 1;
             }
         }
-        for &k in quads.remainder() {
+        for &k in tail {
             c0[off(k)] += 1;
         }
     } else {
         let c = &mut counts[..size];
-        for q in &mut quads {
+        for q in quads {
             // SAFETY: as above.
             unsafe {
                 *c.get_unchecked_mut(off(q[0])) += 1;
@@ -390,7 +390,7 @@ fn count_masked<U: Key, E: Fn(U) -> U + Copy>(
                 *c.get_unchecked_mut(off(q[3])) += 1;
             }
         }
-        for &k in quads.remainder() {
+        for &k in tail {
             c[off(k)] += 1;
         }
     }
@@ -413,9 +413,9 @@ fn count_window<U: Key, E: Fn(U) -> U + Copy>(
         let (c0, rest) = counts.split_at_mut(width);
         let (c1, rest) = rest.split_at_mut(width);
         let (c2, c3) = rest.split_at_mut(width);
-        let mut quads = keys.chunks_exact(4);
+        let (quads, tail) = keys.as_chunks::<4>();
         let mut i = 0;
-        for q in &mut quads {
+        for q in quads {
             let (d0, d1, d2, d3) = (off(q[0]), off(q[1]), off(q[2]), off(q[3]));
             if d0.max(d1).max(d2.max(d3)) >= width {
                 return Some(i);
@@ -429,7 +429,7 @@ fn count_window<U: Key, E: Fn(U) -> U + Copy>(
             }
             i += 4;
         }
-        for &k in quads.remainder() {
+        for &k in tail {
             let d = off(k);
             if d >= width {
                 return Some(i);

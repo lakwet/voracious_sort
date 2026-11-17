@@ -72,7 +72,7 @@ pub fn helper_random_array_fakezipf_u32(size: usize) -> Vec<u32> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);

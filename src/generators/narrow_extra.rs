@@ -216,7 +216,7 @@ pub mod extra_char {
     // Cyrillic letters (U+0410..U+044F) and spaces
     pub fn cyrillic_text(size: usize) -> Vec<char> {
         let mut alphabet: Vec<char> = (0x410..0x450).map(chr).collect();
-        alphabet.extend(std::iter::repeat(' ').take(10));
+        alphabet.extend(std::iter::repeat_n(' ', 10));
         text_from(&alphabet, size)
     }
 

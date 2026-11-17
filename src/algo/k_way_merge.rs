@@ -23,9 +23,9 @@ fn forward_merge2<T: Copy + PartialOrd>(
         }
         if j == end {
             let size = middle - start - i;
-            let (_, mut rest_copy) = copy.split_at_mut(i);
-            let (_, mut rest_arr) = arr.split_at_mut(position);
-            copy_nonoverlapping(&mut rest_copy, &mut rest_arr, size);
+            let (_, rest_copy) = copy.split_at_mut(i);
+            let (_, rest_arr) = arr.split_at_mut(position);
+            copy_nonoverlapping(rest_copy, rest_arr, size);
             return;
         }
 
@@ -62,9 +62,9 @@ fn backward_merge2<T: Copy + PartialOrd>(
             return;
         }
         if j == start as isize - 1 {
-            let (mut rest_copy, _) = copy.split_at_mut(i as usize + 1);
-            let (_, mut rest_arr) = arr.split_at_mut(start);
-            copy_nonoverlapping(&mut rest_copy, &mut rest_arr, i as usize + 1);
+            let (rest_copy, _) = copy.split_at_mut(i as usize + 1);
+            let (_, rest_arr) = arr.split_at_mut(start);
+            copy_nonoverlapping(rest_copy, rest_arr, i as usize + 1);
             return;
         }
 

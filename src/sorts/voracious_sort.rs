@@ -51,12 +51,12 @@ pub fn voracious_sort_rec<T: Radixable<K>, K: RadixKey>(
                 // check, and it allows to gain time on some data distributions.
                 if zipf_heuristic_count > 0 {
                     match explore_simple_forward(first_part) {
-                        Orientation::IsAsc => (),
-                        Orientation::IsDesc => {
+                        Orientation::Asc => (),
+                        Orientation::Desc => {
                             first_part.reverse();
                         },
-                        Orientation::IsPlateau => (),
-                        Orientation::IsNone => {
+                        Orientation::Plateau => (),
+                        Orientation::None => {
                             voracious_sort_rec(
                                 first_part,
                                 new_params,

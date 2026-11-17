@@ -12,7 +12,7 @@ fn copy_by_histogram(
     size: usize,
     source: &mut [f32],
     destination: &mut [f32],
-    heads: &mut Vec<usize>,
+    heads: &mut [usize],
     mask: u32,
     shift: usize,
 ) {
@@ -223,15 +223,15 @@ fn lsd_radixsort_body(arr: &mut [f32], p: Params) {
             continue;
         }
 
-        let (mut source, mut destination) =
+        let (source, destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
         let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
         let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
         copy_by_histogram(
             source.len(),
-            &mut source,
-            &mut destination,
+            source,
+            destination,
             &mut heads,
             mask,
             shift,

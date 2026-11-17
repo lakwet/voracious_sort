@@ -25,7 +25,7 @@ where
     let (arr_fst, arr_remainder) = arr.split_at(arr.len() - remainder);
 
     if p.max_level == 2 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -45,7 +45,7 @@ where
             histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
         });
     } else if p.max_level == 3 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -75,7 +75,7 @@ where
             histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
         });
     } else if p.max_level == 4 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -115,7 +115,7 @@ where
             histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
         });
     } else if p.max_level == 5 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -165,7 +165,7 @@ where
             histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
         });
     } else if p.max_level == 6 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -225,7 +225,7 @@ where
             histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
         });
     } else if p.max_level == 7 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -295,7 +295,7 @@ where
             histograms[0][dummy.keytype_to_usize(v & default_mask)] += 1;
         });
     } else if p.max_level == 8 {
-        arr_fst.chunks_exact(4).for_each(|chunk| {
+        arr_fst.as_chunks::<4>().0.iter().for_each(|chunk| {
             let mut v0 = chunk[0].into_key_type();
             let mut v1 = chunk[1].into_key_type();
             let mut v2 = chunk[2].into_key_type();
@@ -393,7 +393,7 @@ where
     let dummy = arr[0];
     let histograms = get_full_histograms_except_last_chunk(arr, &p);
 
-    let estimated_size = ((size >> p.radix) + size % p.radix + 1) as usize;
+    let estimated_size = (size >> p.radix) + size % p.radix + 1;
     let mut buffer: Vec<T> = vec![arr[0]; estimated_size * p.radix_range];
 
     let t1 = arr;
@@ -483,15 +483,15 @@ where
             continue;
         }
 
-        let (mut source, mut destination) =
+        let (source, destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
         let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
         let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
         copy_by_histogram(
             size,
-            &mut source,
-            &mut destination,
+            source,
+            destination,
             &mut heads,
             mask,
             shift,

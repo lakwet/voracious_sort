@@ -91,7 +91,7 @@ pub fn helper_random_array_bool_runs(size: usize) -> Vec<bool> {
     let mut value = false;
     while array.len() < size {
         let len = rng.random_range(1..=1000).min(size - array.len());
-        array.extend(std::iter::repeat(value).take(len));
+        array.extend(std::iter::repeat_n(value, len));
         value = !value;
     }
     array

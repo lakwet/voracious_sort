@@ -27,7 +27,7 @@ pub fn std_deviation(data: &[u64], mean: u64) -> f32 {
 
 #[allow(dead_code)]
 pub fn helper_sort_aux<T, K>(
-    sort: &dyn Fn(&mut [T]) -> (),
+    sort: &dyn Fn(&mut [T]),
     runs: usize,
     size: usize,
     generator: &dyn Fn(usize) -> Vec<T>,

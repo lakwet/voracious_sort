@@ -170,55 +170,55 @@ fn test_verge_sort_heuristic_jump() {
 #[test]
 fn test_verge_sort_heuristic_backward_orientation() {
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 2), Orientation::IsAsc);
+    assert_eq!(backward_orientation(&mut arr, 2), Orientation::Asc);
 
     let mut arr = vec![0, 2, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 2), Orientation::IsPlateau);
+    assert_eq!(backward_orientation(&mut arr, 2), Orientation::Plateau);
 
     let mut arr = vec![0, 3, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 2), Orientation::IsDesc);
+    assert_eq!(backward_orientation(&mut arr, 2), Orientation::Desc);
 
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 0), Orientation::IsNone);
+    assert_eq!(backward_orientation(&mut arr, 0), Orientation::None);
 }
 
 #[test]
 fn test_verge_sort_heuristic_forward_orientation() {
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(forward_orientation(&mut arr, 2), Orientation::IsAsc);
+    assert_eq!(forward_orientation(&mut arr, 2), Orientation::Asc);
 
     let mut arr = vec![0, 2, 2, 2, 0];
-    assert_eq!(forward_orientation(&mut arr, 2), Orientation::IsPlateau);
+    assert_eq!(forward_orientation(&mut arr, 2), Orientation::Plateau);
 
     let mut arr = vec![0, 3, 2, 1, 0];
-    assert_eq!(forward_orientation(&mut arr, 2), Orientation::IsDesc);
+    assert_eq!(forward_orientation(&mut arr, 2), Orientation::Desc);
 
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(forward_orientation(&mut arr, 4), Orientation::IsNone);
+    assert_eq!(forward_orientation(&mut arr, 4), Orientation::None);
 }
 
 #[test]
 fn test_verge_sort_heuristic_explore_simple_forward() {
     let mut arr: Vec<u64> = vec![0, 0, 0, 1, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsAsc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Asc);
 
     let mut arr: Vec<u64> = vec![0, 0, 0, 0, 0];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsPlateau);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Plateau);
 
     let mut arr: Vec<u64> = vec![2, 2, 2, 1, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsDesc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Desc);
 
     let mut arr: Vec<u64> = vec![0, 2, 0, 1, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsNone);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::None);
 
     let mut arr: Vec<u64> = vec![0, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsAsc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Asc);
 
     let mut arr: Vec<u64> = vec![0, 0];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsPlateau);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Plateau);
 
     let mut arr: Vec<u64> = vec![2, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsDesc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Desc);
 }
 
 #[test]
@@ -434,7 +434,7 @@ fn test_v2_merge_runs_same_as_original() {
         }
         let mut arr: Vec<S> = (0..n).map(|i| S { k: (next() % range) as u32, id: i as u32 }).collect();
         for w in seps.windows(2) {
-            arr[w[0]..w[1]].sort_by(|a, b| a.k.cmp(&b.k));
+            arr[w[0]..w[1]].sort_by_key(|a| a.k);
         }
         // Special shapes: sorted + moved element (Front / Middle).
         if case % 10 == 0 {

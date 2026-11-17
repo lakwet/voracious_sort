@@ -47,7 +47,7 @@ pub fn helper_random_array_fakezipf_i8(size: usize) -> Vec<i8> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);

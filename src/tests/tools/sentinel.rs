@@ -52,7 +52,7 @@ fn is_control(key: &str) -> bool {
     let mut it = key.splitn(3, ' ');
     let (t, n, name) = (it.next().unwrap_or(""), it.next().unwrap_or(""), it.next().unwrap_or(""));
     CONTROL_TYPES.contains(&t)
-        && n.parse().map_or(false, |n: usize| CONTROL_SIZES.contains(&n))
+        && n.parse().is_ok_and(|n: usize| CONTROL_SIZES.contains(&n))
         && CONTROL_SHAPES.contains(&name)
 }
 
@@ -87,7 +87,7 @@ impl Visit for Sentinel {
                 times[side].push(start.elapsed().as_nanos() as f64 / (count * n) as f64);
                 NEW_RULE.store(false, Relaxed);
                 assert!(
-                    work[0].windows(2).all(|p| !(p[1] < p[0])),
+                    work[0].windows(2).all(|p| p[1].partial_cmp(&p[0]) != Some(std::cmp::Ordering::Less)),
                     "not sorted: {} (rule {})",
                     key,
                     side

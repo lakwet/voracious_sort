@@ -91,12 +91,12 @@ fn rollercoaster_sort_rec<T: Radixable<K>, K: RadixKey>(
                     let new_params = p.new_level(p.level + 1);
                     if zhc > 0 {
                         match explore_simple_forward(first_part) {
-                            Orientation::IsAsc => (),
-                            Orientation::IsDesc => {
+                            Orientation::Asc => (),
+                            Orientation::Desc => {
                                 first_part.reverse();
                             },
-                            Orientation::IsPlateau => (),
-                            Orientation::IsNone => {
+                            Orientation::Plateau => (),
+                            Orientation::None => {
                                 rollercoaster_sort_rec(
                                     first_part,
                                     new_params,

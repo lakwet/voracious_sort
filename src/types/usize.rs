@@ -2,7 +2,6 @@
 use rayon::slice::ParallelSliceMut;
 
 use super::super::sorts::dlsd_sort::dlsd_radixsort;
-use super::super::sorts::lsd_sort::lsd_radixsort_heu;
 #[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::utils::{get_empty_histograms, Params};
@@ -418,7 +417,7 @@ impl Radixable<usize> for usize {
     ) -> Vec<Vec<usize>> {
         let mut histograms = get_empty_histograms(p.max_level, p.radix_range);
         let default_mask = self.default_mask(p.radix) as usize;
-        let shift = p.radix as usize;
+        let shift = p.radix;
 
         let quotient = arr.len() / 4;
         let remainder = arr.len() % 4;

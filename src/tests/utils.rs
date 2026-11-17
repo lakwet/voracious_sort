@@ -32,19 +32,19 @@ fn test_utils_prefix_sums() {
 #[test]
 fn test_utils_only_one_bucket_filled() {
     let histogram = vec![1, 0, 2, 5, 4, 7, 0, 1];
-    assert_eq!(only_one_bucket_filled(&histogram), false);
+    assert!(!only_one_bucket_filled(&histogram));
 
     let histogram = vec![0, 0, 2, 0, 4, 0, 0, 0];
-    assert_eq!(only_one_bucket_filled(&histogram), false);
+    assert!(!only_one_bucket_filled(&histogram));
 
     let histogram = vec![1, 0, 0, 0, 0, 0];
-    assert_eq!(only_one_bucket_filled(&histogram), true);
+    assert!(only_one_bucket_filled(&histogram));
 
     let histogram = vec![0, 0, 0, 0, 0, 1];
-    assert_eq!(only_one_bucket_filled(&histogram), true);
+    assert!(only_one_bucket_filled(&histogram));
 
     let histogram = vec![0, 0, 0, 1, 0, 0];
-    assert_eq!(only_one_bucket_filled(&histogram), true);
+    assert!(only_one_bucket_filled(&histogram));
 }
 
 #[test]
@@ -103,10 +103,10 @@ fn test_utils_get_empty_histograms() {
 fn test_utils_get_histogram() {
     let mut v: Vec<u64> =
         vec![0, 1, 2, 3, 1, 1, 2, 1, 3, 0, 1, 2, 1, 0, 3, 1, 2, 3, 1, 0, 1, 0];
-    let mut arr = v.as_mut_slice();
+    let arr = v.as_mut_slice();
     let p = Params::new(0, 2, 62, 1); // level, radix, offset, max_level
     let (mask, shift) = arr[0].get_mask_and_shift(&p);
-    let h = get_histogram(&mut arr, &p, mask, shift);
+    let h = get_histogram(arr, &p, mask, shift);
 
     let check = vec![5, 9, 4, 4];
 

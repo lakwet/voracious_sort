@@ -78,7 +78,7 @@ pub fn dlsd_radixsort_body<T: Radixable<K>, K: RadixKey>(
             continue;
         }
 
-        let (mut source, mut destination) =
+        let (source, destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
         let (mask, shift) = if diversion {
             dummy.get_mask_and_shift_from_left(&p.new_level(level))
@@ -89,8 +89,8 @@ pub fn dlsd_radixsort_body<T: Radixable<K>, K: RadixKey>(
 
         copy_by_histogram(
             size,
-            &mut source,
-            &mut destination,
+            source,
+            destination,
             &mut heads,
             mask,
             shift,
@@ -113,7 +113,7 @@ pub fn dlsd_radixsort_body<T: Radixable<K>, K: RadixKey>(
     }
 
     if diversion && dummy.type_size() - p.offset >= p.radix * p.max_level {
-        let unsorted_parts = insertion_sort_try(&mut t1, &p);
+        let unsorted_parts = insertion_sort_try(t1, &p);
 
         let radix = 8;
         let raw_offset = p.max_level * p.radix + p.offset;

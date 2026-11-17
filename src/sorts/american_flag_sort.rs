@@ -4,7 +4,7 @@ use super::utils::{get_histogram, prefix_sums, Params};
 
 fn serial_swap<T: Radixable<K>, K: RadixKey>(
     arr: &mut [T],
-    heads: &mut Vec<usize>,
+    heads: &mut [usize],
     tails: &[usize],
     p: &Params,
     mask: <<T as Radixable<K>>::Key as RadixKey>::Key,

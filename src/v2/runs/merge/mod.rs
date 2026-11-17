@@ -276,8 +276,3 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
     dst[k..].copy_from_slice(&b[j..]);
 }
 
-/// Tests: the two-ended branch-free merge.
-#[cfg(test)]
-pub(crate) fn bidir_pub<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
-    merge_bidir::<T, false>(a, b, dst)
-}

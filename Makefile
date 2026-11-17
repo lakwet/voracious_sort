@@ -9,7 +9,7 @@ clean: ## clean build files
 
 lint: ## lint code
 	@rustup component add clippy
-	@cargo clippy -- -A clippy::comparison_chain -A clippy::unused_unit
+	@cargo clippy --lib --tests --features "voracious_multithread v2_trace"
 
 doc: ## build doc and open it in the browser
 	@cargo doc --open

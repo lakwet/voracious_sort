@@ -8,10 +8,10 @@ use super::scan::*;
 #[derive(PartialEq, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Orientation {
-    IsAsc,
-    IsDesc,
-    IsPlateau,
-    IsNone,
+    Asc,
+    Desc,
+    Plateau,
+    None,
 }
 
 #[derive(PartialEq, Debug)]
@@ -96,26 +96,26 @@ pub fn get_growth_pattern(b: BackwardGrowth, f: ForwardGrowth) -> GrowthPattern 
 #[inline]
 fn backward_orientation<T: PartialOrd>(arr: &[T], position: usize) -> Orientation {
     if position == 0 {
-        Orientation::IsNone
+        Orientation::None
     } else if arr[position - 1] < arr[position] {
-        Orientation::IsAsc
+        Orientation::Asc
     } else if arr[position - 1] > arr[position] {
-        Orientation::IsDesc
+        Orientation::Desc
     } else {
-        Orientation::IsPlateau
+        Orientation::Plateau
     }
 }
 
 #[inline]
 fn forward_orientation<T: PartialOrd>(arr: &[T], position: usize) -> Orientation {
     if position >= arr.len() - 1 {
-        Orientation::IsNone
+        Orientation::None
     } else if arr[position] < arr[position + 1] {
-        Orientation::IsAsc
+        Orientation::Asc
     } else if arr[position] > arr[position + 1] {
-        Orientation::IsDesc
+        Orientation::Desc
     } else {
-        Orientation::IsPlateau
+        Orientation::Plateau
     }
 }
 
@@ -127,65 +127,65 @@ pub fn explore_around<T: PartialOrd>(
     min_boundary: usize,
 ) -> ((BackwardGrowth, usize, usize), (ForwardGrowth, usize, usize)) {
     let (b_pattern, bp1, bp2) = match backward_orientation(arr, position) {
-        Orientation::IsAsc => {
+        Orientation::Asc => {
             let p = explore_backward_asc(arr, position, min_boundary);
             (BackwardGrowth::AN, position, p)
         },
-        Orientation::IsDesc => {
+        Orientation::Desc => {
             let p = explore_backward_desc(arr, position, min_boundary);
             (BackwardGrowth::DN, position, p)
         },
-        Orientation::IsPlateau => {
+        Orientation::Plateau => {
             let bp1 = explore_backward_plateau(arr, position, min_boundary);
             if bp1 == min_boundary {
                 (BackwardGrowth::NP, bp1, bp1)
             } else {
                 match backward_orientation(arr, bp1) {
-                    Orientation::IsAsc => {
+                    Orientation::Asc => {
                         let bp2 = explore_backward_asc(arr, bp1, min_boundary);
                         (BackwardGrowth::AP, bp1, bp2)
                     },
-                    Orientation::IsDesc => {
+                    Orientation::Desc => {
                         let bp2 = explore_backward_desc(arr, bp1, min_boundary);
                         (BackwardGrowth::DP, bp1, bp2)
                     },
-                    Orientation::IsPlateau => {
+                    Orientation::Plateau => {
                         panic!("[Verge sort heuristic] Bad implementation.")
                     },
-                    Orientation::IsNone => (BackwardGrowth::NP, bp1, bp1),
+                    Orientation::None => (BackwardGrowth::NP, bp1, bp1),
                 }
             }
         },
-        Orientation::IsNone => (BackwardGrowth::NN, position, position),
+        Orientation::None => (BackwardGrowth::NN, position, position),
     };
     let (f_pattern, fp1, fp2) = match forward_orientation(arr, position) {
-        Orientation::IsAsc => {
+        Orientation::Asc => {
             let p = explore_forward_asc(arr, position);
             (ForwardGrowth::NA, position, p)
         },
-        Orientation::IsDesc => {
+        Orientation::Desc => {
             let p = explore_forward_desc(arr, position);
             (ForwardGrowth::ND, position, p)
         },
-        Orientation::IsPlateau => {
+        Orientation::Plateau => {
             let fp1 = explore_forward_plateau(arr, position);
             let new_position = if fp1 == position { fp1 } else { fp1 - 1 };
             match forward_orientation(arr, new_position) {
-                Orientation::IsAsc => {
+                Orientation::Asc => {
                     let fp2 = explore_forward_asc(arr, fp1);
                     (ForwardGrowth::PA, fp1, fp2)
                 },
-                Orientation::IsDesc => {
+                Orientation::Desc => {
                     let fp2 = explore_forward_desc(arr, fp1);
                     (ForwardGrowth::PD, fp1, fp2)
                 },
-                Orientation::IsPlateau => {
+                Orientation::Plateau => {
                     panic!("[Verge sort heuristic] Bad implementation.")
                 },
-                Orientation::IsNone => (ForwardGrowth::PN, fp1, fp1),
+                Orientation::None => (ForwardGrowth::PN, fp1, fp1),
             }
         },
-        Orientation::IsNone => (ForwardGrowth::NN, position + 1, position + 1),
+        Orientation::None => (ForwardGrowth::NN, position + 1, position + 1),
     };
 
     ((b_pattern, bp1, bp2), (f_pattern, fp1, fp2))

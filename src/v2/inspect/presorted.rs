@@ -96,13 +96,13 @@ fn scan_ascending<T: PartialOrd>(arr: &[T], probes: Option<Probes>) -> Result<()
 /// exit inside a block (vectorized), an exit between blocks.
 #[inline]
 fn all_equal<T: Copy + PartialEq>(arr: &[T], first: T) -> bool {
-    let mut blocks = arr.chunks_exact(64);
-    for block in &mut blocks {
+    let (blocks, rest) = arr.as_chunks::<64>();
+    for block in blocks {
         if !block.iter().fold(true, |all, &v| all & (v == first)) {
             return false;
         }
     }
-    blocks.remainder().iter().all(|&v| v == first)
+    rest.iter().all(|&v| v == first)
 }
 
 /// Repairs `arr` if nearly sorted in either direction (a few misplaced

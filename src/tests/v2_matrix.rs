@@ -73,7 +73,7 @@ impl Key for f32 {
         // ordinary values of both signs, some raw bit patterns.
         if x < 1 << 32 {
             x as f32 * 0.5
-        } else if x % 16 == 0 {
+        } else if x.is_multiple_of(16) {
             f32::from_bits((x >> 8) as u32)
         } else {
             (x as i64 >> 20) as f32 * 0.25
@@ -100,7 +100,7 @@ impl Key for f64 {
     fn from(x: u64) -> Self {
         if x < 1 << 32 {
             x as f64 * 0.5
-        } else if x % 16 == 0 {
+        } else if x.is_multiple_of(16) {
             f64::from_bits(x.rotate_left(17))
         } else {
             (x as i64 >> 8) as f64 * 0.25

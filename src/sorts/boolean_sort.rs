@@ -12,8 +12,9 @@ fn count(bytes: &[u8]) -> (usize, usize) {
     let n = bytes.len();
     let (a, b) = (&bytes[..n - 1], &bytes[1..]);
     let (mut ones, mut descents) = (0usize, 0usize);
-    let mut ca = a.chunks_exact(LANES);
-    let mut cb = b.chunks_exact(LANES);
+    let (blocks_a, rest_a) = a.as_chunks::<LANES>();
+    let (blocks_b, rest_b) = b.as_chunks::<LANES>();
+    let (mut ca, mut cb) = (blocks_a.iter(), blocks_b.iter());
     loop {
         let mut acc_one = [0u8; LANES];
         let mut acc_desc = [0u8; LANES];
@@ -32,7 +33,7 @@ fn count(bytes: &[u8]) -> (usize, usize) {
             break;
         }
     }
-    for (&x, &y) in ca.remainder().iter().zip(cb.remainder()) {
+    for (&x, &y) in rest_a.iter().zip(rest_b) {
         ones += x as usize;
         descents += (x & (y ^ 1)) as usize;
     }

@@ -57,7 +57,7 @@ pub fn helper_random_array_fakezipf_i16(size: usize) -> Vec<i16> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);

@@ -18,6 +18,8 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd + Send + Sync {
         let s = self.usize_to_keytype(shift);
         self.keytype_to_usize((self.into_key_type() & mask) >> s)
     }
+    // Public API since 1.0: renaming it (or taking `self`) would break users.
+    #[allow(clippy::wrong_self_convention)]
     #[inline]
     fn into_key_type(&self) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         self.key().into_keytype()
@@ -190,6 +192,8 @@ pub trait Radixable<K: RadixKey>: Copy + PartialOrd {
         let s = self.usize_to_keytype(shift);
         self.keytype_to_usize((self.into_key_type() & mask) >> s)
     }
+    // Public API since 1.0: renaming it (or taking `self`) would break users.
+    #[allow(clippy::wrong_self_convention)]
     #[inline]
     fn into_key_type(&self) -> <<Self as Radixable<K>>::Key as RadixKey>::Key {
         self.key().into_keytype()

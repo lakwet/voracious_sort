@@ -23,14 +23,14 @@ where
     K: RadixKey,
 {
     let dummy = arr[0];
-    let (mask, shift) = dummy.get_mask_and_shift_from_left(&p);
+    let (mask, shift) = dummy.get_mask_and_shift_from_left(p);
     let mut histograms: Vec<Vec<usize>> = Vec::new();
     let mut receivers = Vec::new();
 
     pool.scope(|s| {
         let mut rest = arr;
         while !rest.is_empty() {
-            let (mut fst, snd) = if block_size < rest.len() {
+            let (fst, snd) = if block_size < rest.len() {
                 rest.split_at_mut(block_size)
             } else {
                 (rest, &mut [] as &mut [T])
@@ -43,7 +43,7 @@ where
                 let h = get_histogram(fst, p, mask, shift);
                 let (_, mut heads, tails) = prefix_sums(&h);
 
-                ska_swap(&mut fst, &mut heads, &tails, mask, shift);
+                ska_swap(fst, &mut heads, &tails, mask, shift);
 
                 sender.send(h).unwrap();
             });
@@ -129,14 +129,14 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
     pool.scope(|s| {
         let mut smalls = Vec::new();
         for _ in 0..p.radix_range {
-            let (bro_id, mut broker, bro_offset) = countries
+            let (bro_id, broker, bro_offset) = countries
                 .pop()
                 .expect("[Regions sort -> swapping] Bad implementation.");
 
             let swaps = regions_graph.two_cycle(bro_id);
             swap_countries(
                 swaps,
-                &mut broker,
+                broker,
                 &mut countries,
                 &country_map,
                 bro_offset,
@@ -145,7 +145,7 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
             let swaps = regions_graph.two_path(bro_id);
             swap_countries(
                 swaps,
-                &mut broker,
+                broker,
                 &mut countries,
                 &country_map,
                 bro_offset,
@@ -156,7 +156,7 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
                     s.spawn(move |_| {
                         let new_params = p.new_level(p.level + 1);
                         peeka_sort_rec(
-                            &mut broker,
+                            broker,
                             new_params,
                             pool,
                             block_count,
@@ -169,8 +169,8 @@ fn peeka_sort_rec<T: Radixable<K>, K: RadixKey>(
             }
         }
 
-        for mut small_array in smalls.into_iter() {
-            fallback(&mut small_array, p.new_level(p.level + 1));
+        for small_array in smalls.into_iter() {
+            fallback(small_array, p.new_level(p.level + 1));
         }
     });
 }

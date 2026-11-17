@@ -12,6 +12,8 @@ pub trait RadixKey {
         + Send
         + Sync
         + std::fmt::Display;
+    // Public API since 1.0: renaming it (or taking `self`) would break users.
+    #[allow(clippy::wrong_self_convention)]
     fn into_keytype(&self) -> Self::Key;
     fn type_size(&self) -> usize;
     fn usize_to_keytype(&self, item: usize) -> Self::Key;

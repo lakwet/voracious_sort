@@ -1,5 +1,6 @@
 mod bool;
 mod char;
+#[cfg(test)]
 pub mod custom;
 mod floats;
 mod isize;

@@ -44,7 +44,7 @@ impl Visit for Tracer {
         keys: &dyn Fn() -> Vec<T>,
         sort: fn(&mut [T]),
     ) {
-        let mut path = |new: bool| {
+        let path = |new: bool| {
             NEW_RULE.store(new, Relaxed);
             let mut a = keys();
             trace::take();

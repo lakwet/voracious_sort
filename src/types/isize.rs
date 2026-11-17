@@ -1,11 +1,9 @@
 #[cfg(feature = "voracious_multithread")]
 use rayon::slice::ParallelSliceMut;
 
-use super::super::sorts::lsd_sort::lsd_radixsort_heu;
 #[cfg(feature = "voracious_multithread")]
 use super::super::sorts::peeka_sort::peeka_sort;
 use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
-use super::super::sorts::rollercoaster_sort::rollercoaster_sort_heu;
 use super::super::sorts::utils::{get_empty_histograms, Params};
 use super::super::Radixable;
 

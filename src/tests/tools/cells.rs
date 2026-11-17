@@ -129,7 +129,7 @@ fn cells<T: Copy + PartialOrd + Send + 'static, V: Visit>(
 /// `None`).
 pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
     let pool = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-    let wants = |t: &str| types.map_or(true, |l| l.iter().any(|x| x == t));
+    let wants = |t: &str| types.is_none_or(|l| l.iter().any(|x| x == t));
     macro_rules! ty {
         ($label:expr, $gens:expr, $sort:expr, $big:expr) => {
             if wants($label) {
@@ -140,79 +140,79 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
     ty!(
         "u32",
         all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         true
     );
     ty!(
         "i32",
         all(g::signed_i32::generators_i32(), g::int_extra::extra_i32::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         true
     );
     ty!(
         "u64",
         all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         true
     );
     ty!(
         "i64",
         all(g::signed_i64::generators_i64(), g::int_extra::extra_i64::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         true
     );
     ty!(
         "f32",
         all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()),
-        |a| ravenous_sort2(a),
+        ravenous_sort2,
         true
     );
     ty!(
         "f64",
         all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()),
-        |a| ravenous_sort2(a),
+        ravenous_sort2,
         true
     );
     ty!(
         "u16",
         all(g::unsigned_u16::generators_u16(), g::narrow_extra::extra_u16::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     ty!(
         "i16",
         all(g::signed_i16::generators_i16(), g::narrow_extra::extra_i16::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     ty!(
         "u8",
         all(g::unsigned_u8::generators_u8(), g::narrow_extra::extra_u8::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     ty!(
         "i8",
         all(g::signed_i8::generators_i8(), g::narrow_extra::extra_i8::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     ty!(
         "char",
         all(g::char::generators_char(), g::narrow_extra::extra_char::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     ty!(
         "u128",
         all(g::unsigned_u128::generators_u128(), g::int128_extra::extra_u128::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     ty!(
         "i128",
         all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()),
-        |a| devour_sort2(a),
+        devour_sort2,
         false
     );
     // Records sorted by key (stable, but the last), as in the CPU bench;
@@ -257,7 +257,9 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
     rec_unstable!("ru128u32", u32, 31, keys_u32(), 1_000_000);
 }
 
-/// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment.
+/// `TRACE_TYPES` / `SENT_TYPES`-style list from the environment (read by
+/// the trace, built with `v2_trace` only).
+#[cfg(feature = "v2_trace")]
 pub(super) fn env_list(var: &str) -> Option<Vec<String>> {
     std::env::var(var)
         .ok()

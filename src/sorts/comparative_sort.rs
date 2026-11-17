@@ -93,12 +93,12 @@ where
     let mut jump = 32;
     let mut i = start;
 
-    let mut j = if jump > start { 0 } else { start - jump };
+    let mut j = start.saturating_sub(jump);
 
     while high_bits == (arr[j].into_key_type() & mask) {
         jump *= 2;
         i = j;
-        j = if jump > j { 0 } else { j - jump };
+        j = j.saturating_sub(jump);
         if j == 0 && high_bits == arr[j].into_key_type() & mask {
             return 0;
         }

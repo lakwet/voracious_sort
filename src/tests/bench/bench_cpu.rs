@@ -118,7 +118,7 @@ impl Config {
     /// its key type alone ("u64": every record of u64 keys).
     fn wants(&self, part: &str, ty: &str) -> bool {
         let key = |x: &String| part == "records" && ty.split(' ').next() == Some(x.as_str());
-        self.part(part) && self.types.as_ref().map_or(true, |t| t.iter().any(|x| x == ty || key(x)))
+        self.part(part) && self.types.as_ref().is_none_or(|t| t.iter().any(|x| x == ty || key(x)))
     }
 }
 
@@ -206,7 +206,7 @@ fn geo(values: &[f64]) -> f64 {
 fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, size: usize, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool) -> Vec<(String, Vec<f64>)> {
     let bytes = std::mem::size_of::<T>().max(1);
     let count = (BATCH_KEYS / size).min(BATCH_BYTES / (size * bytes)).max(1);
-    let reps = cfg.reps.max((cfg.min_arrays + count - 1) / count);
+    let reps = cfg.reps.max(cfg.min_arrays.div_ceil(count));
     let nv = variants.len();
     let mut rows = Vec::new();
     for (gen, name) in gens.iter() {
@@ -249,7 +249,7 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
 /// One type of one part: raw rows and a summary per size.
 fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool, min_size: usize) {
     let only: Option<Vec<usize>> = std::env::var("BENCH_SIZES").ok().map(|l| l.split(',').map(|x| x.trim().replace('_', "").parse().unwrap()).collect());
-    let sizes: Vec<usize> = SIZES.iter().copied().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).filter(|s| only.as_ref().map_or(true, |o| o.contains(s))).collect();
+    let sizes: Vec<usize> = SIZES.iter().copied().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).filter(|s| only.as_ref().is_none_or(|o| o.contains(s))).collect();
     bench_sizes(report, cfg, label, gens, variants, ordered, &sizes);
 }
 
@@ -274,7 +274,7 @@ fn bench_sizes<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &
         }
         let first: Vec<f64> = rows.iter().map(|r| r.1[0]).collect();
         report.line(&format!("sum,{},{},{} geo {:.2} ns ({:.0} s)", label, size, names[0], geo(&first), started.elapsed().as_secs_f64()));
-        for v in 1..variants.len() {
+        for (v, name) in names.iter().enumerate().skip(1) {
             let mut ratios: Vec<f64> = rows.iter().map(|r| r.1[v] / r.1[0]).collect();
             let wins = ratios.iter().filter(|&&x| x > 1.0).count();
             ratios.sort_by(|a, b| a.total_cmp(b));
@@ -282,7 +282,7 @@ fn bench_sizes<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &
                 "sum,{},{},{} geo {:.2} med {:.2} p10 {:.2} wins {}/{}",
                 label,
                 size,
-                names[v],
+                name,
                 geo(&ratios),
                 ratios[ratios.len() / 2],
                 ratios[ratios.len() / 10],
@@ -332,7 +332,7 @@ fn command(program: &str, args: &[&str]) -> Option<String> {
 fn cpu_name() -> String {
     if let Ok(info) = std::fs::read_to_string("/proc/cpuinfo") {
         if let Some(line) = info.lines().find(|l| l.starts_with("model name") || l.starts_with("Model")) {
-            return line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+            return line.split_once(':').map(|x| x.1).unwrap_or("").trim().to_string();
         }
     }
     if cfg!(windows) {
@@ -677,7 +677,7 @@ fn bench_cpu() {
         // cache: 11 bits (2048 buckets, six passes for 64-bit keys) against
         // bytes (256 buckets, eight passes). 2048 write streams need more
         // L1 lines and TLB entries than some cores have (Zen 2: 32 KiB L1).
-        if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+        if cfg.types.as_ref().is_none_or(|t| t.iter().any(|x| x == "records")) {
             use crate::v2::sorts::by_key::LSD11;
             type R = Rec<u64, 2>;
             let disorder: Gens<R> = wrap(keys_u64(), rec::<u64, 2>)
@@ -710,7 +710,7 @@ fn bench_cpu() {
         // `BUDGET_OVERRIDE` is indexed by the enum order.
         assert!(BUDGETS.iter().enumerate().all(|(i, &(b, _))| b as usize == i));
         for &(b, name) in BUDGETS.iter() {
-            if wanted.as_ref().map_or(false, |w| !w.iter().any(|x| x == name)) {
+            if wanted.as_ref().is_some_and(|w| !w.iter().any(|x| x == name)) {
                 continue;
             }
             macro_rules! tune {
@@ -749,7 +749,7 @@ fn bench_cpu() {
                     tune!(u64, "u64", only_runs(u64s()), |a: &mut [u64]| devour_sort2(a), |a: &u64, b: &u64| a <= b);
                 }
                 Budget::Records => {
-                    if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+                    if cfg.types.as_ref().is_none_or(|t| t.iter().any(|x| x == "records")) {
                         type R8 = Rec<u32, 1>;
                         type R16 = Rec<u64, 2>;
                         type R32 = Rec<u64, 6>;
@@ -846,7 +846,7 @@ fn bench_cpu() {
         l2!(u32, all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators()), devour_sort2, |a: &u32, b: &u32| a <= b);
         l2!(u64, all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()), devour_sort2, |a: &u64, b: &u64| a <= b);
         l2!(f64, g::float_64::generators_f64(), ravenous_sort2, ord_total_f64);
-        if cfg.types.as_ref().map_or(true, |t| t.iter().any(|x| x == "records")) {
+        if cfg.types.as_ref().is_none_or(|t| t.iter().any(|x| x == "records")) {
             let (half, double, quad, arm) = (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4), with_l2(ARM_L2));
             type R = Rec<u64, 6>;
             let variants: Vec<Variant<R>> = vec![
@@ -938,14 +938,14 @@ mod pin {
         };
         let fast = sets.iter().filter(|s| s.3 == hi).count();
         let kinds = format!("{} logical processors, {} of the fastest class {} (classes {}-{})", sets.len(), fast, hi, lo, hi);
-        if std::env::var("BENCH_PIN").map_or(false, |v| v == "0") {
+        if std::env::var("BENCH_PIN").is_ok_and(|v| v == "0") {
             return format!("not pinned (BENCH_PIN=0), current processor {}; {}", current(), kinds);
         }
         if lo == hi {
             return format!("not pinned (all cores alike), current processor {}; {}", current(), kinds);
         }
         // `BENCH_PIN=slow`: the slowest class instead (to measure the gap).
-        let class = if std::env::var("BENCH_PIN").map_or(false, |v| v == "slow") { lo } else { hi };
+        let class = if std::env::var("BENCH_PIN").is_ok_and(|v| v == "slow") { lo } else { hi };
         // A core of that class other than core 0 (interrupts) when there is one.
         let chosen: Vec<_> = sets.iter().filter(|s| s.3 == class).collect();
         let pick = chosen.iter().find(|s| s.2 != 0).unwrap_or(&chosen[0]);

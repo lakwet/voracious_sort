@@ -48,9 +48,9 @@ pub fn helper_random_array_alternating16_i32(size: usize) -> Vec<i32> {
         .into_par_iter()
         .map(|i| {
             if i % 2 == 0 {
-                crate::generators::rng().random_range(0..16) as i32
+                crate::generators::rng().random_range(0..16)
             } else {
-                -(crate::generators::rng().random_range(0..16) as i32)
+                -crate::generators::rng().random_range(0..16)
             }
         })
         .collect::<Vec<i32>>()
@@ -77,7 +77,7 @@ pub fn helper_random_array_fakezipf_i32(size: usize) -> Vec<i32> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);

@@ -33,15 +33,15 @@ where
             continue;
         }
 
-        let (mut source, mut destination) =
+        let (source, destination) =
             if index == 0 { (t1, t2) } else { (t2, t1) };
         let (mask, shift) = dummy.get_mask_and_shift(&p.new_level(level));
         let (_, mut heads, _) = prefix_sums(&histograms[level]);
 
         copy_by_histogram(
             source.len(),
-            &mut source,
-            &mut destination,
+            source,
+            destination,
             &mut heads,
             mask,
             shift,
@@ -112,7 +112,7 @@ pub fn lsd_radixsort_aux<T: Radixable<K>, K: RadixKey>(
 /// - Use vectorization.
 /// - Compute histograms in one pass.
 /// - Check the number of non-empty buckets, if only one bucket is non-empty,
-/// then skip the `copy_by_histogram`.
+///   then skip the `copy_by_histogram`.
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///

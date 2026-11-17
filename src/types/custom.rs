@@ -7,6 +7,8 @@ use super::super::Radixable;
 #[derive(Copy, Clone, Debug)]
 pub struct StructBool {
     pub value: bool,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructBool {
@@ -28,6 +30,8 @@ impl Radixable<bool> for StructBool {
 #[derive(Copy, Clone, Debug)]
 pub struct StructChar {
     pub value: char,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructChar {
@@ -49,6 +53,8 @@ impl Radixable<char> for StructChar {
 #[derive(Copy, Clone, Debug)]
 pub struct StructF32 {
     pub value: f32,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructF32 {
@@ -70,6 +76,8 @@ impl Radixable<f32> for StructF32 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructF64 {
     pub value: f64,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructF64 {
@@ -91,6 +99,8 @@ impl Radixable<f64> for StructF64 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructU8 {
     pub value: u8,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructU8 {
@@ -112,6 +122,8 @@ impl Radixable<u8> for StructU8 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructU16 {
     pub value: u16,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructU16 {
@@ -133,6 +145,8 @@ impl Radixable<u16> for StructU16 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructU32 {
     pub value: u32,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructU32 {
@@ -154,6 +168,8 @@ impl Radixable<u32> for StructU32 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructU64 {
     pub value: u64,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructU64 {
@@ -175,6 +191,8 @@ impl Radixable<u64> for StructU64 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructU128 {
     pub value: u128,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructU128 {
@@ -196,6 +214,8 @@ impl Radixable<u128> for StructU128 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructI8 {
     pub value: i8,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructI8 {
@@ -217,6 +237,8 @@ impl Radixable<i8> for StructI8 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructI16 {
     pub value: i16,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructI16 {
@@ -238,6 +260,8 @@ impl Radixable<i16> for StructI16 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructI32 {
     pub value: i32,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructI32 {
@@ -259,6 +283,8 @@ impl Radixable<i32> for StructI32 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructI64 {
     pub value: i64,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructI64 {
@@ -280,6 +306,8 @@ impl Radixable<i64> for StructI64 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructI128 {
     pub value: i128,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructI128 {
@@ -301,6 +329,8 @@ impl Radixable<i128> for StructI128 {
 #[derive(Copy, Clone, Debug)]
 pub struct StructIsize {
     pub value: isize,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructIsize {
@@ -322,6 +352,8 @@ impl Radixable<isize> for StructIsize {
 #[derive(Copy, Clone, Debug)]
 pub struct StructUsize {
     pub value: usize,
+    // Payload: moved with the record, never read.
+    #[allow(dead_code)]
     pub other: isize,
 }
 impl PartialOrd for StructUsize {

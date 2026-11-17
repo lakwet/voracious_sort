@@ -50,7 +50,7 @@ impl RegionsGraph {
         &mut self,
         histograms: &[Vec<usize>],
     ) -> Vec<usize> {
-        let global_histogram = aggregate_histograms(&histograms);
+        let global_histogram = aggregate_histograms(histograms);
 
         let mut position = 0;
         let mut country = 0;
@@ -268,7 +268,7 @@ fn swap_between_countries<T: Copy>(
 pub fn swap_countries<T: Copy>(
     swaps: Vec<(usize, (usize, usize), (usize, usize))>,
     broker: &mut [T],
-    countries: &mut Vec<(usize, &mut [T], usize)>,
+    countries: &mut [(usize, &mut [T], usize)],
     country_map: &[usize],
     bro_offset: usize,
 ) {

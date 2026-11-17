@@ -78,7 +78,7 @@ fn helper_sort<T, K>(
     T: Ord,
     // T: PartialOrd,
 {
-    let sorts_name = vec![
+    let sorts_name = [
         "Trait Vora Uns or stable",
         // "Trait Vora Stable",
         // "Trait Vora MT",

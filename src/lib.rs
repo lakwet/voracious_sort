@@ -17,18 +17,18 @@
 //! - [`bool`](https://doc.rust-lang.org/stable/std/primitive.bool.html)
 //! - [`char`](https://doc.rust-lang.org/stable/std/primitive.char.html)
 //! - [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html),
-//! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html)
+//!   [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html)
 //! - [`i8`](https://doc.rust-lang.org/stable/std/primitive.i8.html),
-//! [`i16`](https://doc.rust-lang.org/stable/std/primitive.i16.html),
-//! [`i32`](https://doc.rust-lang.org/stable/std/primitive.i32.html),
-//! [`i64`](https://doc.rust-lang.org/stable/std/primitive.i64.html),
-//! [`i128`](https://doc.rust-lang.org/stable/std/primitive.i128.html)
+//!   [`i16`](https://doc.rust-lang.org/stable/std/primitive.i16.html),
+//!   [`i32`](https://doc.rust-lang.org/stable/std/primitive.i32.html),
+//!   [`i64`](https://doc.rust-lang.org/stable/std/primitive.i64.html),
+//!   [`i128`](https://doc.rust-lang.org/stable/std/primitive.i128.html)
 //! - [`isize`](https://doc.rust-lang.org/stable/std/primitive.isize.html)
 //! - [`u8`](https://doc.rust-lang.org/stable/std/primitive.u8.html),
-//! [`u16`](https://doc.rust-lang.org/stable/std/primitive.u16.html),
-//! [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
-//! [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
-//! [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html)
+//!   [`u16`](https://doc.rust-lang.org/stable/std/primitive.u16.html),
+//!   [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
+//!   [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
+//!   [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html)
 //! - [`usize`](https://doc.rust-lang.org/stable/std/primitive.usize.html)
 //! - [`struct`](https://doc.rust-lang.org/std/keyword.struct.html)
 //!   - The struct must be mapped to a key. The key must be among the aforementioned types (bool, char, f32, etc...).
@@ -256,14 +256,14 @@
 //! (since version 1.2.2; before, a NaN could make the sort panic):
 //!
 //! - negative NaNs (`-NaN`) come first and positive NaNs last, each group in the
-//! order of its bits (as
-//! [`f64::total_cmp`](https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp));
+//!   order of its bits (as
+//!   [`f64::total_cmp`](https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp));
 //! - every other value is sorted between them, infinities included;
 //! - no value is lost or changed (a NaN keeps its exact bits);
 //! - the stable sorts keep the order of elements with equal keys, NaNs of the
-//! same bits included;
+//!   same bits included;
 //! - `-0.0` and `+0.0` compare equal: the unstable sorts may leave them in any
-//! order.
+//!   order.
 //!
 //! For example `[3.0, NaN, -1.0, -NaN, 2.0]` becomes `[-NaN, -1.0, 2.0, 3.0, NaN]`.
 //!
@@ -274,8 +274,8 @@
 //! ## Dependencies
 //!
 //! - Rayon 1.5.0 (threadpool). This dependency is **optional**. If you use only the
-//! single thread version, you don't need it. If you want to use the multithread
-//! version, you will need it.
+//!   single thread version, you don't need it. If you want to use the multithread
+//!   version, you will need it.
 //!
 //! ## Performances
 //!
@@ -284,12 +284,12 @@
 //! - Performances can vary depending on the profile you are using.
 //! - Please notice that dedicated sorts are faster than generic sorts.
 //! - Tests have been done on an AMD Ryzen 9 3950x,  32GB DDR4 RAM, MB X570 TUF
-//! Gaming.
+//!   Gaming.
 //! - For more benchmarks, please visit our [GitHub](https://github.com/lakwet/voracious_sort).
 //! - Times are in micro seconde.
 //! - Since this crate outperforms all the other Rust sorting crates, only Rust
-//! standard sorts and Rayon sorts are used in the benchmarks. Since Rust Unstable sort is
-//! actually a PDQ sort, it can be considered as a gold standard.
+//!   standard sorts and Rayon sorts are used in the benchmarks. Since Rust Unstable sort is
+//!   actually a PDQ sort, it can be considered as a gold standard.
 //!
 //! ### For **`u32`** (Distribution: Normal sd=2^20)
 //!
@@ -374,23 +374,23 @@
 //! ## Implementation details
 //!
 //! - [`bool`](https://doc.rust-lang.org/stable/std/primitive.bool.html)
-//! (Counting sort with radix == 1),
+//!   (Counting sort with radix == 1),
 //! - [`char`](https://doc.rust-lang.org/stable/std/primitive.char.html) (Behave
 //!   like u32),
 //! - [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html),
-//! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html) (See [link](http://stereopsis.com/radix.html)),
+//!   [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html) (See [link](http://stereopsis.com/radix.html)),
 //! - [`i8`](https://doc.rust-lang.org/stable/std/primitive.i8.html),
-//! [`i16`](https://doc.rust-lang.org/stable/std/primitive.i16.html),
-//! [`i32`](https://doc.rust-lang.org/stable/std/primitive.i32.html),
-//! [`i64`](https://doc.rust-lang.org/stable/std/primitive.i64.html),
-//! [`i128`](https://doc.rust-lang.org/stable/std/primitive.i128.html)
-//! [`isize`](https://doc.rust-lang.org/stable/std/primitive.isize.html) (First bit is flipped),
+//!   [`i16`](https://doc.rust-lang.org/stable/std/primitive.i16.html),
+//!   [`i32`](https://doc.rust-lang.org/stable/std/primitive.i32.html),
+//!   [`i64`](https://doc.rust-lang.org/stable/std/primitive.i64.html),
+//!   [`i128`](https://doc.rust-lang.org/stable/std/primitive.i128.html)
+//!   [`isize`](https://doc.rust-lang.org/stable/std/primitive.isize.html) (First bit is flipped),
 //! - [`u8`](https://doc.rust-lang.org/stable/std/primitive.u8.html),
-//! [`u16`](https://doc.rust-lang.org/stable/std/primitive.u16.html),
-//! [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
-//! [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
-//! [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html),
-//! [`usize`](https://doc.rust-lang.org/stable/std/primitive.usize.html) (Native implementation),
+//!   [`u16`](https://doc.rust-lang.org/stable/std/primitive.u16.html),
+//!   [`u32`](https://doc.rust-lang.org/stable/std/primitive.u32.html),
+//!   [`u64`](https://doc.rust-lang.org/stable/std/primitive.u64.html),
+//!   [`u128`](https://doc.rust-lang.org/stable/std/primitive.u128.html),
+//!   [`usize`](https://doc.rust-lang.org/stable/std/primitive.usize.html) (Native implementation),
 //! - [`struct`](https://doc.rust-lang.org/std/keyword.struct.html) (Mapped to a key among the aforementioned types).
 //!
 //! ## Using native functions
@@ -407,6 +407,10 @@
 //! is not finished. You might need to work a bit more by doing your own profiling.
 //! For this purpose, I highly recommend you to clone the github project and use
 //! the provided benchmark.
+
+// The thread-local flags are initialised in `const` blocks already; clippy
+// 1.99 still reports them (false positive of missing_const_for_thread_local).
+#![allow(clippy::missing_const_for_thread_local)]
 
 mod algo;
 mod dedicated;

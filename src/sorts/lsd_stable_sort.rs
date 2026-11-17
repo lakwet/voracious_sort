@@ -15,7 +15,7 @@ use super::lsd_sort::lsd_radixsort_aux;
 /// - Use vectorization.
 /// - Compute histograms in one pass.
 /// - Check the number of non-empty buckets, if only one bucket is non-empty,
-/// then skip the `copy_by_histogram`.
+///   then skip the `copy_by_histogram`.
 ///
 /// The Verge sort pre-processing heuristic is also added.
 ///

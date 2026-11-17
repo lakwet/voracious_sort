@@ -98,7 +98,7 @@ pub fn helper_random_array_fakezipf_f64(size: usize) -> Vec<f64> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);
@@ -222,7 +222,7 @@ pub fn helper_random_array_asc_sawtooth_f64(size: usize) -> Vec<f64> {
         return helper_random_array_uniform_f64(size);
     }
 
-    let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f64;
+    let limit = size as f64 / ((size as f64).log2() * 0.9);
     (0..size).into_par_iter().map(|i| i as f64 % limit).collect::<Vec<f64>>()
 }
 
@@ -235,7 +235,7 @@ pub fn helper_random_array_desc_sawtooth_f64(size: usize) -> Vec<f64> {
         return helper_random_array_uniform_f64(size);
     }
 
-    let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f64;
+    let limit = size as f64 / ((size as f64).log2() * 0.9);
     (0..size)
         .into_par_iter()
         .map(|i| (size - 1 - i) as f64 % limit)
