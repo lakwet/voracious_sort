@@ -10,7 +10,6 @@ mod few;
 #[macro_use]
 mod range;
 
-pub(crate) mod clusters;
 pub(crate) mod floats;
 pub(crate) mod heavy;
 pub(crate) mod plateaus;

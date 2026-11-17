@@ -19,8 +19,8 @@ pub(crate) mod wide128;
 
 use std::mem::MaybeUninit;
 
-use crate::v2::cache::{budget, Budget};
-use crate::v2::special::clusters::clustered;
+use crate::v2::decide::chunks::{self, Engine};
+use crate::v2::decide::shape::clustered;
 use crate::v2::engines::counting::domain_count;
 use crate::v2::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use crate::v2::special::plateaus::plateaus;
@@ -61,24 +61,6 @@ pub trait DevourSort2: sealed::Sealed + Copy + Ord {
 #[inline]
 pub fn devour_sort2<T: DevourSort2>(arr: &mut [T]) {
     T::devour_sort2_impl(arr);
-}
-
-/// From this chunk size 32-bit keys go to the rollercoaster instead of the
-/// fused LSD: L2 bytes (for its memory, n instead of 2n; rollercoaster /
-/// LSD 0.94-1.05 from 1M to 10M).
-fn roller_min_32() -> usize {
-    budget(Budget::Roller32)
-}
-
-/// From this chunk size 64-bit keys go to the rollercoaster instead of the
-/// DLSD: L2 / 12 (rollercoaster / DLSD 1.00 there, 0.82-0.93 at 4M-10M).
-fn roller_min_64() -> usize {
-    budget(Budget::Roller64) / 12
-}
-
-/// 8- and 16-bit keys never take the rollercoaster.
-fn no_roller() -> usize {
-    usize::MAX
 }
 
 /// What the integer sort needs of a key type: its key map, its small-array
@@ -143,40 +125,12 @@ fn detect<T: IntSort>(arr: &mut [T], equal_pairs: usize) -> bool {
         })
 }
 
-/// Beyond the largest cache, 32-bit keys take the rollercoaster only when
-/// they are ordered locally or globally (else the fused LSD: random keys
-/// -15 to -45 % from 30M to 1G).
-#[inline]
-fn roller_beyond<U: Copy + PartialOrd>(bits: &[U]) -> bool {
-    locally_ordered(bits) || globally_ordered(bits)
-}
-
-/// Sampled keys (65 spread over the slice) mostly in one order: a global
-/// trend under local noise (timestamps with jitter).
-fn globally_ordered<U: Copy + PartialOrd>(bits: &[U]) -> bool {
-    const PAIRS: usize = 64;
-    let step = bits.len() / (PAIRS + 1);
-    let asc = (0..PAIRS).filter(|&k| bits[k * step] <= bits[(k + 1) * step]).count();
-    let desc = (0..PAIRS).filter(|&k| bits[k * step] >= bits[(k + 1) * step]).count();
-    asc >= PAIRS * 7 / 8 || desc >= PAIRS * 7 / 8
-}
-
-/// Sampled neighbours (64 pairs spread over the keys) mostly in one order:
-/// sawteeth, timestamps, runs. The MSD pass first then writes in few,
-/// sequential streams, where the LSD's first pass on the low digit scatters.
-fn locally_ordered<U: Copy + PartialOrd>(bits: &[U]) -> bool {
-    const PAIRS: usize = 64;
-    let step = bits.len() / (PAIRS + 1);
-    let asc = (1..=PAIRS).filter(|&k| bits[k * step] <= bits[k * step + 1]).count();
-    let desc = (1..=PAIRS).filter(|&k| bits[k * step] >= bits[k * step + 1]).count();
-    asc >= PAIRS * 7 / 8 || desc >= PAIRS * 7 / 8
-}
-
+/// 8 to 32 bits: the fused LSD or the rollercoaster (`decide::chunks`).
 macro_rules! lsd_chunks {
-    ($uint:ty, $lsd:ident, $roller:expr, $roller_min:ident) => {
+    ($uint:ty, $lsd:ident, $roller:expr, $rule:path) => {
         #[inline(always)]
         fn sort_chunk(bits: &mut [$uint], _: &mut Vec<MaybeUninit<$uint>>) {
-            if bits.len() >= $roller_min() && roller_beyond(bits) {
+            if $rule(bits) == Engine::Roller {
                 trace!("roller");
                 $roller(bits);
             } else {
@@ -187,32 +141,36 @@ macro_rules! lsd_chunks {
     };
 }
 
-/// 64 bits: the DLSD, or the LSD on tight clusters (the cluster rule reads
-/// the DLSD's own sorted sample); the rollercoaster beyond the cache.
+/// 64 bits: the DLSD, the LSD on tight clusters (the cluster rule reads the
+/// DLSD's own sorted sample) or the rollercoaster (`decide::chunks`).
 macro_rules! dlsd_chunks {
     ($dlsd:ident, $lsd:ident, $roller:ident) => {
         #[inline(always)]
         fn sort_chunk(bits: &mut [u64], buffer: &mut Vec<MaybeUninit<u64>>) {
-            if bits.len() >= roller_min_64() {
-                trace!("roller");
-                $roller::roller(bits);
-            } else if bits.len() >= DENSE_MIN {
-                if $dlsd::dlsd_unless(bits, buffer, |sample: &[u64]| clustered(sample)) {
-                    trace!("dlsd");
-                } else {
-                    trace!("lsd_clustered");
-                    $lsd::lsd(bits);
+            match chunks::int64(bits.len()) {
+                Engine::Roller => {
+                    trace!("roller");
+                    $roller::roller(bits);
                 }
-            } else {
-                trace!("dlsd");
-                $dlsd::dlsd_with(bits, buffer);
+                Engine::DlsdOrLsdOnClusters => {
+                    if $dlsd::dlsd_unless(bits, buffer, |sample: &[u64]| clustered(sample)) {
+                        trace!("dlsd");
+                    } else {
+                        trace!("lsd_clustered");
+                        $lsd::lsd(bits);
+                    }
+                }
+                _ => {
+                    trace!("dlsd");
+                    $dlsd::dlsd_with(bits, buffer);
+                }
             }
         }
     };
 }
 
 macro_rules! int_type {
-    ($t:ty, $uint:ty, $m:ident, $encode:ident, $decode:ident, $small:expr, $roller_min:ident, $chunks:ident!($($engines:tt)*)) => {
+    ($t:ty, $uint:ty, $m:ident, $encode:ident, $decode:ident, $small:expr, $roller_min:path, $chunks:ident!($($engines:tt)*)) => {
         int_detectors!($m, $t, $uint, $encode, $decode, $roller_min);
 
         impl IntSort for $t {
@@ -256,16 +214,16 @@ macro_rules! int_type {
 
 // Small-array limits: in-process A/B, Snapdragon X Elite (much lower than
 // for floats: the integer detectors often apply).
-int_type!(u32, u32, detect_u32, id32, id32, 200, roller_min_32, lsd_chunks!(u32, wu32, ru32::roller, roller_min_32));
-int_type!(i32, u32, detect_i32, flip32, flip32, 150, roller_min_32, lsd_chunks!(u32, wi32, ri32::roller, roller_min_32));
-int_type!(u64, u64, detect_u64, id64, id64, 150, roller_min_64, dlsd_chunks!(du64, wu64, ru64));
-int_type!(i64, u64, detect_i64, flip64, flip64, 150, roller_min_64, dlsd_chunks!(di64, wi64, ri64));
+int_type!(u32, u32, detect_u32, id32, id32, 200, chunks::roller_min_32, lsd_chunks!(u32, wu32, ru32::roller, chunks::int32));
+int_type!(i32, u32, detect_i32, flip32, flip32, 150, chunks::roller_min_32, lsd_chunks!(u32, wi32, ri32::roller, chunks::int32));
+int_type!(u64, u64, detect_u64, id64, id64, 150, chunks::roller_min_64, dlsd_chunks!(du64, wu64, ru64));
+int_type!(i64, u64, detect_i64, flip64, flip64, 150, chunks::roller_min_64, dlsd_chunks!(di64, wi64, ri64));
 // 8 and 16 bits: from 2^16 keys the narrow-range counting always applies;
 // below, the fused LSD on bytes.
-int_type!(u16, u16, detect_u16, id16, id16, 150, no_roller, lsd_chunks!(u16, wu16, wu16::lsd, no_roller));
-int_type!(i16, u16, detect_i16, flip16, flip16, 150, no_roller, lsd_chunks!(u16, wi16, wi16::lsd, no_roller));
-int_type!(u8, u8, detect_u8, id8, id8, 150, no_roller, lsd_chunks!(u8, wu8, wu8::lsd, no_roller));
-int_type!(i8, u8, detect_i8, flip8, flip8, 150, no_roller, lsd_chunks!(u8, wi8, wi8::lsd, no_roller));
+int_type!(u16, u16, detect_u16, id16, id16, 150, chunks::no_roller, lsd_chunks!(u16, wu16, wu16::lsd, chunks::narrow));
+int_type!(i16, u16, detect_i16, flip16, flip16, 150, chunks::no_roller, lsd_chunks!(u16, wi16, wi16::lsd, chunks::narrow));
+int_type!(u8, u8, detect_u8, id8, id8, 150, chunks::no_roller, lsd_chunks!(u8, wu8, wu8::lsd, chunks::narrow));
+int_type!(i8, u8, detect_i8, flip8, flip8, 150, chunks::no_roller, lsd_chunks!(u8, wi8, wi8::lsd, chunks::narrow));
 
 /// `char`: sorted as its code point (the order of `char`; sorting permutes
 /// valid values only).

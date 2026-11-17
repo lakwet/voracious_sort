@@ -1,7 +1,28 @@
-//! Tight clusters: where the DLSD's prefix would be sized for a few pairs
-//! of keys, the LSD is used instead.
+//! Shapes read on samples of the keys: ordered keys (the rollercoaster's
+//! MSD pass then writes in few streams), tight clusters (the DLSD's prefix
+//! would be sized for a few pairs).
 
 use crate::v2::sorts::devour::keys::Key;
+
+/// Sampled neighbours (64 pairs spread over the keys) mostly in one order:
+/// sawteeth, runs.
+pub(crate) fn locally_ordered<U: Copy + PartialOrd>(bits: &[U]) -> bool {
+    const PAIRS: usize = 64;
+    let step = bits.len() / (PAIRS + 1);
+    let asc = (1..=PAIRS).filter(|&k| bits[k * step] <= bits[k * step + 1]).count();
+    let desc = (1..=PAIRS).filter(|&k| bits[k * step] >= bits[k * step + 1]).count();
+    asc >= PAIRS * 7 / 8 || desc >= PAIRS * 7 / 8
+}
+
+/// Sampled keys (65 spread over the slice) mostly in one order: a global
+/// trend under local noise (timestamps with jitter).
+pub(crate) fn globally_ordered<U: Copy + PartialOrd>(bits: &[U]) -> bool {
+    const PAIRS: usize = 64;
+    let step = bits.len() / (PAIRS + 1);
+    let asc = (0..PAIRS).filter(|&k| bits[k * step] <= bits[(k + 1) * step]).count();
+    let desc = (0..PAIRS).filter(|&k| bits[k * step] >= bits[(k + 1) * step]).count();
+    asc >= PAIRS * 7 / 8 || desc >= PAIRS * 7 / 8
+}
 
 /// Tight clusters (many groups of nearby keys spread over the whole
 /// range): on a sorted spread sample, the bits that separate neighbours

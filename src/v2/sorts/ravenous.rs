@@ -21,24 +21,13 @@ use crate::v2::engines::roller::{r32, r64};
 use crate::v2::inspect::presorted::{presorted, Unsorted};
 use crate::v2::pipeline::radix_path;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
+use crate::v2::decide::chunks::{self, Engine};
 use crate::v2::dev::trace::hit;
 
 /// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
 /// the radix path, median over the distributions, Snapdragon X Elite).
 const SMALL_F32: usize = 350;
 const SMALL_F64: usize = 700;
-
-/// From this chunk size f64 goes to the rollercoaster instead of the DLSD:
-/// L2 / 48, where the DLSD's keys and buffer take a third of the L2.
-fn roller_min_f64() -> usize {
-    crate::v2::cache::budget(crate::v2::cache::Budget::RollerF64) / 48
-}
-
-/// From this chunk size f32 goes to the rollercoaster instead of the fused
-/// LSD: L2 / 12.
-fn roller_min_f32() -> usize {
-    crate::v2::cache::budget(crate::v2::cache::Budget::RollerF32) / 12
-}
 
 mod sealed {
     pub trait Sealed {}
@@ -192,7 +181,7 @@ fn sort_f32(arr: &mut [f32]) {
     };
     let detect = |a: &mut [f32], _| (presorted_first && hit(detect32(a), "float_detect")) || hit(few32(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [f32]| ravenous_sort2(r), f32_bits::same, f32_bits::less), "heavy");
     let sort_chunk = |chunk: &mut [f32]| {
-        if chunk.len() >= roller_min_f32() {
+        if chunks::f32(chunk.len()) == Engine::Roller {
             trace!("roller");
             r32::roller(f32_bits::bits(chunk));
         } else {
@@ -236,7 +225,7 @@ fn sort_f64(arr: &mut [f64]) {
     let buffer = std::cell::RefCell::new(Vec::new());
     let detect = |a: &mut [f64], _| (presorted_first && hit(detect64(a), "float_detect")) || hit(few64(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [f64]| ravenous_sort2(r), f64_bits::same, f64_bits::less), "heavy");
     let sort_chunk = |chunk: &mut [f64]| {
-        if chunk.len() >= roller_min_f64() {
+        if chunks::f64(chunk.len()) == Engine::Roller {
             trace!("roller");
             r64::roller(f64_bits::bits(chunk));
         } else {

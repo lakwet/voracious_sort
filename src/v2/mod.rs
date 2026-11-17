@@ -9,6 +9,7 @@
 //! - `runs`: Verge (long runs kept) and the merges;
 //! - `special`: distributions sorted faster than by a radix sort
 //!   (narrow ranges, few values, heavy hitters, dense ranges, plateaus);
+//! - `decide`: the rules (which engine, which path), as tables;
 //! - `engines`: the radix engines (fused LSD, DLSD, rollercoaster);
 //! - `engines`: also the sorting networks and merges for short arrays
 //!   (`small`);
@@ -25,6 +26,7 @@ pub(crate) mod dev;
 pub(crate) mod cache;
 #[macro_use]
 pub(crate) mod special;
+pub(crate) mod decide;
 pub(crate) mod engines;
 pub(crate) mod inspect;
 pub(crate) mod pipeline;

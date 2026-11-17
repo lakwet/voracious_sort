@@ -107,7 +107,7 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
             hit(few(a), "few") || hit(heavy_from(a, HEAVY_MIN, &|r: &mut [T]| devour_sort2(r), |x, y| x == y, |x, y| x < y), "heavy")
         },
         &|chunk: &mut [T]| {
-            if chunk.len() >= roller_min() {
+            if crate::v2::decide::chunks::wide(chunk.len()) == crate::v2::decide::chunks::Engine::Roller {
                 trace!("roller");
                 T::roller(bits_of(chunk));
             } else {
@@ -116,13 +116,6 @@ pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
             }
         },
     );
-}
-
-/// From this size the rollercoaster (in-place MSD passes, then the DLSD on
-/// leaves in cache) instead of the DLSD: L2 / 24 (keys of 16 bytes, as the
-/// 64-bit threshold L2 / 12).
-fn roller_min() -> usize {
-    crate::v2::cache::budget(crate::v2::cache::Budget::Roller128) / 24
 }
 
 /// Narrowing (see the module doc). Returns whether the keys were sorted.
