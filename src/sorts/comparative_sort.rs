@@ -8,6 +8,11 @@ const TRY_THRESHOLD: u8 = 32;
 /// An implementation of the
 /// [Insertion sort](https://en.wikipedia.org/wiki/Insertion_sort)
 /// algorithm.
+///
+/// It takes any `PartialOrd` type: with values that compare to nothing (a
+/// float NaN) it does not panic, but their place in the result, and the order
+/// around them, is not defined. Use the trait methods (`voracious_sort()`) to
+/// sort floats with NaNs.
 pub fn insertion_sort<T: PartialOrd>(arr: &mut [T]) {
     for i in 1..arr.len() {
         if arr[i - 1] > arr[i] {
