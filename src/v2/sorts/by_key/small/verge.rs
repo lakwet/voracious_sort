@@ -1,4 +1,7 @@
 //! Verge on the records: long runs kept, the gaps sorted, all merged.
+//! (Kept apart from `by_key::verge`: the parent's Verge on 8-byte records
+//! is 1.6 to 2.8 times slower on Almost Asc / Desc and saws at 1M-10M,
+//! Surface sentinel 2026-11-17.)
 
 use super::merge::{merge_all, merge_two};
 use super::sort_encoded;
