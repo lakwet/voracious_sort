@@ -4,31 +4,11 @@
 //! the [`f64::total_cmp`] order (`key = bits ^ (sign ? 0xFF..FF : 0x80..00)`;
 //! `-0.0 < +0.0`). The arrays are only reinterpreted, never copied.
 //!
-//! 1. at most 32 keys: a sorting network;
-//! 2. detectors: constant array, integer range, power-of-two grid;
-//! 3. small arrays: `sort_unstable` on the encoded keys;
-//! 4. the radix path (`decide::path`), with few distinct values and heavy
-//!    hitters as detectors; chunks sorted by the fused LSD (f32) or the DLSD
-//!    (f64), the rollercoaster beyond the cache.
-//!
-//! NaN: set aside before step 2 (one vectorised pass; the steps after compare
-//! with `<`), negative NaNs first and positive ones last, by their bits.
+//! The public entry and its trait; each type sorts through its own decision
+//! chain (`types::f32`, `types::f64`). Shared here: the float encodings and
+//! helpers (`f32_bits`, `f64_bits`).
 
-use crate::v2::decide::chunks::{self, Engine};
-use crate::v2::decide::path::radix_path;
-use crate::v2::engines::dlsd::d64;
-use crate::v2::engines::lsd::w32;
-use crate::v2::engines::roller::{r32, r64};
-use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-use crate::v2::inspect::presorted::{presorted, Unsorted};
-use crate::v2::special::floats::{detect32, detect64, few32, few64};
-use crate::v2::special::heavy::{heavy_from_spread, HEAVY_MIN};
-use crate::v2::special::spread;
-
-/// Up to these sizes: `sort_unstable` on the encoded keys (where it crosses
-/// the radix path, median over the distributions, Snapdragon X Elite).
-const SMALL_F32: usize = 350;
-const SMALL_F64: usize = 700;
+use crate::v2::engines::small::{merge_sort, MERGE_MAX};
 
 mod sealed {
     pub trait Sealed {}
@@ -52,35 +32,33 @@ pub trait RavenousSort2: sealed::Sealed + Copy + PartialOrd {
 /// assert_eq!(v, vec![-2.25, -0.5, 1.5, 3.0]);
 /// ```
 #[inline]
-pub fn ravenous_sort2<T: RavenousSort2>(arr: &mut [T]) {
-    T::ravenous_sort2_impl(arr);
-}
+pub fn ravenous_sort2<T: RavenousSort2>(arr: &mut [T]) { T::ravenous_sort2_impl(arr); }
 
 macro_rules! float_width {
     ($float:ty, $uint:ty, $sint:ty, $m:ident) => {
-        mod $m {
+        pub(crate) mod $m {
             /// The floats as their raw bits.
             #[inline(always)]
-            pub(super) fn bits(arr: &mut [$float]) -> &mut [$uint] {
+            pub(crate) fn bits(arr: &mut [$float]) -> &mut [$uint] {
                 // SAFETY: same size and alignment, every bit pattern valid
                 // for both; the slice reborrows `arr` exclusively.
                 unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $uint, arr.len()) }
             }
 
             #[inline(always)]
-            pub(super) fn encode(bits: $uint) -> $uint {
+            pub(crate) fn encode(bits: $uint) -> $uint {
                 const SIGN: $uint = 1 << (<$uint>::BITS - 1);
                 bits ^ ((((bits as $sint) >> (<$uint>::BITS - 1)) as $uint) | SIGN)
             }
 
             #[inline(always)]
-            pub(super) fn decode(key: $uint) -> $uint {
+            pub(crate) fn decode(key: $uint) -> $uint {
                 const SIGN: $uint = 1 << (<$uint>::BITS - 1);
                 key ^ ((key >> (<$uint>::BITS - 1)).wrapping_sub(1) | SIGN)
             }
 
             /// Small arrays: encode, sort as integers, decode.
-            pub(super) fn sort_small(bits: &mut [$uint]) {
+            pub(crate) fn sort_small(bits: &mut [$uint]) {
                 if bits.len() <= super::MERGE_MAX {
                     super::merge_sort(bits, encode, decode);
                     return;
@@ -94,7 +72,7 @@ macro_rules! float_width {
             /// path (repair, Verge, merges): they come out together but
             /// mixed. Their block is found by two binary searches and
             /// rewritten, -0.0 first.
-            pub(super) fn order_signed_zeros(arr: &mut [$float]) {
+            pub(crate) fn order_signed_zeros(arr: &mut [$float]) {
                 let lo = arr.partition_point(|x| *x < 0.0);
                 let hi = lo + arr[lo..].partition_point(|x| *x <= 0.0);
                 if hi - lo < 2 {
@@ -110,7 +88,7 @@ macro_rules! float_width {
             /// there is none (the generic steps of the radix path compare
             /// with `<`: a NaN broke the repair, Verge, the merges).
             #[inline]
-            pub(super) fn nan_aside(arr: &mut [$float]) -> &mut [$float] {
+            pub(crate) fn nan_aside(arr: &mut [$float]) -> &mut [$float] {
                 if !arr.iter().fold(false, |a, x| a | x.is_nan()) {
                     return arr;
                 }
@@ -141,14 +119,10 @@ macro_rules! float_width {
 
             /// Total order on the floats (for the heavy hitters detector).
             #[inline(always)]
-            pub(super) fn less(x: $float, y: $float) -> bool {
-                x.total_cmp(&y).is_lt()
-            }
+            pub(crate) fn less(x: $float, y: $float) -> bool { x.total_cmp(&y).is_lt() }
 
             #[inline(always)]
-            pub(super) fn same(x: $float, y: $float) -> bool {
-                x.to_bits() == y.to_bits()
-            }
+            pub(crate) fn same(x: $float, y: $float) -> bool { x.to_bits() == y.to_bits() }
         }
     };
 }
@@ -158,156 +132,10 @@ float_width!(f64, u64, i64, f64_bits);
 
 impl RavenousSort2 for f32 {
     #[inline]
-    fn ravenous_sort2_impl(arr: &mut [f32]) {
-        if arr.len() <= NETWORK_MAX {
-            trace!("network");
-            network_sort(f32_bits::bits(arr), f32_bits::encode, f32_bits::decode);
-        } else {
-            let rest = f32_bits::nan_aside(arr);
-            if rest.len() <= NETWORK_MAX {
-                network_sort(f32_bits::bits(rest), f32_bits::encode, f32_bits::decode);
-            } else {
-                sort_f32(rest);
-            }
-        }
-    }
+    fn ravenous_sort2_impl(arr: &mut [f32]) { crate::v2::types::f32::sort(arr); }
 }
 
 impl RavenousSort2 for f64 {
     #[inline]
-    fn ravenous_sort2_impl(arr: &mut [f64]) {
-        if arr.len() <= NETWORK_MAX {
-            trace!("network");
-            network_sort(f64_bits::bits(arr), f64_bits::encode, f64_bits::decode);
-        } else {
-            let rest = f64_bits::nan_aside(arr);
-            if rest.len() <= NETWORK_MAX {
-                network_sort(f64_bits::bits(rest), f64_bits::encode, f64_bits::decode);
-            } else {
-                sort_f64(rest);
-            }
-        }
-    }
-}
-
-/// From this size the presorted check and the repair of nearly sorted
-/// arrays come before the float detectors (f32 timestamps, a few distinct
-/// values nearly in order: 0.67 to 0.15-0.27 ns per key at 10k-3M). Below,
-/// the detectors first (1k: sparse 2.8 against 3.6).
-const PRESORTED_FIRST_MIN: usize = 4096;
-
-/// f32 arrays beyond the network: detectors, small path, radix path.
-#[inline(never)]
-fn sort_f32(arr: &mut [f32]) {
-    let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
-    chain! {
-        "float_detect" if !presorted_first => try detect32(arr);
-        "std_small" if !presorted_first && arr.len() <= SMALL_F32
-            => do { f32_bits::sort_small(f32_bits::bits(arr)) };
-    }
-    // As for integers: the presorted check first, then the repair of nearly
-    // sorted arrays, and only then the detectors (in `detect`).
-    let known = if presorted_first {
-        match presorted(arr) {
-            Ok(()) => {
-                trace!("presorted");
-                f32_bits::order_signed_zeros(arr);
-                return;
-            },
-            Err(known) => known,
-        }
-    } else {
-        Unsorted::default()
-    };
-    let detect = |a: &mut [f32], _| {
-        chain! {
-            return true;
-            "float_detect" if presorted_first => try detect32(a);
-        }
-        // One spread sample for both (heavy reads it from `HEAVY_MIN`).
-        let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
-        chain! {
-            return true;
-            "few" => try few32(a, sample.as_ref());
-            "heavy" if sample.is_some() => try heavy_from_spread(
-                a,
-                sample.unwrap(),
-                HEAVY_MIN,
-                &|r: &mut [f32]| ravenous_sort2(r),
-                f32_bits::same,
-                f32_bits::less,
-            );
-        }
-        false
-    };
-    let sort_chunk = |chunk: &mut [f32]| {
-        if chunks::f32(chunk) == Engine::Roller {
-            trace!("roller");
-            r32::roller(f32_bits::bits(chunk));
-        } else {
-            trace!("lsd");
-            w32::lsd(f32_bits::bits(chunk));
-        }
-    };
-    radix_path(arr, known, false, &detect, &sort_chunk);
-    f32_bits::order_signed_zeros(arr);
-}
-
-/// f64 arrays beyond the network: detectors, small path, radix path (one
-/// DLSD buffer for all the chunks).
-#[inline(never)]
-fn sort_f64(arr: &mut [f64]) {
-    let presorted_first = arr.len() >= PRESORTED_FIRST_MIN;
-    chain! {
-        "float_detect" if !presorted_first => try detect64(arr);
-        "std_small" if !presorted_first && arr.len() <= SMALL_F64
-            => do { f64_bits::sort_small(f64_bits::bits(arr)) };
-    }
-    // As for integers: the presorted check first, then the repair of nearly
-    // sorted arrays, and only then the detectors (in `detect`).
-    let known = if presorted_first {
-        match presorted(arr) {
-            Ok(()) => {
-                trace!("presorted");
-                f64_bits::order_signed_zeros(arr);
-                return;
-            },
-            Err(known) => known,
-        }
-    } else {
-        Unsorted::default()
-    };
-    let buffer = std::cell::RefCell::new(Vec::new());
-    let detect = |a: &mut [f64], _| {
-        chain! {
-            return true;
-            "float_detect" if presorted_first => try detect64(a);
-        }
-        // One spread sample for both (heavy reads it from `HEAVY_MIN`).
-        let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
-        chain! {
-            return true;
-            "few" => try few64(a, sample.as_ref());
-            "heavy" if sample.is_some() => try heavy_from_spread(
-                a,
-                sample.unwrap(),
-                HEAVY_MIN,
-                &|r: &mut [f64]| ravenous_sort2(r),
-                f64_bits::same,
-                f64_bits::less,
-            );
-        }
-        false
-    };
-    let sort_chunk = |chunk: &mut [f64]| {
-        if chunks::f64(chunk.len()) == Engine::Roller {
-            trace!("roller");
-            r64::roller(f64_bits::bits(chunk));
-        } else {
-            trace!("dlsd");
-            d64::dlsd_with(f64_bits::bits(chunk), &mut buffer.borrow_mut());
-        }
-    };
-    radix_path(arr, known, false, &detect, &sort_chunk);
-    f64_bits::order_signed_zeros(arr);
+    fn ravenous_sort2_impl(arr: &mut [f64]) { crate::v2::types::f64::sort(arr); }
 }

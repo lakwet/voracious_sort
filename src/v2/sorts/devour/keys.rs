@@ -13,13 +13,9 @@ macro_rules! key {
         impl Key for $u {
             const MAX_U64: u64 = <$u>::MAX as u64;
             #[inline(always)]
-            fn to_u64(self) -> u64 {
-                self as u64
-            }
+            fn to_u64(self) -> u64 { self as u64 }
             #[inline(always)]
-            fn from_u64(v: u64) -> Self {
-                v as $u
-            }
+            fn from_u64(v: u64) -> Self { v as $u }
         }
     };
 }

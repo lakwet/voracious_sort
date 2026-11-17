@@ -54,6 +54,34 @@ pub(crate) fn heavy_from_spread<
     heavy_sorted_by(arr, &sample, min, sort, eq, lt)
 }
 
+/// One value holds at least half of the sample and no other value an
+/// eighth of it: one dominant value among spread ones (sparse data, signed
+/// zeros), not a few repeated values (left to `few`). Below `DENSE_MIN`
+/// such arrays go to `sort_unstable`, whose partition settles the keys
+/// equal to the pivot in one pass (journal §95: Sparse 90 % at 1k, 30 to
+/// 55 % faster; v1 sorted them so). The candidate is the majority vote of
+/// the sample (Boyer-Moore), then counted; the other values are checked on
+/// 8 spread picks.
+pub(crate) fn dominant<T: Copy, E: Fn(T, T) -> bool + Copy>(sample: &[T; SAMPLE], eq: E) -> bool {
+    let (mut v, mut votes) = (sample[0], 0usize);
+    for &x in sample.iter() {
+        if votes == 0 {
+            v = x;
+            votes = 1;
+        } else if eq(x, v) {
+            votes += 1;
+        } else {
+            votes -= 1;
+        }
+    }
+    let count = |u: T| sample.iter().fold(0usize, |c, &x| c + eq(x, u) as usize);
+    count(v) >= SAMPLE / 2
+        && (0..8)
+            .map(|k| sample[k * (SAMPLE / 8)])
+            .filter(|&u| !eq(u, v))
+            .all(|u| count(u) < SAMPLE / 8)
+}
+
 /// Cheap filter before sorting the sample on short arrays (where sorting it
 /// costs about as much as the radix sort): one of 8 sample keys spread over
 /// it occurs at least `SAMPLE / 8` times. A heavy value holds at least an

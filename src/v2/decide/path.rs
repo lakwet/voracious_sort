@@ -1,130 +1,27 @@
-//! The radix path shared by all key types, after the presorted check. The
-//! first matching rule wins (`trace!` label in brackets):
+//! Inspections read by the radix path of every type (the path itself, its
+//! rules and thresholds, is copied in each `types` file):
 //!
-//! 1. a sorted prefix of at least n / 2 keys: the tail alone through the path
-//!    (from `TAIL_PATH_MIN` keys), then one merge [tail_first];
-//! 2. two long ascending runs first (n / log2 n) whose merge is unpredictable,
-//!    no SIMD merge rule: no repair, no Verge, the detectors then the engine
-//!    on the whole array [random_runs];
-//! 3. few breaks of order (seen by the presorted probes): repaired in place
-//!    [repaired];
-//! 4. a detector of the key type sorts it [range, few, heavy, dense,
-//!    plateaus...];
-//! 5. no monotone run of n / log2 n (`RUN_PROBE` pairs probed on a grid):
-//!    the engine on the whole array [no_verge];
-//! 6. unpredictable merges (`merges_unpredictable`), no SIMD merge: the
-//!    engine on the whole array [verge_whole];
-//! 7. else Verge: runs kept, the gaps sorted by the engine, all merged
-//!    [verge_merge; verge_simd_merge by vector blocks].
-//!
-//! The engine of each chunk: `decide::chunks`.
+//! - `starts_with_random_runs`: two long ascending runs first whose merge is
+//!   unpredictable [random_runs];
+//! - `can_skip_verge`: no monotone run of n / log2 n [no_verge];
+//! - `merges_unpredictable`: Verge's merges would cost more than sorting the
+//!   whole array [verge_whole].
 
-use crate::v2::inspect::presorted::{repair_nearly_sorted, Unsorted};
-use crate::v2::runs::merge::{self, merge_runs, predictable_merge};
-use crate::v2::runs::verge::{
-    compute_big_enough_run, explore_forward_asc, verge_sort_preprocessing_fast,
-};
+use crate::v2::runs::merge::{self, predictable_merge};
+use crate::v2::runs::verge::{compute_big_enough_run, explore_forward_asc};
 
 /// Merge levels from which dense merges cost more than a radix sort (see
 /// `merges_unpredictable`).
 const DENSE_LEVELS: usize = 4;
 
-/// Tails from this length go through the whole path (repair, detectors);
-/// shorter ones go to the engine. Same value as `DENSE_MIN` (special), the
-/// size from which the detectors pay off: could be tied to it.
-const TAIL_PATH_MIN: usize = 4096;
-
-/// Whether an array of `n` keys with a sorted prefix of `p` keys takes the
-/// tail-first path of `radix_path`.
-pub(crate) fn tail_first(n: usize, p: usize) -> bool {
-    p >= n / 2 && p < n
-}
-
 /// Monotone pairs probed at each grid point by `can_skip_verge`.
 const RUN_PROBE: usize = 8;
-
-/// Sorts `arr` along the radix path. `known`: what the presorted check
-/// learned; `check_random_runs`: step 1 on; `detect`: the detectors (given
-/// the number of equal probe pairs), returning whether they sorted the
-/// array; `sort`: the radix engine.
-pub(crate) fn radix_path<T: Copy + PartialOrd>(
-    arr: &mut [T],
-    known: Unsorted,
-    check_random_runs: bool,
-    detect: &dyn Fn(&mut [T], usize) -> bool,
-    sort: &dyn Fn(&mut [T]),
-) {
-    let n = arr.len();
-    let p = known.ascending_prefix;
-    chain! {
-        // A sorted prefix of at least half the array (seen by the presorted
-        // check): the tail alone goes through the path, then one merge,
-        // instead of scanning the prefix again (repair, Verge). u128 sorted
-        // + 10 % random tail 100k 2.96 to 2.07 ns per key. A short tail:
-        // sorted (or reversed) as it is, else the engine (the whole path
-        // needs more keys).
-        "tail_first" if tail_first(n, p) => do {
-            let tail = &mut arr[p..];
-            if tail.len() >= TAIL_PATH_MIN {
-                radix_path(tail, Unsorted::default(), check_random_runs, detect, sort);
-            } else if crate::v2::inspect::presorted::presorted(tail).is_err() {
-                sort(tail);
-            }
-            merge_runs(arr, &mut vec![0, p, n]);
-        };
-    }
-    let simd_rule = merge::simd_rule_applies::<T>(n);
-    let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, p);
-    let (sorted, equal_pairs) = if random_runs {
-        (false, known.probes.map_or(0, |p| p.equal()))
-    } else {
-        repair_nearly_sorted(arr, known)
-    };
-    if random_runs {
-        trace!("random_runs");
-    }
-    chain! {
-        "repaired" if sorted => do {};
-        _ => try detect(arr, equal_pairs);
-        "no_verge" if random_runs || can_skip_verge(arr) => do { sort(arr) };
-    }
-    // Verge: the unsorted chunks are recorded, sorted after the merge rule.
-    let base = arr.as_ptr() as usize;
-    let chunks: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
-    let mut separators =
-        verge_sort_preprocessing_fast::<_, false>(arr, 8, &|chunk: &mut [T], _| {
-            let start = (chunk.as_ptr() as usize - base) / std::mem::size_of::<T>();
-            chunks.borrow_mut().push((start, chunk.len()));
-        });
-    let chunks = chunks.into_inner();
-    // SIMD merges: merging beats the radix sort up to a few merge levels.
-    let segments = separators.len().saturating_sub(1);
-    let levels = (usize::BITS - segments.saturating_sub(1).leading_zeros()) as usize;
-    let simd_merge = simd_rule && levels <= merge::SIMD_LEVELS;
-    let unpredictable = merges_unpredictable(arr, &separators, &chunks, levels);
-    let sort_chunks = |arr: &mut [T]| {
-        for &(start, len) in chunks.iter() {
-            sort(&mut arr[start..start + len]);
-        }
-    };
-    chain! {
-        "verge_whole" if unpredictable && !simd_merge => do { sort(arr) };
-        "verge_simd_merge" if unpredictable => do {
-            sort_chunks(arr);
-            merge::merge_runs_simd(arr, &mut separators);
-        };
-        "verge_merge" => do {
-            sort_chunks(arr);
-            merge_runs(arr, &mut separators);
-        };
-    }
-}
 
 /// The array starts with two long ascending runs (the first one, `prefix`
 /// keys, already scanned) whose merge would be unpredictable: Verge would
 /// end by sorting the whole array anyway, so the repair and Verge are
 /// skipped. Long: Verge's length, n / log2(n).
-fn starts_with_random_runs<T: Copy + PartialOrd>(arr: &[T], prefix: usize) -> bool {
+pub(crate) fn starts_with_random_runs<T: Copy + PartialOrd>(arr: &[T], prefix: usize) -> bool {
     let n = arr.len();
     let long = compute_big_enough_run(n);
     if prefix < long || prefix >= n {
@@ -169,7 +66,7 @@ pub(crate) fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
 /// to 4.4; in the cache the merges stay cheaper (f32 600k 4.9 against 7.2,
 /// f64 100k 4.6 against 6.5). Chunks are not sorted yet: only run-run pairs
 /// are sampled.
-fn merges_unpredictable<T: Copy + PartialOrd>(
+pub(crate) fn merges_unpredictable<T: Copy + PartialOrd>(
     arr: &[T],
     separators: &[usize],
     chunks: &[(usize, usize)],

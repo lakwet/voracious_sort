@@ -15,19 +15,9 @@
 //!   rollercoaster above the cache.
 
 use super::{devour_sort2, DevourSort2};
-use crate::v2::decide::path::radix_path;
 use crate::v2::engines::dlsd::{di128, du128};
 use crate::v2::engines::roller::{ri128, ru128};
-use crate::v2::inspect::presorted::presorted;
-use crate::v2::special::heavy::heavy_from_spread;
-use crate::v2::special::{spread, SAMPLE};
-
-/// Up to this size: `sort_unstable`.
-const SMALL: usize = 64;
-/// From this size the heavy hitters are extracted (4096 for narrower keys:
-/// 16-byte keys cost more to compare and move, the extraction pays off on
-/// shorter arrays; Sparse 90 % at 1k-3k: 6.6-7.7 ns per key without it).
-const HEAVY_MIN: usize = 512;
+use crate::v2::special::SAMPLE;
 
 /// A 128-bit key: its bits and their encoding (unsigned order = key order).
 pub(crate) trait Key128: Copy + Ord {
@@ -40,100 +30,31 @@ pub(crate) trait Key128: Copy + Ord {
 
 impl Key128 for u128 {
     #[inline(always)]
-    fn enc(self) -> u128 {
-        self
-    }
+    fn enc(self) -> u128 { self }
     #[inline(always)]
-    fn dec(key: u128) -> Self {
-        key
-    }
-    fn dlsd(bits: &mut [u128]) {
-        du128::dlsd(bits)
-    }
-    fn roller(bits: &mut [u128]) {
-        ru128::roller(bits)
-    }
+    fn dec(key: u128) -> Self { key }
+    fn dlsd(bits: &mut [u128]) { du128::dlsd(bits) }
+    fn roller(bits: &mut [u128]) { ru128::roller(bits) }
 }
 
 impl Key128 for i128 {
     #[inline(always)]
-    fn enc(self) -> u128 {
-        (self as u128) ^ (1 << 127)
-    }
+    fn enc(self) -> u128 { (self as u128) ^ (1 << 127) }
     #[inline(always)]
-    fn dec(key: u128) -> Self {
-        (key ^ (1 << 127)) as i128
-    }
-    fn dlsd(bits: &mut [u128]) {
-        di128::dlsd(bits)
-    }
-    fn roller(bits: &mut [u128]) {
-        ri128::roller(bits)
-    }
+    fn dec(key: u128) -> Self { (key ^ (1 << 127)) as i128 }
+    fn dlsd(bits: &mut [u128]) { di128::dlsd(bits) }
+    fn roller(bits: &mut [u128]) { ri128::roller(bits) }
 }
 
 #[inline(always)]
-fn bits_of<T: Key128>(arr: &mut [T]) -> &mut [u128] {
+pub(crate) fn bits_of<T: Key128>(arr: &mut [T]) -> &mut [u128] {
     // SAFETY: u128 and i128 have the same size and alignment as `T` (the
     // only implementors), every bit pattern is valid.
     unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u128, arr.len()) }
 }
 
-pub(crate) fn sort128<T: Key128 + DevourSort2>(arr: &mut [T]) {
-    let n = arr.len();
-    chain! {
-        "std_small" if n <= SMALL => do { arr.sort_unstable() };
-    }
-    let known = match presorted(arr) {
-        Ok(()) => {
-            trace!("presorted");
-            return;
-        },
-        Err(known) => known,
-    };
-    // A long sorted prefix goes to the tail-first path of `radix_path`
-    // without the narrowing scan.
-    let tail_first = crate::v2::decide::path::tail_first(n, known.ascending_prefix);
-    chain! {
-        "narrow128" if !tail_first => try narrow(arr);
-    }
-    radix_path(
-        arr,
-        known,
-        true,
-        &|a: &mut [T], _| {
-            // One spread sample for both (heavy reads it from `HEAVY_MIN`).
-            let sample = (a.len() >= HEAVY_MIN).then(|| spread(a));
-            chain! {
-                return true;
-                "few" => try few(a, sample.as_ref());
-                "heavy" if sample.is_some() => try heavy_from_spread(
-                    a,
-                    sample.unwrap(),
-                    HEAVY_MIN,
-                    &|r: &mut [T]| devour_sort2(r),
-                    |x, y| x == y,
-                    |x, y| x < y,
-                );
-            }
-            false
-        },
-        &|chunk: &mut [T]| {
-            if crate::v2::decide::chunks::wide(chunk.len())
-                == crate::v2::decide::chunks::Engine::Roller
-            {
-                trace!("roller");
-                T::roller(bits_of(chunk));
-            } else {
-                trace!("dlsd");
-                T::dlsd(bits_of(chunk));
-            }
-        },
-    );
-}
-
 /// Narrowing (see the module doc). Returns whether the keys were sorted.
-fn narrow<T: Key128>(arr: &mut [T]) -> bool {
+pub(crate) fn narrow<T: Key128>(arr: &mut [T]) -> bool {
     let first = arr[0].enc();
     let (mut lo, mut hi, mut diff) = (u128::MAX, 0u128, 0u128);
     for &k in arr.iter() {
@@ -167,24 +88,16 @@ trait Narrow: Copy + DevourSort2 {
 
 impl Narrow for u32 {
     #[inline(always)]
-    fn from128(v: u128) -> Self {
-        v as u32
-    }
+    fn from128(v: u128) -> Self { v as u32 }
     #[inline(always)]
-    fn to128(self) -> u128 {
-        self as u128
-    }
+    fn to128(self) -> u128 { self as u128 }
 }
 
 impl Narrow for u64 {
     #[inline(always)]
-    fn from128(v: u128) -> Self {
-        v as u64
-    }
+    fn from128(v: u128) -> Self { v as u64 }
     #[inline(always)]
-    fn to128(self) -> u128 {
-        self as u128
-    }
+    fn to128(self) -> u128 { self as u128 }
 }
 
 fn narrow_to<T: Key128, U: Narrow>(arr: &mut [T], lo: u128, tz: u32) {
@@ -225,7 +138,7 @@ const FEW_MIN: usize = 129;
 /// scheme as the other integer widths).
 /// `spread`: the shared spread sample when already read (its keys are the
 /// first of this sample).
-fn few<T: Key128>(arr: &mut [T], spread: Option<&[T; SAMPLE]>) -> bool {
+pub(crate) fn few<T: Key128>(arr: &mut [T], spread: Option<&[T; SAMPLE]>) -> bool {
     let n = arr.len();
     if n < FEW_MIN || n > u32::MAX as usize {
         return false;

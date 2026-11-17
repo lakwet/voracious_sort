@@ -22,6 +22,7 @@
 
 #[macro_use]
 pub(crate) mod dev;
+pub(crate) mod fixes;
 #[macro_use]
 pub(crate) mod special;
 pub(crate) mod cache;
@@ -31,3 +32,4 @@ pub(crate) mod engines;
 pub(crate) mod inspect;
 pub(crate) mod runs;
 pub(crate) mod sorts;
+pub(crate) mod types;
