@@ -10,36 +10,26 @@ mod two_way;
 
 pub(crate) use predictable::{dense_merge, predictable_merge};
 
-/// Balanced two-run merges in place by gap merges (`gap`: buffer of the
-/// shorter run, four chains, no copy back).
-pub(crate) const GAP2: bool = true;
-
-/// Merges of unpredictable 32-bit unsigned runs by blocks in vector
-/// registers (`simd`), where the branch-free merge waits on each load.
-pub(crate) const SIMD_MERGE: bool = true;
-/// With `SIMD_MERGE`, unpredictable merges are merged instead of sorting
-/// the whole array by radix (`merges_unpredictable`).
-pub(crate) const SIMD_RULE: bool = true;
-
-/// With `SIMD_RULE`: unpredictable merges merged (instead of the radix
-/// sort) up to this many merge levels.
+/// Unpredictable merges of 32- and 64-bit keys go by blocks in vector
+/// registers (`simd`), where the branch-free merge waits on each load; up
+/// to `SIMD_LEVELS` merge levels they are merged instead of sorting the
+/// whole array by radix (`merges_unpredictable`).
 pub(crate) const SIMD_LEVELS: usize = 3;
 
 /// Whether the SIMD block merge applies to keys of type `T`.
 pub(crate) fn simd_applies<T>() -> bool {
-    SIMD_MERGE
-        && simd_flip::<T>().is_some_and(|(w, _)| w == 64 || simd::available())
+    simd_flip::<T>().is_some_and(|(w, _)| w == 64 || simd::available())
 }
 
 /// Keys the vector merge takes: (bits, mode of `simd::Lane::key`): u32,
 /// i32, f32 (32 bits), u64, i64, f64 (64 bits; modes 0 unsigned, 1 signed,
 /// 2 float).
 fn simd_flip<T>() -> Option<(u32, u8)> {
-    let w64 = SIMD_64 && simd::available64();
+    let w64 = simd::available64();
     match std::any::type_name::<T>() {
         "u32" => Some((32, 0)),
-        "i32" if SIMD_I32 => Some((32, 1)),
-        "f32" if SIMD_F32 => Some((32, 2)),
+        "i32" => Some((32, 1)),
+        "f32" => Some((32, 2)),
         "u64" if w64 => Some((64, 0)),
         "i64" if w64 => Some((64, 1)),
         "f64" if w64 && SIMD_F64 => Some((64, 2)),
@@ -47,37 +37,31 @@ fn simd_flip<T>() -> Option<(u32, u8)> {
     }
 }
 
-/// The vector merge on 64-bit keys too.
-pub(crate) const SIMD_64: bool = true;
 /// The vector merge on f64 keys. OFF: the f64 path (mode 2 of the 64-bit
 /// network in `simd.rs`, tested correct) is kept but never runs, because it
 /// lost everywhere on the Snapdragon X: Runs 8 100k 2.90 to 4.05, 1M 4.25 to
 /// 6.14 ns per key (the f64 radix sort is faster than these merges, unlike
-/// u64 / i64). With the keys converted once (`FLOAT_ENCODE`) it stays mixed
+/// u64 / i64). With the keys converted once (`merge_runs_simd`) it stays mixed
 /// (Runs 8 100k 2.83 to 2.40, 1M 4.35 to 4.60, 10M 4.74 to 4.30; Saw 10k
 /// +7 % through the in-cache merges, which still convert each block). Kept
 /// to measure on x86 (Ryzen, Intel) before removing it: turn this on and
 /// compare in the same run.
 pub(crate) const SIMD_F64: bool = false;
 
-/// With `SIMD_RULE`: the smallest array of 64-bit keys whose unpredictable
+/// The smallest array of 64-bit keys whose unpredictable
 /// merges are merged by vector blocks (below, the radix sort in the cache
 /// wins: i64 Runs 8 10k 2.02 against 2.65 ns per key on the Snapdragon X).
 /// Measured on one machine only: to check on x86 (Ryzen, Intel).
 pub(crate) const SIMD_MIN_ARRAY_SIZE: usize = 1 << 16;
 
 /// Whether unpredictable merges of `n` keys of type `T` are merged by
-/// vector blocks instead of sorted by radix (`SIMD_RULE`): 32-bit keys at
+/// vector blocks instead of sorted by radix: 32-bit keys at
 /// every size, 64-bit keys from `SIMD_MIN_ARRAY_SIZE`.
 pub(crate) fn simd_rule_applies<T>(n: usize) -> bool {
     let min64 = SIMD_MIN_ARRAY_SIZE;
     simd_applies::<T>() && simd_flip::<T>().is_some_and(|(w, _)| w == 32 || n >= min64)
 }
 
-/// The vector merge on i32 keys too.
-pub(crate) const SIMD_I32: bool = true;
-/// The vector merge on f32 keys too.
-pub(crate) const SIMD_F32: bool = true;
 
 /// Balanced merge of `a` and `b` into `dst`, two-ended: branchy when the
 /// interleaving is predictable, else the SIMD block merge where it applies,
@@ -169,32 +153,27 @@ pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &
     // the vector merge cost more: LLVM no longer kept the four streams in
     // registers and the block choice became a branch (f32 kernel 0.92
     // against 0.46 ns per key at 1M on the Snapdragon X).
-    if FLOAT_ENCODE {
-        match simd_flip::<T>() {
-            Some((32, 2)) => {
-                // SAFETY: `T` is f32 (checked by name in `simd_flip`): 32 bits.
-                let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
-                keys.iter_mut().for_each(|k| *k ^= (((*k as i32) >> 31) as u32) | (1 << 31));
-                pingpong(keys, separators);
-                keys.iter_mut().for_each(|k| *k ^= (*k >> 31).wrapping_sub(1) | (1 << 31));
-                return;
-            }
-            Some((64, 2)) => {
-                // SAFETY: `T` is f64 (checked by name in `simd_flip`): 64 bits.
-                let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u64, arr.len()) };
-                keys.iter_mut().for_each(|k| *k ^= (((*k as i64) >> 63) as u64) | (1 << 63));
-                pingpong(keys, separators);
-                keys.iter_mut().for_each(|k| *k ^= (*k >> 63).wrapping_sub(1) | (1 << 63));
-                return;
-            }
-            _ => {}
+    match simd_flip::<T>() {
+        Some((32, 2)) => {
+            // SAFETY: `T` is f32 (checked by name in `simd_flip`): 32 bits.
+            let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u32, arr.len()) };
+            keys.iter_mut().for_each(|k| *k ^= (((*k as i32) >> 31) as u32) | (1 << 31));
+            pingpong(keys, separators);
+            keys.iter_mut().for_each(|k| *k ^= (*k >> 31).wrapping_sub(1) | (1 << 31));
+            return;
         }
+        Some((64, 2)) => {
+            // SAFETY: `T` is f64 (checked by name in `simd_flip`): 64 bits.
+            let keys = unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut u64, arr.len()) };
+            keys.iter_mut().for_each(|k| *k ^= (((*k as i64) >> 63) as u64) | (1 << 63));
+            pingpong(keys, separators);
+            keys.iter_mut().for_each(|k| *k ^= (*k >> 63).wrapping_sub(1) | (1 << 63));
+            return;
+        }
+        _ => {}
     }
     pingpong(arr, separators);
 }
-
-/// Floats merged by SIMD blocks as unsigned keys (see `merge_runs_simd`).
-pub(crate) const FLOAT_ENCODE: bool = true;
 
 /// Ping-pong rounds (see `merge_runs`).
 fn pingpong<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut Vec<usize>) {

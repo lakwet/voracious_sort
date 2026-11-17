@@ -82,7 +82,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
         // 1M 1.34 to 1.06, 10M 2.12 to 1.85 ns per key). In the cache the
         // two-ended merge into the scratch stays faster; in the rounds of
         // many runs (sawtooth) the gap merge loses.
-        if only && !in_cache && 4 * left.min(right) >= len && super::GAP2 {
+        if only && !in_cache && 4 * left.min(right) >= len {
             super::gap::merge_two_gap(&mut arr[start..end], middle - start, copy);
             return;
         }

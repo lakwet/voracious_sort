@@ -64,7 +64,7 @@ pub(crate) fn radix_path<T: Copy + PartialOrd>(
         merge_runs(arr, &mut vec![0, p, n]);
         return;
     }
-    let simd_rule = merge::simd_rule_applies::<T>(arr.len()) && merge::SIMD_RULE;
+    let simd_rule = merge::simd_rule_applies::<T>(arr.len());
     let random_runs = check_random_runs && !simd_rule && starts_with_random_runs(arr, known.ascending_prefix);
     let (sorted, equal_pairs) = if random_runs {
         (false, known.probes.map_or(0, |p| p.equal()))
