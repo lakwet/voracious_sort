@@ -564,3 +564,28 @@ fn test_v2_devour_sort_wide_count() {
         }
     }
 }
+
+/// devour_sort2 on 64-bit keys holding both MIN and MAX (their span, 2^64,
+/// overflowed a u64 in the range detector: a count of width 0, nothing
+/// written). Values over 0..n * 3 / 10: a sample range too wide for the
+/// one-pass window, the exact range read on all the keys.
+#[test]
+fn test_v2_devour_sort_min_and_max() {
+    for &n in [1000usize, 10_000].iter() {
+        let w = n as i64 * 3 / 10;
+        let mut v: Vec<i64> = (0..n as i64).map(|i| i * 37 % w).collect();
+        v[3] = i64::MIN;
+        v[n / 2] = i64::MAX;
+        let mut e = v.clone();
+        e.sort_unstable();
+        devour_sort2(&mut v);
+        assert!(v == e, "i64 n {}", n);
+        let mut u: Vec<u64> = (0..n as u64).map(|i| i * 37 % w as u64).collect();
+        u[3] = 0;
+        u[n / 2] = u64::MAX;
+        let mut e = u.clone();
+        e.sort_unstable();
+        devour_sort2(&mut u);
+        assert!(u == e, "u64 n {}", n);
+    }
+}

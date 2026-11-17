@@ -74,8 +74,8 @@ macro_rules! int_range {
                 return true;
             }
             if (hi as i128 - lo as i128) as u64 >= limit {
-                let rspan = (rot(rhi) - rot(rlo)) as u64 + 1;
-                if n <= u32::MAX as usize && 2 * rspan < limit {
+                let rspan = ((rot(rhi) - rot(rlo)) as u64).saturating_add(1);
+                if n <= u32::MAX as usize && rspan.saturating_mul(2) < limit {
                     return wrapped_count(values, rlo, rhi, limit as usize);
                 }
                 // Low bits equal in all keys (aligned values, a 16-bit field
@@ -245,10 +245,12 @@ macro_rules! int_range {
                 );
             }
             let (lo, hi) = values.iter().fold((lo, hi), |(l, h), &v| (l.min(v), h.max(v)));
-            let span = (hi as i128 - lo as i128) as u64 + 1;
-            if span > limit {
+            // In u128: MIN and MAX of a 64-bit type span 2^64 integers.
+            let span = (hi as i128 - lo as i128) as u128 + 1;
+            if span > limit as u128 {
                 return false;
             }
+            let span = span as u64;
             if small {
                 exact_count(bits_of(values), $encode(lo as $uint), span as usize, $encode, $decode);
                 return true;
