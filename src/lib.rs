@@ -59,13 +59,13 @@
 //! Add in `Cargo.toml` if you want only single thread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = { version = "1.2.1" }
+//! voracious_radix_sort = { version = "1.2.2" }
 //! ```
 //!
 //! If you also want the multithread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = { version = "1.2.1", features = ["voracious_multithread"] }
+//! voracious_radix_sort = { version = "1.2.2", features = ["voracious_multithread"] }
 //! ```
 //!
 //! ### Environment variable
@@ -245,18 +245,31 @@
 //! ]);
 //! ```
 //!
-//! ### Panics
+//! ### NaN and infinities
 //!
-//! For [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html) and
-//! [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html), if there is a
-//! [`NaN`](https://doc.rust-lang.org/stable/std/f64/constant.NAN.html) value or an
-//! [`INFINITY`](https://doc.rust-lang.org/std/f32/constant.INFINITY.html) or a
-//! [`NEG_INFINITY`](https://doc.rust-lang.org/std/f32/constant.INFINITY.html)
-//! in the [`vector`](https://doc.rust-lang.org/stable/std/vec/) or the
-//! [`slice`](https://doc.rust-lang.org/stable/std/primitive.slice.html), the
-//! behavior is not guaranteed.
+//! Arrays of [`f32`](https://doc.rust-lang.org/stable/std/primitive.f32.html)
+//! or [`f64`](https://doc.rust-lang.org/stable/std/primitive.f64.html) (or of a
+//! struct with a float key) may hold
+//! [`NaN`](https://doc.rust-lang.org/stable/std/f64/constant.NAN.html),
+//! [`INFINITY`](https://doc.rust-lang.org/std/f64/constant.INFINITY.html) and
+//! [`NEG_INFINITY`](https://doc.rust-lang.org/std/f64/constant.NEG_INFINITY.html)
+//! (since version 1.2.2; before, a NaN could make the sort panic):
 //!
-//! It might panic or not sort correctly the array.
+//! - negative NaNs (`-NaN`) come first and positive NaNs last, each group in the
+//! order of its bits (as
+//! [`f64::total_cmp`](https://doc.rust-lang.org/std/primitive.f64.html#method.total_cmp));
+//! - every other value is sorted between them, infinities included;
+//! - no value is lost or changed (a NaN keeps its exact bits);
+//! - the stable sorts keep the order of elements with equal keys, NaNs of the
+//! same bits included;
+//! - `-0.0` and `+0.0` compare equal: the unstable sorts may leave them in any
+//! order.
+//!
+//! For example `[3.0, NaN, -1.0, -NaN, 2.0]` becomes `[-NaN, -1.0, 2.0, 3.0, NaN]`.
+//!
+//! This applies to the trait methods and to the native functions, except
+//! [`insertion_sort`], which takes any `PartialOrd` type: with NaNs it does not
+//! panic, but their place in the result is not defined.
 //!
 //! ## Dependencies
 //!

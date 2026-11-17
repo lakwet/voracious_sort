@@ -84,6 +84,12 @@ where
     T: Radixable<K>,
     K: RadixKey,
 {
+    // NaN set aside (the comparison parts of the sort panicked on them).
+    let arr = match crate::traits::nan::set_nan_aside(arr) {
+        Some(rest) => rest,
+        None => return,
+    };
+    let _checked = crate::traits::nan::Checked::enter();
     if arr.len() < 2 {
         return;
     }

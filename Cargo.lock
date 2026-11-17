@@ -509,7 +509,7 @@ dependencies = [
  "criterion",
  "partition",
  "tikv-jemallocator",
- "voracious_radix_sort 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "voracious_radix_sort 1.2.0",
 ]
 
 [[package]]
@@ -678,6 +678,15 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 [[package]]
 name = "voracious_radix_sort"
 version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446e7ffcb6c27a71d05af7e51ef2ee5b71c48424b122a832f2439651e1914899"
+dependencies = [
+ "rayon",
+]
+
+[[package]]
+name = "voracious_radix_sort"
+version = "1.2.2"
 dependencies = [
  "blazing-radix",
  "glidesort",
@@ -687,15 +696,6 @@ dependencies = [
  "rayon",
  "rdst",
  "turbosort",
-]
-
-[[package]]
-name = "voracious_radix_sort"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446e7ffcb6c27a71d05af7e51ef2ee5b71c48424b122a832f2439651e1914899"
-dependencies = [
- "rayon",
 ]
 
 [[package]]
