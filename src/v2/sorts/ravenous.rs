@@ -196,7 +196,7 @@ fn sort_f32(arr: &mut [f32]) {
         false
     };
     let sort_chunk = |chunk: &mut [f32]| {
-        if chunks::f32(chunk.len()) == Engine::Roller {
+        if chunks::f32(chunk) == Engine::Roller {
             trace!("roller");
             r32::roller(f32_bits::bits(chunk));
         } else {

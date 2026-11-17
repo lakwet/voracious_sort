@@ -2510,8 +2510,8 @@ f32    10000000 Bimodal #2       : no_verge > roller
 f32    10000000 Magnitudes #2    : no_verge > roller
 f32    10000000 Sensor #2        : no_verge > roller
 f32    10000000 Zeros +- #2      : no_verge > roller > heavy
-f32    30000000 Unif             : no_verge > roller
-f32    30000000 Small            : no_verge > roller
+f32    30000000 Unif             : no_verge > lsd
+f32    30000000 Small            : no_verge > lsd
 f32    30000000 Asc              : presorted
 f32    30000000 Desc             : presorted
 f32    30000000 Equal            : presorted
@@ -2523,18 +2523,18 @@ f32    30000000 Sqrt             : verge_merge > roller
 f32    30000000 Pipe Organ       : tail_first > repaired
 f32    30000000 Front            : tail_first
 f32    30000000 Middle           : tail_first
-f32    30000000 Pareto 0.75      : no_verge > roller
-f32    30000000 Pareto 1.00      : no_verge > roller
-f32    30000000 Pareto 2.00      : no_verge > roller
-f32    30000000 Normale 10       : no_verge > roller
-f32    30000000 Normale 20       : no_verge > roller
-f32    30000000 Normale 30       : no_verge > roller
-f32    30000000 Zipf             : no_verge > roller
+f32    30000000 Pareto 0.75      : no_verge > lsd
+f32    30000000 Pareto 1.00      : no_verge > lsd
+f32    30000000 Pareto 2.00      : no_verge > lsd
+f32    30000000 Normale 10       : no_verge > lsd
+f32    30000000 Normale 20       : no_verge > lsd
+f32    30000000 Normale 30       : no_verge > lsd
+f32    30000000 Zipf             : no_verge > lsd
 f32    30000000 FakeZipf         : few
 f32    30000000 Int 0..100       : float_detect
-f32    30000000 Int 0..n         : no_verge > roller
+f32    30000000 Int 0..n         : no_verge > lsd
 f32    30000000 Grid 0.25        : float_detect
-f32    30000000 Prices           : no_verge > roller
+f32    30000000 Prices           : no_verge > lsd
 f32    30000000 Few 16           : few
 f32    30000000 Sparse 90%       : no_verge > roller > heavy
 f32    30000000 Heavy 4          : no_verge > roller > heavy
@@ -2543,21 +2543,21 @@ f32    30000000 Few16 late       : few
 f32    30000000 Asc rnd tail     : tail_first > no_verge > roller
 f32    30000000 Runs 8           : verge_simd_merge
 f32    30000000 Runs 64          : verge_merge > roller
-f32    30000000 Clusters         : no_verge > roller
-f32    30000000 Pareto 1.50      : no_verge > roller
+f32    30000000 Clusters         : no_verge > lsd
+f32    30000000 Pareto 1.50      : no_verge > lsd
 f32    30000000 Timestamps       : repaired
 f32    30000000 Bimodal          : no_verge > roller
-f32    30000000 Magnitudes       : no_verge > roller
-f32    30000000 Sensor           : no_verge > roller
+f32    30000000 Magnitudes       : no_verge > lsd
+f32    30000000 Sensor           : no_verge > lsd
 f32    30000000 Zeros +-         : no_verge > roller > heavy
-f32    30000000 Pareto 1.50 #2   : no_verge > roller
+f32    30000000 Pareto 1.50 #2   : no_verge > lsd
 f32    30000000 Timestamps #2    : repaired
 f32    30000000 Bimodal #2       : no_verge > roller
-f32    30000000 Magnitudes #2    : no_verge > roller
-f32    30000000 Sensor #2        : no_verge > roller
+f32    30000000 Magnitudes #2    : no_verge > lsd
+f32    30000000 Sensor #2        : no_verge > lsd
 f32    30000000 Zeros +- #2      : no_verge > roller > heavy
-f32   100000000 Unif             : no_verge > roller
-f32   100000000 Small            : no_verge > roller
+f32   100000000 Unif             : no_verge > lsd
+f32   100000000 Small            : no_verge > lsd
 f32   100000000 Asc              : presorted
 f32   100000000 Desc             : presorted
 f32   100000000 Equal            : presorted
@@ -2569,38 +2569,38 @@ f32   100000000 Sqrt             : verge_merge > roller
 f32   100000000 Pipe Organ       : tail_first > repaired
 f32   100000000 Front            : tail_first
 f32   100000000 Middle           : tail_first
-f32   100000000 Pareto 0.75      : no_verge > roller
-f32   100000000 Pareto 1.00      : no_verge > roller
-f32   100000000 Pareto 2.00      : no_verge > roller
-f32   100000000 Normale 10       : no_verge > roller
-f32   100000000 Normale 20       : no_verge > roller
-f32   100000000 Normale 30       : no_verge > roller
-f32   100000000 Zipf             : no_verge > roller
+f32   100000000 Pareto 0.75      : no_verge > lsd
+f32   100000000 Pareto 1.00      : no_verge > lsd
+f32   100000000 Pareto 2.00      : no_verge > lsd
+f32   100000000 Normale 10       : no_verge > lsd
+f32   100000000 Normale 20       : no_verge > lsd
+f32   100000000 Normale 30       : no_verge > lsd
+f32   100000000 Zipf             : no_verge > lsd
 f32   100000000 FakeZipf         : few
 f32   100000000 Int 0..100       : float_detect
-f32   100000000 Int 0..n         : no_verge > roller
+f32   100000000 Int 0..n         : no_verge > lsd
 f32   100000000 Grid 0.25        : float_detect
-f32   100000000 Prices           : no_verge > roller
+f32   100000000 Prices           : no_verge > lsd
 f32   100000000 Few 16           : few
 f32   100000000 Sparse 90%       : no_verge > roller > heavy
-f32   100000000 Heavy 4          : no_verge > roller > heavy
+f32   100000000 Heavy 4          : no_verge > lsd > heavy
 f32   100000000 Int late out     : few
 f32   100000000 Few16 late       : few
 f32   100000000 Asc rnd tail     : tail_first > no_verge > roller
 f32   100000000 Runs 8           : verge_simd_merge
 f32   100000000 Runs 64          : verge_merge > roller
-f32   100000000 Clusters         : no_verge > roller
-f32   100000000 Pareto 1.50      : no_verge > roller
+f32   100000000 Clusters         : no_verge > lsd
+f32   100000000 Pareto 1.50      : no_verge > lsd
 f32   100000000 Timestamps       : repaired
-f32   100000000 Bimodal          : no_verge > roller
-f32   100000000 Magnitudes       : no_verge > roller
-f32   100000000 Sensor           : no_verge > roller
+f32   100000000 Bimodal          : no_verge > lsd
+f32   100000000 Magnitudes       : no_verge > lsd
+f32   100000000 Sensor           : no_verge > lsd
 f32   100000000 Zeros +-         : no_verge > roller > heavy
-f32   100000000 Pareto 1.50 #2   : no_verge > roller
+f32   100000000 Pareto 1.50 #2   : no_verge > lsd
 f32   100000000 Timestamps #2    : repaired
-f32   100000000 Bimodal #2       : no_verge > roller
-f32   100000000 Magnitudes #2    : no_verge > roller
-f32   100000000 Sensor #2        : no_verge > roller
+f32   100000000 Bimodal #2       : no_verge > lsd
+f32   100000000 Magnitudes #2    : no_verge > lsd
+f32   100000000 Sensor #2        : no_verge > lsd
 f32   100000000 Zeros +- #2      : no_verge > roller > heavy
 f64        1000 Unif             : no_verge > dlsd
 f64        1000 Small 10^9       : no_verge > dlsd

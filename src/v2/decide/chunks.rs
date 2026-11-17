@@ -9,7 +9,8 @@
 //! |                 | keys ordered locally or globally | rollercoaster            |
 //! |                 | else                             | fused LSD                |
 //! | f32             | n < RollerF32 / 12               | fused LSD                |
-//! |                 | else                             | rollercoaster            |
+//! |                 | n < Roller32, or keys ordered    | rollercoaster            |
+//! |                 | else                             | fused LSD                |
 //! | 64-bit integers | n < `DENSE_MIN`                  | DLSD                     |
 //! |                 | n < Roller64 / 12                | DLSD, LSD on clusters    |
 //! |                 | else                             | rollercoaster            |
@@ -19,7 +20,8 @@
 //! |                 | else                             | rollercoaster            |
 //!
 //! Measurements: journal §12 (rollercoaster leaves), §99-§100 (32 bits
-//! beyond the cache), the cluster rule in `shape::clustered`.
+//! beyond the cache), §107 (f32 beyond the cache), the cluster rule in
+//! `shape::clustered`.
 
 use super::shape::{globally_ordered, locally_ordered};
 use crate::v2::cache::{budget, Budget};
@@ -57,10 +59,17 @@ pub(crate) fn int32<U: Copy + PartialOrd>(bits: &[U]) -> Engine {
     }
 }
 
-/// f32: the rollercoaster from `roller_min_f32`.
+/// f32: the rollercoaster from `roller_min_f32`; beyond the largest cache
+/// (`roller_min_32`) the LSD again, unless the keys are ordered, as for the
+/// 32-bit integers (sentinel at 10M-100M: Core i5-4690K 0.75, Ryzen 3950X
+/// 0.89, Snapdragon X 0.91; uneven keys gain most, Int 0..n / Bimodal /
+/// Sensor 0.4-0.7; uniform-like keys 6-11 % slower on the Snapdragon).
 #[inline]
-pub(crate) fn f32(n: usize) -> Engine {
-    if n >= roller_min_f32() {
+pub(crate) fn f32(keys: &[f32]) -> Engine {
+    let n = keys.len();
+    if n >= roller_min_32() && !(locally_ordered(keys) || globally_ordered(keys)) {
+        Engine::Lsd
+    } else if n >= roller_min_f32() {
         Engine::Roller
     } else {
         Engine::Lsd
