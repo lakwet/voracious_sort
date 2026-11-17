@@ -6,7 +6,7 @@ use std::mem::MaybeUninit;
 /// (histograms `hist` taken in the first read), the digits equal in every
 /// key skipped, each pass moving the elements between the array and a
 /// buffer (the key read again from each element).
-pub(super) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 256]]) {
+pub(crate) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 256]]) {
     let n = arr.len();
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     super::merge::prefault(&mut buf);
@@ -47,7 +47,7 @@ pub(super) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 
 /// `lsd` with 11-bit digits (six passes for 64-bit keys instead of eight):
 /// histograms of (key - lo) taken here by one read, the digits equal in
 /// every key skipped.
-pub(super) fn lsd11<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u64) {
+pub(crate) fn lsd11<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u64) {
     const R: usize = 11;
     const B: usize = 1 << R;
     let n = arr.len();

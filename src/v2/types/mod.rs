@@ -23,6 +23,13 @@
 //! | char        | none (its own copy of the u32 chain)                 |
 //!
 //! `usize` / `isize` go to the type of their width (`sorts::devour`).
+//!
+//! Records (`records`): one folder per key type (bool, u8 ... i128, f32,
+//! f64, char), one chain per record size in it (r1, r2, r4, r8, r16, r32,
+//! r64; from the key's own size up). Chains of at most 8 bytes: copies of
+//! the small-records path; above: copies of the large-records chain. No
+//! differences yet. The pieces they share re-sort through the caller's
+//! chain (`ends`, `heavy_keys`, Verge take it as an argument).
 
 pub(crate) mod char;
 pub(crate) mod f32;
@@ -32,6 +39,7 @@ pub(crate) mod i16;
 pub(crate) mod i32;
 pub(crate) mod i64;
 pub(crate) mod i8;
+pub(crate) mod records;
 pub(crate) mod u128;
 pub(crate) mod u16;
 pub(crate) mod u32;

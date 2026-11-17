@@ -3,19 +3,20 @@
 //! Each key is encoded into an unsigned integer of the same order
 //! (`SortKey`). One read of the keys gives their range, whether they are
 //! already in order and, beyond the cache, where the order breaks and how
-//! often it changes direction. The chain of rules, and its thresholds:
-//! `decide::records`. Keys too wide for a u128 with their index fall back
-//! to `sort_by`.
+//! often it changes direction. The chains of rules, one per key type and
+//! record size, with their thresholds: `types::records`. Here: the public
+//! entries and the pieces the chains share. Keys too wide for a u128 with
+//! their index fall back to `sort_by`.
 
-mod few;
-mod heavy;
+pub(crate) mod few;
+pub(crate) mod heavy;
 
-mod lsd;
+pub(crate) mod lsd;
 mod merge;
-mod packed;
+pub(crate) mod packed;
 mod permute;
-mod small;
-mod verge;
+pub(crate) mod small;
+pub(crate) mod verge;
 
 mod keys;
 
@@ -23,18 +24,14 @@ pub use keys::SortKey;
 
 use std::mem::MaybeUninit;
 
-use crate::v2::decide::records::*;
-use few::few_keys;
-use lsd::lsd;
 #[allow(unused_imports)] // the CPU bench sets it
 pub(crate) use merge::FOUR_WAY_MIN;
-use packed::{sort_in_place, sort_into};
-use verge::verge;
+use packed::sort_into;
 pub(crate) static LSD11: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// Sorts `arr` by `key`, stably.
 pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) {
-    sort_encoded(arr, &|x: &T| key(x).encode());
+    K::sort_records(arr, &|x: &T| key(x).encode(), false);
 }
 
 /// Sorts `arr` by `key`, unstably: equal keys may come out in any order.
@@ -42,17 +39,7 @@ pub fn devour_sort_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) 
 /// vector blocks (`simd`), large records in disorder by the in-place MSD
 /// (`unstable`: no buffer).
 pub fn devour_sort_unstable_by_key<T, K: SortKey, F: Fn(&T) -> K>(arr: &mut [T], key: F) {
-    let enc = |x: &T| key(x).encode();
-    // Few large records: the standard library's pattern-defeating quicksort
-    // (in place: no buffer to fault in, presorted data found as it goes).
-    let size = std::mem::size_of::<T>();
-    if size >= UNSTABLE_MSD_MIN && arr.len() < UNSTABLE_PDQ_MAX {
-        trace!("std_unstable_large");
-        arr.sort_unstable_by_key(|x| enc(x));
-        return;
-    }
-    let _unstable = Unstable::enter();
-    sort_encoded(arr, &enc);
+    K::sort_records(arr, &|x: &T| key(x).encode(), true);
 }
 
 std::thread_local! {
@@ -62,17 +49,13 @@ std::thread_local! {
 
 /// Whether the running sort may reorder equal keys.
 #[inline]
-pub(super) fn unstable() -> bool {
-    UNSTABLE.with(|u| u.get())
-}
+pub(crate) fn unstable() -> bool { UNSTABLE.with(|u| u.get()) }
 
 /// Sets the unstable mode for its lifetime (restored even on a panic).
-struct Unstable(bool);
+pub(crate) struct Unstable(bool);
 
 impl Unstable {
-    fn enter() -> Self {
-        Unstable(UNSTABLE.with(|u| u.replace(true)))
-    }
+    pub(crate) fn enter() -> Self { Unstable(UNSTABLE.with(|u| u.replace(true))) }
 }
 
 impl Drop for Unstable {
@@ -87,7 +70,12 @@ impl Drop for Unstable {
 /// single key out of place (the keys around it in order: random swaps in
 /// sorted data, not the long runs of a sawtooth), or keys in order at a
 /// distance of 64 on a sample (local disorder: timestamps with jitter).
-fn nearly_sorted<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, s: &Scan, drops: &[usize]) -> bool {
+pub(crate) fn nearly_sorted<T, E: Fn(&T) -> u128>(
+    arr: &[T],
+    enc: &E,
+    s: &Scan,
+    drops: &[usize],
+) -> bool {
     let n = arr.len();
     if s.drops <= DROPS_MAX {
         let k = |i: usize| enc(&arr[i]);
@@ -109,19 +97,19 @@ fn nearly_sorted<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, s: &Scan, drops: &[us
 
 /// What one read of the keys learned.
 /// Most breaks of ascending order the first read keeps for Verge.
-const DROPS_MAX: usize = 1024;
+pub(crate) const DROPS_MAX: usize = 1024;
 
-struct Scan {
-    lo: u128,
-    hi: u128,
-    ascending: bool,
-    strictly_descending: bool,
+pub(crate) struct Scan {
+    pub(crate) lo: u128,
+    pub(crate) hi: u128,
+    pub(crate) ascending: bool,
+    pub(crate) strictly_descending: bool,
     /// Changes of direction between neighbouring pairs (equal keys keep the
     /// direction): about 2n/3 on random keys, one per tooth on sawtooth
     /// data, one on a pipe organ. Counted only if `TURNS`.
-    turns: usize,
+    pub(crate) turns: usize,
     /// Breaks of ascending order (`key[j] < key[j - 1]`).
-    drops: usize,
+    pub(crate) drops: usize,
 }
 
 /// Reads every key once: range, breaks of ascending order (`down`), and
@@ -130,7 +118,7 @@ struct Scan {
 /// the positions of the first `DROPS_MAX` breaks. Two elements per step,
 /// two ranges.
 #[inline(always)]
-fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
+pub(crate) fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
     arr: &[T],
     enc: &E,
     drops: &mut [usize],
@@ -242,7 +230,7 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(
 /// Distinct keys among 512 spread over the array: 500 or more when the
 /// array likely holds far more than 4096 distinct keys (about 481 expected
 /// for 4096 random keys, at most the number of keys when fewer).
-fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, sample: &Sample) -> usize {
+pub(crate) fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, sample: &Sample) -> usize {
     if let Some(d) = sample.distinct.get() {
         return d;
     }
@@ -258,19 +246,19 @@ fn sample_distinct<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, sample: &Sample) ->
 /// first up to 256 (stopping early), `heavy_keys` the first 256,
 /// `sample_distinct` 512. Valid while nothing moved: the tries give up
 /// before moving anything.
-pub(super) struct Sample {
+pub(crate) struct Sample {
     keys: std::cell::RefCell<Vec<u128>>,
     distinct: std::cell::Cell<Option<usize>>,
 }
 
 impl Sample {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Sample { keys: std::cell::RefCell::new(Vec::new()), distinct: std::cell::Cell::new(None) }
     }
 
     /// Key `i` of the sample.
     #[inline]
-    pub(super) fn at<T, E: Fn(&T) -> u128>(&self, arr: &[T], enc: &E, i: usize) -> u128 {
+    pub(crate) fn at<T, E: Fn(&T) -> u128>(&self, arr: &[T], enc: &E, i: usize) -> u128 {
         let mut keys = self.keys.borrow_mut();
         let n = arr.len() as u64;
         while keys.len() <= i {
@@ -282,7 +270,7 @@ impl Sample {
     }
 
     /// A copy of the first `k` keys.
-    pub(super) fn first<T, E: Fn(&T) -> u128>(&self, arr: &[T], enc: &E, k: usize) -> Vec<u128> {
+    pub(crate) fn first<T, E: Fn(&T) -> u128>(&self, arr: &[T], enc: &E, k: usize) -> Vec<u128> {
         if k > 0 {
             self.at(arr, enc, k - 1);
         }
@@ -292,7 +280,7 @@ impl Sample {
 
 /// 32 pairs of neighbours spread over the array all in order: long runs
 /// likely (random keys pass with odds 2^-32).
-fn locally_sorted<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E) -> bool {
+pub(crate) fn locally_sorted<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E) -> bool {
     let n = arr.len();
     (0..32).all(|i| {
         let j = (2 * i + 1) * (n - 1) / 64;
@@ -352,7 +340,13 @@ fn run_at_end<T, E: Fn(&T) -> u128>(arr: &[T], enc: &E, floor: usize) -> (usize,
 /// and the run at the end cover at least 3/4 of the array, only the rest is
 /// sorted, then merged with them (the merges move the shorter side and the
 /// keys out of place). Sorted and strictly descending arrays end here too.
-fn ends<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, start: &mut (usize, bool)) -> bool {
+/// `sort`: the chain of the caller, for the middle.
+pub(crate) fn ends<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    start: &mut (usize, bool),
+    sort: &dyn Fn(&mut [T]),
+) -> bool {
     let n = arr.len();
     let (p, pdesc) = run_at_start(arr, enc);
     *start = (p, pdesc);
@@ -382,7 +376,7 @@ fn ends<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, start: &mut (usize, bool))
         arr[s..].reverse();
     }
     if s > p {
-        sort_encoded(&mut arr[p..s], enc);
+        sort(&mut arr[p..s]);
         if s < n {
             let b = verge::predictable(arr, (p, s, false), (s, n, false), enc);
             merge::merge_two(&mut arr[p..], s - p, enc, b);
@@ -395,139 +389,8 @@ fn ends<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, start: &mut (usize, bool))
     true
 }
 
-/// The records chain (table in `decide::records`).
-pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
-    let n = arr.len();
-    if n < 2 {
-        return;
-    }
-    // Small records: their own path (`small`), after the rules that pay for
-    // them too.
-    let size = std::mem::size_of::<T>();
-    let small = size <= SMALL_RECORD;
-    let sample = Sample::new();
-    // The run at the start, read by `ends`: not read again by the scan.
-    let mut start = (0, false);
-    chain! {
-        "ends" if n >= ENDS_MIN_N => try ends(arr, enc, &mut start);
-        "std_unstable_dups" if small
-            && unstable()
-            && n >= UNSTABLE_PDQ_MIN
-            && sample_distinct(arr, enc, &sample) < MANY_DISTINCT
-            => do { arr.sort_unstable_by_key(|x| enc(x)) };
-        "heavy" if small => try heavy::heavy_keys(arr, enc, &sample);
-        "verge_runs" if small && n >= VERGE_MIN && locally_sorted(arr, enc)
-            => try verge::verge_if(arr, enc, true);
-        "small_path" if small => do { small::sort_encoded_with(arr, enc, &sample) };
-    }
-    // Larger records, after one read of the keys. Beyond half the L2 the
-    // moves of the records dominate: Verge on the records (fed by the read).
-    let records = crate::v2::cache::budget(crate::v2::cache::Budget::Records);
-    let beyond_cache = n.saturating_mul(size) > records / 2;
-    // The MSD's passes read and swap at random across the array: up to
-    // twice the cache (beyond, the packed sort moves each record once).
-    let msd_ok = unstable()
-        && size >= UNSTABLE_MSD_MIN
-        && n >= VERGE_MIN
-        && n.saturating_mul(size) <= 2 * records;
-    let try_verge = n >= VERGE_MIN && beyond_cache;
-    let mut drops = if try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
-    let mut turn_at = if try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
-    let s = if try_verge || msd_ok {
-        scan::<T, E, true>(arr, enc, &mut drops, &mut turn_at, start)
-    } else {
-        scan::<T, E, false>(arr, enc, &mut drops, &mut turn_at, start)
-    };
-    let key_bits = u128::BITS - (s.hi - s.lo).leading_zeros();
-    // (key, index) needs a u128 (its packed sort is slow on keys with many
-    // repeats: Zipf, clusters).
-    let wide = key_bits + (usize::BITS - (n - 1).leading_zeros()) > 64;
-    let small_unstable = unstable() && size < UNSTABLE_MSD_MIN && n >= UNSTABLE_PDQ_MIN;
-    chain! {
-        "presorted" if s.ascending => do {};
-        "reversed" if s.strictly_descending => do { arr.reverse() };
-        // The in-place MSD (each record moved once per byte level, no
-        // buffer) unless the stable passes are cheaper: two runs (a pipe
-        // organ: one merge) or breaks scattered in ascending order (the
-        // repair of nearly sorted data).
-        "msd_unstable" if msd_ok && s.turns > 2 && !nearly_sorted(arr, enc, &s, &drops)
-            => do { crate::v2::engines::msd::msd(arr, enc, s.lo, s.hi) };
-        // The MSD, whose buckets of equal keys end at once, was slower.
-        "unstable_dups" if small_unstable && sample_distinct(arr, enc, &sample) < MANY_DISTINCT
-            => do { arr.sort_unstable_by_key(|x| enc(x)) };
-        "few" => try few_keys(arr, enc, &sample);
-        "heavy" => try heavy::heavy_keys(arr, enc, &sample);
-        // In the cache: long runs only (concatenated sorted pieces), found
-        // by a second read.
-        "verge_few" if !beyond_cache && n >= VERGE_MIN && IN_CACHE_BREAKS_DIV * s.drops <= n
-            => try verge::verge_if(arr, enc, true);
-        // Beyond it, few turns: runs worth more than gathering the records
-        // at random.
-        "verge" if try_verge && TURN_DIV * s.turns <= n
-            => try if s.drops <= DROPS_MAX {
-                verge::verge_from_breaks(arr, enc, &drops[..s.drops])
-            } else if s.turns <= DROPS_MAX {
-                verge::verge_from_turns(arr, enc, &turn_at[..s.turns])
-            } else {
-                verge(arr, enc)
-            };
-        // Wide keys in disorder (Verge declined): comparisons beat the
-        // radix passes.
-        "std_unstable_wide" if small_unstable && key_bits > UNSTABLE_WIDE_BITS
-            => do { arr.sort_unstable_by_key(|x| enc(x)) };
-        // Keys changing direction rarely (blocks of equal keys): up to 4096
-        // distinct keys counted.
-        "few_wide" if try_verge
-            && (FEW_WIDE_TURN_DIV * s.turns <= n
-                || sample_distinct(arr, enc, &sample) < MANY_DISTINCT)
-            => try few::few_keys_wide(arr, enc);
-        "few_wide_cache" if !beyond_cache
-            && n >= IN_CACHE_MIN
-            && sample_distinct(arr, enc, &sample) < MANY_DISTINCT
-            => try few::few_keys_wide(arr, enc);
-        "lsd11_cache" if !beyond_cache
-            && size <= IN_CACHE_LSD_MAX
-            && n >= IN_CACHE_MIN
-            && wide
-            && s.hi <= u64::MAX as u128
-            => do { lsd::lsd11(arr, enc, s.lo as u64) };
-        // Keys in disorder beyond the cache: the LSD on the records too (the
-        // packed (key, index) is as large as the record, and its gather
-        // reads at random). The byte histograms: one more read, only here.
-        "lsd" if size <= LSD_MAX
-            && beyond_cache
-            && s.hi <= u64::MAX as u128
-            && LSD_TURNS * s.turns > n
-            => do {
-            // Written here, not in a function: as a call, the histogram loop
-            // came out 8 % slower (r16u64 1M Unif / Timestamps / Clusters,
-            // Surface binary A/B).
-            if LSD11.load(std::sync::atomic::Ordering::Relaxed) {
-                lsd::lsd11(arr, enc, s.lo as u64);
-                return;
-            }
-            let mut hist = vec![[0usize; 256]; 8];
-            for x in arr.iter() {
-                let k = enc(x) as u64;
-                for (d, h) in hist.iter_mut().enumerate() {
-                    h[((k >> (8 * d)) & 0xFF) as usize] += 1;
-                }
-            }
-            lsd(arr, enc, &hist);
-        };
-        // Beyond the cache the permutation applied in place; in it, the
-        // gather through a buffer (cheaper than scanning the permutation).
-        "packed_in_place" if beyond_cache => do {
-            if !sort_in_place(arr, enc, s.lo, key_bits) {
-                std_fallback(arr, enc);
-            }
-        };
-        "packed" => do { packed_buffer(arr, enc, s.lo, key_bits) };
-    }
-}
-
 /// The packed (key, index) sort through a buffer.
-pub(super) fn packed_buffer<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32) {
+pub(crate) fn packed_buffer<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, key_bits: u32) {
     let n = arr.len();
     let mut buffer: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     // SAFETY: the records are moved into the buffer in key order, then the
@@ -543,7 +406,7 @@ pub(super) fn packed_buffer<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u1
 }
 
 /// The packed sort declined (keys too wide): the standard library's.
-pub(super) fn std_fallback<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
+pub(crate) fn std_fallback<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     trace!("std_fallback");
     arr.sort_by_key(|x| enc(x));
 }

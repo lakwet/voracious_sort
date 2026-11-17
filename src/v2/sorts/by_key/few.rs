@@ -12,7 +12,7 @@ const FEW_TABLE: usize = 1 << FEW_TABLE_BITS;
 /// beyond `FEW_MAX`, nothing moved), the distinct keys are sorted, and one
 /// pass moves every element to its key's next slot in a buffer (stable),
 /// copied back.
-pub(super) fn few_keys<T, E: Fn(&T) -> u128>(
+pub(crate) fn few_keys<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     enc: &E,
     sample: &super::Sample,
@@ -94,7 +94,7 @@ pub(super) fn few_keys<T, E: Fn(&T) -> u128>(
 /// counting sort with a larger table on the heap; consecutive equal keys
 /// skip the lookup (the previous slot kept). Gives up beyond `WIDE_MAX`
 /// distinct keys, nothing moved.
-pub(super) fn few_keys_wide<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+pub(crate) fn few_keys_wide<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     const WIDE_MAX: usize = 4096;
     const BITS: u32 = 13;
     const TABLE: usize = 1 << BITS;

@@ -11,7 +11,7 @@ use crate::v2::sorts::devour::devour_sort2;
 /// the others are moved once (each write lands on the slot just read). No
 /// buffer of elements. Returns false (nothing moved) when key and index do
 /// not fit in a u128.
-pub(super) fn sort_in_place<T, E: Fn(&T) -> u128>(
+pub(crate) fn sort_in_place<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     enc: &E,
     lo: u128,
@@ -51,7 +51,7 @@ pub(super) fn sort_in_place<T, E: Fn(&T) -> u128>(
 /// # Safety
 /// `src` and `dst` point to `n` elements, do not overlap; the elements of
 /// `src` are moved out (bitwise) and must be treated as moved by the caller.
-pub(super) unsafe fn sort_into<T, E: Fn(&T) -> u128>(
+pub(crate) unsafe fn sort_into<T, E: Fn(&T) -> u128>(
     src: *const T,
     dst: *mut T,
     n: usize,

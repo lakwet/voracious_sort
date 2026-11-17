@@ -52,5 +52,4 @@ macro_rules! chain {
 }
 
 pub(crate) mod path;
-pub(crate) mod records;
 pub(crate) mod shape;

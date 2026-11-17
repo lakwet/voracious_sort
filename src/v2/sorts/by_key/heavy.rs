@@ -14,10 +14,11 @@ const SAMPLE: usize = 256;
 /// heavy key's records in a block, all in their order: stable), the other
 /// records are sorted, and one pass moves everything back in key order.
 /// Two moves per record plus the sort of the rest.
-pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(
+pub(crate) fn heavy_keys<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     enc: &E,
     sample: &super::Sample,
+    sort: &dyn Fn(&mut [T]),
 ) -> bool {
     let n = arr.len();
     if n < 4096 {
@@ -72,7 +73,7 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(
         return false;
     }
     if h == 1 {
-        one_heavy(arr, enc, heavy[0], others);
+        one_heavy(arr, enc, heavy[0], others, sort);
         return true;
     }
     // Buffer: the others first, then each heavy key's block.
@@ -98,7 +99,7 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(
             heads[c] += 1;
         }
         let rest = std::slice::from_raw_parts_mut(b, others);
-        super::sort_encoded(rest, enc);
+        sort(rest);
         // Back: the others below each heavy key, then its block.
         let (mut o, mut d) = (0usize, 0usize);
         let mut block = others;
@@ -119,7 +120,13 @@ pub(super) fn heavy_keys<T, E: Fn(&T) -> u128>(
 /// One heavy key: its records compacted in place (forward, in order), the
 /// others moved to a buffer of their size, sorted there, then the block
 /// moved to its place and the others put around it.
-fn one_heavy<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, key: u128, others: usize) {
+fn one_heavy<T, E: Fn(&T) -> u128>(
+    arr: &mut [T],
+    enc: &E,
+    key: u128,
+    others: usize,
+    sort: &dyn Fn(&mut [T]),
+) {
     let n = arr.len();
     let c = n - others;
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(others + 1);
@@ -143,7 +150,7 @@ fn one_heavy<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, key: u128, others: us
             o += !is as usize;
         }
         let rest = std::slice::from_raw_parts_mut(b, others);
-        super::sort_encoded(rest, enc);
+        sort(rest);
         let below = rest.partition_point(|x| enc(x) < key);
         std::ptr::copy(a, a.add(below), c);
         std::ptr::copy_nonoverlapping(b, a, below);

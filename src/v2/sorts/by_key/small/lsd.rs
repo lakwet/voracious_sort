@@ -9,7 +9,7 @@ use std::mem::MaybeUninit;
 /// (histograms `hist` taken in the first read), the digits equal in every
 /// key skipped, each pass moving the elements between the array and a
 /// buffer (the key read again from each element).
-pub(super) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 256]]) {
+pub(crate) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 256]]) {
     let n = arr.len();
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(n);
     let mut in_buf = false;

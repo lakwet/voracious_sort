@@ -4,17 +4,13 @@
 //! Surface sentinel 2026-11-17.)
 
 use super::merge::{merge_all, merge_two};
-use super::sort_encoded;
 use crate::v2::runs::verge::compute_big_enough_run;
-
-/// Shortest array tried for Verge on the elements.
-pub(super) const VERGE_MIN: usize = 4096;
 
 /// Verge on the elements: runs of at least n / log2(n) keys (ascending, or
 /// strictly descending and then reversed: still stable) are kept, the gaps
 /// between them sorted, and all the segments merged stably. Returns false
 /// (nothing done) without such a run.
-pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+pub(crate) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, sort: &dyn Fn(&mut [T])) -> bool {
     let n = arr.len();
     let long = compute_big_enough_run(n).max(2);
     // Runs: (start, end, descending).
@@ -52,7 +48,7 @@ pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     for &(s, e, desc) in runs.iter() {
         let at = *bounds.last().unwrap();
         if s > at {
-            sort_encoded(&mut arr[at..s], enc);
+            sort(&mut arr[at..s]);
             bounds.push(s);
         }
         if desc {
@@ -62,7 +58,7 @@ pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
     }
     let at = *bounds.last().unwrap();
     if at < n {
-        sort_encoded(&mut arr[at..], enc);
+        sort(&mut arr[at..]);
         bounds.push(n);
     }
     if bounds.len() == 3 {

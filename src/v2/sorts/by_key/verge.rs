@@ -6,7 +6,6 @@
 //! unpredictably.
 
 use super::merge::{merge_all_half, merge_all_kway, merge_asc_desc, merge_two};
-use super::sort_encoded;
 
 /// Runs kept: at least `max(n / RUN_DIV, RUN_MIN)` keys; Verge tried when
 /// `decide::records::TURN_DIV * turns <= n`.
@@ -21,17 +20,18 @@ pub(crate) const KWAY_BRANCHY_MIN: usize = 128;
 /// stable) are kept, the gaps between them sorted, and all the segments
 /// merged stably. Returns false (nothing done) when the runs cover less
 /// than half the array.
-pub(super) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
-    verge_if(arr, enc, false)
+pub(crate) fn verge<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, sort: &dyn Fn(&mut [T])) -> bool {
+    verge_if(arr, enc, false, sort)
 }
 
 /// `verge`; with `unpredictable_only`, declined when the first two runs
 /// would merge predictably (sawtooth: the packed sort is faster in the
 /// cache).
-pub(super) fn verge_if<T, E: Fn(&T) -> u128>(
+pub(crate) fn verge_if<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     enc: &E,
     unpredictable_only: bool,
+    sort: &dyn Fn(&mut [T]),
 ) -> bool {
     // The first two ascending runs first: a predictable merge declines
     // before reading the whole array.
@@ -95,17 +95,18 @@ pub(super) fn verge_if<T, E: Fn(&T) -> u128>(
     if unpredictable_only && runs.len() >= 2 && predictable(arr, runs[0], runs[1], enc) {
         return false;
     }
-    finish(arr, enc, runs, covered, breaks, isolated)
+    finish(arr, enc, runs, covered, breaks, isolated, sort)
 }
 
 /// Verge from the breaks of ascending order found by the first read
 /// (positions `j` with `key[j] < key[j - 1]`, in order): the runs are the
 /// stretches between them, no second read of the keys (only the
 /// neighbours of each break, for the near-sorted test).
-pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(
+pub(crate) fn verge_from_breaks<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     enc: &E,
     drops: &[usize],
+    sort: &dyn Fn(&mut [T]),
 ) -> bool {
     let n = arr.len();
     let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
@@ -125,7 +126,7 @@ pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(
         }
         start = j;
     }
-    finish(arr, enc, runs, covered, drops.len(), isolated)
+    finish(arr, enc, runs, covered, drops.len(), isolated, sort)
 }
 
 /// Verge from the turns found by the first read: positions `p` where the
@@ -135,10 +136,11 @@ pub(super) fn verge_from_breaks<T, E: Fn(&T) -> u128>(
 /// stretch of breaks gives a strictly descending run, a stretch without an
 /// ascending one; a lone break in ascending order (or the reverse) is
 /// tested for the near-sorted rule.
-pub(super) fn verge_from_turns<T, E: Fn(&T) -> u128>(
+pub(crate) fn verge_from_turns<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     enc: &E,
     turn_at: &[usize],
+    sort: &dyn Fn(&mut [T]),
 ) -> bool {
     let n = arr.len();
     let long = (n / RUN_DIV.max(1)).max(RUN_MIN).max(2);
@@ -174,7 +176,7 @@ pub(super) fn verge_from_turns<T, E: Fn(&T) -> u128>(
         start = p;
         desc = !desc;
     }
-    finish(arr, enc, runs, covered, breaks, isolated)
+    finish(arr, enc, runs, covered, breaks, isolated, sort)
 }
 
 /// The rest of Verge once the runs are known.
@@ -185,6 +187,7 @@ fn finish<T, E: Fn(&T) -> u128>(
     covered: usize,
     breaks: usize,
     isolated: usize,
+    sort: &dyn Fn(&mut [T]),
 ) -> bool {
     let n = arr.len();
     // Nearly sorted (most breaks isolated): the packed sort with the
@@ -205,7 +208,7 @@ fn finish<T, E: Fn(&T) -> u128>(
     for &(s, e, desc) in runs.iter() {
         let at = *bounds.last().unwrap();
         if s > at {
-            sort_encoded(&mut arr[at..s], enc);
+            sort(&mut arr[at..s]);
             bounds.push(s);
         }
         if desc {
@@ -215,7 +218,7 @@ fn finish<T, E: Fn(&T) -> u128>(
     }
     let at = *bounds.last().unwrap();
     if at < n {
-        sort_encoded(&mut arr[at..], enc);
+        sort(&mut arr[at..]);
         bounds.push(n);
     }
     // Predictable merges (the first two segments, now ascending; the rule
@@ -237,7 +240,7 @@ fn finish<T, E: Fn(&T) -> u128>(
 /// increasing order), at most 16 switches between the two runs, or a
 /// pattern periodic with a period of at most 16 (pipe organs alternate one
 /// by one).
-pub(super) fn predictable<T, E: Fn(&T) -> u128>(
+pub(crate) fn predictable<T, E: Fn(&T) -> u128>(
     arr: &[T],
     a: (usize, usize, bool),
     b: (usize, usize, bool),
