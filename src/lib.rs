@@ -59,13 +59,13 @@
 //! Add in `Cargo.toml` if you want only single thread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = { version = "1.2.0" }
+//! voracious_radix_sort = { version = "1.2.1" }
 //! ```
 //!
 //! If you also want the multithread version:
 //! ```toml
 //! [dependencies]
-//! voracious_radix_sort = { version = "1.2.0", features = ["voracious_multithread"] }
+//! voracious_radix_sort = { version = "1.2.1", features = ["voracious_multithread"] }
 //! ```
 //!
 //! ### Environment variable
