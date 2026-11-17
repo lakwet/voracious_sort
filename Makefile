@@ -98,6 +98,41 @@ benchbilan: export BENCH_MIN_ARRAYS = 1
 benchbilan: ## every type against every sort, 1k to 10M, generic build: the list of losses (1-3 h)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
+# Benchmarks by type (src/tests/bench): the v2 against v1 and the rivals,
+# 1k to 10M, generic build, one output file bench-cpu-*.txt.
+#   make bench-type T=u32      one key type (u8 ... i128, f32, f64, char)
+#   make bench-keys            every key type
+#   make bench-records         every record; T=u64: the records of u64 keys
+BENCH_BY_TYPE_SIZES = 1000,10000,50000,100000,1000000,5000000,10000000
+BENCH_BY_TYPE_SORTS = std,std unstable,std cached,v1,glidesort,blazing,radsort,rdst,turbosort,v2 unstable,v1 stable
+
+bench-type: export RUSTFLAGS =
+bench-type: export BENCH_PARTS = int,float,wide
+bench-type: export BENCH_TYPES = $(T)
+bench-type: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
+bench-type: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
+bench-type: export BENCH_MIN_ARRAYS = 1
+bench-type: ## one key type against v1 and the rivals: make bench-type T=u32
+	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
+bench-keys: export RUSTFLAGS =
+bench-keys: export BENCH_PARTS = int,float,wide
+bench-keys: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
+bench-keys: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
+bench-keys: export BENCH_MIN_ARRAYS = 1
+bench-keys: ## every key type against v1 and the rivals
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
+bench-records: export RUSTFLAGS =
+bench-records: export BENCH_PARTS = records
+bench-records: export BENCH_TYPES = $(T)
+bench-records: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
+bench-records: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
+bench-records: export BENCH_MIN_ARRAYS = 1
+bench-records: ## every record against v1 and the rivals (T=u64: records of u64 keys only)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
 benchbig: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
 benchbig: export BENCH_PARTS = big
 benchbig: export BENCH_MAX = 1000000000
@@ -154,4 +189,4 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write trace-ref sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test bench bench-type bench-keys bench-records benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write trace-ref sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help

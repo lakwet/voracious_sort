@@ -97,7 +97,7 @@ struct Config {
 
 impl Config {
     fn from_env() -> Config {
-        let list = |name: &str| std::env::var(name).ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect::<Vec<_>>());
+        let list = |name: &str| std::env::var(name).ok().filter(|s| !s.trim().is_empty()).map(|s| s.split(',').map(|x| x.trim().to_string()).collect::<Vec<_>>());
         let number = |name: &str, default: usize| std::env::var(name).ok().and_then(|s| s.replace('_', "").parse().ok()).unwrap_or(default);
         Config {
             min: number("BENCH_MIN", 0),
@@ -114,8 +114,11 @@ impl Config {
         self.parts.iter().any(|p| p == part)
     }
 
+    /// `ty`: the type label; a records label ("u64 16B") is also wanted by
+    /// its key type alone ("u64": every record of u64 keys).
     fn wants(&self, part: &str, ty: &str) -> bool {
-        self.part(part) && self.types.as_ref().map_or(true, |t| t.iter().any(|x| x == ty))
+        let key = |x: &String| part == "records" && ty.split(' ').next() == Some(x.as_str());
+        self.part(part) && self.types.as_ref().map_or(true, |t| t.iter().any(|x| x == ty || key(x)))
     }
 }
 
@@ -583,8 +586,10 @@ fn bench_cpu() {
                 }
             };
         }
+        records!("u16 8B", Rec<u16, 1>, wrap(keys_u16(), rec::<u16, 1>));
         records!("u32 8B", Rec<u32, 1>, wrap(keys_u32(), rec::<u32, 1>));
         records!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));
+        records!("i64 16B", Rec<i64, 2>, wrap(keys_i64(), rec::<i64, 2>));
         records!("u64 32B", Rec<u64, 6>, wrap(keys_u64(), rec::<u64, 6>));
         records!("u32 128B", Rec<u32, 31>, wrap(keys_u32(), rec::<u32, 31>));
     }
