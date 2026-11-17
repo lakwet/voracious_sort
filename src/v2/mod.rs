@@ -11,7 +11,9 @@
 //! - `trace`: the decision trace (feature `v2_trace`); `ab`: the rule
 //!   under test (trace and sentinel bench compare both sides).
 
-#![allow(dead_code)]
+// Outside the tests nothing calls v2 yet (the public API points to the 1.x
+// sorts until 2.0): dead code is only reported in test builds.
+#![cfg_attr(not(test), allow(dead_code))]
 
 #[macro_use]
 pub(crate) mod trace;

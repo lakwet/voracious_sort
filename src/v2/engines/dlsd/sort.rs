@@ -21,6 +21,7 @@ macro_rules! dlsd_sort {
         /// `dlsd_with`, unless `reject` refuses the sorted spread sample of the
         /// encoded keys that sizes the prefix (the caller's own decision read
         /// on the same sample). Returns whether the keys were sorted.
+        #[allow(dead_code)]
         pub(crate) fn dlsd_unless<F: FnOnce(&[$uint]) -> bool>(bits: &mut [$uint], scratch: &mut Vec<MaybeUninit<$uint>>, reject: F) -> bool {
             let n = bits.len();
             if n > u32::MAX as usize || n <= SMALL {

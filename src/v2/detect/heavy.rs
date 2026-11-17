@@ -20,13 +20,9 @@ pub(crate) const HEAVY_MIN: usize = 2048;
 /// sample over-represents them) still sort correctly, at the cost of the
 /// pass. Same idea as the equality buckets of IPS4o (Axtmann et al., 2017).
 /// `eq` and `lt`: the equality and order of the keys (floats: same bits and
-/// `total_cmp`, so that -0.0 and +0.0 stay apart).
-pub(crate) fn heavy_by<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
-    heavy_from(arr, DENSE_MIN, sort, eq, lt)
-}
-
-/// `heavy_by` from `min` keys (wider keys: each comparison and move costs
-/// more, the extraction pays off on shorter arrays).
+/// `total_cmp`, so that -0.0 and +0.0 stay apart). From `min` keys (wider
+/// keys: each comparison and move costs more, the extraction pays off on
+/// shorter arrays).
 pub(crate) fn heavy_from<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(arr: &mut [T], min: usize, sort: &dyn Fn(&mut [T]), eq: E, lt: L) -> bool {
     if arr.len() < min {
         return false;

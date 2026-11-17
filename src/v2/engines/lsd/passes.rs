@@ -211,6 +211,7 @@ macro_rules! lsd_passes {
 
         /// Sorts already encoded keys and writes them back decoded,
         /// `buffer` as scratch space (grown when needed, kept).
+        #[allow(dead_code)]
         pub(crate) fn lsd_encoded(keys: &mut [$uint], buffer: &mut Vec<MaybeUninit<$uint>>) {
             if keys.len() <= LSD_MIN {
                 keys.sort_unstable();
@@ -224,12 +225,14 @@ macro_rules! lsd_passes {
 
         /// Raw bits to keys whose unsigned order is the wanted order.
         #[inline(always)]
+        #[allow(dead_code)]
         pub(crate) fn encode_key(bits: $uint) -> $uint {
             encode(bits)
         }
 
         /// Inverse of `encode_key`.
         #[inline(always)]
+        #[allow(dead_code)]
         pub(crate) fn decode_key(key: $uint) -> $uint {
             decode(key)
         }

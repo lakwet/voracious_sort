@@ -3,6 +3,8 @@
 //! it moves and the sentinel bench times both sides of those cells in one
 //! process. Before the commit the winner stays and the switch goes.
 
+#![allow(dead_code)] // idle between two rules under test
+
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 
 pub(crate) static NEW_RULE: AtomicBool = AtomicBool::new(false);

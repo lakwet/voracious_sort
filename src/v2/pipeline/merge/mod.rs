@@ -35,7 +35,6 @@ pub(crate) fn simd_applies<T>() -> bool {
 /// i32, f32 (32 bits), u64, i64, f64 (64 bits; modes 0 unsigned, 1 signed,
 /// 2 float).
 fn simd_flip<T>() -> Option<(u32, u8)> {
-    use std::sync::atomic::Ordering::Relaxed;
     let w64 = SIMD_64 && simd::available64();
     match std::any::type_name::<T>() {
         "u32" => Some((32, 0)),
