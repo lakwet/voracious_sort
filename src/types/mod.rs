@@ -1,6 +1,6 @@
 mod bool;
 mod char;
-#[cfg(test)]
+#[cfg(all(test, feature = "voracious_multithread"))]
 pub mod custom;
 mod floats;
 mod isize;

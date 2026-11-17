@@ -153,7 +153,9 @@ pub(crate) unsafe fn merge_into_p4<T, E: Fn(&T) -> u128>(
         (src.add(s + i), src.add(m), src.add(m + d - i), src.add(e));
     let (mut adf, mut ade, mut bdf, mut bde) =
         (dst.add(s), dst.add(s + d), dst.add(s + d), dst.add(e));
-    let steps = i.min(d - i).min(m - s - i).min(e - m - d + i);
+    // Right run left after the first half: (e - m) - (d - i), in this
+    // order (e - m - d alone underflows when the half outgrows the run).
+    let steps = i.min(d - i).min(m - s - i).min((e - m) - (d - i));
     for _ in 0..steps {
         let r = enc(&*arf) < enc(&*alf);
         adf.write(std::ptr::read(pick(r, arf, alf)));

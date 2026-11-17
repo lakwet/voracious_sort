@@ -17,8 +17,9 @@
 //!   rule under test (trace and sentinel bench compare both sides).
 
 // Outside the tests nothing calls v2 yet (the public API points to the 1.x
-// sorts until 2.0): dead code is only reported in test builds.
-#![cfg_attr(not(test), allow(dead_code))]
+// sorts until 2.0): dead code is only reported in the test builds with
+// `voracious_multithread`, where the crate's tests (src/tests) call it.
+#![cfg_attr(not(all(test, feature = "voracious_multithread")), allow(dead_code))]
 
 #[macro_use]
 pub(crate) mod dev;
@@ -32,3 +33,5 @@ pub(crate) mod inspect;
 pub(crate) mod runs;
 pub(crate) mod sorts;
 pub(crate) mod types;
+#[cfg(test)]
+pub(crate) mod testing;

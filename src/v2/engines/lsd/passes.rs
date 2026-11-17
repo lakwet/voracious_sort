@@ -172,10 +172,11 @@ macro_rules! lsd_passes {
                         let first = bits[0];
                         let diff = bits.iter().fold(0, |acc: $uint, &k| acc | (k ^ first));
                         let passes = |step: u32| {
-                            (0..BITS)
-                                .step_by(step as usize)
-                                .filter(|&s| (diff >> s) & ((1 << step) - 1) != 0)
-                                .count()
+                            // Mask of `step` bits within the key (8-bit
+                            // keys: `1 << 11` overflowed).
+                            let mask = <$uint>::MAX >> (BITS - step.min(BITS));
+                            let used = |s: &u32| (diff >> s) & mask != 0;
+                            (0..BITS).step_by(step as usize).filter(used).count()
                         };
                         passes(11) < passes(8)
                     }
