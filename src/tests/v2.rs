@@ -28,7 +28,7 @@ fn test_v2_devour_sort2() {
     fn check<T: DevourSort2 + std::fmt::Debug + Send>(mut gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extra: Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>, extremes: &[T], ty: &str) {
         gens.extend(extra);
         let sizes: Vec<usize> = (0..=70)
-            .chain([128, 129, 150, 151, 199, 200, 201, 255, 256, 257, 350, 351, 700, 701, 5_000, 65_535, 65_536, 131_072, 524_288, 1_048_576, 4_194_304].iter().copied())
+            .chain([128, 129, 150, 151, 199, 200, 201, 255, 256, 257, 350, 351, 700, 701, 2_047, 2_048, 2_049, 4_095, 4_096, 4_097, 5_000, 65_535, 65_536, 131_072, 524_288, 1_048_576, 4_194_304].iter().copied())
             .chain(BENCH_SIZES.iter().copied())
             .collect();
         for &size in sizes.iter().filter(|&&n| n <= quick_max()) {
@@ -68,7 +68,7 @@ fn test_v2_devour_sort2_128() {
     fn check<T: DevourSort2 + std::fmt::Debug + Send>(mut gens: Vec<(&dyn Fn(usize) -> Vec<T>, &str)>, extra: Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>, extremes: &[T], ty: &str) {
         gens.extend(extra);
         let sizes: Vec<usize> = (0..=70)
-            .chain([128, 129, 255, 256, 257, 700, 701, 2_047, 2_048, 4_095, 4_096, 5_000, 65_536, 131_072, 524_288, 1_048_576].iter().copied())
+            .chain([128, 129, 255, 256, 257, 700, 701, 511, 512, 513, 2_047, 2_048, 2_049, 4_095, 4_096, 4_097, 5_000, 65_536, 131_072, 524_288, 1_048_576].iter().copied())
             .chain(BENCH_SIZES.iter().copied())
             .collect();
         for &size in sizes.iter().filter(|&&n| n <= quick_max()) {

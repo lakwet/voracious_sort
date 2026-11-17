@@ -6,6 +6,7 @@ mod comparative_sort;
 mod dedicated;
 mod v2;
 mod v2_cases;
+mod v2_matrix;
 mod histograms;
 mod miri;
 mod nan;
