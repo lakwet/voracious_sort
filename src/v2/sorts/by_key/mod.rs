@@ -23,7 +23,6 @@ mod permute;
 mod small;
 mod verge;
 mod unstable;
-mod verge_small;
 
 mod keys;
 
@@ -152,20 +151,12 @@ struct Scan {
 /// Reads every key once: range, breaks of ascending order (`down`), and
 /// with `TURNS` the turns (changes between a break and a non-break from one
 /// pair to the next: about n/2 on random keys, two per break on runs) and
-/// the positions of the first `DROPS_MAX` breaks; with `HIST` the byte
-/// histograms of the low 64 bits. Two elements per step, two ranges.
+/// the positions of the first `DROPS_MAX` breaks. Two elements per step,
+/// two ranges.
 #[inline(always)]
-fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(arr: &[T], enc: &E, hist: &mut [[usize; 256]], drops: &mut [usize], turn_at: &mut [usize]) -> Scan {
-    let count = |hist: &mut [[usize; 256]], k: u128| {
-        for (d, h) in hist.iter_mut().enumerate() {
-            h[((k as u64 >> (8 * d)) & 0xFF) as usize] += 1;
-        }
-    };
+fn scan<T, E: Fn(&T) -> u128, const TURNS: bool>(arr: &[T], enc: &E, drops: &mut [usize], turn_at: &mut [usize]) -> Scan {
     let n = arr.len();
     let first = enc(&arr[0]);
-    if HIST {
-        count(hist, first);
-    }
     let (mut lo, mut hi, mut lo2, mut hi2) = (first, first, first, first);
     // `last`: kind of the previous pair (the first pair counts as a turn
     // when it breaks: turns then start with a descending stretch).
@@ -174,34 +165,32 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(arr: &[T], en
     let mut i = 1;
     // Ascending prefix first (one comparison per key: sorted arrays read
     // as fast as by an is-sorted check); the scan goes on from its end.
-    if !HIST {
-        while i < n {
-            let k = enc(&arr[i]);
-            if k < prev {
+    while i < n {
+        let k = enc(&arr[i]);
+        if k < prev {
+            break;
+        }
+        prev = k;
+        i += 1;
+    }
+    hi = prev;
+    if i == n {
+        return Scan { lo, hi, ascending: true, strictly_descending: n == 1, turns: 0, drops: 0 };
+    }
+    // Strictly descending from the start: the same, for reversed arrays.
+    if i == 1 {
+        let mut j = 1;
+        let mut p = first;
+        while j < n {
+            let k = enc(&arr[j]);
+            if k >= p {
                 break;
             }
-            prev = k;
-            i += 1;
+            p = k;
+            j += 1;
         }
-        hi = prev;
-        if i == n {
-            return Scan { lo, hi, ascending: true, strictly_descending: n == 1, turns: 0, drops: 0 };
-        }
-        // Strictly descending from the start: the same, for reversed arrays.
-        if i == 1 {
-            let mut j = 1;
-            let mut p = first;
-            while j < n {
-                let k = enc(&arr[j]);
-                if k >= p {
-                    break;
-                }
-                p = k;
-                j += 1;
-            }
-            if j == n {
-                return Scan { lo: p, hi: first, ascending: false, strictly_descending: true, turns: 1, drops: n - 1 };
-            }
+        if j == n {
+            return Scan { lo: p, hi: first, ascending: false, strictly_descending: true, turns: 1, drops: n - 1 };
         }
     }
     while i + 1 < n {
@@ -227,10 +216,6 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(arr: &[T], en
             last = db;
         }
         down += da as usize + db as usize;
-        if HIST {
-            count(hist, ka);
-            count(hist, kb);
-        }
         prev = kb;
         i += 2;
     }
@@ -246,9 +231,6 @@ fn scan<T, E: Fn(&T) -> u128, const TURNS: bool, const HIST: bool>(arr: &[T], en
             turns += (da != last) as usize;
         }
         down += da as usize;
-        if HIST {
-            count(hist, ka);
-        }
     }
     Scan { lo: lo.min(lo2), hi: hi.max(hi2), ascending: down == 0, strictly_descending: down == n - 1, turns, drops: down }
 }
@@ -398,25 +380,21 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
         small::sort_encoded(arr, enc);
         return;
     }
-    // Beyond half the L2 the moves of the records dominate: the LSD on small
-    // records, Verge on the records (both fed by the first read).
+    // Records of more than 8 bytes. Beyond half the L2 the moves of the
+    // records dominate: Verge on the records (fed by the first read).
     let size = std::mem::size_of::<T>();
     let beyond_cache = n.saturating_mul(size) > crate::v2::cache::budget(crate::v2::cache::Budget::Records) / 2;
-    let small_records = size <= 8 && beyond_cache;
-    let mut hist = if small_records { vec![[0usize; 256]; 8] } else { Vec::new() };
     // The MSD's passes read and swap at random across the array: up to
     // twice the cache (beyond, the packed sort moves each record once).
     let msd_ok = unstable() && size >= UNSTABLE_MSD_MIN && n >= VERGE_MIN
         && n.saturating_mul(size) <= 2 * crate::v2::cache::budget(crate::v2::cache::Budget::Records);
     let try_verge = n >= VERGE_MIN && beyond_cache;
-    let mut drops = if small_records || try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
-    let mut turn_at = if small_records || try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
-    let s = if small_records {
-        scan::<T, E, true, true>(arr, enc, &mut hist, &mut drops, &mut turn_at)
-    } else if try_verge || msd_ok {
-        scan::<T, E, true, false>(arr, enc, &mut hist, &mut drops, &mut turn_at)
+    let mut drops = if try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
+    let mut turn_at = if try_verge || msd_ok { vec![0usize; DROPS_MAX + 1] } else { Vec::new() };
+    let s = if try_verge || msd_ok {
+        scan::<T, E, true>(arr, enc, &mut drops, &mut turn_at)
     } else {
-        scan::<T, E, false, false>(arr, enc, &mut hist, &mut drops, &mut turn_at)
+        scan::<T, E, false>(arr, enc, &mut drops, &mut turn_at)
     };
     if s.ascending {
         trace!("presorted");
@@ -450,18 +428,14 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     if hit(heavy::heavy_keys(arr, enc), "heavy") {
         return;
     }
-    // Few turns: long runs likely.
-    // Small records: the strict rule (long runs, predictable merges);
-    // larger ones: runs worth more than gathering the records at random.
-    if size <= 8 && beyond_cache && n >= VERGE_MIN && 8 * s.turns <= n && hit(verge_small::verge(arr, enc), "verge_small") {
-        return;
-    }
     // In the cache: Verge only on few breaks of ascending order (long runs:
     // concatenated sorted pieces), the runs found by a second read.
-    if size > 8 && !beyond_cache && n >= VERGE_MIN && 64 * s.drops <= n && hit(verge::verge_if(arr, enc, true), "verge_few") {
+    if !beyond_cache && n >= VERGE_MIN && 64 * s.drops <= n && hit(verge::verge_if(arr, enc, true), "verge_few") {
         return;
     }
-    if size > 8 && try_verge && TURN_DIV * s.turns <= n
+    // Beyond it, few turns: runs worth more than gathering the records at
+    // random.
+    if try_verge && TURN_DIV * s.turns <= n
         && hit(if s.drops <= DROPS_MAX {
             verge::verge_from_breaks(arr, enc, &drops[..s.drops])
         } else if s.turns <= DROPS_MAX {
@@ -479,11 +453,6 @@ pub(crate) fn sort_encoded<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     {
         trace!("std_unstable_wide");
         arr.sort_unstable_by_key(|x| enc(x));
-        return;
-    }
-    if small_records && s.hi <= u64::MAX as u128 {
-        trace!("lsd_small");
-        lsd(arr, enc, &hist);
         return;
     }
     // Keys changing direction rarely after Verge declined (blocks of equal
