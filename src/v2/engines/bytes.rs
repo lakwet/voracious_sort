@@ -20,6 +20,8 @@
 //! value (runs of at most 64 by blocks of 16 copies). See
 //! `algo_doc/comptage_octets.md`.
 
+use std::mem::MaybeUninit;
+
 use crate::v2::runs::verge::{explore_forward_asc, explore_forward_desc};
 
 /// Whether every key equals `first`: blocks of 64 compared without early
@@ -97,29 +99,64 @@ fn place<const FLIP: u8>(bytes: &mut [u8]) {
         tables[t][(x ^ FLIP) as usize] += 1;
     }
     // Start of each cell for each table: table t's keys of value v follow
-    // those of the tables before it.
-    let mut starts = [[0u16; VALUES]; SMALL_TABLES];
-    let mut next = 0u16;
-    for v in 0..VALUES {
-        for t in 0..SMALL_TABLES {
-            starts[t][v] = next;
-            next += tables[t][v] as u16;
+    // those of the tables before it. Counts summed first (independent
+    // additions), then the starts by `starts_of` (short chains).
+    let mut counts = [0u16; VALUES];
+    for (v, c) in counts.iter_mut().enumerate() {
+        *c = tables.iter().map(|t| t[v] as u16).sum();
+    }
+    let mut starts = [starts_of(&counts); SMALL_TABLES];
+    for t in 1..SMALL_TABLES {
+        for v in 0..VALUES {
+            starts[t][v] = starts[t - 1][v] + tables[t - 1][v] as u16;
         }
     }
-    let mut buffer = [0u8; VALUES];
+    // Not zeroed: positions 0..n are each written once below.
+    let mut buffer = [MaybeUninit::<u8>::uninit(); VALUES];
     for pair in pairs {
         for (t, &x) in pair.iter().enumerate() {
             let at = &mut starts[t][(x ^ FLIP) as usize];
-            buffer[*at as usize] = x;
+            buffer[*at as usize].write(x);
             *at += 1;
         }
     }
     for (t, &x) in rest.iter().enumerate() {
         let at = &mut starts[t][(x ^ FLIP) as usize];
-        buffer[*at as usize] = x;
+        buffer[*at as usize].write(x);
         *at += 1;
     }
-    bytes.copy_from_slice(&buffer[..n]);
+    // SAFETY: the starts partition 0..n (counts summing to n), every key
+    // written once at its own position: buffer[..n] is initialized.
+    let sorted = unsafe { std::slice::from_raw_parts(buffer.as_ptr() as *const u8, n) };
+    bytes.copy_from_slice(sorted);
+}
+
+/// Values per block of `starts_of`.
+const PREFIX_BLOCK: usize = 16;
+
+/// Start of each cell (sum of the counts before it), in blocks of
+/// `PREFIX_BLOCK` values: the block totals first, then each block from its
+/// own start, so that the additions form short independent chains instead
+/// of one chain over all the values.
+#[inline(always)]
+fn starts_of(counts: &[u16; VALUES]) -> [u16; VALUES] {
+    let blocks = counts.as_chunks::<PREFIX_BLOCK>().0;
+    let mut block_start = [0u16; VALUES / PREFIX_BLOCK];
+    let mut next = 0u16;
+    for (start, block) in block_start.iter_mut().zip(blocks) {
+        *start = next;
+        next += block.iter().sum::<u16>();
+    }
+    let mut starts = [0u16; VALUES];
+    let outs = starts.as_chunks_mut::<PREFIX_BLOCK>().0;
+    for ((out, block), &first) in outs.iter_mut().zip(blocks).zip(&block_start) {
+        let mut at = first;
+        for (o, &c) in out.iter_mut().zip(block) {
+            *o = at;
+            at += c;
+        }
+    }
+    starts
 }
 
 /// More keys than values: 4 tables of `u32` counters, then each value
