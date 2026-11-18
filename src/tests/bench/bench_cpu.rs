@@ -49,7 +49,7 @@
 //! default half the RAM), `BENCH_TYPES` (filter), `BENCH_OUT` (output
 //! directory, default the repository root), `BENCH_PIN=0` (do not pin the
 //! thread to a fast core on hybrid CPUs; `slow`: pin it to a slow one),
-//! `BENCH_SIZES` (only these sizes, e.g. `10000,1000000`; `BENCH_BIG_SIZES` for `big`), `BENCH_SORTS`
+//! `BENCH_SIZES` (these sizes instead of the list, any value, e.g. `500,10000`; `BENCH_BIG_SIZES` for `big`), `BENCH_SORTS`
 //! (only these sorts besides v2, e.g. `std,glidesort,blazing`),
 //! `BENCH_MIN_ARRAYS` (arrays sorted per measurement at least, default 5).
 //! A panic is written to the file before the run stops.
@@ -249,7 +249,11 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
 /// One type of one part: raw rows and a summary per size.
 fn bench<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool, min_size: usize) {
     let only: Option<Vec<usize>> = std::env::var("BENCH_SIZES").ok().map(|l| l.split(',').map(|x| x.trim().replace('_', "").parse().unwrap()).collect());
-    let sizes: Vec<usize> = SIZES.iter().copied().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).filter(|s| only.as_ref().is_none_or(|o| o.contains(s))).collect();
+    // `BENCH_SIZES` gives the sizes themselves (any value), else `SIZES`.
+    let mut listed = only.unwrap_or_else(|| SIZES.to_vec());
+    listed.sort_unstable();
+    listed.dedup();
+    let sizes: Vec<usize> = listed.into_iter().filter(|&s| s <= cfg.max && s >= min_size.max(cfg.min)).filter(|&s| s <= BIG || BIG_LABELS.contains(&label)).collect();
     bench_sizes(report, cfg, label, gens, variants, ordered, &sizes);
 }
 

@@ -101,11 +101,11 @@ benchbilan: ## every type against every sort, 1k to 10M, generic build: the list
 # Benchmarks by type (src/tests/bench): v2, v1, std (stable or unstable as
 # the case) and the best rivals of the type: two, a third when it beats
 # the v2 on its own cases (bench_cpu: best_rivals),
-# 1k to 10M, generic build, one output file bench-cpu-*.txt.
+# 500 to 10M (14 sizes), generic build, one output file bench-cpu-*.txt.
 #   make bench-type T=u32      one key type (u8 ... i128, f32, f64, char)
 #   make bench-keys            every key type
 #   make bench-records         every record; T=u64: the records of u64 keys
-BENCH_BY_TYPE_SIZES = 1000,10000,50000,100000,1000000,5000000,10000000
+BENCH_BY_TYPE_SIZES = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
 BENCH_BY_TYPE_SORTS = best
 
 bench-type: export RUSTFLAGS =
