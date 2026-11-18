@@ -678,12 +678,100 @@ fn bench_cpu() {
         }
         records_bool!("bool 8B", Rec<bool, 1>);
         records_bool!("bool 16B", Rec<bool, 3>);
+        // 128-bit keys (turbosort takes none), char keys (radsort and
+        // glidesort only), float keys (std and glidesort by total_cmp).
+        macro_rules! records_with {
+            ($label:expr, $ty:ty, $gens:expr, $ordered:expr, [$($extra:expr),* $(,)?]) => {
+                if cfg.wants("records", $label) {
+                    let mut variants: Vec<Variant<$ty>> = vec![
+                        variant("v2", |a: &mut [$ty]| by_key::devour_sort_by_key(a, |x| x.key)),
+                        variant("radsort", |a: &mut [$ty]| radsort::sort_by_key(a, |x| x.key)),
+                        variant("v1", |a: &mut [$ty]| a.voracious_sort()),
+                        variant("v2 unstable", |a: &mut [$ty]| by_key::devour_sort_unstable_by_key(a, |x| x.key)),
+                        variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
+                    ];
+                    variants.extend(vec![$($extra),*]);
+                    bench(r, &cfg, concat!("records ", $label), &$gens, &keep_sorts(concat!("records ", $label), variants), $ordered, 0);
+                }
+            };
+        }
+        macro_rules! records_ord {
+            ($label:expr, $ty:ty, $gens:expr, [$($extra:expr),* $(,)?]) => {
+                records_with!($label, $ty, $gens, ordered_by_key!($ty), [
+                    variant("std", |a: &mut [$ty]| a.sort_by_key(|x| x.key)),
+                    variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by_key(|x| x.key)),
+                    variant("glidesort", |a: &mut [$ty]| glidesort::sort_by_key(a, |x| x.key)),
+                    $($extra),*
+                ])
+            };
+        }
+        macro_rules! records_float {
+            ($label:expr, $ty:ty, $gens:expr) => {
+                records_with!($label, $ty, $gens, |a: &$ty, b: &$ty| a.key.total_cmp(&b.key).is_le(), [
+                    variant("std", |a: &mut [$ty]| a.sort_by(|x, y| x.key.total_cmp(&y.key))),
+                    variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by(|x, y| x.key.total_cmp(&y.key))),
+                    variant("glidesort", |a: &mut [$ty]| glidesort::sort_by(a, |x, y| x.key.total_cmp(&y.key))),
+                    variant("rdst", |a: &mut [$ty]| a.radix_sort_unstable()),
+                    variant("turbosort", |a: &mut [$ty]| turbosort::sort_by_key(a, |x| x.key)),
+                ])
+            };
+        }
+        // Every key type in every record size class of the v2 chains (8,
+        // 16, 32, 64 bytes and more; 8-byte keys from 16, 16-byte keys from
+        // 32).
+        records!("u8 8B", Rec<u8, 1>, wrap(keys_u8(), rec::<u8, 1>));
+        records!("u8 16B", Rec<u8, 3>, wrap(keys_u8(), rec::<u8, 3>));
+        records!("u8 32B", Rec<u8, 7>, wrap(keys_u8(), rec::<u8, 7>));
+        records!("u8 64B", Rec<u8, 15>, wrap(keys_u8(), rec::<u8, 15>));
+        records!("i8 8B", Rec<i8, 1>, wrap(keys_i8(), rec::<i8, 1>));
+        records!("i8 16B", Rec<i8, 3>, wrap(keys_i8(), rec::<i8, 3>));
+        records!("i8 32B", Rec<i8, 7>, wrap(keys_i8(), rec::<i8, 7>));
+        records!("i8 64B", Rec<i8, 15>, wrap(keys_i8(), rec::<i8, 15>));
         records!("u16 8B", Rec<u16, 1>, wrap(keys_u16(), rec::<u16, 1>));
+        records!("u16 16B", Rec<u16, 3>, wrap(keys_u16(), rec::<u16, 3>));
+        records!("u16 32B", Rec<u16, 7>, wrap(keys_u16(), rec::<u16, 7>));
+        records!("u16 64B", Rec<u16, 15>, wrap(keys_u16(), rec::<u16, 15>));
+        records!("i16 8B", Rec<i16, 1>, wrap(keys_i16(), rec::<i16, 1>));
+        records!("i16 16B", Rec<i16, 3>, wrap(keys_i16(), rec::<i16, 3>));
+        records!("i16 32B", Rec<i16, 7>, wrap(keys_i16(), rec::<i16, 7>));
+        records!("i16 64B", Rec<i16, 15>, wrap(keys_i16(), rec::<i16, 15>));
         records!("u32 8B", Rec<u32, 1>, wrap(keys_u32(), rec::<u32, 1>));
-        records!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));
-        records!("i64 16B", Rec<i64, 2>, wrap(keys_i64(), rec::<i64, 2>));
-        records!("u64 32B", Rec<u64, 6>, wrap(keys_u64(), rec::<u64, 6>));
+        records!("u32 16B", Rec<u32, 3>, wrap(keys_u32(), rec::<u32, 3>));
+        records!("u32 32B", Rec<u32, 7>, wrap(keys_u32(), rec::<u32, 7>));
         records!("u32 128B", Rec<u32, 31>, wrap(keys_u32(), rec::<u32, 31>));
+        records!("i32 8B", Rec<i32, 1>, wrap(keys_i32(), rec::<i32, 1>));
+        records!("i32 16B", Rec<i32, 3>, wrap(keys_i32(), rec::<i32, 3>));
+        records!("i32 32B", Rec<i32, 7>, wrap(keys_i32(), rec::<i32, 7>));
+        records!("i32 64B", Rec<i32, 15>, wrap(keys_i32(), rec::<i32, 15>));
+        records!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));
+        records!("u64 32B", Rec<u64, 6>, wrap(keys_u64(), rec::<u64, 6>));
+        records!("u64 64B", Rec<u64, 14>, wrap(keys_u64(), rec::<u64, 14>));
+        records!("i64 16B", Rec<i64, 2>, wrap(keys_i64(), rec::<i64, 2>));
+        records!("i64 32B", Rec<i64, 6>, wrap(keys_i64(), rec::<i64, 6>));
+        records!("i64 64B", Rec<i64, 14>, wrap(keys_i64(), rec::<i64, 14>));
+        records_ord!("u128 32B", Rec<u128, 4>, wrap(keys_u128(), rec::<u128, 4>), [
+            variant("rdst", |a: &mut [Rec<u128, 4>]| a.radix_sort_unstable())
+        ]);
+        records_ord!("u128 64B", Rec<u128, 12>, wrap(keys_u128(), rec::<u128, 12>), [
+            variant("rdst", |a: &mut [Rec<u128, 12>]| a.radix_sort_unstable())
+        ]);
+        records_ord!("i128 32B", Rec<i128, 4>, wrap(keys_i128(), rec::<i128, 4>), [
+            variant("rdst", |a: &mut [Rec<i128, 4>]| a.radix_sort_unstable())
+        ]);
+        records_ord!("i128 64B", Rec<i128, 12>, wrap(keys_i128(), rec::<i128, 12>), [
+            variant("rdst", |a: &mut [Rec<i128, 12>]| a.radix_sort_unstable())
+        ]);
+        records_ord!("char 8B", Rec<char, 1>, wrap(keys_char(), rec::<char, 1>), []);
+        records_ord!("char 16B", Rec<char, 3>, wrap(keys_char(), rec::<char, 3>), []);
+        records_ord!("char 32B", Rec<char, 7>, wrap(keys_char(), rec::<char, 7>), []);
+        records_ord!("char 64B", Rec<char, 15>, wrap(keys_char(), rec::<char, 15>), []);
+        records_float!("f32 8B", Rec<f32, 1>, wrap(keys_f32(), rec::<f32, 1>));
+        records_float!("f32 16B", Rec<f32, 3>, wrap(keys_f32(), rec::<f32, 3>));
+        records_float!("f32 32B", Rec<f32, 7>, wrap(keys_f32(), rec::<f32, 7>));
+        records_float!("f32 64B", Rec<f32, 15>, wrap(keys_f32(), rec::<f32, 15>));
+        records_float!("f64 16B", Rec<f64, 2>, wrap(keys_f64(), rec::<f64, 2>));
+        records_float!("f64 32B", Rec<f64, 6>, wrap(keys_f64(), rec::<f64, 6>));
+        records_float!("f64 64B", Rec<f64, 14>, wrap(keys_f64(), rec::<f64, 14>));
     }
 
     // CPU parameters of the records sort: from which record size the run

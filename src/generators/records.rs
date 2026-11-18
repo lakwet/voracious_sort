@@ -1,12 +1,13 @@
-//! Records (structs) to sort by a key: keys of 16 to 64 bits (u16, i16,
-//! u32, i32, f32, u64, i64, f64, char) in records of 8 to 128 bytes, the
+//! Records (structs) to sort by a key: keys of 8 to 128 bits (u8 ... i128,
+//! f32, f64, char, bool) in records of 8 to 128 bytes, the
 //! key first or last; a record holding a `String` (not `Copy`); a composite
 //! key from two fields. The keys follow the distributions of their type;
 //! the payload's first word is the record's original index (stability
 //! checks).
 
 use super::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
-use super::narrow_extra::{extra_char, extra_i16, extra_u16};
+use super::int128_extra::{extra_i128, extra_u128};
+use super::narrow_extra::{extra_char, extra_i16, extra_i8, extra_u16, extra_u8};
 
 pub type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
@@ -63,7 +64,7 @@ macro_rules! v1_rec {
         }
     )*};
 }
-v1_rec!(bool, u16, u32, u64, i64);
+v1_rec!(bool, u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, f32, f64, char);
 
 impl RecPair {
     pub fn key(&self) -> u64 {
@@ -72,6 +73,26 @@ impl RecPair {
 }
 
 /// Key generators of each key type (own list + extras).
+pub fn keys_u8() -> Gens<u8> {
+    let mut g = super::unsigned_u8::generators_u8();
+    g.extend(extra_u8::generators());
+    g
+}
+pub fn keys_i8() -> Gens<i8> {
+    let mut g = super::signed_i8::generators_i8();
+    g.extend(extra_i8::generators());
+    g
+}
+pub fn keys_u128() -> Gens<u128> {
+    let mut g = super::unsigned_u128::generators_u128();
+    g.extend(extra_u128::generators());
+    g
+}
+pub fn keys_i128() -> Gens<i128> {
+    let mut g = super::signed_i128::generators_i128();
+    g.extend(extra_i128::generators());
+    g
+}
 pub fn keys_u16() -> Gens<u16> {
     let mut g = super::unsigned_u16::generators_u16();
     g.extend(extra_u16::generators());
