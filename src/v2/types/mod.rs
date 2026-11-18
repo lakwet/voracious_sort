@@ -23,6 +23,7 @@
 //! | u128, i128  | own `presorted` (v1 scan by 4 pairs), behind `new_rule` |
 //! | f32, f64    | none                                                    |
 //! | char        | none (its own copy of the u32 chain)                    |
+//! | bool        | copy of the v1 boolean sort (count, two fills)          |
 //!
 //! `usize` / `isize` go to the type of their width (`sorts::devour`).
 //!
@@ -33,6 +34,7 @@
 //! differences yet. The pieces they share re-sort through the caller's
 //! chain (`ends`, `heavy_keys`, Verge take it as an argument).
 
+pub(crate) mod bool;
 pub(crate) mod char;
 pub(crate) mod f32;
 pub(crate) mod f64;
@@ -88,6 +90,21 @@ mod tests {
             expected.sort_unstable();
             assert!(got == expected, "char {} n={}", shape, a.len());
         });
+    }
+
+    #[test]
+    fn bool_chain() {
+        // Low bit (about half true), and few true (shapes kept in order).
+        for map in [|x: u8| x & 1 == 1, |x: u8| x > 250] {
+            for_each_case::<u8>(|shape, raw| {
+                let a: Vec<bool> = raw.iter().map(|&x| map(x)).collect();
+                let mut got = a.clone();
+                super::bool::sort(&mut got);
+                let mut expected = a.clone();
+                expected.sort_unstable();
+                assert!(got == expected, "bool {} n={}", shape, a.len());
+            });
+        }
     }
 
     macro_rules! floats {

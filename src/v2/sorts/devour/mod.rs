@@ -1,4 +1,4 @@
-//! # Devour sort: radix sort for integers (and `char`)
+//! # Devour sort: radix sort for integers (and `char`; `bool`: count and fills)
 //!
 //! The public entry and its trait; each type sorts through its own decision
 //! chain in `types` (`types::u32`, `types::i64`...). Shared here: the key
@@ -12,10 +12,10 @@ mod sealed {
     macro_rules! sealed {
         ($($t:ty),*) => { $(impl Sealed for $t {})* };
     }
-    sealed!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char);
+    sealed!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char, bool);
 }
 
-/// Integer types sortable by [`devour_sort2`].
+/// Integer types, `char` and `bool`, sortable by [`devour_sort2`].
 pub trait DevourSort2: sealed::Sealed + Copy + Ord {
     #[doc(hidden)]
     /// Sorts `arr` by the chain of the type.
@@ -23,7 +23,7 @@ pub trait DevourSort2: sealed::Sealed + Copy + Ord {
 }
 
 /// Sorts slices of `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`,
-/// `i32`, `i64`, `i128`, `isize` or `char`.
+/// `i32`, `i64`, `i128`, `isize`, `char` or `bool`.
 ///
 /// ```text
 /// use voracious_radix_sort::devour_sort2;
@@ -46,7 +46,7 @@ macro_rules! own_chain {
         }
     )*};
 }
-own_chain!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, char);
+own_chain!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, char, bool);
 
 /// `usize` / `isize`: sorted as the integer of the same width.
 macro_rules! pointer_width {
