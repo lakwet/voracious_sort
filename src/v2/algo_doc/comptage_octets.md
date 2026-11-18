@@ -260,5 +260,5 @@ c'est un réglage propre au processeur, pas une règle générale.
 | sauter les blocs de 16 valeurs vides au remplissage | oui (un test par bloc) |
 | compteurs d'un octet sur les petits tableaux      | oui (moins de mémoire à préparer) |
 | poser les clés via un buffer sur la pile (< 256 clés) | oui (travail en n, pas en 256) |
-| bloc fixe qui déborde (16, 32, 64 octets)         | non : réglage de processeur |
+| bloc fixe qui déborde sur les cases suivantes, pour chaque petite case (section 4 ; 16, 32, 64 octets) | non : réglage de processeur (taille du bloc, paliers) |
 | lire 8 clés d'un coup (`u64`) ou une par une      | non : dépend du processeur (Snapdragon : `u64` mesuré le 18/11 ; Ryzen `u64` et Haswell une par une : déduit de l'écart avec blazing, à mesurer) |
