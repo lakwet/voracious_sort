@@ -12,7 +12,7 @@
 use std::mem::MaybeUninit;
 
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
-use crate::v2::dev::ab::{new_rule, variant};
+use crate::v2::dev::ab::new_rule;
 use crate::v2::engines::bytes;
 use crate::v2::engines::counting::domain_count;
 use crate::v2::engines::lsd::wi8;
@@ -52,14 +52,14 @@ fn sort_large(arr: &mut [i8]) {
     chain! {
         "merge_small" if n <= MERGE_MAX => do { merge_sort(bits_of(arr), flip8, flip8) };
     }
-    // Rule under test: from 256 keys the order check that writes nothing
-    // unless reversed, then the byte counting sort (`engines::bytes`).
-    if new_rule() && n >= 256 && n <= u32::MAX as usize {
+    // Rule under test: beyond the small merge, the order check that writes
+    // nothing unless reversed, then the byte counting sort (`engines::bytes`).
+    if new_rule() && n <= u32::MAX as usize {
         if bytes::sorted_or_reversed(arr) {
             trace!("presorted");
         } else {
             trace!("count8");
-            bytes::count_with::<0x80>(bits_of(arr), variant());
+            bytes::count::<0x80>(bits_of(arr));
         }
         return;
     }
