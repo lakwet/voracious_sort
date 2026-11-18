@@ -53,7 +53,8 @@
 //! (only these sorts besides v2, e.g. `std,glidesort,blazing`),
 //! `BENCH_MIN_ARRAYS` (arrays sorted per measurement at least, default 5),
 //! `BENCH_MIN_SORTS` (arrays sorted at least at given sizes, over the
-//! repetitions, e.g. `2000000:8,10000000:5`).
+//! repetitions, e.g. `2000000:8,10000000:5`), `BENCH_AB=1` (integers: a
+//! "v2 new" column, the v2 with the rule under test on, `v2::dev::ab`).
 //! A panic is written to the file before the run stops.
 
 use std::io::Write;
@@ -192,14 +193,24 @@ fn best_rivals(label: &str) -> &'static [&'static str] {
 /// `best`: std, v1, v2 (stable and unstable for the records) and the best
 /// rivals of the type (`best_rivals`).
 fn keep_sorts<'a, T>(label: &str, v: Vec<Variant<'a, T>>) -> Vec<Variant<'a, T>> {
+    // "v2 new" (the rule under test, `v2::dev::ab`) only with BENCH_AB=1.
+    let ab = std::env::var("BENCH_AB").is_ok_and(|v| v == "1");
+    let v: Vec<_> = v.into_iter().filter(|x| ab || x.name != "v2 new").collect();
     let list = match std::env::var("BENCH_SORTS") {
         Ok(list) if list.trim() == "best" => {
-            format!("std,std unstable,v1,v1 stable,v2 unstable,{}", best_rivals(label).join(","))
+            format!("std,std unstable,v1,v1 stable,v2 unstable,v2 new,{}", best_rivals(label).join(","))
         },
         Ok(list) => list,
         Err(_) => return v,
     };
     v.into_iter().enumerate().filter(|(i, x)| *i == 0 || list.split(',').any(|n| n.trim() == x.name)).map(|(_, x)| x).collect()
+}
+
+/// Runs `f` with the rule under test on (`v2::dev::ab`).
+fn ab_new(f: impl FnOnce()) {
+    crate::v2::dev::ab::NEW_RULE.store(true, Relaxed);
+    f();
+    crate::v2::dev::ab::NEW_RULE.store(false, Relaxed);
 }
 
 fn variant<'a, T>(name: &'a str, sort: impl Fn(&mut [T]) + 'a) -> Variant<'a, T> {
@@ -517,6 +528,7 @@ fn bench_cpu() {
                 if cfg.wants("int", stringify!($t)) {
                     let variants: Vec<Variant<$t>> = vec![
                         variant("v2", |a: &mut [$t]| devour_sort2(a)),
+                        variant("v2 new", |a: &mut [$t]| ab_new(|| devour_sort2(a))),
                         variant("std", |a: &mut [$t]| a.sort_unstable()),
                         variant("v1", |a: &mut [$t]| a.voracious_sort()),
                         variant("glidesort", |a: &mut [$t]| glidesort::sort(a)),

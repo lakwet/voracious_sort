@@ -5,6 +5,7 @@
 
 #[macro_use]
 mod codec;
+pub(crate) mod bytes;
 pub(crate) mod counter;
 pub(crate) mod counting;
 pub(crate) mod dlsd;
