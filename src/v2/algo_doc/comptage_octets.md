@@ -58,7 +58,7 @@ nécessaire pour :
 
 ### Coût
 
-**n** (lire et compter) + **256** (parcourir les cases) + **n** (écrire).
+**n** (lire et compter) + **256** (parcourir les cases du compteur) + **n** (écrire).
 Sur un grand tableau, les termes en n dominent et on est limité par la
 mémoire : tous les bons tris par comptage se valent. Sur un petit tableau
 (quelques centaines de clés), le terme **256** et les frais fixes (préparer
