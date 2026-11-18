@@ -4,9 +4,11 @@ Notes du 2026-11-18, après lecture de `blazing-radix 0.1.0` (`src/engine.rs` :
 `sort_bytes`, `byte_scatter`, `byte_kernel`, `fill_bytes`, `fill_byte_bucket`)
 et comparaison avec `v2::engines::counting::domain_count`.
 
-## 0. Le tri par comptage, en trois temps
+## 0. Le tri par comptage
 
 Un octet ne prend que 256 valeurs. Au lieu de comparer les clés, on les compte.
+
+### Des valeurs seules (u8, i8) : compter, puis réécrire
 
 ```
 tableau :  3 1 3 0 1 3
@@ -14,23 +16,54 @@ tableau :  3 1 3 0 1 3
 1) compter        valeur :  0  1  2  3
                   compte :  1  2  0  3
 
-2) cumuler        début  :  0  1  3  3      (début de la case de chaque valeur
-                                             = somme des comptes avant elle)
+2) réécrire chaque valeur autant de fois qu'elle a été comptée, dans l'ordre :
 
-3) réécrire       [0][1 1][][3 3 3]
-                   └case 0 └case 1 └case 3     (case 2 : vide)
+   position = 0
+   valeur 0, 1 fois :  [0]               position = 1
+   valeur 1, 2 fois :  [0 1 1]           position = 3
+   valeur 2, 0 fois :  [0 1 1]           position = 3
+   valeur 3, 3 fois :  [0 1 1 3 3 3]     position = 6
 
 résultat   :  0 1 1 3 3 3
 ```
 
-Coût : **n** (lire et compter) + **256** (cumuler, parcourir les cases) + **n**
-(écrire). Sur un grand tableau, les termes en n dominent et on est limité par
-la mémoire : tous les bons tris par comptage se valent. Sur un petit tableau
+Une **case** = l'emplacement des copies d'une même valeur dans le résultat
+(ici : case 0 = position 0, case 1 = positions 1-2, case 3 = positions 3-5).
+La position qui avance (`position += compte`) donne le début de chaque case
+au moment où on l'écrit : il n'y a pas besoin de les calculer à l'avance.
+C'est ce que font notre code et le `byte_kernel` de blazing.
+
+### Déplacer des éléments : compter, cumuler, poser
+
+Quand on ne peut pas se contenter de réécrire des valeurs, il faut le début
+de chaque case **avant** de commencer à poser les éléments, d'où une étape
+de cumul (somme des comptes des valeurs plus petites) :
+
+```
+comptes :  0:1  1:2  2:0  3:3
+débuts  :  0:0  1:1  2:3  3:3     début[v] = compte[0] + ... + compte[v - 1]
+```
+
+Puis chaque élément lu est posé à `début[sa clé]`, qui avance de 1. C'est
+nécessaire pour :
+
+- **des records** (une clé et des données) : on ne peut pas « réécrire trois
+  fois la clé 7 », il faut déplacer chaque record entier à sa place ;
+- **le tri stable** : les éléments de même clé gardent leur ordre, donc on
+  les pose un par un, dans l'ordre de lecture ;
+- **la pose via un buffer** (section 3) : on pose chaque clé à sa place au fil
+  de la lecture ;
+- **les passes d'un tri radix (LSD)** : chaque passe déplace les éléments
+  selon un chiffre de leur clé.
+
+### Coût
+
+**n** (lire et compter) + **256** (parcourir les cases) + **n** (écrire).
+Sur un grand tableau, les termes en n dominent et on est limité par la
+mémoire : tous les bons tris par comptage se valent. Sur un petit tableau
 (quelques centaines de clés), le terme **256** et les frais fixes (préparer
 les compteurs, l'appel) pèsent autant que n : c'est là que les écarts se
 font.
-
-Une **case** = l'emplacement des copies d'une même valeur dans le résultat.
 
 ## 1. Plusieurs tables de compteurs
 
