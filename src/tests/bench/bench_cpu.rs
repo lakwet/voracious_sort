@@ -177,6 +177,9 @@ fn best_rivals(label: &str) -> &'static [&'static str] {
         "f64" => &["turbosort", "glidesort", "radsort"],
         "u128" | "i128" => &["radsort", "rdst"],
         "char" => &["radsort", "glidesort"],
+        // The only rivals taking bool (not measured yet).
+        "bool" => &["glidesort", "radsort"],
+        l if l.starts_with("records bool") => &["glidesort", "radsort"],
         // glidesort: Asc / Desc Saw 5M 0.35-0.38 (139 cases).
         l if l.starts_with("records") && l.ends_with(" 8B") => &["radsort", "rdst", "glidesort"],
         // rdst: Unif / Composite 1M-10M 0.59-0.61 (54 cases).
@@ -616,6 +619,19 @@ fn bench_cpu() {
         wide!(i128, all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()));
     }
 
+    // bool arrays: the v2 has no bool sort (bool is a record key only); the
+    // v1 boolean sort is the reference.
+    if cfg.wants("int", "bool") {
+        let variants: Vec<Variant<bool>> = vec![
+            variant("v1", |a: &mut [bool]| a.voracious_sort()),
+            variant("std", |a: &mut [bool]| a.sort()),
+            variant("std unstable", |a: &mut [bool]| a.sort_unstable()),
+            variant("glidesort", |a: &mut [bool]| glidesort::sort(a)),
+            variant("radsort", |a: &mut [bool]| radsort::sort(a)),
+        ];
+        bench(r, &cfg, "bool", &g::boolean::generators_bool(), &keep_sorts("bool", variants), |a, b| a <= b, 0);
+    }
+
     // Records sorted by key (v2 and v1 in both versions: stable, unstable;
     // rdst and std unstable are not stable).
     {
@@ -641,6 +657,27 @@ fn bench_cpu() {
                 }
             };
         }
+        // bool keys: rdst and turbosort take no bool key.
+        macro_rules! records_bool {
+            ($label:expr, $ty:ty) => {
+                if cfg.wants("records", $label) {
+                    let variants: Vec<Variant<$ty>> = vec![
+                        variant("v2", |a: &mut [$ty]| by_key::devour_sort_by_key(a, |x| x.key)),
+                        variant("std", |a: &mut [$ty]| a.sort_by_key(|x| x.key)),
+                        variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by_key(|x| x.key)),
+                        variant("glidesort", |a: &mut [$ty]| glidesort::sort_by_key(a, |x| x.key)),
+                        variant("radsort", |a: &mut [$ty]| radsort::sort_by_key(a, |x| x.key)),
+                        variant("v1", |a: &mut [$ty]| a.voracious_sort()),
+                        variant("v2 unstable", |a: &mut [$ty]| by_key::devour_sort_unstable_by_key(a, |x| x.key)),
+                        variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
+                    ];
+                    let gens = wrap(g::boolean::generators_bool(), rec::<bool, { std::mem::size_of::<$ty>() / 4 - 1 }>);
+                    bench(r, &cfg, concat!("records ", $label), &gens, &keep_sorts(concat!("records ", $label), variants), ordered_by_key!($ty), 0);
+                }
+            };
+        }
+        records_bool!("bool 8B", Rec<bool, 1>);
+        records_bool!("bool 16B", Rec<bool, 3>);
         records!("u16 8B", Rec<u16, 1>, wrap(keys_u16(), rec::<u16, 1>));
         records!("u32 8B", Rec<u32, 1>, wrap(keys_u32(), rec::<u32, 1>));
         records!("u64 16B", Rec<u64, 2>, wrap(keys_u64(), rec::<u64, 2>));

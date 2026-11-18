@@ -63,7 +63,7 @@ macro_rules! v1_rec {
         }
     )*};
 }
-v1_rec!(u16, u32, u64, i64);
+v1_rec!(bool, u16, u32, u64, i64);
 
 impl RecPair {
     pub fn key(&self) -> u64 {
