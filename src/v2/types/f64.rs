@@ -36,6 +36,12 @@ const PRESORTED_FIRST_MIN: usize = 4096;
 /// buffer take a third of the L2).
 fn roller_min() -> usize { budget(Budget::RollerF64) / 48 }
 
+/// Sorts `arr` in the total order (`total_cmp`): NaNs set aside at the
+/// ends first, then a sorting network up to `NETWORK_MAX` keys, else the
+/// chain.
+/// Sorts `arr` in the total order (`total_cmp`): NaNs set aside at the
+/// ends first, then a sorting network up to `NETWORK_MAX` keys, else the
+/// chain.
 pub(crate) fn sort(arr: &mut [f64]) {
     if arr.len() <= NETWORK_MAX {
         trace!("network");

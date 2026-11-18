@@ -18,6 +18,7 @@ thread_local! {
 }
 
 #[cfg(feature = "v2_trace")]
+/// Records one decision step of the current sort.
 pub(crate) fn note(step: &'static str) {
     STEPS.with(|s| s.borrow_mut().push(step));
 }

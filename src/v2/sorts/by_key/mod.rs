@@ -27,6 +27,8 @@ use std::mem::MaybeUninit;
 #[allow(unused_imports)] // the CPU bench sets it
 pub(crate) use merge::FOUR_WAY_MIN;
 use packed::sort_into;
+/// The 11-bit LSD of the large-record chains (the CPU bench turns it off
+/// to compare).
 pub(crate) static LSD11: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 /// Sorts `arr` by `key`, stably.
@@ -55,6 +57,8 @@ pub(crate) fn unstable() -> bool { UNSTABLE.with(|u| u.get()) }
 pub(crate) struct Unstable(bool);
 
 impl Unstable {
+    /// Marks the current sort unstable until dropped (restores the previous
+    /// state).
     pub(crate) fn enter() -> Self { Unstable(UNSTABLE.with(|u| u.replace(true))) }
 }
 
@@ -99,6 +103,8 @@ pub(crate) fn nearly_sorted<T, E: Fn(&T) -> u128>(
 /// Most breaks of ascending order the first read keeps for Verge.
 pub(crate) const DROPS_MAX: usize = 1024;
 
+/// What one read of the keys learned: their range, whether they are in
+/// order, the turns and the breaks of ascending order.
 pub(crate) struct Scan {
     pub(crate) lo: u128,
     pub(crate) hi: u128,

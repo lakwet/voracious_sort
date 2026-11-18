@@ -7,6 +7,7 @@ use super::scan::*;
 
 #[derive(PartialEq, Debug)]
 #[allow(clippy::enum_variant_names)]
+/// Direction of the keys around a position.
 pub enum Orientation {
     Asc,
     Desc,
@@ -15,6 +16,7 @@ pub enum Orientation {
 }
 
 #[derive(PartialEq, Debug)]
+/// How the runs met before and after a position combine (Verge sort).
 pub enum GrowthPattern {
     AscThenDesc,
     DescThenAsc,
@@ -47,6 +49,7 @@ pub enum ForwardGrowth {
 }
 
 #[inline]
+/// The pattern of a backward and a forward growth.
 pub fn get_growth_pattern(b: BackwardGrowth, f: ForwardGrowth) -> GrowthPattern {
     match (b, f) {
         (BackwardGrowth::AP, ForwardGrowth::PD) => GrowthPattern::AscThenDesc,
@@ -94,6 +97,7 @@ pub fn get_growth_pattern(b: BackwardGrowth, f: ForwardGrowth) -> GrowthPattern 
 }
 
 #[inline]
+/// Direction of the pair before `position`.
 fn backward_orientation<T: PartialOrd>(arr: &[T], position: usize) -> Orientation {
     if position == 0 {
         Orientation::None
@@ -107,6 +111,7 @@ fn backward_orientation<T: PartialOrd>(arr: &[T], position: usize) -> Orientatio
 }
 
 #[inline]
+/// Direction of the pair after `position`.
 fn forward_orientation<T: PartialOrd>(arr: &[T], position: usize) -> Orientation {
     if position >= arr.len() - 1 {
         Orientation::None

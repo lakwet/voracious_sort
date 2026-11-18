@@ -3,6 +3,7 @@
 macro_rules! lsd_histograms {
     ($uint:ty) => {
         #[inline(always)]
+        /// Digit of `R` values of the key at `shift`.
         fn digit<const R: usize>(key: $uint, shift: u32) -> usize {
             ((key >> shift) as usize) & (R - 1)
         }

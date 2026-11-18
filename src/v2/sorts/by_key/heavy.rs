@@ -5,6 +5,7 @@ use std::mem::MaybeUninit;
 
 /// Most heavy keys, and the share of the sample each must hold (1/10).
 const HEAVY_MAX: usize = 8;
+/// Keys in the spread sample.
 const SAMPLE: usize = 256;
 
 /// Heavy keys: a spread sample of 256 keys names the keys holding at least

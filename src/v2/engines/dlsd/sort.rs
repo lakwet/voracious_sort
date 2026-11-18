@@ -66,6 +66,7 @@ macro_rules! dlsd_sort {
         }
 
         #[inline(always)]
+        /// Decodes every key in place.
         fn decode_all(keys: &mut [$uint]) {
             keys.iter_mut().for_each(|k| *k = w::decode_key(*k));
         }
@@ -184,6 +185,7 @@ macro_rules! dlsd_sort {
         }
 
         #[inline(always)]
+        /// Smallest and largest key (encoded when `RAW`).
         fn min_max<const RAW: bool>(keys: &[$uint]) -> ($uint, $uint) {
             let (mut min, mut max) = (<$uint>::MAX, 0 as $uint);
             for &v in keys.iter() {

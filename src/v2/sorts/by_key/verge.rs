@@ -8,7 +8,7 @@
 use super::merge::{merge_all_half, merge_all_kway, merge_asc_desc, merge_two};
 
 /// Runs kept: at least `max(n / RUN_DIV, RUN_MIN)` keys; Verge tried when
-/// `decide::records::TURN_DIV * turns <= n`.
+/// `TURN_DIV * turns <= n` (the records chains).
 pub(crate) const RUN_DIV: usize = 64;
 pub(crate) const RUN_MIN: usize = 64;
 /// Predictable merges of more than two segments of records of at least

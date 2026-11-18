@@ -1,5 +1,6 @@
 //! The classic merge: the shorter run copied out, merged from its side.
 
+/// Merge from the front, the left run copied out first.
 fn forward_merge2<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut [T],
@@ -40,6 +41,7 @@ fn forward_merge2<T: Copy + PartialOrd>(
     }
 }
 
+/// Merge from the back, the right run copied out first.
 fn backward_merge2<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut [T],
@@ -79,6 +81,8 @@ fn backward_merge2<T: Copy + PartialOrd>(
     }
 }
 
+/// Stable merge of `arr[..m]` and `arr[m..]`: the shorter run copied out,
+/// merged from its side.
 pub(super) fn merge2<T: Copy + PartialOrd>(
     arr: &mut [T],
     copy: &mut [T],

@@ -33,13 +33,6 @@ pub(crate) fn merge_all_half<T, E: Fn(&T) -> u128>(
     }
 }
 
-/// Stable merge of the sorted segments with as few moves as possible:
-/// rounds of 4-way merges (two levels in one move) and 2-way merges, an
-/// even number of rounds so that the result lands in the array (no copy
-/// back). Runs 8: one 4-way and one 2-way round (two moves; pairwise
-/// rounds through half a buffer: 4.5). Buffer of n elements.
-/// k-way merges as rounds of 2-way merges with the four-chain kernel.
-/// 4-way rounds with the masked kernel (records of 32 bytes and more).
 /// CPU parameter: records of at least this size merged by 4-way rounds
 /// (one move per two levels), smaller ones by 2-way rounds (more moves,
 /// cheaper steps). Where the line falls depends on memory bandwidth against
@@ -49,6 +42,13 @@ pub(crate) fn merge_all_half<T, E: Fn(&T) -> u128>(
 pub(crate) static FOUR_WAY_MIN: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(32);
 
+/// Stable merge of the sorted segments with as few moves as possible:
+/// rounds of 4-way merges (two levels in one move) and 2-way merges, an
+/// even number of rounds so that the result lands in the array (no copy
+/// back). Runs 8: one 4-way and one 2-way round (two moves; pairwise
+/// rounds through half a buffer: 4.5). Buffer of n elements. The 2-way
+/// rounds use the four-chain kernel, the 4-way rounds (records of
+/// `FOUR_WAY_MIN` bytes and more) the masked kernel.
 pub(crate) fn merge_all_kway<T, E: Fn(&T) -> u128>(
     arr: &mut [T],
     bounds: &[usize],

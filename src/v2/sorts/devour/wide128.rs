@@ -21,10 +21,14 @@ use crate::v2::special::SAMPLE;
 
 /// A 128-bit key: its bits and their encoding (unsigned order = key order).
 pub(crate) trait Key128: Copy + Ord {
+    /// The key in unsigned order (signed: sign bit flipped).
     fn enc(self) -> u128;
+    /// Inverse of `enc`.
     fn dec(key: u128) -> Self;
     /// DLSD, rollercoaster on the raw bits.
+    /// The DLSD of this type, on the raw bits.
     fn dlsd(bits: &mut [u128]);
+    /// The rollercoaster of this type, on the raw bits.
     fn roller(bits: &mut [u128]);
 }
 
@@ -47,6 +51,7 @@ impl Key128 for i128 {
 }
 
 #[inline(always)]
+/// The keys as their raw bits.
 pub(crate) fn bits_of<T: Key128>(arr: &mut [T]) -> &mut [u128] {
     // SAFETY: u128 and i128 have the same size and alignment as `T` (the
     // only implementors), every bit pattern is valid.
@@ -82,7 +87,9 @@ pub(crate) fn narrow<T: Key128>(arr: &mut [T]) -> bool {
 
 /// A narrower unsigned key.
 trait Narrow: Copy + DevourSort2 {
+    /// A narrowed key from its offset (fits by construction).
     fn from128(v: u128) -> Self;
+    /// The narrowed key back as an offset.
     fn to128(self) -> u128;
 }
 
@@ -100,6 +107,8 @@ impl Narrow for u64 {
     fn to128(self) -> u128 { self as u128 }
 }
 
+/// The keys narrowed in place to `(key - lo) >> tz` as `U`, sorted by the
+/// chain of `U`, widened back from the end.
 fn narrow_to<T: Key128, U: Narrow>(arr: &mut [T], lo: u128, tz: u32) {
     let n = arr.len();
     let wide = arr.as_mut_ptr();
@@ -231,6 +240,8 @@ pub(crate) fn narrow_keys(
     }
 }
 
+/// `narrow_to` on keys of the DLSD and the rollercoaster (`enc` / `dec`:
+/// their codec), offsets from `min`.
 fn narrow_with<U: Narrow>(
     keys: &mut [u128],
     min: u128,

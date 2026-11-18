@@ -7,9 +7,11 @@
 
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 
+/// Rule under test switched on (trace-ab, sentinel).
 pub(crate) static NEW_RULE: AtomicBool = AtomicBool::new(false);
 
 #[inline(always)]
+/// Whether the rule under test is on.
 pub(crate) fn new_rule() -> bool {
     NEW_RULE.load(Relaxed)
 }

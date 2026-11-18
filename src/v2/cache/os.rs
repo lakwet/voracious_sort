@@ -32,10 +32,12 @@ mod imp {
         fn GetSystemInfo(info: *mut SystemInfo);
     }
 
+    /// The smallest L2 (data or unified) and the page size, in bytes.
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         (smallest(2), page())
     }
 
+    /// The smallest L1, L2 and L3 (data or unified), in bytes.
     pub(crate) fn levels() -> [Option<usize>; 3] {
         [smallest(1), smallest(2), smallest(3)]
     }
@@ -103,12 +105,14 @@ mod imp {
     /// `_SC_PAGESIZE` (glibc and musl).
     const SC_PAGESIZE: i32 = 30;
 
+    /// The smallest L2 (data or unified) and the page size, in bytes.
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         // SAFETY: sysconf has no preconditions.
         let page = unsafe { sysconf(SC_PAGESIZE) };
         (smallest(2), if page > 0 { Some(page as usize) } else { None })
     }
 
+    /// The smallest L1, L2 and L3 (data or unified), in bytes.
     pub(crate) fn levels() -> [Option<usize>; 3] {
         [smallest(1), smallest(2), smallest(3)]
     }
@@ -192,6 +196,7 @@ mod imp {
         Some(if len == 4 { v as u32 as usize } else { v as usize })
     }
 
+    /// The smallest L2 (data or unified) and the page size, in bytes.
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         // Apple Silicon: one value per performance level, else the global one.
         let levels: Vec<usize> =
@@ -203,6 +208,7 @@ mod imp {
         (l2, sysctl(b"hw.pagesize\0"))
     }
 
+    /// The smallest L1, L2 and L3 (data or unified), in bytes.
     pub(crate) fn levels() -> [Option<usize>; 3] {
         [sysctl(b"hw.l1dcachesize\0"), query().0, sysctl(b"hw.l3cachesize\0")]
     }
@@ -211,10 +217,12 @@ mod imp {
 // Other systems, and Miri (no foreign calls): the default sizes.
 #[cfg(any(miri, not(any(windows, target_os = "linux", target_os = "macos"))))]
 mod imp {
+    /// The smallest L2 (data or unified) and the page size, in bytes.
     pub(crate) fn query() -> (Option<usize>, Option<usize>) {
         (None, None)
     }
 
+    /// The smallest L1, L2 and L3 (data or unified), in bytes.
     pub(crate) fn levels() -> [Option<usize>; 3] {
         [None, None, None]
     }

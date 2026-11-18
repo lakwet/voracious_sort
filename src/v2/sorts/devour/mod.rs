@@ -18,6 +18,7 @@ mod sealed {
 /// Integer types sortable by [`devour_sort2`].
 pub trait DevourSort2: sealed::Sealed + Copy + Ord {
     #[doc(hidden)]
+    /// Sorts `arr` by the chain of the type.
     fn devour_sort2_impl(arr: &mut [Self]);
 }
 

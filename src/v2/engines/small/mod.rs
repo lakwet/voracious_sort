@@ -18,6 +18,7 @@ pub(crate) const NETWORK_MAX: usize = 32;
 const PROBE_MIN: usize = 5;
 
 #[inline(always)]
+/// Compare-exchange of `a[i]` and `a[j]` (branch-free min / max).
 fn cswap<K: Copy + Ord, const N: usize>(a: &mut [K; N], i: usize, j: usize) {
     let (x, y) = (a[i], a[j]);
     a[i] = x.min(y);

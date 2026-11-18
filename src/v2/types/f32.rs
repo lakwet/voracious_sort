@@ -36,6 +36,12 @@ const PRESORTED_FIRST_MIN: usize = 4096;
 /// The rollercoaster from this size (L2 / 12).
 fn roller_min() -> usize { budget(Budget::RollerF32) / 12 }
 
+/// Sorts `arr` in the total order (`total_cmp`): NaNs set aside at the
+/// ends first, then a sorting network up to `NETWORK_MAX` keys, else the
+/// chain.
+/// Sorts `arr` in the total order (`total_cmp`): NaNs set aside at the
+/// ends first, then a sorting network up to `NETWORK_MAX` keys, else the
+/// chain.
 pub(crate) fn sort(arr: &mut [f32]) {
     if arr.len() <= NETWORK_MAX {
         trace!("network");

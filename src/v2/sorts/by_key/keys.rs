@@ -2,6 +2,7 @@
 
 /// A key encoded into an unsigned integer with the same order.
 pub trait SortKey: Copy {
+    /// The key as a `u128` whose unsigned order is the key order.
     fn encode(self) -> u128;
 
     /// Sorts records by their encoded keys `enc`: the chain of this key type

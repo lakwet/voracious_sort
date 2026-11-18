@@ -19,6 +19,7 @@ mod sealed {
 /// Float types sortable by [`ravenous_sort2`].
 pub trait RavenousSort2: sealed::Sealed + Copy + PartialOrd {
     #[doc(hidden)]
+    /// Sorts `arr` by the chain of the type.
     fn ravenous_sort2_impl(arr: &mut [Self]);
 }
 
@@ -46,12 +47,14 @@ macro_rules! float_width {
             }
 
             #[inline(always)]
+            /// Raw bits to a key of the same order as `total_cmp`.
             pub(crate) fn encode(bits: $uint) -> $uint {
                 const SIGN: $uint = 1 << (<$uint>::BITS - 1);
                 bits ^ ((((bits as $sint) >> (<$uint>::BITS - 1)) as $uint) | SIGN)
             }
 
             #[inline(always)]
+            /// Inverse of `encode`.
             pub(crate) fn decode(key: $uint) -> $uint {
                 const SIGN: $uint = 1 << (<$uint>::BITS - 1);
                 key ^ ((key >> (<$uint>::BITS - 1)).wrapping_sub(1) | SIGN)
@@ -97,6 +100,7 @@ macro_rules! float_width {
 
             #[cold]
             #[inline(never)]
+            /// `nan_aside` once a NaN is known to be there (stable moves).
             fn split_nan(arr: &mut [$float]) -> &mut [$float] {
                 let mut nans: Vec<$float> = arr.iter().copied().filter(|x| x.is_nan()).collect();
                 nans.sort_unstable_by(|x, y| x.total_cmp(y));
@@ -122,6 +126,7 @@ macro_rules! float_width {
             pub(crate) fn less(x: $float, y: $float) -> bool { x.total_cmp(&y).is_lt() }
 
             #[inline(always)]
+            /// Same bits (-0.0 and +0.0 apart, NaNs by payload).
             pub(crate) fn same(x: $float, y: $float) -> bool { x.to_bits() == y.to_bits() }
         }
     };

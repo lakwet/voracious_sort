@@ -30,6 +30,14 @@ const HEAVY_MIN: usize = 512;
 /// 64-bit threshold L2 / 12).
 fn roller_min() -> usize { budget(Budget::Roller128) / 24 }
 
+/// Sorts `arr`: `sort_unstable` up to `SMALL` keys, the presorted check,
+/// the narrowing to 64 or 32 bits when the range allows, else the radix
+/// path (few values, heavy keys; DLSD, or the rollercoaster beyond the
+/// cache).
+/// Sorts `arr`: `sort_unstable` up to `SMALL` keys, the presorted check,
+/// the narrowing to 64 or 32 bits when the range allows, else the radix
+/// path (few values, heavy keys; DLSD, or the rollercoaster beyond the
+/// cache).
 pub(crate) fn sort(arr: &mut [i128]) {
     let n = arr.len();
     chain! {

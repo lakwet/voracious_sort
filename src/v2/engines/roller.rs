@@ -21,6 +21,8 @@ const MAX_BITS: u32 = 18;
 /// log2 of the average number of keys per digit value.
 const KEYS_PER_DIGIT_LOG: u32 = 7;
 
+/// The rollercoaster of one key width and codec, in module `$m` (DLSD
+/// leaves `$d`, codec of the LSD module `$w`).
 macro_rules! roller_width {
     ($uint:ty, $w:ident, $d:ident, $m:ident) => {
         pub(crate) mod $m {

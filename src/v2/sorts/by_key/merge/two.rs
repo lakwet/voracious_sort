@@ -37,6 +37,7 @@ pub(crate) fn merge_two_with<T, E: Fn(&T) -> u128>(
 }
 
 #[inline(always)]
+/// `merge_two_with` once the buffer holds the shorter run.
 pub(crate) fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(
     arr: &mut [T],
     m: usize,

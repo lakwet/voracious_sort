@@ -50,7 +50,9 @@ pub(crate) fn merge_u32<const M: u8>(a: &[u32], b: &[u32], dst: &mut [u32]) {
 /// flipped when positive and every bit when negative; -0 before +0: equal
 /// for the caller, which orders signed zeros afterwards).
 pub(crate) trait Lane: Copy + Ord {
+    /// Zero of the lane type.
     const ZERO: Self;
+    /// The key compared in mode `M` (0 unsigned, 1 signed, 2 float bits).
     fn key<const M: u8>(self) -> Self;
 }
 

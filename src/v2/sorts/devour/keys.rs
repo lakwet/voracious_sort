@@ -3,8 +3,11 @@
 
 /// Unsigned key bits seen through `u64` (the counting sorts).
 pub(crate) trait Key: Copy {
+    /// Largest key, as `u64`.
     const MAX_U64: u64;
+    /// The key as `u64` (counting tables).
     fn to_u64(self) -> u64;
+    /// A key from `u64` (truncated to its width).
     fn from_u64(v: u64) -> Self;
 }
 
@@ -26,6 +29,7 @@ key!(u64);
 
 /// The unsigned integer of the same size.
 pub(crate) trait BitsOf {
+    /// The unsigned integer of the same width.
     type Bits: Key + Ord;
 }
 
@@ -46,6 +50,8 @@ pub(crate) fn bits_of<T: BitsOf>(arr: &mut [T]) -> &mut [T::Bits] {
     unsafe { std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut T::Bits, arr.len()) }
 }
 
+/// The key maps of each width: `id*` (unsigned integers) and `flip*`
+/// (signed integers: sign bit flipped), their own inverses.
 macro_rules! key_maps {
     ($($id:ident, $flip:ident, $u:ty);*) => {
         $(

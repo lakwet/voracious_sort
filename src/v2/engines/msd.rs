@@ -28,9 +28,12 @@ pub(crate) fn msd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u128, hi: u1
 
 /// Key types of the passes: u64 when the range fits.
 trait Digits: Copy + Ord + std::ops::BitXor<Output = Self> {
+    /// Bounds of the key type.
     const ZERO: Self;
     const MAX: Self;
+    /// The byte of the key at `shift`.
     fn digit(self, shift: u32) -> usize;
+    /// Significant bits of the key (its width minus its leading zeros).
     fn bits(self) -> u32;
 }
 

@@ -3,10 +3,13 @@
 
 /// Histogram counter: `u32` for arrays up to `u32::MAX` elements.
 pub(crate) trait Counter: Copy + std::ops::AddAssign {
+    /// Constants of the counter type.
     const ZERO: Self;
     const ONE: Self;
     const FOUR: Self;
+    /// The count as an index or a length.
     fn get(self) -> usize;
+    /// A count (callers keep it within the counter type).
     fn from_usize(v: usize) -> Self;
 }
 

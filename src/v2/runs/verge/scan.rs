@@ -63,6 +63,8 @@ fn scan_backward<T, F: Fn(&T, &T) -> bool>(arr: &[T], start: usize, min: usize, 
 }
 
 #[inline]
+/// End (exclusive) of the ascending, descending or constant run from
+/// `start`; the backward scans: its start, not below `min`.
 pub fn explore_forward_asc<T: PartialOrd>(arr: &[T], start: usize) -> usize {
     scan_forward(arr, start, |a, b| a <= b)
 }

@@ -1,11 +1,12 @@
 //! Inspections read by the radix path of every type (the path itself, its
-//! rules and thresholds, is copied in each `types` file):
+//! rules and thresholds, is copied in each `types` file), with the trace
+//! label of the step each one leads to:
 //!
 //! - `starts_with_random_runs`: two long ascending runs first whose merge is
-//!   unpredictable [random_runs];
-//! - `can_skip_verge`: no monotone run of n / log2 n [no_verge];
+//!   unpredictable (`random_runs`);
+//! - `can_skip_verge`: no monotone run of n / log2 n (`no_verge`);
 //! - `merges_unpredictable`: Verge's merges would cost more than sorting the
-//!   whole array [verge_whole].
+//!   whole array (`verge_whole`).
 
 use crate::v2::runs::merge::{self, predictable_merge};
 use crate::v2::runs::verge::{compute_big_enough_run, explore_forward_asc};

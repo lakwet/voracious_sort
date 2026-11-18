@@ -28,8 +28,14 @@ const UNSTABLE_PDQ_MIN: usize = 65536;
 /// Shortest array tried for Verge in the small path.
 const SMALL_VERGE_MIN: usize = 4096;
 
+/// Sorts `arr` by its encoded keys (`enc`), stably.
+/// Sorts `arr` by its encoded keys (`enc`), stably.
 pub(crate) fn sort_stable<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) { chain(arr, enc); }
 
+/// Sorts `arr` by its encoded keys, unstably (equal keys in any order):
+/// the same chain with its unstable steps on.
+/// Sorts `arr` by its encoded keys, unstably (equal keys in any order):
+/// the same chain with its unstable steps on.
 pub(crate) fn sort_unstable<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
     let _unstable = Unstable::enter();
     chain(arr, enc);
