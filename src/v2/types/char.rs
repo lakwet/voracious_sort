@@ -35,7 +35,6 @@ fn roller_min() -> usize { budget(Budget::Roller32) }
 int_detectors!(detectors, u32, u32, id32, id32, super::roller_min);
 
 /// Sorts `arr` as its code points (`u32`, same order).
-/// Sorts `arr` as its code points (`u32`, same order).
 pub(crate) fn sort(arr: &mut [char]) {
     // SAFETY: `char` has the size and alignment of `u32`, every `char` is a
     // valid `u32`, and the sorted slice holds the same values.
@@ -43,8 +42,6 @@ pub(crate) fn sort(arr: &mut [char]) {
     sort_codes(codes);
 }
 
-/// The chain on the code points: a sorting network up to `NETWORK_MAX`,
-/// else the rest of the chain.
 /// The chain on the code points: a sorting network up to `NETWORK_MAX`,
 /// else the rest of the chain.
 fn sort_codes(arr: &mut [u32]) {

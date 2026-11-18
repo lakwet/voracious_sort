@@ -37,8 +37,6 @@ pub(crate) fn presorted<T: Copy + PartialOrd>(arr: &mut [T]) -> Result<(), Unsor
 #[inline(always)]
 /// One ascending scan (spread probes first when given): `Ok` when sorted,
 /// else the ascending prefix found.
-/// One ascending scan (spread probes first when given): `Ok` when sorted,
-/// else the ascending prefix found.
 fn scan_ascending<T: PartialOrd>(arr: &[T], probes: Option<Probes>) -> Result<(), Unsorted> {
     let prefix = forward_asc(arr);
     if prefix == arr.len() {

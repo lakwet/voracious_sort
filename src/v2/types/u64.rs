@@ -35,7 +35,6 @@ fn roller_min() -> usize { budget(Budget::Roller64) / 12 }
 int_detectors!(detectors, u64, u64, id64, id64, super::roller_min);
 
 /// Sorts `arr`: a sorting network up to `NETWORK_MAX` keys, else the chain.
-/// Sorts `arr`: a sorting network up to `NETWORK_MAX` keys, else the chain.
 pub(crate) fn sort(arr: &mut [u64]) {
     if arr.len() <= NETWORK_MAX {
         trace!("network");

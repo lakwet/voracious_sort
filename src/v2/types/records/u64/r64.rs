@@ -55,11 +55,8 @@ const UNSTABLE_PDQ_MIN: usize = 65536;
 const UNSTABLE_WIDE_BITS: u32 = 40;
 
 /// Sorts `arr` by its encoded keys (`enc`), stably.
-/// Sorts `arr` by its encoded keys (`enc`), stably.
 pub(crate) fn sort_stable<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) { chain(arr, enc); }
 
-/// Sorts `arr` by its encoded keys, unstably (equal keys in any order):
-/// the same chain with its unstable steps on.
 /// Sorts `arr` by its encoded keys, unstably (equal keys in any order):
 /// the same chain with its unstable steps on.
 pub(crate) fn sort_unstable<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
