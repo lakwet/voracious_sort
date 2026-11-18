@@ -44,7 +44,7 @@ comptes :  0:1  1:2  2:0  3:3
 débuts  :  0:0  1:1  2:3  3:3     début[v] = compte[0] + ... + compte[v - 1]
 ```
 
-Puis chaque élément lu est posé à `début[sa clé]`, qui avance de 1. C'est
+Puis chaque élément lu est posé à `début[sa clé]`, qu'on incrémente de 1. C'est
 nécessaire pour :
 
 - **des records** (une clé et des données) : on ne peut pas « réécrire trois
@@ -123,42 +123,84 @@ fait le tri des bool de la v1, toutes les 255 rondes).
 
 ## 3. Recopier les clés à leur place via un buffer sur la pile
 
-Pour moins de 256 clés, il y a plus de cases (256) que de clés : parcourir
-les 256 cases pour les remplir coûte plus que les clés elles-mêmes. blazing
-fait autrement : il calcule où commence chaque case (cumul), puis il **pose
-chaque clé directement à sa place** dans un tableau temporaire, et recopie le
-tout d'un coup.
+Après le comptage, il y a deux façons de produire le résultat trié.
+
+### Façon A, réécrire (section 0) : on parcourt les 256 cases du compteur
 
 ```
-tableau :      3 1 3 0 1
-
-comptes :      0:1  1:2  2:0  3:2
-débuts  :      0:0  1:1  2:3  3:3          (cumul des comptes)
-
-pose clé par clé (début de sa case, puis +1) :
-  3 → position 3   tmp: [ . . . 3 . ]      début[3] = 4
-  1 → position 1   tmp: [ . 1 . 3 . ]      début[1] = 2
-  3 → position 4   tmp: [ . 1 . 3 3 ]      début[3] = 5
-  0 → position 0   tmp: [ 0 1 . 3 3 ]      début[0] = 1
-  1 → position 2   tmp: [ 0 1 1 3 3 ]      début[1] = 3
-
-recopie tmp → tableau :  0 1 1 3 3
+compteur : 0:1  1:2  2:0  3:2  4:0  5:0  ...  255:0
+           │    │    │    │    └─────── 252 cases vides, parcourues quand même
+           ▼    ▼    ▼    ▼
+résultat : 0    1 1  -    3 3
 ```
 
-Le travail suit le nombre de clés (n poses), plus le parcours des 256 cases.
-Le tableau temporaire (`tmp`) est **sur la pile** : un tableau de taille
-fixe (256 octets) dans la fonction, sans allocation. Une allocation sur le
-tas (`vec!`) coûte un appel à l'allocateur à chaque tri, ce qui se voit sur
-un tableau de 500 clés.
+Pour chaque case, on écrit la valeur autant de fois que son compte : une
+écriture de longueur variable, différente à chaque case. Sur un petit
+tableau (5 clés), on passe quand même par les 256 cases, avec une écriture
+de longueur variable pour chacune.
+
+### Façon B, poser : on reparcourt les clés, chacune va directement à sa place
+
+Il faut savoir où commence la case de chaque valeur : c'est le cumul.
+
+```
+compteur : 0:1  1:2  2:0  3:2
+début    : 0:0  1:1  2:3  3:3      ← la case 1 commence en position 1, la case 3 en position 3
+```
+
+Puis on relit le tableau d'origine clé par clé, et on pose chaque clé à
+`début[sa valeur]`, qu'on incrémente de 1 :
+
+```
+origine : 3 1 3 0 1
+
+lis 3 → début[3] = 3 → pose en 3          destination : . . . 3 .
+lis 1 → début[1] = 1 → pose en 1          destination : . 1 . 3 .
+lis 3 → début[3] = 4 → pose en 4          destination : . 1 . 3 3
+lis 0 → début[0] = 0 → pose en 0          destination : 0 1 . 3 3
+lis 1 → début[1] = 2 → pose en 2          destination : 0 1 1 3 3
+```
+
+5 poses pour 5 clés. Le cumul passe aussi sur les 256 cases, mais ce ne sont
+que des additions, sans écriture dans le tableau ni longueur variable : bien
+moins cher que 256 remplissages.
+
+### Pourquoi un buffer
+
+On ne peut pas poser dans le tableau d'origine pendant qu'on le lit : en
+posant le premier `3` en position 3, on écraserait la clé qui s'y trouve
+(`0`) avant de l'avoir lue.
+
+```
+origine : 3 1 3 0 1
+pose 3 en position 3 dans le même tableau :  3 1 3 3 1   ← le 0 est perdu
+```
+
+Il faut donc une destination à part, le buffer ; une fois toutes les clés
+posées, on recopie le buffer dans le tableau.
+
+### Pourquoi sur la pile
+
+blazing ne fait ça qu'en dessous de 256 clés : le buffer a une taille fixe
+(256 octets), déclarée dans la fonction (`let mut tmp = [0u8; 256]`). Ça ne
+coûte rien. Un `vec!` demanderait un appel à l'allocateur à chaque tri, ce
+qui se voit sur un petit tableau.
 
 ```
 pile  : [ tmp : 256 octets ]   réservé en entrant dans la fonction, gratuit
 tas   : vec![0; 256]           appel à l'allocateur, mise à zéro, libération
 ```
 
-Note : pour des octets seuls, la pose n'est pas nécessaire (réécrire les
-valeurs suffit, section 4) ; elle sert quand la clé porte autre chose (un
-record) ou, chez blazing, à éviter 256 remplissages courts.
+### Le compromis
+
+|                          | façon A (réécrire)                  | façon B (poser)              |
+|--------------------------|-------------------------------------|------------------------------|
+| parcours des 256 cases   | 256 écritures de longueur variable  | 256 additions                |
+| travail par clé          | —                                   | une pose, puis une recopie   |
+| intéressante quand       | beaucoup de clés par valeur         | peu de clés (moins de 256)   |
+
+Pour des records (une clé et des données), la façon B est la seule possible :
+on ne peut pas réécrire une valeur, il faut déplacer chaque record entier.
 
 ## 4. Écriture par bloc fixe, et réécriture des cases écrites en trop
 
