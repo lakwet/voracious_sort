@@ -9,7 +9,12 @@
 //! - the counters on the stack (4 KiB), no allocation per call;
 //! - 4 tables of counters at every size (one table below 512 keys made
 //!   repeated keys wait on the same counter);
-//! - the fill skips empty blocks of 16 values with one test.
+//! - the fill skips empty blocks of 16 values with one test;
+//! - at most 256 keys (no more keys than values): one-byte counters in 2
+//!   tables (at most 128 keys each, no overflow) and each key placed at the
+//!   start of its cell in a 256-byte buffer on the stack, then copied back:
+//!   work in the keys, not in the 256 cells (idea from blazing-radix 0.1.0,
+//!   `byte_scatter`, reimplemented).
 //!
 //! Kept from `domain_count`: one `u64` load per 8 keys, the fill of each
 //! value (runs of at most 64 by blocks of 16 copies). See
@@ -62,6 +67,65 @@ const BLOCK: usize = 16;
 /// At most 2^32 - 1 keys.
 #[inline]
 pub(crate) fn count<const FLIP: u8>(bytes: &mut [u8]) {
+    if bytes.len() <= VALUES {
+        place::<FLIP>(bytes);
+    } else {
+        count_fill::<FLIP>(bytes);
+    }
+}
+
+/// Tables of one-byte counters of `place`: each sees at most
+/// `VALUES / SMALL_TABLES` keys, below 256.
+const SMALL_TABLES: usize = 2;
+
+/// At most `VALUES` keys: one-byte counters (`SMALL_TABLES` tables, keys
+/// dealt in turn), the start of each cell per table (so that two
+/// neighbouring keys never move the same offset), each key placed in a
+/// buffer on the stack, the buffer copied back.
+#[inline(never)]
+fn place<const FLIP: u8>(bytes: &mut [u8]) {
+    let n = bytes.len();
+    debug_assert!(n <= VALUES);
+    let mut tables = [[0u8; VALUES]; SMALL_TABLES];
+    let (pairs, rest) = bytes.as_chunks::<SMALL_TABLES>();
+    for pair in pairs {
+        for (t, &x) in pair.iter().enumerate() {
+            tables[t][(x ^ FLIP) as usize] += 1;
+        }
+    }
+    for (t, &x) in rest.iter().enumerate() {
+        tables[t][(x ^ FLIP) as usize] += 1;
+    }
+    // Start of each cell for each table: table t's keys of value v follow
+    // those of the tables before it.
+    let mut starts = [[0u16; VALUES]; SMALL_TABLES];
+    let mut next = 0u16;
+    for v in 0..VALUES {
+        for t in 0..SMALL_TABLES {
+            starts[t][v] = next;
+            next += tables[t][v] as u16;
+        }
+    }
+    let mut buffer = [0u8; VALUES];
+    for pair in pairs {
+        for (t, &x) in pair.iter().enumerate() {
+            let at = &mut starts[t][(x ^ FLIP) as usize];
+            buffer[*at as usize] = x;
+            *at += 1;
+        }
+    }
+    for (t, &x) in rest.iter().enumerate() {
+        let at = &mut starts[t][(x ^ FLIP) as usize];
+        buffer[*at as usize] = x;
+        *at += 1;
+    }
+    bytes.copy_from_slice(&buffer[..n]);
+}
+
+/// More keys than values: 4 tables of `u32` counters, then each value
+/// written again as many times as it was counted.
+#[inline(never)]
+fn count_fill<const FLIP: u8>(bytes: &mut [u8]) {
     let n = bytes.len();
     debug_assert!(n as u64 <= u32::MAX as u64);
     let mut tables = [[0u32; VALUES]; TABLES];
