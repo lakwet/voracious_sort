@@ -83,8 +83,9 @@ fn sort_large(arr: &mut [f32]) {
         chain! {
             return true;
             "float_detect" if presorted_first => try detect32(a);
-            "dominant" if crate::v2::dev::ab::new_rule()
-                && a.len() < DENSE_MIN
+            // One dominant value among spread ones, short array: the std
+            // partition settles the keys equal to its pivot in one pass.
+            "dominant" if a.len() < DENSE_MIN
                 && dominant(&spread(a), f32_bits::same)
                 => do { f32_bits::sort_small(f32_bits::bits(a)) };
         }

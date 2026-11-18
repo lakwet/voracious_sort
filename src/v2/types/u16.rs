@@ -18,7 +18,7 @@ use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
 use crate::v2::sorts::devour::keys::*;
 use crate::v2::sorts::devour::DevourSort2;
-use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
+use crate::v2::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use crate::v2::special::plateaus::plateaus;
 use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
 
@@ -73,10 +73,6 @@ fn detect(arr: &mut [u16], equal_pairs: usize) -> bool {
         return true;
         "range" => try detectors::range(arr, &sample);
         "plateaus" => try plateaus(arr, equal_pairs);
-        "dominant" if crate::v2::dev::ab::new_rule()
-            && arr.len() < DENSE_MIN
-            && dominant(&sample, |x, y| x == y)
-            => do { arr.sort_unstable() };
         "few" => try detectors::few(arr, &sample);
     }
     // Heavy keys and dense ranges: the sample in order.

@@ -84,8 +84,9 @@ fn sort_large(arr: &mut [f64]) {
         chain! {
             return true;
             "float_detect" if presorted_first => try detect64(a);
-            "dominant" if crate::v2::dev::ab::new_rule()
-                && a.len() < DENSE_MIN
+            // One dominant value among spread ones, short array: the std
+            // partition settles the keys equal to its pivot in one pass.
+            "dominant" if a.len() < DENSE_MIN
                 && dominant(&spread(a), f64_bits::same)
                 => do { f64_bits::sort_small(f64_bits::bits(a)) };
         }

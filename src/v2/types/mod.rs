@@ -17,7 +17,7 @@
 //! | file        | differences                                             |
 //! |-------------|---------------------------------------------------------|
 //! | u8, i8      | none                                                    |
-//! | u16, i16    | none                                                    |
+//! | u16, i16    | no `dominant` (slower on the Ryzen 3950X: 1.09, 1.04)   |
 //! | u32, i32    | none                                                    |
 //! | u64, i64    | none                                                    |
 //! | u128, i128  | own `presorted` (v1 scan by 4 pairs), behind `new_rule` |

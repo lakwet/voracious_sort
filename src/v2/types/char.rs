@@ -87,8 +87,9 @@ fn detect(arr: &mut [u32], equal_pairs: usize) -> bool {
         return true;
         "range" => try detectors::range(arr, &sample);
         "plateaus" => try plateaus(arr, equal_pairs);
-        "dominant" if crate::v2::dev::ab::new_rule()
-            && arr.len() < DENSE_MIN
+        // One dominant value among spread ones, short array: the std
+        // partition settles the keys equal to its pivot in one pass.
+        "dominant" if arr.len() < DENSE_MIN
             && dominant(&sample, |x, y| x == y)
             => do { arr.sort_unstable() };
         "few" => try detectors::few(arr, &sample);
