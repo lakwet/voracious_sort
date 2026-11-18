@@ -107,6 +107,8 @@ benchbilan: ## every type against every sort, 1k to 10M, generic build: the list
 #   make bench-records         every record; T=u64: the records of u64 keys
 BENCH_BY_TYPE_SIZES = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
 BENCH_BY_TYPE_SORTS = best
+# Large arrays: more sorts than the 3 repetitions give (2M: 8, 5M and 10M: 5).
+BENCH_BY_TYPE_MIN_SORTS = 2000000:8,5000000:5,10000000:5
 
 bench-type: export RUSTFLAGS =
 bench-type: export BENCH_PARTS = int,float,wide
@@ -114,6 +116,7 @@ bench-type: export BENCH_TYPES = $(T)
 bench-type: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
 bench-type: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
 bench-type: export BENCH_MIN_ARRAYS = 1
+bench-type: export BENCH_MIN_SORTS = $(BENCH_BY_TYPE_MIN_SORTS)
 bench-type: ## one key type against v1 and the rivals: make bench-type T=u32
 	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
@@ -123,6 +126,7 @@ bench-keys: export BENCH_PARTS = int,float,wide
 bench-keys: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
 bench-keys: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
 bench-keys: export BENCH_MIN_ARRAYS = 1
+bench-keys: export BENCH_MIN_SORTS = $(BENCH_BY_TYPE_MIN_SORTS)
 bench-keys: ## every key type against v1 and the rivals
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
@@ -132,6 +136,7 @@ bench-records: export BENCH_TYPES = $(T)
 bench-records: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
 bench-records: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
 bench-records: export BENCH_MIN_ARRAYS = 1
+bench-records: export BENCH_MIN_SORTS = $(BENCH_BY_TYPE_MIN_SORTS)
 bench-records: ## every record against v1 and the rivals (T=u64: records of u64 keys only)
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 

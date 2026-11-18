@@ -51,7 +51,9 @@
 //! thread to a fast core on hybrid CPUs; `slow`: pin it to a slow one),
 //! `BENCH_SIZES` (these sizes instead of the list, any value, e.g. `500,10000`; `BENCH_BIG_SIZES` for `big`), `BENCH_SORTS`
 //! (only these sorts besides v2, e.g. `std,glidesort,blazing`),
-//! `BENCH_MIN_ARRAYS` (arrays sorted per measurement at least, default 5).
+//! `BENCH_MIN_ARRAYS` (arrays sorted per measurement at least, default 5),
+//! `BENCH_MIN_SORTS` (arrays sorted at least at given sizes, over the
+//! repetitions, e.g. `2000000:8,10000000:5`).
 //! A panic is written to the file before the run stops.
 
 use std::io::Write;
@@ -93,6 +95,9 @@ struct Config {
     memory: usize,
     /// At least this many arrays sorted per measurement (`big` part: 1).
     min_arrays: usize,
+    /// At least this many arrays sorted at a given size, over the
+    /// repetitions (`BENCH_MIN_SORTS=2000000:8,5000000:5`).
+    min_sorts: Vec<(usize, usize)>,
 }
 
 impl Config {
@@ -107,6 +112,12 @@ impl Config {
             types: list("BENCH_TYPES"),
             memory: number("BENCH_MEM_MB", (total_ram().unwrap_or(16 << 30) / 2) >> 20) << 20,
             min_arrays: number("BENCH_MIN_ARRAYS", MIN_ARRAYS).max(1),
+            min_sorts: list("BENCH_MIN_SORTS")
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|p| p.split_once(':'))
+                .filter_map(|(n, k)| Some((n.trim().replace('_', "").parse().ok()?, k.trim().parse().ok()?)))
+                .collect(),
         }
     }
 
@@ -206,7 +217,8 @@ fn geo(values: &[f64]) -> f64 {
 fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens<T>, size: usize, variants: &[Variant<T>], ordered: fn(&T, &T) -> bool) -> Vec<(String, Vec<f64>)> {
     let bytes = std::mem::size_of::<T>().max(1);
     let count = (BATCH_KEYS / size).min(BATCH_BYTES / (size * bytes)).max(1);
-    let reps = cfg.reps.max(cfg.min_arrays.div_ceil(count));
+    let at_size = cfg.min_sorts.iter().filter(|&&(n, _)| n == size).map(|&(_, k)| k).max().unwrap_or(0);
+    let reps = cfg.reps.max(cfg.min_arrays.div_ceil(count)).max(at_size.div_ceil(count));
     let nv = variants.len();
     let mut rows = Vec::new();
     for (gen, name) in gens.iter() {
