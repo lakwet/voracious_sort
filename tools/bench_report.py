@@ -16,7 +16,8 @@ Options:
     --ref NAME     reference column (default: the first one), e.g.
                    "v2 unstable" for the records
     --vs NAMES     only these sorts (comma-separated), e.g. std,v1
-    --label TEXT   only the labels containing TEXT (e.g. "records u64")
+    --label TEXT   only the labels containing TEXT (e.g. "records u64");
+                   =TEXT: the label TEXT only (e.g. =bool: the arrays)
     --sizes LIST   only these sizes (comma-separated)
     --gen TEXT     only the distributions containing TEXT
     --brief        the summary tables only (per sort, vs best, machines)
@@ -140,7 +141,8 @@ def main():
         cells, cols, fails = parse(path)
         failures[machine] += fails
         for label, size, gen, values in cells:
-            if a.label and a.label not in label:
+            if a.label and (label != a.label[1:] if a.label.startswith('=')
+                            else a.label not in label):
                 continue
             if only_sizes and size not in only_sizes:
                 continue
