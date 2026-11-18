@@ -262,3 +262,103 @@ c'est un réglage propre au processeur, pas une règle générale.
 | poser les clés via un buffer sur la pile (< 256 clés) | oui (travail en n, pas en 256) |
 | bloc fixe qui déborde sur les cases suivantes, pour chaque petite case (section 4 ; 16, 32, 64 octets) | non : réglage de processeur (taille du bloc, paliers) |
 | lire 8 clés d'un coup (`u64`) ou une par une      | non : dépend du processeur (Snapdragon : `u64` mesuré le 18/11 ; Ryzen `u64` et Haswell une par une : déduit de l'écart avec blazing, à mesurer) |
+
+## 6. La stratégie de blazing pour u8 et i8
+
+Lu dans `blazing-radix 0.1.0` (`lib.rs` : `sort_byte_slice` ; `engine.rs` :
+`prepare`, `ordered`, `small_sort`, `sort_bytes`). Les i8 passent par le même
+chemin, la clé étant l'octet avec son bit de signe inversé (`^ 0x80`) pour
+que l'ordre des octets soit celui des entiers signés.
+
+```
+n ≤ 32 ───────────────────────────────► petit tri (A)
+
+n > 32
+  │
+  ├─ test d'ordre (B) ─────────────────► trié, constant, inversé : fini
+  │                                      presque trié : réparé, fini
+  │                                      96 < n ≤ 256 et désordonné : pose (D)
+  │
+  ├─ n ≤ 40 ───────────────────────────► petit tri (A)
+  │
+  └─ tri par comptage (C)
+        n ≤ 256 ───► compteurs d'un octet, puis pose (D) ou réécriture
+        n > 256 ───► 4 tables de compteurs u32, réécriture par blocs (E)
+```
+
+### A. Petit tri (n ≤ 32, et jusqu'à 40 après le test d'ordre)
+
+- n ≤ 8 : un tri dédié aux tout petits tableaux ;
+- 9 à 16 : un réseau de tri exact pour chaque longueur ;
+- 17 à 40 : un test d'ordre rapide, puis réseau de tri et fusion.
+
+### B. Le test d'ordre (`ordered`, n > 32)
+
+1. **Constant ?** Pour n ≤ 1024, si le premier et le dernier octet sont
+   égaux, une réduction vectorielle vérifie que tout est égal.
+2. **Les 8 premières paires.** Si elles ne sont ni toutes croissantes ni
+   toutes décroissantes, l'entrée est désordonnée : on va directement au
+   comptage. Une entrée aléatoire sort ici en deux ou trois comparaisons.
+3. **Toutes égales** sur les 8 paires : vérification de constance complète.
+4. **Croissant au début** : on mesure le préfixe croissant (`ordered_scan`).
+   - tout le tableau : fini ;
+   - sinon, pour **96 < n ≤ 256** (« petits octets directs ») : si la
+     fenêtre de 32 clés après la cassure a peu d'inversions, une réparation
+     bornée (`ordered_repair`) ; sinon, ou si elle échoue, la pose (D) ;
+   - sinon (n ≤ 96, ou n > 256) : si la cassure ressemble au début d'un
+     second run, essai de fusion de deux runs (seulement jusqu'à 128
+     octets : au-delà, compter est plus rapide) ; si la réparation paraît
+     vaine (`futile_repair`), le comptage ; sinon réparation bornée, et le
+     comptage si elle échoue.
+5. **Décroissant au début** : la même chose dans l'autre sens ; un tableau
+   entièrement décroissant est **retourné seulement après** avoir vérifié
+   qu'il l'est en entier (pas de retournement à l'aveugle).
+
+La réparation bornée corrige quelques éléments mal placés (insertions
+courtes, au plus une poignée de longs déplacements) et abandonne au-delà :
+une tentative ratée coûte au plus environ un passage.
+
+### C. Le comptage (`sort_bytes`)
+
+| taille            | méthode                                                            |
+|-------------------|--------------------------------------------------------------------|
+| n ≤ 256           | `byte_scatter` : 2 tables de compteurs d'un octet (section 2), puis |
+|                   | 16 valeurs distinctes au plus : réécriture des blocs occupés ;     |
+|                   | sinon : pose via un buffer sur la pile (D)                         |
+| n ≤ 2^32 - 1      | `byte_kernel` : 4 tables de compteurs `u32` (section 1), réécriture (E) |
+| au-delà           | `byte_kernel` avec des compteurs `usize`                           |
+
+### D. La pose (`byte_scatter`, section 3)
+
+Cumul des comptes, chaque clé posée à `début[sa valeur]` dans un buffer de
+256 octets sur la pile, puis recopie. Chaque table de compteurs a ses propres
+débuts dans chaque case, pour que deux clés voisines n'incrémentent jamais le
+même compteur. Depuis le test d'ordre (presque trié, 96 < n ≤ 256), 4 tables
+au lieu de 2 : sur une entrée presque triée, les clés voisines sont souvent
+égales.
+
+### E. La réécriture (`fill_bytes`, section 4)
+
+Les cases par blocs de 16 valeurs : un bloc entièrement vide est sauté d'un
+seul test ; dans un bloc occupé, chaque case est écrite sans test sur son
+compte, par bloc fixe qui déborde (64, 32 ou 16 octets ; 4 × 64 jusqu'à 256
+copies), et par `memset` exact pour les grosses cases et près de la fin.
+
+### Seuils de blazing (tous mesurés sur ses machines)
+
+| seuil | rôle                                                        |
+|-------|-------------------------------------------------------------|
+| 8, 16, 32, 40 | tri dédié, réseaux, petit tri                       |
+| 96    | au-dessus : un petit tableau désordonné va au comptage plutôt qu'à la réparation |
+| 128   | fusion de deux runs dans un buffer sur la pile au plus      |
+| 256   | compteurs d'un octet et pose ; au-delà, compteurs `u32`     |
+| 1024  | test de constance d'emblée (premier = dernier)              |
+
+### Comparé à la v2 (chaîne `types/u8.rs`, 2026-11-18)
+
+| n          | v2                                              | blazing                                  |
+|------------|-------------------------------------------------|------------------------------------------|
+| ≤ 32       | réseau de tri                                   | petit tri (A)                            |
+| 33 à 64    | blocs triés puis fusion                         | test d'ordre, puis petit tri jusqu'à 40, puis comptage (C) |
+| 65 à 255   | test d'ordre (`presorted`), puis `sort_unstable` jusqu'à 150, puis le chemin radix (détecteurs, LSD) | test d'ordre (B), puis comptage avec pose (C, D) |
+| ≥ 256      | test d'ordre (`presorted` : retourne tout le tableau sur 32 paires décroissantes, avant de savoir), puis comptage, 1 table sous 512 clés, table sur le tas | test d'ordre (B), puis comptage, 4 tables sur la pile, réécriture par blocs (E) |
