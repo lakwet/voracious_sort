@@ -12,7 +12,7 @@
 use std::mem::MaybeUninit;
 
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
-use crate::v2::dev::ab::new_rule;
+use crate::v2::dev::ab::{new_rule, variant};
 use crate::v2::engines::bytes;
 use crate::v2::engines::counting::domain_count;
 use crate::v2::engines::lsd::wu8;
@@ -59,7 +59,7 @@ fn sort_large(arr: &mut [u8]) {
             trace!("presorted");
         } else {
             trace!("count8");
-            bytes::count::<0>(bits_of(arr));
+            bytes::count_with::<0>(bits_of(arr), variant());
         }
         return;
     }

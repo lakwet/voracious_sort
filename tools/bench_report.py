@@ -15,7 +15,9 @@ Options:
     --top N        biggest losses listed per machine (default 30)
     --ref NAME     reference column (default: the first one), e.g.
                    "v2 unstable" for the records
-    --vs NAMES     only these sorts (comma-separated), e.g. std,v1
+    --vs NAMES     only these sorts (comma-separated), e.g. std,v1; the
+                   "best rival" is then the best of them, variants of the
+                   reference included (--ref "v2 new" --vs v2: an A/B)
     --label TEXT   only the labels containing TEXT (e.g. "records u64");
                    =TEXT: the label TEXT only (e.g. =bool: the arrays)
     --sizes LIST   only these sizes (comma-separated)
@@ -180,7 +182,9 @@ def main():
                 per_sort[name].add(ns / r_ns)
                 if r_ns / ns >= 1 + a.min_loss:
                     losses.append((r_ns / ns, label, size, gen, name, r_ns, ns, ref))
-            rivals = {k: v for k, v in others.items() if not variant_of(k, ref)}
+            # --vs: exactly those sorts (variants of the reference included).
+            rivals = others if only_vs else {k: v for k, v in others.items()
+                                             if not variant_of(k, ref)}
             if rivals:
                 name, ns = min(rivals.items(), key=lambda kv: kv[1])
                 r = ns / r_ns
