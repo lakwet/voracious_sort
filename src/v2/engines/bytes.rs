@@ -8,7 +8,8 @@
 //!   then scans, a whole-array write lost on descending saws);
 //! - the counters on the stack (4 KiB), no allocation per call;
 //! - 4 tables of counters at every size (one table below 512 keys made
-//!   repeated keys wait on the same counter);
+//!   repeated keys wait on the same counter), `u16` counters up to 65535
+//!   keys (half the memory to clear and to sum);
 //! - the fill skips empty blocks of 16 values with one test;
 //! - at most 256 keys (no more keys than values): one-byte counters in 2
 //!   tables (at most 128 keys each, no overflow) and each key placed at the
@@ -159,22 +160,37 @@ fn starts_of(counts: &[u16; VALUES]) -> [u16; VALUES] {
     starts
 }
 
-/// More keys than values: 4 tables of `u32` counters, then each value
-/// written again as many times as it was counted.
+/// More keys than values: `TABLES` tables of counters, as narrow as `n`
+/// allows (`u16` up to 65535 keys: half the memory to clear and to sum),
+/// then each value written again as many times as it was counted.
 #[inline(never)]
 fn count_fill<const FLIP: u8>(bytes: &mut [u8]) {
+    if bytes.len() <= u16::MAX as usize {
+        count_fill_with::<FLIP, u16>(bytes);
+    } else {
+        count_fill_with::<FLIP, u32>(bytes);
+    }
+}
+
+#[inline(always)]
+fn count_fill_with<const FLIP: u8, C>(bytes: &mut [u8])
+where
+    C: Copy + Default + PartialEq + From<u8> + Into<u64>,
+    C: std::ops::AddAssign + std::ops::BitOr<Output = C>,
+{
     let n = bytes.len();
     debug_assert!(n as u64 <= u32::MAX as u64);
-    let mut tables = [[0u32; VALUES]; TABLES];
+    let one = C::from(1);
+    let mut tables = [[C::default(); VALUES]; TABLES];
     let (words, rest) = bytes.as_chunks::<8>();
     for w in words {
         let w = u64::from_le_bytes(*w);
         for i in 0..8 {
-            tables[i % TABLES][(((w >> (8 * i)) as u8) ^ FLIP) as usize] += 1;
+            tables[i % TABLES][(((w >> (8 * i)) as u8) ^ FLIP) as usize] += one;
         }
     }
     for &x in rest {
-        tables[0][(x ^ FLIP) as usize] += 1;
+        tables[0][(x ^ FLIP) as usize] += one;
     }
     let (counts, others) = tables.split_first_mut().unwrap();
     for t in others.iter() {
@@ -184,11 +200,11 @@ fn count_fill<const FLIP: u8>(bytes: &mut [u8]) {
     }
     let mut start = 0;
     for (block, cb) in counts.as_chunks::<BLOCK>().0.iter().enumerate() {
-        if cb.iter().fold(0, |any, &c| any | c) == 0 {
+        if cb.iter().fold(C::default(), |any, &c| any | c) == C::default() {
             continue;
         }
         for (k, &c) in cb.iter().enumerate() {
-            let c = c as usize;
+            let c = c.into() as usize;
             if c != 0 {
                 fill_run(bytes, start, c, ((block * BLOCK + k) as u8) ^ FLIP);
                 start += c;
