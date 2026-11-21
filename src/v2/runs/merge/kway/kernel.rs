@@ -50,12 +50,17 @@ fn pick<T>(c: bool, a: *const T, b: *const T) -> *const T {
 /// conditional move (v2 `bidir::keep_branch`).
 #[inline(always)]
 fn keep_branch() {
-    #[cfg(any(
-        target_arch = "x86",
-        target_arch = "x86_64",
-        target_arch = "arm",
-        target_arch = "aarch64"
+    // Under Miri (no inline assembly) nothing.
+    #[cfg(all(
+        not(miri),
+        any(
+            target_arch = "x86",
+            target_arch = "x86_64",
+            target_arch = "arm",
+            target_arch = "aarch64"
+        )
     ))]
+    // SAFETY: an empty block, no memory, no stack, flags kept.
     unsafe {
         std::arch::asm!("", options(nomem, nostack, preserves_flags));
     }
