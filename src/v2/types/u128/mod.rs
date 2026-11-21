@@ -1,5 +1,5 @@
 //! u128: the whole decision chain of this type (copy of the shared 128-bit
-//! chain of 2026-11-17; edit here only, see `types`). Narrowing, few values
+//! chain; edit here only, see `types`). Narrowing, few values
 //! and the 128-bit engines: `sorts::devour::wide128`.
 //!
 //! 1. up to `SMALL` keys: `sort_unstable`;
@@ -10,7 +10,6 @@
 
 use crate::v2::cache::{budget, Budget};
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
-use crate::v2::dev::ab::new_rule;
 mod presorted;
 use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs};
@@ -23,7 +22,7 @@ use crate::v2::special::spread;
 const SMALL: usize = 64;
 /// From this size the heavy hitters are extracted (4096 for narrower keys:
 /// 16-byte keys cost more to compare and move, the extraction pays off on
-/// shorter arrays; Sparse 90 % at 1k-3k: 6.6-7.7 ns per key without it).
+/// shorter arrays).
 const HEAVY_MIN: usize = 512;
 
 /// The rollercoaster from this size (L2 / 24: keys of 16 bytes, as the
@@ -39,7 +38,7 @@ pub(crate) fn sort(arr: &mut [u128]) {
     chain! {
         "std_small" if n <= SMALL => do { arr.sort_unstable() };
     }
-    let checked = if new_rule() { self::presorted::presorted(arr) } else { presorted(arr) };
+    let checked = self::presorted::presorted(arr);
     let known = match checked {
         Ok(()) => {
             trace!("presorted");
@@ -84,7 +83,7 @@ pub(crate) fn sort(arr: &mut [u128]) {
     );
 }
 
-/// The radix path (copy of `decide::path` of 2026-11-17); the first matching
+/// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
 fn path(
     arr: &mut [u128],

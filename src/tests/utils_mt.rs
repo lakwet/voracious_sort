@@ -1,4 +1,4 @@
-use super::super::sorts::utils_mt::{aggregate_histograms, compute_offset_mt};
+use crate::v1::sorts::utils_mt::{aggregate_histograms, compute_offset_mt};
 
 #[test]
 fn test_utils_mt_compute_offset_mt() {

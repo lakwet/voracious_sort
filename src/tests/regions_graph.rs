@@ -1,4 +1,4 @@
-use super::super::algo::regions_graph::RegionsGraph;
+use crate::v1::algo::regions_graph::RegionsGraph;
 
 #[test]
 fn test_regions_graph() {

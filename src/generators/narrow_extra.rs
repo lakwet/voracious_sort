@@ -34,7 +34,10 @@ macro_rules! narrow_extra {
             // Tiny range: 16 consecutive values starting at a random one
             pub fn range16(size: usize) -> Vec<$t> {
                 let base = crate::generators::rng().random_range(<$t>::MIN..=<$t>::MAX - 16);
-                (0..size).into_par_iter().map(|_| base + crate::generators::rng().random_range(0..16) as $t).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| base + crate::generators::rng().random_range(0..16) as $t)
+                    .collect()
             }
 
             // Random values already sorted (duplicates included)
@@ -102,7 +105,11 @@ macro_rules! narrow_extra {
                     .into_par_iter()
                     .map(|_| {
                         let mut rng = crate::generators::rng();
-                        if rng.random_range(0..10) == 0 { rng.random::<$t>() } else { 0 }
+                        if rng.random_range(0..10) == 0 {
+                            rng.random::<$t>()
+                        } else {
+                            0
+                        }
                     })
                     .collect()
             }
@@ -113,7 +120,11 @@ macro_rules! narrow_extra {
                     .into_par_iter()
                     .map(|i| {
                         let v = crate::generators::rng().random_range(0..16) as $t;
-                        if i % 2 == 0 { <$t>::MIN + v } else { <$t>::MAX - v }
+                        if i % 2 == 0 {
+                            <$t>::MIN + v
+                        } else {
+                            <$t>::MAX - v
+                        }
                     })
                     .collect()
             }
@@ -125,20 +136,30 @@ macro_rules! narrow_extra {
                 let normal = Normal::new(MID as f64, sd).unwrap();
                 (0..size)
                     .into_par_iter()
-                    .map(|_| normal.sample(&mut crate::generators::rng()).clamp(<$t>::MIN as f64, <$t>::MAX as f64) as $t)
+                    .map(|_| {
+                        normal
+                            .sample(&mut crate::generators::rng())
+                            .clamp(<$t>::MIN as f64, <$t>::MAX as f64) as $t
+                    })
                     .collect()
             }
 
             // Sensor values: 3/4 of the bits used (12 bits for 16-bit keys)
             pub fn sensor(size: usize) -> Vec<$t> {
                 let top = 1u32 << (BITS * 3 / 4);
-                (0..size).into_par_iter().map(|_| crate::generators::rng().random_range(0..top) as $t).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random_range(0..top) as $t)
+                    .collect()
             }
 
             // Aligned values: the low half of the bits is zero
             pub fn aligned(size: usize) -> Vec<$t> {
                 let mask = !(((1u32 << (BITS / 2)) - 1) as $t);
-                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<$t>() & mask).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random::<$t>() & mask)
+                    .collect()
             }
 
             // 60 % of the keys among 4 values, the rest random
@@ -146,7 +167,13 @@ macro_rules! narrow_extra {
                 let mut rng = crate::generators::rng();
                 let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
                 (0..size)
-                    .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random::<$t>() })
+                    .map(|_| {
+                        if rng.random_range(0..10) < 6 {
+                            values[rng.random_range(0..4)]
+                        } else {
+                            rng.random::<$t>()
+                        }
+                    })
                     .collect()
             }
 
@@ -154,7 +181,11 @@ macro_rules! narrow_extra {
             pub fn clusters(size: usize) -> Vec<$t> {
                 let mut rng = crate::generators::rng();
                 let centres: Vec<$t> = (0..16).map(|_| rng.random::<$t>()).collect();
-                (0..size).map(|_| centres[rng.random_range(0..16)].wrapping_add(rng.random_range(0..8) as $t)).collect()
+                (0..size)
+                    .map(|_| {
+                        centres[rng.random_range(0..16)].wrapping_add(rng.random_range(0..8) as $t)
+                    })
+                    .collect()
             }
 
             pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<$t>, &'static str)> {
@@ -189,15 +220,16 @@ narrow_extra!(i16, extra_i16);
 pub mod extra_char {
     use super::*;
 
-    fn chr(c: u32) -> char {
-        std::char::from_u32(c).unwrap()
-    }
+    fn chr(c: u32) -> char { std::char::from_u32(c).unwrap() }
 
     // Letters weighted roughly like English text, with spaces and punctuation
     const TEXT: &str = "eeeeeeeeeeeettttttttttaaaaaaaaoooooooiiiiiiinnnnnnnsssssshhhhhhrrrrrrdddddllllcccuuummwwffggyyppbbvkjxqzETAOINSHRDL0123456789                  ,,,..'-";
 
     fn text_from(alphabet: &[char], size: usize) -> Vec<char> {
-        (0..size).into_par_iter().map(|_| alphabet[crate::generators::rng().random_range(0..alphabet.len())]).collect()
+        (0..size)
+            .into_par_iter()
+            .map(|_| alphabet[crate::generators::rng().random_range(0..alphabet.len())])
+            .collect()
     }
 
     // English-like ASCII text
@@ -235,13 +267,17 @@ pub mod extra_char {
 
     // Emoji (U+1F300..U+1FAFF)
     pub fn emoji(size: usize) -> Vec<char> {
-        (0..size).into_par_iter().map(|_| chr(crate::generators::rng().random_range(0x1F300..0x1FB00))).collect()
+        (0..size)
+            .into_par_iter()
+            .map(|_| chr(crate::generators::rng().random_range(0x1F300..0x1FB00)))
+            .collect()
     }
 
     // Web page: 85 % ASCII text, 10 % accented Latin, 3 % CJK, 2 % emoji
     pub fn mixed_web(size: usize) -> Vec<char> {
         let ascii: Vec<char> = TEXT.chars().collect();
-        let accents: Vec<char> = (0xC0..0x180).filter(|&c| c != 0xD7 && c != 0xF7).map(chr).collect();
+        let accents: Vec<char> =
+            (0xC0..0x180).filter(|&c| c != 0xD7 && c != 0xF7).map(chr).collect();
         (0..size)
             .into_par_iter()
             .map(|_| {
@@ -323,7 +359,11 @@ pub mod extra_char {
             .into_par_iter()
             .map(|_| {
                 let mut rng = crate::generators::rng();
-                if rng.random_range(0..10) == 0 { alphabet[rng.random_range(0..alphabet.len())] } else { ' ' }
+                if rng.random_range(0..10) == 0 {
+                    alphabet[rng.random_range(0..alphabet.len())]
+                } else {
+                    ' '
+                }
             })
             .collect()
     }
@@ -359,4 +399,3 @@ pub mod extra_char {
         ]
     }
 }
-

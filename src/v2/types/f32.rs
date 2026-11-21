@@ -1,5 +1,5 @@
 //! f32: the whole decision chain of this type (copy of the shared float
-//! chain of 2026-11-17; edit here only, see `types`). Sorted through the
+//! chain; edit here only, see `types`). Sorted through the
 //! encoded bits (`sorts::ravenous`: unsigned order = `total_cmp` order).
 //!
 //! 1. at most `NETWORK_MAX` keys: a sorting network;
@@ -23,14 +23,13 @@ use crate::v2::special::floats::{detect32, few32};
 use crate::v2::special::heavy::{dominant, heavy_from_spread, HEAVY_MIN};
 use crate::v2::special::{spread, DENSE_MIN};
 
-/// Up to this size: `sort_unstable` on the encoded keys (where it crosses
-/// the radix path, median over the distributions, Snapdragon X Elite).
+/// Up to this size: `sort_unstable` on the encoded keys (measured where it
+/// crosses the radix path, median over the distributions).
 const SMALL: usize = 350;
 
 /// From this size the presorted check and the repair of nearly sorted
-/// arrays come before the float detectors (f32 timestamps, a few distinct
-/// values nearly in order: 0.67 to 0.15-0.27 ns per key at 10k-3M). Below,
-/// the detectors first (1k: sparse 2.8 against 3.6).
+/// arrays come before the float detectors (timestamps: a few distinct
+/// values nearly in order); below, the detectors first.
 const PRESORTED_FIRST_MIN: usize = 4096;
 
 /// The rollercoaster from this size (L2 / 12).
@@ -104,8 +103,8 @@ fn sort_large(arr: &mut [f32]) {
     };
     let sort_chunk = |chunk: &mut [f32]| {
         // The rollercoaster from `roller_min`; beyond the largest cache the
-        // LSD again, unless the keys are ordered (sentinel at 10M-100M:
-        // Core i5-4690K 0.75, Ryzen 3950X 0.89, Snapdragon X 0.91).
+        // LSD again, unless the keys are ordered (faster on all three CPUs
+        // measured).
         let n = chunk.len();
         let roller = if n >= budget(Budget::Roller32)
             && !(locally_ordered(chunk) || globally_ordered(chunk))
@@ -126,7 +125,7 @@ fn sort_large(arr: &mut [f32]) {
     f32_bits::order_signed_zeros(arr);
 }
 
-/// The radix path (copy of `decide::path` of 2026-11-17); the first matching
+/// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
 fn path(
     arr: &mut [f32],

@@ -11,10 +11,8 @@ macro_rules! int_range {
         /// A spread sample rejects wide ranges first. A sample range narrow
         /// against the limit (ratings, small counters) is counted in one
         /// pass in a window around it (`window_count`); a wider one gets
-        /// the exact min / max first, then the count. Measured (Snapdragon
-        /// X Elite, against min / max then a 1-lane count): u32 0..100 0.54
-        /// to 0.35 ns per key at 1M, Alt16 0.60 to 0.38; one wide outlier
-        /// late in narrow keys costs a wasted counting pass (0.58 to 0.75).
+        /// the exact min / max first, then the count. One wide outlier late
+        /// in narrow keys costs a wasted counting pass.
         pub(crate) fn range(values: &mut [$t], sample: &[$t; SAMPLE]) -> bool {
             let n = values.len();
             if n < FEW_MIN {
@@ -49,9 +47,7 @@ macro_rules! int_range {
             if domain {
                 // Very narrow sample range (in either order): a window of
                 // at most 1/32 of the domain table, the whole domain when
-                // keys fall outside it (u16 at 131k-300k: 16 values 0.96
-                // to 0.48 ns per key, 0..255 0.70 to 0.44, values at both
-                // ends 0.67 to 0.37-0.44).
+                // keys fall outside it.
                 let span = (hi as i128 - lo as i128) as u64 + 1;
                 let rspan = (rot(rhi) - rot(rlo)) as u64 + 1;
                 let tiny = limit / 64;
@@ -84,17 +80,14 @@ macro_rules! int_range {
                 if n <= u32::MAX as usize && shifted_count(values, sample, limit) {
                     return true;
                 }
-                // Values at both ends of the domain, wider than a window (u64
-                // at 1k-1M: 6.7-9.0 to 3.0-4.0 ns per key; u32 3.1 to 2.1).
+                // Values at both ends of the domain, wider than a window.
                 if <$uint>::BITS >= 32 && n < $roller_min() && offset_sort(values, lo, hi, rlo, rhi)
                 {
                     return true;
                 }
                 // Wide range, counted all the same when its counters fit in
                 // half the L2 and enough keys share each counter: one read
-                // and one write against the radix passes (char over its 21
-                // bits at 10M keys: 3.5 to 1.1 ns per key; u64 sawtooth at 3M-10M:
-                // 5.4 to 0.9).
+                // and one write against the radix passes.
                 if <$uint>::BITS >= 32 && n <= u32::MAX as usize {
                     let wide =
                         ((budget(Budget::WideCount) / 8).min(n / WIDE_KEYS_PER_COUNTER)) as u128;
@@ -153,7 +146,7 @@ macro_rules! int_range {
                 for k in keys.iter_mut() {
                     *k = ($encode(*k) ^ TOP) - kmin;
                 }
-                <$uint as DevourSort2>::devour_sort2_impl(keys);
+                <$uint as DevourSort>::devour_sort_impl(keys);
                 // Rotated order puts the keys of the top half of the encoded
                 // domain first; true order puts them last.
                 let split = keys.partition_point(|&k| k + kmin < TOP);
@@ -214,12 +207,8 @@ macro_rules! int_range {
             /// of the encoded domain first, their true order).
             fn wrapped_count(values: &mut [$t], rlo: $t, rhi: $t, limit: usize) -> bool {
                 const TOP: $uint = (1 as $uint) << (<$uint>::BITS - 1);
-                fn renc(k: $uint) -> $uint {
-                    $encode(k) ^ TOP
-                }
-                fn rdec(k: $uint) -> $uint {
-                    $decode(k ^ TOP)
-                }
+                fn renc(k: $uint) -> $uint { $encode(k) ^ TOP }
+                fn rdec(k: $uint) -> $uint { $decode(k ^ TOP) }
                 window_count_split(
                     bits_of(values),
                     rlo as $uint,

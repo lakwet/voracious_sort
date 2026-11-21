@@ -36,9 +36,7 @@ pub(crate) fn merge_all_half<T, E: Fn(&T) -> u128>(
 /// CPU parameter: records of at least this size merged by 4-way rounds
 /// (one move per two levels), smaller ones by 2-way rounds (more moves,
 /// cheaper steps). Where the line falls depends on memory bandwidth against
-/// the latency of a merge step: 32 on the Snapdragon X (2-way four-chain
-/// 0.7-1.3 ns per level, 4-way 1.9-2.3 per two levels, 128 B 5.0 against
-/// 10.4); to be measured on x86 (bench-cpu).
+/// the latency of a merge step: 32 measured on ARM, to be measured on x86.
 pub(crate) static FOUR_WAY_MIN: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(32);
 

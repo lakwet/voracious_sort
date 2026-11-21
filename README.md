@@ -1,264 +1,330 @@
 # Voracious sort
 
-![Rust](https://github.com/lakwet/voracious_sort/workflows/Rust/badge.svg)
-![Rust](https://docs.rs/voracious_radix_sort/badge.svg)
+![CI](https://github.com/lakwet/voracious_sort/workflows/CI/badge.svg)
+![docs.rs](https://docs.rs/voracious_radix_sort/badge.svg)
 
-Dear visitor, welcome.
+Radix sorts for Rust: every primitive type (`bool`, `char`, `u8`, `u16`,
+`u32`, `u64`, `u128`, `usize`, `i8`, `i16`, `i32`, `i64`, `i128`, `isize`,
+`f32`, `f64`) and any struct sorted by a key.
 
-## Introduction
+## Version 2.0: a word before you upgrade
 
-This project's purpose is to have a Rust implementation of a **state
-of the art radix sort** in a single thread and in a multi thread versions.
+Version 2.0 is a complete rewrite of the single-thread sort, and a
+**breaking change** (see [RELEASES.md](RELEASES.md)). It is still young: if
+you prefer something that has been used for years, version **1.2.2** remains
+a good choice and stays available on crates.io. Both are yours to pick.
 
-This crate should be easy to use and the sort should be able to sort almost
-"everything". Radix sort is criticized because people think it can only sort
-unsigned integers. This project proves this wrong, **Voracious sort can sort all
-Rust primitive types** (except String, Tuple and Array for now) **and custom struct**.
-**It is way faster than Rust standard sort and Rust unstable sort** on most of
-the types and data distribution.
+The multithread sort (`voracious_mt_sort`, peeka sort) has **not been
+reworked at all yet**: in 2.0 it is the code of 1.x, unchanged.
 
-Because of Rust Orphan Rule, we chose not to support tuple sorting. You can use
-Struct instead.
+**What comes next.** The performance will be worked on one key type at a
+time: each type has its own code path, so improving one cannot slow down
+another. Each improvement will come out in a small release (2.0.1, 2.0.2,
+...), listed in [RELEASES.md](RELEASES.md).
 
-You will find here:
-- Version
-- License
-- A word about the sort’s name
-- The **documentation** on how to use this sort,
-- Radix sort: basic notions,
-- **Benchmarks**,
-- For developers and researchers
-- **References** we used for this project,
-- Future work,
+No benchmark results are published for 2.0 for now (the folder
+`resultsbenchs/` holds those of 1.x). You can run the benchmarks on your own
+machine (see below): they show how long each sort takes there.
 
-## Version
+> **How version 2.0 was made.** Version 2.0 was written with the help of
+> Claude Opus 5.5 (Anthropic's AI model), used as a pair programmer:
+> designing, coding, testing and benchmarking with me. Where other sorts had
+> good ideas (glidesort, blazing-radix, the Rust standard sorts, research
+> papers), we did not copy their code: we rewrote those algorithms our own
+> way, for what this crate needed, and each idea is credited in the code.
 
-Last version tested/used:
-- Rustc: 1.46.0 stable
-- Rustfmt: 1.4.18 stable
-- Cargo: 1.46.0 stable
-- Clippy: 0.0.212
+## Usage
 
-## License
+```toml
+[dependencies]
+voracious_radix_sort = "2.0"
+# The multithread sort:
+# voracious_radix_sort = { version = "2.0", features = ["voracious_multithread"] }
+```
 
-This project is under the **MIT** license.
+```rust
+use voracious_radix_sort::RadixSort;
 
-See the license file.
+let mut v = vec![5u32, 3, 12, 0, 40];
+v.voracious_sort();
 
-## A word about the sort's name
+// Structs: sorted by a key, stably (equal keys keep their order).
+#[derive(Clone, Copy)]
+struct Event { time: i64, id: u32 }
+let mut events = vec![Event { time: 7, id: 1 }, Event { time: -2, id: 2 }];
+events.voracious_sort_by_key(|e| e.time);
+// Or unstably (equal keys in any order, sometimes faster):
+events.voracious_sort_unstable_by_key(|e| e.time);
+```
 
-When I asked what name to give to this sort, a colleague of mine proposed
-Voracious sort (_Variation Of Radixsort Axelle Cleverly Imagined Over Uncountable
-Sessions_). The name was fun so I took it. It is true that I spent uncountable
-sessions to code this project.
+The `RadixSort` trait works on slices and on `Vec`:
 
-You can also think about it like someone very voracious of radish...
+| method | sorts |
+|---|---|
+| `voracious_sort()` | `bool`, `char`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`, `i32`, `i64`, `i128`, `isize`, `f32`, `f64` |
+| `voracious_stable_sort()` | the same (for these types a sort is always stable) |
+| `voracious_mt_sort(threads)` | the same, multithread (feature `voracious_multithread`) |
+| `voracious_sort_by_key(key)` | any element, by a key of one of the types above, or of a type implementing `SortKey` |
+| `voracious_sort_unstable_by_key(key)` | the same, equal keys in any order |
 
-## Disclaimer about memory consumption
+Two free functions do the same as `voracious_sort` for one family of types:
+`devour_sort` (`bool`, `char`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`, `i32`, `i64`, `i128`, `isize`) and `ravenous_sort` (`f32`,
+`f64`).
 
-Implemented sorts in the voracious trait may be out of place, it means it can
-use memory up to 2x the array size. If you want to be sure to use in place
-algorithm, please use sorting functions instead of the trait.
+Floats are sorted in the order of [`f64::total_cmp`]: negative NaNs first,
+then the negative values, -0.0, +0.0, the positive values, positive NaNs.
 
-## Disclaimer about array size
+A key of your own (a date, a composite key...) only needs to be encoded into
+an unsigned integer of the same order: implement `SortKey` (see the
+[documentation](https://docs.rs/voracious_radix_sort/)).
 
-A radix sort is meant to be used on very big arrays. I make this crate to also sort
-smaller arrays but Voracious will fallback on native rust sorts. I let the user read
-the benchmark results to know if they need the Voracious sort.
+### Memory
 
-## Documentation: How to use it ?
+Some paths of the sort use a buffer as large as the array or half of it
+(allocated by each call and freed at its end). Small arrays and many large
+ones are sorted in place, but which path is taken depends on the data, so
+**plan for a buffer as large as the array** to avoid a bad surprise on
+memory. A strictly in-place sort (no buffer at all) will be added later.
 
-Since it is alreay explained in the crate documentation, we just provide the link:
-- [Voracious sort Rust Doc](https://docs.rs/voracious_radix_sort/)
+## How it works
 
-And we assume that you know how to code in Rust...
+Each key type has its own chain of decisions: very small arrays go to
+sorting networks and merges; already sorted or reversed arrays are found in
+one scan; then the array is read for its shape (nearly sorted, long sorted
+runs, few distinct values, narrow ranges, heavy duplicates, clusters...) and
+the cheapest method is chosen: a counting sort, an LSD or MSD radix sort, a
+merge of the runs found, or a fallback to the standard sort where it is
+better. The thresholds follow the cache sizes of the machine, read at run
+time.
 
-Other implementation examples:
-- [struct](https://github.com/lakwet/voracious_sort/blob/master/src/types/custom.rs)
+### Credits
 
-## Radix sort: basic notions
+Voracious stands on the work of many people. Every idea below was
+rewritten in our own code (no code was copied) and is credited again where
+it is used in the source.
 
-Radix sort is a **non-comparative** sort. It requires a key and **uses the binary
-representation** to sort the input instead of a comparative function. Amongst
-radix sorts there are two sub groups:
+Algorithms of voracious itself (1.x, reworked in 2.0). Many parts of the
+1.x code were heavily modified to be integrated into 2.0 (the engines, the
+run detection, the merges, the codecs of the keys):
 
-- LSD: **L**east **S**ignificant **D**igit; (or LSB: **L**east **S**ignificant **B**it)
-- MSD: **M**ost **S**ignificant **D**igit; (or MSB: **M**ost **S**ignificant **B**it)
+- **DLSD**, diverting LSD radix sort: a simpler variant of
+  [DFR sort](https://github.com/ramou/dfr), with a different diversion and a
+  variable radix.
+- **Rollercoaster sort**: an MSD radix sort that switches to an LSD radix
+  sort on its buckets.
+- **Peeka sort** (multithread, unchanged in 2.0): an improvement of
+  [Regions sort](https://people.csail.mit.edu/jshun/RegionsSort.pdf)
+  (Obeya et al., MIT, 2019).
 
-Their differences are based on how the algorithm iterates through the binary
-representation.
+Algorithms and ideas from others:
 
-Sorts can be **stable** or **unstable**; in general, LSD are stable whereas MSD
-tend to be unstable. Please note that the term stable can be ambiguous in the
-computer science field, we are refering to this one [wikipedia page on sorting algorithm
-stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability).
+- **Verge sort** pre-processing ([Morwenn](https://github.com/Morwenn/vergesort)):
+  long sorted runs are kept and merged instead of sorted again.
+- **American flag sort** (McIlroy, Bostic & McIlroy, 1993) and the swap
+  loop of **Ska sort** (Malte Skarupke, 2016): the in-place MSD passes.
+- **Powersort** (Munro & Wild, 2018): the order in which the k-way merge
+  merges the runs.
+- **TimSort** (Tim Peters): galloping in skewed merges.
+- **glidesort** (Orson Peters, 2023): gap merges split at the crossover
+  point; advancing the left run as `l - t + 1` in branchless merge steps.
+- **blazing-radix** (Max Tikhomirov, 2026, MIT license): in the fused LSD,
+  all histograms in one read on several lanes, `u32` counters, 11-bit
+  digits when they save a pass, digits equal in every key skipped, four keys
+  read before being written, the scratch buffer left uninitialized, the
+  sample of 16 spread keys; the float detectors (constant arrays,
+  integer-valued floats, power-of-two grids, few distinct values); for
+  `u8` / `i8`, each key placed at the start of its cell through a small
+  stack buffer.
+- **turbosort**: sorted, reversed and constant arrays found in one scan.
+- **IPS4o** (Axtmann, Witt, Ferizovic & Sanders, 2017): handling heavy
+  duplicate keys apart, as its equality buckets do; the Exponential,
+  RootDup, TwoDup and EightDup distributions of the benchmarks.
+- **Vectorized bitonic merges** of sorted blocks: AA-sort (Inoue et al.,
+  2007), Chhugani et al. (VLDB 2008), and for NEON arXiv 2409.03970.
+- **Batcher's odd-even merge networks** (Batcher, 1968), pruned: the sorting
+  networks of very small arrays.
+- **Boyer-Moore majority vote**: finding a dominant value on a sample.
+- **The Rust standard library sorts** (ipnsort and driftsort, Lukas Bergdoll
+  and Orson Peters): the fallback where they are faster, and the
+  `random_binary` distribution of their benchmark suite
+  ([sort-research-rs](https://github.com/Voultapher/sort-research-rs)).
+- **Fast radix sort** ([AwardOfSky](https://github.com/AwardOfSky/Fast-Radix-Sort),
+  after Thiel et al., SEA 2015) and **Ska sort**: kept from 1.x as
+  references.
 
-Sorts can be **in place** or **out of place**. A sort is said to be **in place**
-if it does not require more memory than the initial memory used by the input. A
-sort is said **out of place** if it does require more memory (usually, in order
-of `O(n)`). LSD sorts are out of place, and MSD sorts can be either one.
+The other crates in the benchmarks (glidesort, blazing-radix, rdst,
+radsort, turbosort) are compared as they are published, untouched.
 
-**Diversion** is something we do because radix sorts perform badly on small
-inputs. In order to avoid this loss of performance, a radix sort fallbacks on
-another sort when the input becomes too small. Insertion sort is very good for
-input's length less or equal to 32 elements. Diversion can occur at the
-beginning of the algorithm, we check the input's length and we choose the sort
-accordingly, or we trigger it at the end of recursive calls when the remaining
-input is small enough.
+## Tests
 
-The **radix** itself, is the number of bits the sorting algorithm take into
-account per pass. The radix of choice is often 8, however, it may vary depending
-on your use case.
+```sh
+make test         # the correctness tests (what the CI runs)
+make test-miri    # memory checks under Miri
+make test-fuzzy   # random arrays, for a while
+```
 
-In a radix sort, you use an **histogram** which has a size of `2.pow(radix)`.
-Given a **level**<sup>[1]</sup> and a radix, we can compute the histogram. This
-histogram gives all the bucket sizes and thus, the algorithm knows where to move
-each elements. For a detail example, I let the reader read the Wikipedia page on
-[radix sort](https://en.wikipedia.org/wiki/Radix_sort).
-
-<sup>[1]</sup>: If a radix of 8 is choosen, level 1 is the first 8 bits, level
-2 is the next 8 following bits, and so on until there is no more bit to handle.
+- **`make test`** (or `cargo test --release --features voracious_multithread`):
+  every key type on many distributions of the keys (uniform, sorted, reversed,
+  sawtooth, runs, few values, Zipf, clusters, timestamps, NaNs...), at every
+  size where the sort changes its method and at the benchmark sizes, compared
+  with the standard library sort. The duration on a reference machine is
+  printed first; `QUICK=1 make test` stops at 100 000 elements.
+- **`make test-miri`**: runs the sorts under
+  [Miri](https://github.com/rust-lang/miri), an interpreter of Rust that checks
+  every memory access of the unsafe code: reads out of bounds, reads of
+  uninitialized memory, invalid aliasing, leaks. It is very slow, so it uses
+  small arrays, with the cache sizes forced small so that the methods meant
+  for large arrays run too. Needs the nightly toolchain.
+- **`make test-fuzzy`**: builds random arrays by combining random choices
+  (type, size, range of values, duplicates, sorted or reversed parts, special
+  float values), sorts them and compares with the standard sort, for
+  `FUZZ_SECONDS` seconds (60 by default). A failure prints the seed of its
+  case; `FUZZ_SEED=<seed>` replays it.
 
 ## Benchmarks
 
-First, please, read: [PROFILING.md](https://github.com/lakwet/voracious_sort/blob/master/PROFILING.md).
-
-Benchmarks are available here:
-[results folder](https://github.com/lakwet/voracious_sort/tree/master/results)
-
-For each sort, 3 columns:
-- 1st column: time un micro second
-- 2nd column: standard deviation (if more than 1 iteration) in nano second
-- 3rd column: time per item in nano second
-
-## For developers and researchers
-
-- American flag sort is a MSD radix sort. It is an implementation of the very well
-known algorithm [https://en.wikipedia.org/wiki/American_flag_sort](https://en.wikipedia.org/wiki/American_flag_sort).
-
-- Voracious sort is a MSD radix sort. It is an improvement of the
-[Ska sort](https://probablydance.com/2016/12/27/i-wrote-a-faster-sorting-algorithm/)
-and it uses the [Verge sort pre-processing heuristic](https://github.com/Morwenn/vergesort). Depending on the type and the input size, another sort might be choosen (LSD sort, Counting sort, etc...).
-
-- DLSD (Diverting LSD radix sort) is a simpler version of the
-[DFR sort](https://github.com/ramou/dfr) with a different diversion and
-a variable radix (see [article](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)).
-
-- Thiel sort is a LSD radix sort. It is an implementation of [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf) (Implementation in C/C++ is not from the article's author)
-
-- Rollercoaster sort is a hybrid radix sort. It starts as an MSD radix sort, and then switches as
-a LSD radix sort. It is a mix between the Voracious sort and the DLSD sort. This sort
-has a heuristic for signed integers. It performs very well on float (32 or 64 bits) and
-signed integer. It is my contribution to the science.
-
-- Peeka sort is a multithread MSD radix sort. It is an improvement of the MIT's
-researchers Regions sort algorithm: [Regions sort](https://github.com/omarobeya/parallel-inplace-radixsort): [Theoretically-Efficient and Practical Parallel In-Place Radix Sorting](https://people.csail.mit.edu/jshun/RegionsSort.pdf). It is also my contribution to the science.
-
-- All sorts fallback on the [PDQ sort](https://github.com/stjepang/pdqsort) (Rust
-Unstable sort) for very small inputs or on Rust (stable) sort for stable sorts.
-
-## Running the tests
-
-The test suite relies on the multithread feature (`rayon`) to generate its
-inputs:
-
 ```sh
-make test
-# or
-cargo test --release --features "voracious_multithread"
+make bench                  # every key type, 1 000 to 10 000 000 elements
+make bench-type T=u64       # one key type (u8 ... i128, f32, f64, char), 500 to 10 000 000
+make bench-records          # structs sorted by key (T=u64: keys of one type)
+make bench-big              # 30 million elements and more, as far as the RAM allows
+make bench-big-type T=u64
+NATIVE=1 make bench         # any of them, compiled for this CPU (see below)
 ```
 
-### Windows with the GNU toolchain (`x86_64-pc-windows-gnu`)
+### How they are built
 
-The test dependencies (`rand` → `getrandom`) link against Windows system DLLs
-through `raw-dylib`. On the GNU toolchain, rustc delegates this to `dlltool`,
-which in turn needs an assembler (`as`). Without one, the build fails with:
+- **The inputs**: for each key type, dozens of distributions of the keys
+  (about fifty for the integers, `src/generators/`): uniform over the whole
+  range or a narrower one, sorted, reversed, nearly sorted, sawtooth, pipe
+  organ, sorted runs, few distinct values, all equal, Zipf, normal laws,
+  clusters, timestamps, aligned addresses, common prefixes, sparse data, heavy
+  duplicates, composite keys, and the distributions of other benchmarks
+  (binary keys; the exponential, RootDup, TwoDup and EightDup of IPS4o), plus
+  the worst cases of our own detectors (a late outlier, a late extra value, a
+  random tail). Floats add NaNs, infinities and signed zeros; records add
+  sizes from 8 to 128 bytes.
+- **The sizes**: 1 000 to 10 000 000 elements (500 to 10 000 000 by type),
+  and from 30 million up to what the memory holds for the large benchmarks
+  (the array, its copy and a buffer within half the RAM; a size that does
+  not fit is written as skipped).
+- **The sorts**: voracious 2.0, voracious 1.x, the standard library sort
+  (stable or unstable, as the case) and the best other crates of each type:
+  the two fastest on that type, and a third one where it beats voracious on
+  cases the two others do not (chosen on an earlier full benchmark over three
+  machines).
+- **The measure**, to be close to real use: every sort sorts the same arrays,
+  made new for each measurement; each sort is called once per array, as a
+  program would, and pays for its own memory (no buffer kept from one call
+  to the next; freed memory is given back to the system between sorts, so
+  that page faults are paid as in an isolated call); small arrays are sorted
+  several per measurement so that it lasts long enough; the order of the
+  sorts changes at each measurement; one thread, pinned to a fast core;
+  every result is checked to be sorted.
+- **The time of one array**: a measurement times each sort on a batch of
+  new arrays of the same size, many for small sizes (4 000 arrays of 1 000
+  keys, for example) and one for the largest. The time of one array in that
+  measurement is the time of the whole batch divided by the number of
+  arrays. This is repeated (3 measurements, more for the large sizes, each
+  on new arrays) and the median of these times is kept: it is the duration
+  shown in the report; the time per element is that duration divided by the
+  size. One clock around the whole batch, rather than one per array, keeps
+  the cost and the resolution of the clock out of the result for small
+  arrays, which take a few microseconds each; these arrays are sorted one
+  after the other, as in a program that sorts often.
 
-```
-error: error calling dlltool 'dlltool.exe': program not found
-```
+**Real life first.** By default the benchmarks compile every sort the way
+a user of the crate gets it: a release build with no CPU-specific flags
+(cargo never adds `-C target-cpu=native` by itself). That is what most
+programs run, so that is what we measure, for voracious and for every other
+sort alike. `NATIVE=1` compiles all of them for the CPU of the machine
+instead, to see how far each sort goes when it may use every instruction of
+that CPU; the report lists the target features used.
 
-or
+### What you get
 
-```
-error: dlltool could not create import library with ... dlltool.exe: CreateProcess
-```
+Each run writes two files in `resultsbenchs/<machine>/`:
 
-This only affects building the tests: `getrandom` is a dev-dependency, so
-crates depending on `voracious_radix_sort` are not concerned.
+- a **report** to read (`.txt`, also printed while it runs): the machine
+  (CPU, caches, memory, OS, compiler, commit), how the report reads, then
+  for every type and size a table with one line per distribution and, for
+  each sort, the duration of one sort, the time per element and the ratio
+  to voracious 2.0 (above 1: voracious is faster); the title of each table
+  gives the array size, the arrays per measurement and the number of
+  measurements; summary lines give the geometric mean and median of each
+  column and how many distributions voracious wins;
+- the **raw data** (`.csv`), for the tools.
 
-Fix it with one of the following:
+### Tooling
 
-- **Install MinGW binutils** and make sure `dlltool` and `as` are in your
-  `PATH`. With [MSYS2](https://www.msys2.org/):
-  ```sh
-  pacman -S mingw-w64-x86_64-binutils
-  ```
-  then add `C:\msys64\mingw64\bin` to your `PATH`.
-- **Use the MSVC toolchain** (requires the Visual Studio Build Tools):
-  ```sh
-  rustup toolchain install stable-x86_64-pc-windows-msvc
-  cargo +stable-x86_64-pc-windows-msvc test --release --features "voracious_multithread"
-  ```
-- **Workaround without installing anything**: make `getrandom` use the
-  `RDRAND` CPU instruction instead of the Windows API (x86_64 only, tests
-  only):
-  ```sh
-  RUSTFLAGS='--cfg getrandom_backend="rdrand" -C target-feature=+rdrand' \
-    cargo test --release --features "voracious_multithread"
-  ```
+- `python tools/bench_report.py <files or folders>`: summarises any number of
+  raw files, from several machines: where voracious loses, by how much,
+  against which sort, the geometric mean and median of the ratios per sort,
+  size, type and distribution. Options pick the reference column (`--ref`),
+  the sorts compared (`--vs`, for an A/B of two variants), types, sizes,
+  distributions, a loss threshold, a CSV of the losses (`--help`).
+- `python tools/gen_networks.py`: generates the sorting networks of the small
+  arrays (`src/v2/engines/small/networks.rs`).
 
-## Running the benchmarks
+## How we change the code
 
-The speed tests are regular `#[test]` functions hidden in the test suite. They
-are disabled by default because they are slow and print a colored table meant
-for humans.
+Each key type has its own chain of decisions (`src/v2/types/`), so a change
+for one type cannot move another. A change goes through three steps, with
+the tools below, before it is kept.
 
-1. **Enable the modules** in `src/tests/bench/mod.rs` by uncommenting these lines
-   (`test_helpers` is required by both speed modules):
-   ```rust
-   mod test_helpers;
-   #[rustfmt::skip] mod speed_sort;
-   #[rustfmt::skip] mod speed_sort_ded;
-   ```
+1. **The decision trace** (`make trace`, `make trace-ab`, `make trace-write`;
+   feature `v2_trace`): for every cell (type, size, distribution, with the
+   same seeded inputs at each run), the path the sort takes: presorted check,
+   detectors, Verge, engines. No timing. Each machine family has a reference
+   trace in `traces/` (named after the architecture and the cache sizes the
+   rules read); `make trace` lists the cells whose path differs from it. A
+   rule under test is written behind a switch (`if new_rule() { new } else {
+   old }`, `src/v2/dev/ab.rs`); `make trace-ab` traces every cell with it off
+   then on and writes the cells it moves to `traces/moved.txt`. So a change
+   shows exactly which cells it touches, and only those need timing.
+2. **The sentinel** (`make sentinel`): times the rule off against on, in one
+   process, on the moved cells plus a fixed set of control cells (one per
+   family of types, size band and shape). The controls give the noise of the
+   machine: the change is judged against that noise, in minutes instead of a
+   full benchmark.
+3. **The tests** (`make test`, and `make test-miri` / `make test-fuzzy` for
+   changes to unsafe code), then the switch goes, the winner stays, and the
+   reference trace is rewritten (`make trace-write`) when cells moved.
 
-2. **Pick what to compare** in `src/tests/bench/speed_sort.rs`, function
-   `helper_sort`:
-   - `sorts_name`: the column titles, uncomment the sorts you want.
-   - the `helper_sort_aux(...)` calls: uncomment the matching sorts, **in the
-     same order** as `sorts_name` (the titles are only labels).
-   - `runs` (number of iterations), `thread_n` (for multithread sorts),
-     `with_check` (checks the result against Rust's sort, slower) and `sizes`.
-   - at the bottom of the file, uncomment the `#[test]` functions for the types
-     you want (`speed_test_u64`, `speed_test_f32`, ...).
-   - the [`blazing-radix`](https://crates.io/crates/blazing-radix) crate
-     (dev-dependency only) is passed as the last argument of `helper_sort` for
-     the types it supports (`i8`..`i64`, `u8`..`u64`, `f32`), `None` otherwise.
-     Add a `"Blazing"` entry in `sorts_name` where its column appears.
-   - for floats (`f32`, `f64`), replace the `T: Ord` bound of `helper_sort` with
-     the commented `T: PartialOrd` one.
+## Contributing
 
-   `src/tests/bench/speed_sort_ded.rs` benchmarks the dedicated sorts (`lsd_f32`,
-   `lsd_u32`, `cs_u16`) against `blazing-radix`.
+Pull requests are welcome. The CI checks that the code is formatted
+(`cargo +nightly fmt`) and that the correctness tests pass on Linux, Windows
+and macOS.
 
-3. **Run** in release mode, with `--nocapture` to see the output and a single
-   test thread so the benchmarks don't disturb each other:
-   ```sh
-   # shortcut (any test name or filter, adds the getrandom workaround on Windows)
-   make bench speed_test_u64
-   make bench speed_dedicated
+**You can also help without writing code: run a benchmark on your machine.**
+One key type is enough, for example `make bench-type T=u64` (or `T=u32`,
+`T=f64`...), and send the two files it writes in `resultsbenchs/<machine>/`
+(`.txt` and `.csv`) to the email address in `Cargo.toml`. Each file records
+the characteristics of the machine (CPU, cores, caches, memory, operating
+system, compiler, commit), so results from many machines can be compared:
+that is how the thresholds of each type get tuned beyond the few machines
+we own.
 
-   # all enabled speed tests
-   cargo test --release --features "voracious_multithread" speed_ -- --nocapture --test-threads=1
-   # a single one
-   cargo test --release --features "voracious_multithread" speed_test_u64 -- --nocapture --test-threads=1
-   # dedicated sorts
-   cargo test --release --features "voracious_multithread" speed_dedicated -- --nocapture --test-threads=1
-   ```
+Before a benchmark, put the CPU in its performance mode, so that the clock
+does not change during the run: on Linux the `performance` governor (for
+example `sudo cpupower frequency-set -g performance`); on Windows the power
+mode "Best performance", plugged in; on macOS plugged in, low power mode
+off. Close what keeps the machine busy. The report records the power
+setting it ran under.
 
-For each sort, the output shows the mean time in µs (green), the standard
-deviation in ns (red) and the time per item in ns (yellow). Large `sizes` need a
-lot of memory (the input plus a copy when `with_check` is enabled).
+### Windows with the GNU toolchain
+
+The test dependencies (`rand` → `getrandom`) need `dlltool` on the
+`x86_64-pc-windows-gnu` toolchain (`error calling dlltool`). Either install
+the MinGW binutils, use the MSVC toolchain, or make `getrandom` use `RDRAND`:
+`RUSTFLAGS='--cfg getrandom_backend="rdrand" -C target-feature=+rdrand'`.
+This only concerns building the tests, not crates that depend on this one.
+
+## The name
+
+A colleague proposed Voracious sort: _Variation Of Radixsort Axelle Cleverly
+Imagined Over Uncountable Sessions_. Or someone very voracious of radish.
 
 ## References
 
@@ -266,21 +332,16 @@ lot of memory (the input plus a copy when `with_check` is enabled).
 - [Voracious sort](https://axelle.me/2020/11/21/voracious-sort/)
 - [DLSD sort](https://axelle.me/2022/04/19/diverting-lsd-sort/)
 - [Rollercoaster sort](https://axelle.me/2022/04/19/rollercoaster-sort-the-best-of-the-two-worlds/)
-
 - [Ska sort](https://probablydance.com/2016/12/27/i-wrote-a-faster-sorting-algorithm/)
-- [Verge sort pre-processing heuristic](https://github.com/Morwenn/vergesort)
-- [Regions sort](https://github.com/omarobeya/parallel-inplace-radixsort): [Theoretically-Efficient and Practical Parallel In-Place Radix Sorting](https://people.csail.mit.edu/jshun/RegionsSort.pdf)
+- [Verge sort](https://github.com/Morwenn/vergesort)
+- [Regions sort](https://github.com/omarobeya/parallel-inplace-radixsort):
+  [Theoretically-Efficient and Practical Parallel In-Place Radix Sorting](https://people.csail.mit.edu/jshun/RegionsSort.pdf)
 - [DFR sort](https://github.com/ramou/dfr)
-- [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort): [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf) (Sort's implementation and article are not from the same person)
-- [PDQ sort](https://github.com/stjepang/pdqsort)
+- [Fast radix sort](https://github.com/AwardOfSky/Fast-Radix-Sort):
+  [Relaxing the Counting Requirement for Least Significant Digit Radix Sorts](https://users.encs.concordia.ca/~sthiel/DS/SEA2015_FastRadix.pdf)
+- [Powersort](https://www.wild-inter.net/publications/munro-wild-2018) (Munro, Wild)
+- [glidesort](https://github.com/orlp/glidesort), [PDQ sort](https://github.com/orlp/pdqsort)
 
-## Future work
+## License
 
-- Finish profiling.
-- Improve k-way-merge algorithm (add multithread).
-- Add a sort for String (Spreadsort and/or Burstsort).
-- Find a way to multithread the verge sort pre-processing heuristic.
-- Add stable multithread sort.
-- Improve multithread sort for signed integer.
-- Add a stable/unstable sort by key (to avoid to move/copy elements during the sorting).
-- More improvement !
+MIT, see the [LICENSE](LICENSE) file.

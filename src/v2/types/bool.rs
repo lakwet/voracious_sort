@@ -1,13 +1,14 @@
-//! bool: copy of the boolean sort of voracious 1.x (`sorts::boolean_sort`,
-//! 2026-11-18), kept apart so that the v2 never calls the v1.
+//! bool: copy of the boolean sort of voracious 1.x (`sorts::boolean_sort`),
+//! kept apart so that the v2 never calls the v1.
 //!
 //! One vectorized pass counts the `true` values and the descents (`true`
 //! before `false`); a sorted array (no descent) is left untouched, otherwise
 //! the array is rewritten with two fills (`false` then `true`).
 
-/// Bytes summed per lane before the 8-bit lanes are flushed (255 ones at
-/// most per lane).
+/// Bytes summed side by side (one vector of 8-bit lanes).
 const LANES: usize = 32;
+/// Blocks summed before the lanes are flushed: an 8-bit lane holds at most
+/// 255 ones.
 const ROUNDS: usize = 255;
 
 /// Number of `true` among `bytes[..n]` and of descents (`true` followed by

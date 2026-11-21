@@ -7,7 +7,7 @@
 //! buffer.
 
 /// Target bucket size (keys) for the leaves: their DLSD prefix then fits in
-/// 2 passes of 12 bits (journal §12).
+/// 2 passes of 12 bits.
 const LEAF_KEYS: usize = 1 << 15;
 /// A bucket up to this many times `LEAF_KEYS` still goes to a leaf sort
 /// (cheaper than one more MSD pass over it).
@@ -15,7 +15,7 @@ const LEAF_SLACK: usize = 4;
 /// Most buckets made by one MSD pass (more write streams slow the in-place
 /// permutation down).
 const MAX_BUCKETS: usize = 1024;
-/// MSD digit width bounds.
+/// MSD digit width bounds (the width grows with the array, within these).
 const MIN_BITS: u32 = 8;
 const MAX_BITS: u32 = 18;
 /// log2 of the average number of keys per digit value.
@@ -171,43 +171,4 @@ roller_width!(u32, wi32, di32, ri32);
 roller_width!(u128, wu128, du128, ru128);
 roller_width!(u128, wi128, di128, ri128);
 
-#[cfg(test)]
-mod tests {
-    use crate::v2::testing::*;
-
-    /// Every module: `roller` sorts raw bits in the codec's order, below
-    /// `LEAF_KEYS` (one leaf) and beyond (MSD passes, then the leaves).
-    macro_rules! check {
-        ($m:ident, $u:ty, $key:expr) => {{
-            use super::$m as r;
-            let key: fn($u) -> $u = $key;
-            for_each_case::<$u>(|shape, a| {
-                let mut got = a.clone();
-                r::roller(&mut got);
-                let what = format!("{} {} n={}", stringify!($m), shape, a.len());
-                assert!(sorted_by(&got, key), "{}: not sorted", what);
-                assert!(same_values(&got, &a), "{}: values changed", what);
-            });
-        }};
-    }
-
-    #[test]
-    fn floats() {
-        check!(r32, u32, float_key_32);
-        check!(r64, u64, float_key_64);
-    }
-
-    #[test]
-    fn unsigned() {
-        check!(ru32, u32, |b| b);
-        check!(ru64, u64, |b| b);
-        check!(ru128, u128, |b| b);
-    }
-
-    #[test]
-    fn signed() {
-        check!(ri32, u32, |b| b ^ 1 << 31);
-        check!(ri64, u64, |b| b ^ 1 << 63);
-        check!(ri128, u128, |b| b ^ 1 << 127);
-    }
-}
+#[cfg(test)] mod tests;

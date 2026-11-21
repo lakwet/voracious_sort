@@ -66,10 +66,7 @@ pub fn helper_random_array_asc_f64(size: usize) -> Vec<f64> {
 
 // Desc
 pub fn helper_random_array_desc_f64(size: usize) -> Vec<f64> {
-    (0..size)
-        .into_par_iter()
-        .map(|i| ((size - i) as f64) + 0.5)
-        .collect::<Vec<f64>>()
+    (0..size).into_par_iter().map(|i| ((size - i) as f64) + 0.5).collect::<Vec<f64>>()
 }
 
 // Equal
@@ -119,9 +116,7 @@ fn helper_normal(size: usize, range: f64) -> Vec<f64> {
 }
 
 // Normale(0, 2^10)
-pub fn helper_random_array_normale_10_f64(size: usize) -> Vec<f64> {
-    helper_normal(size, 1024.0)
-}
+pub fn helper_random_array_normale_10_f64(size: usize) -> Vec<f64> { helper_normal(size, 1024.0) }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_f64(size: usize) -> Vec<f64> {
@@ -236,10 +231,7 @@ pub fn helper_random_array_desc_sawtooth_f64(size: usize) -> Vec<f64> {
     }
 
     let limit = size as f64 / ((size as f64).log2() * 0.9);
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as f64 % limit)
-        .collect::<Vec<f64>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as f64 % limit).collect::<Vec<f64>>()
 }
 
 // Pipe Organ
@@ -253,8 +245,7 @@ pub fn helper_random_array_pipe_organ_f64(size: usize) -> Vec<f64> {
 
 // Push Front
 pub fn helper_random_array_push_front_f64(size: usize) -> Vec<f64> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as f64).collect::<Vec<f64>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as f64).collect::<Vec<f64>>();
 
     if size > 0 {
         array[size - 1] = 0.0;
@@ -265,8 +256,7 @@ pub fn helper_random_array_push_front_f64(size: usize) -> Vec<f64> {
 
 // Push middle
 pub fn helper_random_array_push_middle_f64(size: usize) -> Vec<f64> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as f64).collect::<Vec<f64>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as f64).collect::<Vec<f64>>();
 
     if size > 0 {
         array[size - 1] = (size / 2) as f64;
@@ -319,7 +309,11 @@ pub fn helper_random_array_sparse90_f64(size: usize) -> Vec<f64> {
         .into_par_iter()
         .map(|_| {
             let mut rng = crate::generators::rng();
-            if rng.random_range(0..10) == 0 { rng.random_range(-1000.0..1000.0) } else { 0.0 }
+            if rng.random_range(0..10) == 0 {
+                rng.random_range(-1000.0..1000.0)
+            } else {
+                0.0
+            }
         })
         .collect()
 }
@@ -329,7 +323,13 @@ pub fn helper_random_array_heavy4_f64(size: usize) -> Vec<f64> {
     let mut rng = crate::generators::rng();
     let values: Vec<f64> = (0..4).map(|_| rng.random_range(-1000.0..1000.0)).collect();
     (0..size)
-        .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random_range(-1000.0..1000.0) })
+        .map(|_| {
+            if rng.random_range(0..10) < 6 {
+                values[rng.random_range(0..4)]
+            } else {
+                rng.random_range(-1000.0..1000.0)
+            }
+        })
         .collect()
 }
 
@@ -392,8 +392,7 @@ pub fn helper_random_array_clusters_f64(size: usize) -> Vec<f64> {
     array
 }
 
-pub fn generators_f64(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<f64>, &'static str)> {
+pub fn generators_f64() -> Vec<(&'static dyn Fn(usize) -> Vec<f64>, &'static str)> {
     let mut v: Vec<(&'static dyn Fn(usize) -> Vec<_>, &'static str)> = vec![
         (&helper_random_array_uniform_f64, "-- Unif       :"),
         (&helper_random_array_small_f64, "-- Small 10^9 :"),

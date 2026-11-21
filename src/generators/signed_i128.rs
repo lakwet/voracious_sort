@@ -14,8 +14,7 @@ pub fn helper_random_array_109_i128(size: usize) -> Vec<i128> {
         .collect::<Vec<i128>>()
 }
 
-pub fn generators_i128(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<i128>, &'static str)> {
+pub fn generators_i128() -> Vec<(&'static dyn Fn(usize) -> Vec<i128>, &'static str)> {
     vec![
         (&helper_random_array_uniform_i128, "-- Unif       :"),
         (&helper_random_array_109_i128, "-- +-10^9     :"),
@@ -23,8 +22,7 @@ pub fn generators_i128(
 }
 
 #[cfg(target_pointer_width = "128")]
-pub fn generators_isize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<isize>, &'static str)> {
+pub fn generators_isize() -> Vec<(&'static dyn Fn(usize) -> Vec<isize>, &'static str)> {
     generators_i128()
         .into_iter()
         .map(|(gen, title)| {
@@ -35,11 +33,7 @@ pub fn generators_isize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<isize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<isize>, title)
         })
         .collect()
 }

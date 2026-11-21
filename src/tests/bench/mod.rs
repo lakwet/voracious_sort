@@ -1,8 +1,4 @@
-//! Performance tests (ignored or printing timings, not correctness):
-//! `bench_cpu` (the CPU benchmark of `make benchcpu`, `benchbilan`...),
-//! `speed_sort` (v1 speed tests, `make bench <name>`), their helpers.
+//! The benchmarks (ignored tests, run by `make bench`, `make bench-type`,
+//! `make bench-records`, `make bench-big`, `make bench-big-type`).
 
 mod bench_cpu;
-mod test_helpers;
-#[rustfmt::skip] mod speed_sort;
-// #[rustfmt::skip] mod speed_sort_ded;

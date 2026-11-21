@@ -96,14 +96,10 @@ fn helper_small(size: usize, range: u32) -> Vec<u32> {
 }
 
 // Small size1
-pub fn helper_random_array_small_size1_u32(size: usize) -> Vec<u32> {
-    helper_small(size, 255)
-}
+pub fn helper_random_array_small_size1_u32(size: usize) -> Vec<u32> { helper_small(size, 255) }
 
 // Small size2
-pub fn helper_random_array_small_size2_u32(size: usize) -> Vec<u32> {
-    helper_small(size, 65_535)
-}
+pub fn helper_random_array_small_size2_u32(size: usize) -> Vec<u32> { helper_small(size, 65_535) }
 
 // Small size3
 pub fn helper_random_array_small_size3_u32(size: usize) -> Vec<u32> {
@@ -198,10 +194,7 @@ pub fn helper_random_array_desc_sawtooth_u32(size: usize) -> Vec<u32> {
     }
 
     let limit = (size as f64 / ((size as f64).log2() * 0.9)) as u32;
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as u32 % limit)
-        .collect::<Vec<u32>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as u32 % limit).collect::<Vec<u32>>()
 }
 
 // Pipe Organ
@@ -215,8 +208,7 @@ pub fn helper_random_array_pipe_organ_u32(size: usize) -> Vec<u32> {
 
 // Push Front
 pub fn helper_random_array_push_front_u32(size: usize) -> Vec<u32> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as u32).collect::<Vec<u32>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as u32).collect::<Vec<u32>>();
 
     if size > 0 {
         array[size - 1] = 0;
@@ -227,8 +219,7 @@ pub fn helper_random_array_push_front_u32(size: usize) -> Vec<u32> {
 
 // Push middle
 pub fn helper_random_array_push_middle_u32(size: usize) -> Vec<u32> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as u32).collect::<Vec<u32>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as u32).collect::<Vec<u32>>();
 
     if size > 0 {
         array[size - 1] = (size / 2) as u32;
@@ -249,24 +240,16 @@ fn helper_normal(size: usize, bound: f64) -> Vec<u32> {
 }
 
 // Normale(0, 2^8)
-pub fn helper_random_array_normale_8_u32(size: usize) -> Vec<u32> {
-    helper_normal(size, 255.0)
-}
+pub fn helper_random_array_normale_8_u32(size: usize) -> Vec<u32> { helper_normal(size, 255.0) }
 
 // Normale(0, 2^10)
-pub fn helper_random_array_normale_10_u32(size: usize) -> Vec<u32> {
-    helper_normal(size, 1024.0)
-}
+pub fn helper_random_array_normale_10_u32(size: usize) -> Vec<u32> { helper_normal(size, 1024.0) }
 
 // Normale(0, 2^13)
-pub fn helper_random_array_normale_13_u32(size: usize) -> Vec<u32> {
-    helper_normal(size, 8191.0)
-}
+pub fn helper_random_array_normale_13_u32(size: usize) -> Vec<u32> { helper_normal(size, 8191.0) }
 
 // Normale(0, 2^16)
-pub fn helper_random_array_normale_16_u32(size: usize) -> Vec<u32> {
-    helper_normal(size, 65_535.0)
-}
+pub fn helper_random_array_normale_16_u32(size: usize) -> Vec<u32> { helper_normal(size, 65_535.0) }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_u32(size: usize) -> Vec<u32> {
@@ -283,8 +266,7 @@ pub fn helper_random_array_normale_30_u32(size: usize) -> Vec<u32> {
     helper_normal(size, 1_000_000_000.0)
 }
 
-pub fn generators_u32(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<u32>, &'static str)> {
+pub fn generators_u32() -> Vec<(&'static dyn Fn(usize) -> Vec<u32>, &'static str)> {
     vec![
         (&helper_random_array_uniform_u32, "-- Unif       :"),
         (&helper_random_array_uniform_10_9_u32, "-- Unif 10^9  :"),
@@ -316,8 +298,7 @@ pub fn generators_u32(
 }
 
 #[cfg(target_pointer_width = "32")]
-pub fn generators_usize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
+pub fn generators_usize() -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
     generators_u32()
         .into_iter()
         .map(|(gen, title)| {
@@ -328,11 +309,7 @@ pub fn generators_usize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<usize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<usize>, title)
         })
         .collect()
 }

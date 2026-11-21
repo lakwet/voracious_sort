@@ -14,7 +14,7 @@
 //!   apart there), then the small groups sharing that prefix finished; the
 //!   rollercoaster above the cache.
 
-use super::{devour_sort2, DevourSort2};
+use super::{devour_sort, DevourSort};
 use crate::v2::engines::dlsd::{di128, du128};
 use crate::v2::engines::roller::{ri128, ru128};
 use crate::v2::special::SAMPLE;
@@ -86,7 +86,7 @@ pub(crate) fn narrow<T: Key128>(arr: &mut [T]) -> bool {
 }
 
 /// A narrower unsigned key.
-trait Narrow: Copy + DevourSort2 {
+trait Narrow: Copy + DevourSort {
     /// A narrowed key from its offset (fits by construction).
     fn from128(v: u128) -> Self;
     /// The narrowed key back as an offset.
@@ -122,7 +122,7 @@ fn narrow_to<T: Key128, U: Narrow>(arr: &mut [T], lo: u128, tz: u32) {
             let k = wide.add(i).read();
             small.add(i).write(U::from128((k.enc() - lo) >> tz));
         }
-        devour_sort2(std::slice::from_raw_parts_mut(small, n));
+        devour_sort(std::slice::from_raw_parts_mut(small, n));
         // Widened from the end: the wide key `i` covers bytes [16 i, 16 i +
         // 16), above the narrow keys still to read (indices < i), except
         // for i = 0, read before it is written.
@@ -192,8 +192,7 @@ pub(crate) fn few<T: Key128>(arr: &mut [T], spread: Option<&[T; SAMPLE]>) -> boo
         }
     }
     // One value over a quarter of the sample: left to the heavy-hitter
-    // extraction, cheaper than sorting and rewriting every distinct value
-    // (sparse data: 5.0 against 2.5 ns per key at 1k).
+    // extraction, cheaper than sorting and rewriting every distinct value.
     if seen.iter().any(|&c| 4 * c as usize >= s) {
         return false;
     }
@@ -256,56 +255,11 @@ fn narrow_with<U: Narrow>(
         for i in 0..n {
             small.add(i).write(U::from128(enc(wide.add(i).read()) - min));
         }
-        devour_sort2(std::slice::from_raw_parts_mut(small, n));
+        devour_sort(std::slice::from_raw_parts_mut(small, n));
         for i in (0..n).rev() {
             wide.add(i).write(dec(min + small.add(i).read().to128()));
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v2::testing::*;
-
-    /// Narrowing and the few-values count of 128-bit keys: sorted when they
-    /// answer `true`, untouched otherwise. Few values with none over a
-    /// quarter of the sample (else left to the heavy hitters) are taken.
-    macro_rules! check {
-        ($t:ty) => {
-            for_each_case::<u128>(|shape, raw| {
-                let a: Vec<$t> = raw.iter().map(|&x| x as $t).collect();
-                if a.len() < 2 {
-                    return;
-                }
-                let what = format!("{} {} n={}", stringify!($t), shape, a.len());
-                let mut got = a.clone();
-                if narrow(&mut got) {
-                    assert!(sorted_by(&got, |x| x) && same_values(&got, &a), "narrow {}", what);
-                } else {
-                    assert!(got == a, "narrow {}: gave up but changed", what);
-                }
-                let mut got = a.clone();
-                if few(&mut got, None) {
-                    assert!(sorted_by(&got, |x| x) && same_values(&got, &a), "few {}", what);
-                } else {
-                    assert!(got == a, "few {}: gave up but changed", what);
-                }
-            });
-            let mut r = Rng(67);
-            // From 8192 keys the sample (n / 32, at most 256) holds twice the values.
-            for &n in [8192usize, 100_000].iter() {
-                let a: Vec<$t> = (0..n).map(|_| ((r.next() % 100) as $t) << 70).collect();
-                let mut got = a.clone();
-                assert!(few(&mut got, None), "few {} n={}: 100 values missed", stringify!($t), n);
-                assert!(sorted_by(&got, |x| x) && same_values(&got, &a));
-            }
-        };
-    }
-
-    #[test]
-    fn narrow_and_few() {
-        check!(u128);
-        check!(i128);
-    }
-}
+#[cfg(test)] mod tests;

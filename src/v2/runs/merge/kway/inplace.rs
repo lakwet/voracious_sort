@@ -15,11 +15,19 @@
 use super::kernel::{count, hole_bwd, hole_fwd, skewed, GALLOP_MIN};
 use core::ptr;
 
+/// A right run of at most this many elements is copied to the stack and
+/// inserted from the back (no buffer needed).
 const INSERT_MAX: usize = 16;
 
 /// Stable merge of `v[start..mid]` and `v[mid..end]`; `buf` holds at least
 /// `min(mid - start, end - mid)` elements.
-pub fn merge_two<T: Copy + PartialOrd>(v: &mut [T], buf: *mut T, start: usize, mid: usize, end: usize) {
+pub fn merge_two<T: Copy + PartialOrd>(
+    v: &mut [T],
+    buf: *mut T,
+    start: usize,
+    mid: usize,
+    end: usize,
+) {
     if start >= mid || mid >= end || v[mid - 1] <= v[mid] {
         return;
     }
@@ -130,7 +138,13 @@ fn count_front_lower<T: PartialOrd>(a: &[T], x: &T) -> usize {
 
 /// A short right run (copied out) merged into a long left one from the
 /// back, the left stretches above each right element moved as blocks.
-unsafe fn gallop_back<T: Copy + PartialOrd>(v: &mut [T], buf: *mut T, start: usize, mid: usize, end: usize) {
+unsafe fn gallop_back<T: Copy + PartialOrd>(
+    v: &mut [T],
+    buf: *mut T,
+    start: usize,
+    mid: usize,
+    end: usize,
+) {
     let m = end - mid;
     ptr::copy_nonoverlapping(v.as_ptr().add(mid), buf, m);
     count(m);
@@ -138,7 +152,13 @@ unsafe fn gallop_back<T: Copy + PartialOrd>(v: &mut [T], buf: *mut T, start: usi
 }
 
 /// `gallop_back` with the right run already out, in `b` (`v[mid..end]` free).
-pub fn gallop_back_from<T: Copy + PartialOrd>(v: &mut [T], b: &[T], start: usize, mid: usize, end: usize) {
+pub fn gallop_back_from<T: Copy + PartialOrd>(
+    v: &mut [T],
+    b: &[T],
+    start: usize,
+    mid: usize,
+    end: usize,
+) {
     let m = end - mid;
     let (mut j, mut i, mut pos) = (mid, m, end);
     let mut moved = 0;
@@ -166,7 +186,13 @@ pub fn gallop_back_from<T: Copy + PartialOrd>(v: &mut [T], b: &[T], start: usize
 
 /// Mirror: a short left run (copied out) merged into a long right one from
 /// the front.
-unsafe fn gallop_forward<T: Copy + PartialOrd>(v: &mut [T], buf: *mut T, start: usize, mid: usize, end: usize) {
+unsafe fn gallop_forward<T: Copy + PartialOrd>(
+    v: &mut [T],
+    buf: *mut T,
+    start: usize,
+    mid: usize,
+    end: usize,
+) {
     let m = mid - start;
     ptr::copy_nonoverlapping(v.as_ptr().add(start), buf, m);
     count(m);
@@ -175,7 +201,13 @@ unsafe fn gallop_forward<T: Copy + PartialOrd>(v: &mut [T], buf: *mut T, start: 
 
 /// `gallop_forward` with the left run already out, in `b` (`v[start..mid]`
 /// free).
-pub fn gallop_forward_from<T: Copy + PartialOrd>(v: &mut [T], b: &[T], start: usize, mid: usize, end: usize) {
+pub fn gallop_forward_from<T: Copy + PartialOrd>(
+    v: &mut [T],
+    b: &[T],
+    start: usize,
+    mid: usize,
+    end: usize,
+) {
     let m = mid - start;
     let (mut j, mut i, mut pos) = (mid, 0, start);
     let mut moved = 0;

@@ -48,6 +48,7 @@ pub(crate) fn lsd<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, hist: &[[usize; 
 /// histograms of (key - lo) taken here by one read, the digits equal in
 /// every key skipped.
 pub(crate) fn lsd11<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E, lo: u64) {
+    // 11-bit digits: 2048 buckets, six passes cover 64 bits.
     const R: usize = 11;
     const B: usize = 1 << R;
     let n = arr.len();

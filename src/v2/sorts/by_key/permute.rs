@@ -12,7 +12,7 @@ const NEAR: usize = 64;
 /// sequence (nearly sorted data, shifted blocks). Else gathered through a
 /// buffer over the span that moves: following a cycle chains its random
 /// reads one after another, while the gather issues them independently
-/// (random records of 32 bytes at 1M: 103 against 27 ns per key).
+/// (four times faster on random records).
 pub(super) fn permute<T, P: Copy>(
     arr: &mut [T],
     perm: &mut [P],

@@ -95,6 +95,7 @@ pub(crate) fn few_keys<T, E: Fn(&T) -> u128>(
 /// skip the lookup (the previous slot kept). Gives up beyond `WIDE_MAX`
 /// distinct keys, nothing moved.
 pub(crate) fn few_keys_wide<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) -> bool {
+    // At most 4096 distinct keys in a table of 8192 slots (half full).
     const WIDE_MAX: usize = 4096;
     const BITS: u32 = 13;
     const TABLE: usize = 1 << BITS;

@@ -1,7 +1,7 @@
 //! Records of at most 8 bytes: the pieces of their own path (the path
 //! itself is copied in each `types::records` chain of at most 8 bytes).
 //!
-//! The first records sort (2026-11), still the
+//! The first records sort, still the
 //! fastest for them (its first read with the byte histograms, the LSD on
 //! the records themselves).
 //!

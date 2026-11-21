@@ -9,9 +9,7 @@ type E = u64;
 type V = (__m128i, __m128i);
 
 #[inline(always)]
-unsafe fn neg_mask(v: __m128i) -> __m128i {
-    _mm_cmpgt_epi64(_mm_setzero_si128(), v)
-}
+unsafe fn neg_mask(v: __m128i) -> __m128i { _mm_cmpgt_epi64(_mm_setzero_si128(), v) }
 
 /// Bits to the signed-order key (its own inverse for M 0 and 1).
 #[inline(always)]

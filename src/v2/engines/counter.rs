@@ -18,13 +18,9 @@ impl Counter for u32 {
     const ONE: Self = 1;
     const FOUR: Self = 4;
     #[inline(always)]
-    fn get(self) -> usize {
-        self as usize
-    }
+    fn get(self) -> usize { self as usize }
     #[inline(always)]
-    fn from_usize(v: usize) -> Self {
-        v as u32
-    }
+    fn from_usize(v: usize) -> Self { v as u32 }
 }
 
 impl Counter for usize {
@@ -32,11 +28,7 @@ impl Counter for usize {
     const ONE: Self = 1;
     const FOUR: Self = 4;
     #[inline(always)]
-    fn get(self) -> usize {
-        self
-    }
+    fn get(self) -> usize { self }
     #[inline(always)]
-    fn from_usize(v: usize) -> Self {
-        v
-    }
+    fn from_usize(v: usize) -> Self { v }
 }

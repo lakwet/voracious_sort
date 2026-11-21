@@ -5,8 +5,8 @@
 //! the payload's first word is the record's original index (stability
 //! checks).
 
-use super::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
 use super::int128_extra::{extra_i128, extra_u128};
+use super::int_extra::{extra_i32, extra_i64, extra_u32, extra_u64};
 use super::narrow_extra::{extra_char, extra_i16, extra_i8, extra_u16, extra_u8};
 
 pub type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -43,33 +43,16 @@ pub struct RecPair {
     pub index: u64,
 }
 
-/// Competitors that sort records through a trait on the record: rdst
-/// (`RadixKey`) and voracious 1.x (`Radixable`).
+/// rdst sorts records through a trait on the record (`RadixKey`); the one
+/// of voracious 1.x (`Radixable`): `src/tests/v1_records.rs`.
 impl<K: rdst::RadixKey, const W: usize> rdst::RadixKey for Rec<K, W> {
     const LEVELS: usize = K::LEVELS;
     #[inline]
-    fn get_level(&self, level: usize) -> u8 {
-        self.key.get_level(level)
-    }
+    fn get_level(&self, level: usize) -> u8 { self.key.get_level(level) }
 }
-
-macro_rules! v1_rec {
-    ($($k:ty),*) => {$(
-        impl<const W: usize> crate::Radixable<$k> for Rec<$k, W> {
-            type Key = $k;
-            #[inline]
-            fn key(&self) -> $k {
-                self.key
-            }
-        }
-    )*};
-}
-v1_rec!(bool, u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, f32, f64, char);
 
 impl RecPair {
-    pub fn key(&self) -> u64 {
-        ((self.hi as u64) << 32) | self.lo as u64
-    }
+    pub fn key(&self) -> u64 { ((self.hi as u64) << 32) | self.lo as u64 }
 }
 
 /// Key generators of each key type (own list + extras).
@@ -123,12 +106,8 @@ pub fn keys_i64() -> Gens<i64> {
     g.extend(extra_i64::generators());
     g
 }
-pub fn keys_f32() -> Gens<f32> {
-    super::float_32::generators_f32()
-}
-pub fn keys_f64() -> Gens<f64> {
-    super::float_64::generators_f64()
-}
+pub fn keys_f32() -> Gens<f32> { super::float_32::generators_f32() }
+pub fn keys_f64() -> Gens<f64> { super::float_64::generators_f64() }
 pub fn keys_char() -> Gens<char> {
     let mut g = super::char::generators_char();
     g.extend(extra_char::generators());
@@ -174,7 +153,10 @@ pub fn rec_string(keys: Vec<u64>) -> Vec<RecString> {
 }
 
 pub fn rec_pair(keys: Vec<u64>) -> Vec<RecPair> {
-    keys.into_iter().enumerate().map(|(i, k)| RecPair { hi: (k >> 32) as u32, lo: k as u32, index: i as u64 }).collect()
+    keys.into_iter()
+        .enumerate()
+        .map(|(i, k)| RecPair { hi: (k >> 32) as u32, lo: k as u32, index: i as u64 })
+        .collect()
 }
 
 /// Keys built to test stability (correctness tests only): many equal keys
@@ -184,9 +166,7 @@ pub fn rec_pair(keys: Vec<u64>) -> Vec<RecPair> {
 pub mod stability {
     use rand::RngExt;
 
-    pub fn equal(n: usize) -> Vec<u64> {
-        vec![7; n]
-    }
+    pub fn equal(n: usize) -> Vec<u64> { vec![7; n] }
     pub fn two_values(n: usize) -> Vec<u64> {
         (0..n).map(|_| crate::generators::rng().random_range(0..2)).collect()
     }
@@ -208,13 +188,9 @@ pub mod stability {
         (0..n).map(|_| crate::generators::rng().random_range(0..k)).collect()
     }
     // Ascending with runs of 8 equal keys (the presorted path).
-    pub fn asc_dups(n: usize) -> Vec<u64> {
-        (0..n as u64).map(|i| i / 8).collect()
-    }
+    pub fn asc_dups(n: usize) -> Vec<u64> { (0..n as u64).map(|i| i / 8).collect() }
     // Descending, not strictly: must not be reversed.
-    pub fn desc_dups(n: usize) -> Vec<u64> {
-        (0..n as u64).map(|i| (n as u64 - i) / 8).collect()
-    }
+    pub fn desc_dups(n: usize) -> Vec<u64> { (0..n as u64).map(|i| (n as u64 - i) / 8).collect() }
     // Strictly descending but for one equal pair at the end.
     pub fn desc_last_equal(n: usize) -> Vec<u64> {
         let mut v: Vec<u64> = (0..n as u64).map(|i| 2 * (n as u64 - i)).collect();
@@ -235,7 +211,8 @@ pub mod stability {
     }
     // 8 sorted runs over 100 values: many ties between runs.
     pub fn runs_dups(n: usize) -> Vec<u64> {
-        let mut v: Vec<u64> = (0..n).map(|_| crate::generators::rng().random_range(0..100)).collect();
+        let mut v: Vec<u64> =
+            (0..n).map(|_| crate::generators::rng().random_range(0..100)).collect();
         for r in 0..8 {
             v[r * n / 8..(r + 1) * n / 8].sort_unstable();
         }
@@ -245,15 +222,32 @@ pub mod stability {
     pub fn asc_tail_dups(n: usize) -> Vec<u64> {
         let cut = n * 9 / 10;
         let top = (cut as u64 / 4).max(1);
-        (0..n).map(|i| if i < cut { i as u64 / 4 } else { crate::generators::rng().random_range(0..top) }).collect()
+        (0..n)
+            .map(
+                |i| {
+                    if i < cut {
+                        i as u64 / 4
+                    } else {
+                        crate::generators::rng().random_range(0..top)
+                    }
+                },
+            )
+            .collect()
     }
     // One value for 60 %, the rest among 100.
     pub fn heavy_dups(n: usize) -> Vec<u64> {
-        (0..n).map(|_| { let mut r = crate::generators::rng(); if r.random_range(0..10) < 6 { 50 } else { r.random_range(0..100) } }).collect()
+        (0..n)
+            .map(|_| {
+                let mut r = crate::generators::rng();
+                if r.random_range(0..10) < 6 {
+                    50
+                } else {
+                    r.random_range(0..100)
+                }
+            })
+            .collect()
     }
-    pub fn alternate(n: usize) -> Vec<u64> {
-        (0..n as u64).map(|i| i % 2).collect()
-    }
+    pub fn alternate(n: usize) -> Vec<u64> { (0..n as u64).map(|i| i % 2).collect() }
 
     pub fn generators() -> super::Gens<u64> {
         vec![

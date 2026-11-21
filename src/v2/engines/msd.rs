@@ -41,26 +41,18 @@ impl Digits for u64 {
     const ZERO: Self = 0;
     const MAX: Self = u64::MAX;
     #[inline(always)]
-    fn digit(self, shift: u32) -> usize {
-        ((self >> shift) & 0xFF) as usize
-    }
+    fn digit(self, shift: u32) -> usize { ((self >> shift) & 0xFF) as usize }
     #[inline(always)]
-    fn bits(self) -> u32 {
-        64 - self.leading_zeros()
-    }
+    fn bits(self) -> u32 { 64 - self.leading_zeros() }
 }
 
 impl Digits for u128 {
     const ZERO: Self = 0;
     const MAX: Self = u128::MAX;
     #[inline(always)]
-    fn digit(self, shift: u32) -> usize {
-        ((self >> shift) & 0xFF) as usize
-    }
+    fn digit(self, shift: u32) -> usize { ((self >> shift) & 0xFF) as usize }
     #[inline(always)]
-    fn bits(self) -> u32 {
-        128 - self.leading_zeros()
-    }
+    fn bits(self) -> u32 { 128 - self.leading_zeros() }
 }
 
 /// One MSD pass on the keys of `arr`, known to lie in `lo..=hi` (`lo <
@@ -105,8 +97,7 @@ fn pass<T, K: Digits, F: Fn(&T) -> K>(arr: &mut [T], key: &F, lo: K, hi: K) {
 
 /// Cycles: the record at the head of bucket `b` goes to the head of its own
 /// bucket, the record found there comes back, until one belongs. For records
-/// the cycles beat the rounds of `permute` (128-byte records 50k-1M, Surface
-/// sentinel: rounds 1.08 times slower, up to 1.6).
+/// the cycles beat the rounds of `permute`.
 fn cycles<T, K: Digits, F: Fn(&T) -> K>(
     arr: &mut [T],
     key: &F,
@@ -213,40 +204,4 @@ pub(crate) fn permute<T, D: Fn(&T) -> usize>(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v2::testing::*;
-
-    /// Records (key, position) by their key: in key order, none lost. Keys
-    /// of 64 bits (range within u64) and of 128 bits (wider range).
-    #[test]
-    fn records() {
-        for_each_case::<u64>(|shape, keys| {
-            let a: Vec<(u64, u32)> = keys.iter().enumerate().map(|(i, &k)| (k, i as u32)).collect();
-            check(&format!("u64 {}", shape), a, |x: &(u64, u32)| x.0 as u128);
-        });
-        for_each_case::<u128>(|shape, keys| {
-            let a: Vec<(u128, u32)> =
-                keys.iter().enumerate().map(|(i, &k)| (k, i as u32)).collect();
-            check(&format!("u128 {}", shape), a, |x: &(u128, u32)| x.0);
-        });
-    }
-
-    fn check<T: Copy + Ord, E: Fn(&T) -> u128>(what: &str, a: Vec<T>, enc: E) {
-        if a.is_empty() {
-            return;
-        }
-        let lo = a.iter().map(&enc).min().unwrap();
-        let hi = a.iter().map(&enc).max().unwrap();
-        let mut got = a.clone();
-        msd(&mut got, &enc, lo, hi);
-        assert!(
-            got.windows(2).all(|w| enc(&w[0]) <= enc(&w[1])),
-            "{} n={}: not sorted",
-            what,
-            a.len()
-        );
-        assert!(same_values(&got, &a), "{} n={}: records lost", what, a.len());
-    }
-}
+#[cfg(test)] mod tests;

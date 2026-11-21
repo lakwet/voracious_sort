@@ -43,10 +43,9 @@ macro_rules! int_few {
                 }
             }
             // Many values in the sample: a table 4 times larger, so that
-            // the probe chains stay short (16 clusters of 8 consecutive u16
-            // values at 30k-100k keys: 0.85-1.23 to 0.52-0.96 ns per key;
-            // the time followed the collisions, 0.7 to 3.5 ns). Below
-            // `FEW_BIG_MIN` keys, zeroing it costs more than it saves.
+            // the probe chains stay short (the time follows the
+            // collisions). Below `FEW_BIG_MIN` keys, zeroing it costs more
+            // than it saves.
             if distinct > FEW_TABLE / 8 && n >= FEW_BIG_MIN {
                 few_count::<{ 4 * FEW_TABLE }>(values)
             } else {

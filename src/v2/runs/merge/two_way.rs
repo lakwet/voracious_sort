@@ -43,7 +43,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
         // A few right elements: copied out, then merged from the back, each
         // left element moved once (block moves between binary searches);
         // one rotation per inserted element moved the prefix again and
-        // again (i64 sorted + 0.1 % tail 10k: 0.25 against 0.60 ns per key).
+        // again.
         let mut tmp = [arr[middle]; INSERT_MAX];
         tmp[..right].copy_from_slice(&arr[middle..end]);
         let (mut j, mut pos) = (middle, end);
@@ -79,8 +79,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
             <= crate::v2::cache::budget(crate::v2::cache::Budget::MergeTwoWay) / 2;
         // The only merge (two runs: a pipe organ), balanced, beyond the
         // cache: the gap merge (shorter run in the buffer, four chains, no
-        // copy back) instead of the one-chain merge below (u64 pipe organ
-        // 1M 1.34 to 1.06, 10M 2.12 to 1.85 ns per key). In the cache the
+        // copy back) instead of the one-chain merge below. In the cache the
         // two-ended merge into the scratch stays faster; in the rounds of
         // many runs (sawtooth) the gap merge loses.
         if only && !in_cache && 4 * left.min(right) >= len {
@@ -93,9 +92,7 @@ pub(super) fn merge_in_place<T: Copy + PartialOrd>(
             }
             // Blocks already ordered against the other run go straight to
             // their place: the left elements above the last right one end the
-            // output, the right elements below the first left one start it
-            // (u16 sawtooth with two teeth at 100k keys: 0.70 to 0.47 ns
-            // per key).
+            // output, the right elements below the first left one start it.
             let src = &arr[start..end];
             let mid = middle - start;
             let tail = mid - src[..mid].partition_point(|x| *x <= src[len - 1]);

@@ -31,17 +31,13 @@ unsafe fn from_key<const M: u8>(v: V) -> V {
 }
 
 #[inline(always)]
-unsafe fn ld<const M: u8>(p: *const u32) -> V {
-    to_key::<M>(_mm_loadu_si128(p as *const V))
-}
+unsafe fn ld<const M: u8>(p: *const u32) -> V { to_key::<M>(_mm_loadu_si128(p as *const V)) }
 
 #[inline(always)]
-unsafe fn st<const M: u8>(p: *mut u32, v: V) {
-    _mm_storeu_si128(p as *mut V, from_key::<M>(v))
-}
+unsafe fn st<const M: u8>(p: *mut u32, v: V) { _mm_storeu_si128(p as *mut V, from_key::<M>(v)) }
 
-/// A plain `if` became a branch here (mispredicted on random runs, the
-/// streams no help: 1.0 ns per key on the Ryzen 3950X); `cmov`.
+/// A plain `if` became a branch here, mispredicted on random runs: written
+/// as a `cmov`.
 #[inline(always)]
 fn pick(c: bool, a: *const u32, b: *const u32) -> *const u32 {
     std::hint::select_unpredictable(c, a, b)

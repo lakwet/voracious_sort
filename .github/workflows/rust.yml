@@ -1,4 +1,10 @@
-name: Rust
+name: CI
+
+# Every pull request and every push to master: the formatting is checked and
+# the correctness tests run (public API in tests/, unit tests, doc examples)
+# on Linux x86-64, Windows x86-64 and macOS ARM, plus a build with the
+# minimum Rust version. Miri and the fuzzy tests are run by hand
+# (`make test-miri`, `make test-fuzzy`).
 
 on:
   push:
@@ -10,13 +16,34 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  fmt:
+    name: Formatting
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --release --features "voracious_multithread" --verbose
-    - name: Run tests
-      run: cargo test --release --features "voracious_multithread" --verbose
+      - uses: actions/checkout@v4
+      # rustfmt.toml uses options of the nightly rustfmt.
+      - run: rustup toolchain install nightly --profile minimal --component rustfmt
+      - run: cargo +nightly fmt --all --check
+
+  test:
+    name: Tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal
+      - name: Correctness tests
+        run: cargo +stable test --release --features "voracious_multithread"
+      - name: Build without the multithread sort
+        run: cargo +stable build --release
+
+  msrv:
+    name: Minimum Rust version (1.88)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.88 --profile minimal
+      - run: cargo +1.88 build --release --features "voracious_multithread"

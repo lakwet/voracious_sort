@@ -5,10 +5,7 @@ use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_i8(size: usize) -> Vec<i8> {
-    (0..size)
-        .into_par_iter()
-        .map(|_| crate::generators::rng().random::<i8>())
-        .collect::<Vec<i8>>()
+    (0..size).into_par_iter().map(|_| crate::generators::rng().random::<i8>()).collect::<Vec<i8>>()
 }
 
 // Ascending sawtooth
@@ -68,8 +65,7 @@ pub fn helper_random_array_normale_10_i8(size: usize) -> Vec<i8> {
         .collect::<Vec<i8>>()
 }
 
-pub fn generators_i8() -> Vec<(&'static dyn Fn(usize) -> Vec<i8>, &'static str)>
-{
+pub fn generators_i8() -> Vec<(&'static dyn Fn(usize) -> Vec<i8>, &'static str)> {
     vec![
         (&helper_random_array_uniform_i8, "-- Unif       :"),
         (&helper_random_array_asc_sawtooth_i8, "-- Asc Saw    :"),
@@ -82,8 +78,7 @@ pub fn generators_i8() -> Vec<(&'static dyn Fn(usize) -> Vec<i8>, &'static str)>
 }
 
 #[cfg(target_pointer_width = "8")]
-pub fn generators_isize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<isize>, &'static str)> {
+pub fn generators_isize() -> Vec<(&'static dyn Fn(usize) -> Vec<isize>, &'static str)> {
     generators_i8()
         .into_iter()
         .map(|(gen, title)| {
@@ -94,11 +89,7 @@ pub fn generators_isize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<isize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<isize>, title)
         })
         .collect()
 }

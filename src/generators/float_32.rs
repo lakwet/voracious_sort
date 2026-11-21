@@ -43,19 +43,13 @@ fn helper_pareto(size: usize, arg: f32) -> Vec<f32> {
 }
 
 // Pareto
-pub fn helper_random_array_pareto075_f32(size: usize) -> Vec<f32> {
-    helper_pareto(size, 0.75)
-}
+pub fn helper_random_array_pareto075_f32(size: usize) -> Vec<f32> { helper_pareto(size, 0.75) }
 
 // Pareto
-pub fn helper_random_array_pareto100_f32(size: usize) -> Vec<f32> {
-    helper_pareto(size, 1.0)
-}
+pub fn helper_random_array_pareto100_f32(size: usize) -> Vec<f32> { helper_pareto(size, 1.0) }
 
 // Pareto
-pub fn helper_random_array_pareto200_f32(size: usize) -> Vec<f32> {
-    helper_pareto(size, 2.0)
-}
+pub fn helper_random_array_pareto200_f32(size: usize) -> Vec<f32> { helper_pareto(size, 2.0) }
 
 fn helper_normal(size: usize, standard_deviation: f32) -> Vec<f32> {
     let normal = Normal::new(0.0, standard_deviation).unwrap();
@@ -66,9 +60,7 @@ fn helper_normal(size: usize, standard_deviation: f32) -> Vec<f32> {
 }
 
 // Normale(0, 2^10)
-pub fn helper_random_array_normale_10_f32(size: usize) -> Vec<f32> {
-    helper_normal(size, 1024.0)
-}
+pub fn helper_random_array_normale_10_f32(size: usize) -> Vec<f32> { helper_normal(size, 1024.0) }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_f32(size: usize) -> Vec<f32> {
@@ -171,10 +163,7 @@ pub fn helper_random_array_desc_sawtooth_f32(size: usize) -> Vec<f32> {
     }
 
     let limit = (size as f64 / ((size as f64).log2() * 0.9)) as f32;
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as f32 % limit)
-        .collect::<Vec<f32>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as f32 % limit).collect::<Vec<f32>>()
 }
 
 // Pipe Organ
@@ -188,8 +177,7 @@ pub fn helper_random_array_pipe_organ_f32(size: usize) -> Vec<f32> {
 
 // Push Front
 pub fn helper_random_array_push_front_f32(size: usize) -> Vec<f32> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as f32).collect::<Vec<f32>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as f32).collect::<Vec<f32>>();
 
     if size > 0 {
         array[size - 1] = 0.0;
@@ -200,8 +188,7 @@ pub fn helper_random_array_push_front_f32(size: usize) -> Vec<f32> {
 
 // Push middle
 pub fn helper_random_array_push_middle_f32(size: usize) -> Vec<f32> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as f32).collect::<Vec<f32>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as f32).collect::<Vec<f32>>();
 
     if size > 0 {
         array[size - 1] = (size / 2) as f32;
@@ -280,7 +267,11 @@ pub fn helper_random_array_sparse90_f32(size: usize) -> Vec<f32> {
         .into_par_iter()
         .map(|_| {
             let mut rng = crate::generators::rng();
-            if rng.random_range(0..10) == 0 { rng.random_range(-1000.0..1000.0) } else { 0.0 }
+            if rng.random_range(0..10) == 0 {
+                rng.random_range(-1000.0..1000.0)
+            } else {
+                0.0
+            }
         })
         .collect()
 }
@@ -290,7 +281,13 @@ pub fn helper_random_array_heavy4_f32(size: usize) -> Vec<f32> {
     let mut rng = crate::generators::rng();
     let values: Vec<f32> = (0..4).map(|_| rng.random_range(-1000.0..1000.0)).collect();
     (0..size)
-        .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random_range(-1000.0..1000.0) })
+        .map(|_| {
+            if rng.random_range(0..10) < 6 {
+                values[rng.random_range(0..4)]
+            } else {
+                rng.random_range(-1000.0..1000.0)
+            }
+        })
         .collect()
 }
 
@@ -353,8 +350,7 @@ pub fn helper_random_array_clusters_f32(size: usize) -> Vec<f32> {
     array
 }
 
-pub fn generators_f32(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<f32>, &'static str)> {
+pub fn generators_f32() -> Vec<(&'static dyn Fn(usize) -> Vec<f32>, &'static str)> {
     let mut v: Vec<(&'static dyn Fn(usize) -> Vec<_>, &'static str)> = vec![
         (&helper_random_array_uniform_f32, "-- Unif       :"),
         (&helper_random_array_small_f32, "-- Small      :"),

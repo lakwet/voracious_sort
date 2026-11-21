@@ -1,5 +1,5 @@
 //! Records of at most 1 byte sorted by bool keys: the whole decision chain of
-//! this pair (copy of the shared records chain of 2026-11-17; edit here
+//! this pair (copy of the shared records chain; edit here
 //! only, see `types`).
 //!
 //! Records of at most 8 bytes: runs at both ends, many repeats (unstable),

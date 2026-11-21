@@ -1,4 +1,4 @@
-//! Whether a merge would be predictable (merge or radix sort, journal §8).
+//! Whether a merge would be predictable (merge or radix sort).
 
 /// Whether a branchy merge of the sorted runs `run[..mid]` and `run[mid..]`
 /// is predictable, from its first 64 steps: few switches between the runs

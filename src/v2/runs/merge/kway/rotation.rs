@@ -37,9 +37,7 @@ enum Zone {
 
 const ZONES: [Zone; 3] = [Zone::Start, Zone::End, Zone::Buf];
 
-fn free_zone(x: Zone, y: Zone) -> Zone {
-    *ZONES.iter().find(|&&z| z != x && z != y).unwrap()
-}
+fn free_zone(x: Zone, y: Zone) -> Zone { *ZONES.iter().find(|&&z| z != x && z != y).unwrap() }
 
 /// A half of `c = 2^k + r` runs pays a whole level (`h` moves) for its `r`
 /// extra runs: the `r` disjoint neighbour pairs of smallest total merged in
@@ -123,7 +121,7 @@ pub fn merged(l: &[usize], picks: &[usize]) -> Vec<usize> {
 /// rest of Y (pairs of moves of one half cancel out; checked by the test
 /// `order_rule`). `None`: (0, even) or (even, 0). Phases: (half, moves).
 pub fn order(a: usize, b: usize) -> Option<[(usize, usize); 4]> {
-    if (a == 0 && b % 2 == 0) || (b == 0 && a % 2 == 0) {
+    if (a == 0 && b.is_multiple_of(2)) || (b == 0 && a.is_multiple_of(2)) {
         return None;
     }
     if a % 2 == 1 || b % 2 == 1 {
@@ -137,7 +135,13 @@ pub fn order(a: usize, b: usize) -> Option<[(usize, usize); 4]> {
 /// bounds of a range starting at `off`), with the buffer `bp` (room for
 /// `v.len() / 2 + 1`); `sh`: the halves shrunk first (`shrink`). One
 /// allocation (the run lengths), none for the order of the moves.
-pub fn rotation_in<T: Copy + PartialOrd>(v: &mut [T], bounds: &[usize], off: usize, bp: *mut T, sh: bool) {
+pub fn rotation_in<T: Copy + PartialOrd>(
+    v: &mut [T],
+    bounds: &[usize],
+    off: usize,
+    bp: *mut T,
+    sh: bool,
+) {
     let n = v.len();
     if bounds.len() <= 3 {
         // At most 2 runs: one in-place merge.
@@ -147,7 +151,8 @@ pub fn rotation_in<T: Copy + PartialOrd>(v: &mut [T], bounds: &[usize], off: usi
         return;
     }
     if n % 2 == 1 {
-        // TODO: odd n; for now the last element inserted afterwards.
+        // Odd n: the rotation on the first n - 1, the last element inserted
+        // afterwards.
         let mut b: Vec<usize> = bounds.iter().map(|&x| (x - off).min(n - 1)).collect();
         b.dedup();
         rotation_in(&mut v[..n - 1], &b, 0, bp, sh);

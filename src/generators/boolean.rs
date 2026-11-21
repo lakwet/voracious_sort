@@ -12,20 +12,12 @@ pub fn helper_random_array_bool_unif(size: usize) -> Vec<bool> {
 }
 
 pub fn helper_random_array_bool_alt(size: usize) -> Vec<bool> {
-    (0..size)
-        .into_par_iter()
-        .enumerate()
-        .map(|(i, _)| i % 2 == 0)
-        .collect::<Vec<bool>>()
+    (0..size).into_par_iter().enumerate().map(|(i, _)| i % 2 == 0).collect::<Vec<bool>>()
 }
 
-pub fn helper_random_array_bool_true(size: usize) -> Vec<bool> {
-    vec![true; size]
-}
+pub fn helper_random_array_bool_true(size: usize) -> Vec<bool> { vec![true; size] }
 
-pub fn helper_random_array_bool_false(size: usize) -> Vec<bool> {
-    vec![false; size]
-}
+pub fn helper_random_array_bool_false(size: usize) -> Vec<bool> { vec![false; size] }
 
 pub fn helper_random_array_bool_pipe(size: usize) -> Vec<bool> {
     let mut trues = vec![false; size / 2];
@@ -102,8 +94,7 @@ pub fn helper_random_array_bool_organ(size: usize) -> Vec<bool> {
     (0..size).map(|i| i >= size / 3 && i < 2 * size / 3).collect()
 }
 
-pub fn generators_bool(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<bool>, &'static str)> {
+pub fn generators_bool() -> Vec<(&'static dyn Fn(usize) -> Vec<bool>, &'static str)> {
     vec![
         (&helper_random_array_bool_unif, "-- Unif       :"),
         (&helper_random_array_bool_alt, "-- Alt        :"),

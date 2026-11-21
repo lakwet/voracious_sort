@@ -55,33 +55,26 @@ pub(crate) fn can_skip_verge<T: Copy + PartialOrd>(arr: &[T]) -> bool {
     true
 }
 
-/// Whether merging the Verge segments would cost more than sorting the
-/// whole array: most first-round merges between two runs unpredictable for
-/// a branchy merge (about as costly as a whole radix sort each). From 3
-/// segments; from 2 for keys of at most 16 bits, whose radix sort is cheaper
-/// than one unpredictable merge round. Dense merges (one element per
-/// comparison) count as unpredictable from `DENSE_LEVELS` merge levels, for
-/// arrays beyond a quarter of the largest cache (L2 / 4 alone sent 100k
-/// floats to the radix on the Ryzen's 512 KiB L2: f32 saw 2.5 to 7.7):
-/// float sawtooth, 18-21 teeth, f32 10M 6.6 to 3.7 ns per key, f64 600k 6.4
-/// to 4.4; in the cache the merges stay cheaper (f32 600k 4.9 against 7.2,
-/// f64 100k 4.6 against 6.5). Chunks are not sorted yet: only run-run pairs
-/// are sampled.
+/// Whether merging Verge's segments would cost more than sorting the whole
+/// array: most sampled merges of two runs are unpredictable for a branchy
+/// merge, each about as costly as a whole radix sort. Needs 3 segments (2
+/// for keys of at most 16 bits, whose radix sort is cheap). Beyond a quarter
+/// of the largest cache, dense merges (one element per comparison) also
+/// count from `DENSE_LEVELS` levels. Only run-run pairs are sampled: the
+/// chunks are not sorted yet.
 pub(crate) fn merges_unpredictable<T: Copy + PartialOrd>(
     arr: &[T],
     separators: &[usize],
     chunks: &[(usize, usize)],
     levels: usize,
 ) -> bool {
-    // Merge under test (`AB_MERGE=ab2`): unpredictable merges merged by the
-    // hybrid instead of the whole radix sort, beyond the cache and for the
-    // keys without the 32-bit SIMD block merge (Runs 8 f64 1M 7.43 to 3.84
-    // ns per key, u64 4.88 to 2.94; u32 / f32 lost 1.11-1.42 against their
-    // SIMD merges, Saw f64 10k 1.12 in the cache).
+    // Beyond the cache, the k-way merge takes even unpredictable merges
+    // (cheaper than a whole radix sort), except for the 32-bit keys, whose
+    // SIMD block merge is faster there.
     let in_cache = std::mem::size_of_val(arr)
         <= crate::v2::cache::budget(crate::v2::cache::Budget::MergeTwoWay) / 2;
     let simd32 = std::mem::size_of::<T>() == 4 && crate::v2::runs::merge::simd_applies::<T>();
-    if crate::v2::dev::ab::merge_unpredictable_too() && !in_cache && !simd32 {
+    if !in_cache && !simd32 {
         return false;
     }
     let beyond = std::mem::size_of_val(arr) > crate::v2::cache::largest_bytes() / 4;
@@ -107,41 +100,4 @@ pub(crate) fn merges_unpredictable<T: Copy + PartialOrd>(
     sampled > 0 && 2 * unpredictable > sampled
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v2::testing::*;
-
-    /// Random keys hold no run Verge would keep; a sorted array (or one
-    /// with a long run in the middle) does.
-    #[test]
-    fn skip_verge() {
-        let mut r = Rng(53);
-        for &n in [4096usize, 100_000].iter() {
-            let random: Vec<u64> = (0..n).map(|_| r.next()).collect();
-            assert!(can_skip_verge(&random), "random n={}", n);
-            let mut run = random.clone();
-            run[n / 4..3 * n / 4].sort_unstable();
-            assert!(!can_skip_verge(&run), "run n={}", n);
-            let asc: Vec<u64> = (0..n as u64).collect();
-            assert!(!can_skip_verge(&asc), "sorted n={}", n);
-        }
-    }
-
-    /// Two long ascending runs of random keys start the array: their merge
-    /// is unpredictable. Two runs one after the other (or a short prefix)
-    /// are not reported.
-    #[test]
-    fn random_runs() {
-        let mut r = Rng(59);
-        let n = 100_000;
-        let mut a: Vec<u64> = (0..n).map(|_| r.next()).collect();
-        a[..n / 2].sort_unstable();
-        a[n / 2..].sort_unstable();
-        assert!(starts_with_random_runs(&a, n / 2));
-        assert!(!starts_with_random_runs(&a, 10));
-        let apart: Vec<u64> =
-            (0..n as u64).map(|i| if i < n as u64 / 2 { i } else { i + n as u64 }).collect();
-        assert!(!starts_with_random_runs(&apart, n / 2));
-    }
-}
+#[cfg(test)] mod tests;

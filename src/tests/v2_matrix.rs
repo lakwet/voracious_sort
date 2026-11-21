@@ -311,8 +311,8 @@ fn test_v2_records_matrix_128() {
 /// `total_cmp` order.
 #[test]
 fn test_v2_floats_specials() {
-    use crate::v2::sorts::ravenous::{ravenous_sort2, RavenousSort2};
-    fn run<K: Key + RavenousSort2>(name: &str) {
+    use crate::v2::sorts::ravenous::{ravenous_sort, RavenousSort};
+    fn run<K: Key + RavenousSort>(name: &str) {
         let (small, _) = sizes(std::mem::size_of::<K>());
         let specials = K::specials();
         for &n in small.iter().chain([300_000, 1_000_000].iter()) {
@@ -332,7 +332,7 @@ fn test_v2_floats_specials() {
                         .collect();
                     let mut e: Vec<u128> = a.iter().map(|k| k.encode()).collect();
                     e.sort_unstable();
-                    ravenous_sort2(&mut a);
+                    ravenous_sort(&mut a);
                     let got: Vec<u128> = a.iter().map(|k| k.encode()).collect();
                     assert!(got == e, "{} n {} {} {} %", name, n, shape, rate);
                 }

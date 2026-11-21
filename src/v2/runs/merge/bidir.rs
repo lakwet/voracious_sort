@@ -8,10 +8,10 @@
 /// leaves a run; the middle that remains is merged forward.
 ///
 /// The form of the loop is fixed instead of left to LLVM, which made it
-/// branchy in a generic build and branch-free under `target-cpu=native` on
-/// the Snapdragon X (0.45 against 1.43 ns per key on two sawtooth teeth;
-/// journal §87). `BRANCHY`: one real branch per step and end (an empty
-/// `asm!` in one arm keeps LLVM from turning it into a select), for
+/// branchy in a generic build and branch-free under `target-cpu=native`
+/// (three times slower on one of the two). `BRANCHY`: one real branch per
+/// step and end (an empty `asm!` in one arm keeps LLVM from turning it
+/// into a select), for
 /// predictable interleavings, where the branch predictor runs ahead; else
 /// selects for the values and the indices (`select_unpredictable`), for
 /// irregular ones, where a branch mispredicts one step in two.
@@ -91,15 +91,18 @@ pub(super) fn merge_bidir<T: Copy + PartialOrd, const BRANCHY: bool>(
 /// (wasm32...) and under Miri, nothing.
 #[inline(always)]
 fn keep_branch() {
-    #[cfg(all(not(miri), any(
-        target_arch = "x86",
-        target_arch = "x86_64",
-        target_arch = "arm",
-        target_arch = "aarch64",
-        target_arch = "riscv32",
-        target_arch = "riscv64",
-        target_arch = "loongarch64"
-    )))]
+    #[cfg(all(
+        not(miri),
+        any(
+            target_arch = "x86",
+            target_arch = "x86_64",
+            target_arch = "arm",
+            target_arch = "aarch64",
+            target_arch = "riscv32",
+            target_arch = "riscv64",
+            target_arch = "loongarch64"
+        )
+    ))]
     // SAFETY: an empty block, no memory, no stack, flags kept.
     unsafe {
         std::arch::asm!("", options(nomem, nostack, preserves_flags));

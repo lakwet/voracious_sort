@@ -3,10 +3,9 @@
 use super::{DENSE_MIN, SAMPLE};
 
 /// Shortest array tried for heavy hitters (keys of 8 to 64 bits; below
-/// `DENSE_MIN` after the `may_be_heavy` filter). 4096 before: sparse data
-/// of 2000-4000 keys went to the radix (f64 zeros +- 3000 9.0 against 2.0
-/// ns per key, f32 sparse 90 % 5.3 against 1.6); four heavy values lose a
-/// little at this size (u16 Heavy 4 2500 1.72 against 2.04). Snapdragon X.
+/// `DENSE_MIN` after the `may_be_heavy` filter). Lower than 4096 so that
+/// sparse data of a few thousand keys is caught (four times faster than
+/// the radix sort); four heavy values lose a little at this size.
 pub(crate) const HEAVY_MIN: usize = 2048;
 
 /// Heavy hitters: a few values holding a large share of the keys (sparse
@@ -24,11 +23,7 @@ pub(crate) const HEAVY_MIN: usize = 2048;
 /// keys: each comparison and move costs more, the extraction pays off on
 /// shorter arrays). `sample`: the spread sample (`special::spread`), read
 /// by the caller (shared with the other detectors).
-pub(crate) fn heavy_from_spread<
-    T: Copy,
-    E: Fn(T, T) -> bool + Copy,
-    L: Fn(T, T) -> bool + Copy,
->(
+pub(crate) fn heavy_from_spread<T: Copy, E: Fn(T, T) -> bool + Copy, L: Fn(T, T) -> bool + Copy>(
     arr: &mut [T],
     mut sample: [T; SAMPLE],
     min: usize,
@@ -58,8 +53,8 @@ pub(crate) fn heavy_from_spread<
 /// eighth of it: one dominant value among spread ones (sparse data, signed
 /// zeros), not a few repeated values (left to `few`). Below `DENSE_MIN`
 /// such arrays go to `sort_unstable`, whose partition settles the keys
-/// equal to the pivot in one pass (journal §95: Sparse 90 % at 1k, 30 to
-/// 55 % faster; v1 sorted them so). The candidate is the majority vote of
+/// equal to the pivot in one pass (as v1 did). The candidate is the
+/// majority vote of
 /// the sample (Boyer-Moore), then counted; the other values are checked on
 /// 8 spread picks.
 pub(crate) fn dominant<T: Copy, E: Fn(T, T) -> bool + Copy>(sample: &[T; SAMPLE], eq: E) -> bool {

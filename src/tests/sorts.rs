@@ -1,25 +1,25 @@
 use rayon::prelude::*;
 
-use super::super::{RadixKey, RadixSort, Radixable};
+use crate::v1::{RadixKey, RadixSort, Radixable};
 
-use super::super::sorts::american_flag_sort::american_flag_sort;
-use super::super::sorts::boolean_sort::boolean_sort;
-use super::super::sorts::comparative_sort::insertion_sort;
-use super::super::sorts::counting_sort::counting_sort;
-use super::super::sorts::dlsd_sort::dlsd_radixsort;
-use super::super::sorts::rollercoaster_sort::rollercoaster_sort;
-use super::super::sorts::lsd_sort::lsd_radixsort;
-use super::super::sorts::lsd_stable_sort::lsd_stable_radixsort;
-use super::super::sorts::msd_stable_sort::msd_stable_radixsort;
-use super::super::sorts::msd_sort::msd_radixsort;
-use super::super::sorts::peeka_sort::peeka_sort;
-use super::super::sorts::ska_sort::ska_sort;
-use super::super::sorts::awardofthesky_sort::awardofthesky_sort;
-use super::super::sorts::voracious_sort::voracious_sort;
+use crate::v1::sorts::american_flag_sort::american_flag_sort;
+use crate::v1::sorts::boolean_sort::boolean_sort;
+use crate::v1::sorts::comparative_sort::insertion_sort;
+use crate::v1::sorts::counting_sort::counting_sort;
+use crate::v1::sorts::dlsd_sort::dlsd_radixsort;
+use crate::v1::sorts::rollercoaster_sort::rollercoaster_sort;
+use crate::v1::sorts::lsd_sort::lsd_radixsort;
+use crate::v1::sorts::lsd_stable_sort::lsd_stable_radixsort;
+use crate::v1::sorts::msd_stable_sort::msd_stable_radixsort;
+use crate::v1::sorts::msd_sort::msd_radixsort;
+use crate::v1::sorts::peeka_sort::peeka_sort;
+use crate::v1::sorts::ska_sort::ska_sort;
+use crate::v1::sorts::awardofthesky_sort::awardofthesky_sort;
+use crate::v1::sorts::voracious_sort::voracious_sort;
 
 use super::super::generators::boolean::*;
 use super::super::generators::char::*;
-use super::super::generators::custom::*;
+use super::custom::*;
 use super::super::generators::float_32::*;
 use super::super::generators::float_64::*;
 use super::super::generators::signed_i128::*;

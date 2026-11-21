@@ -37,10 +37,15 @@ u32        1000 Timestamps       : no_verge > lsd
 u32        1000 Aligned 2^16     : no_verge > lsd
 u32        1000 Prefix 20b       : no_verge > lsd
 u32        1000 Bimodal          : no_verge > lsd > range
-u32        1000 Sparse 90%       : few
+u32        1000 Sparse 90%       : dominant
 u32        1000 Heavy 4          : no_verge > lsd
 u32        1000 Composite        : no_verge > lsd
 u32        1000 Straddle         : no_verge > lsd
+u32        1000 Binary           : range
+u32        1000 Exponential      : no_verge > lsd
+u32        1000 RootDup          : range
+u32        1000 TwoDup           : verge_merge > lsd
+u32        1000 EightDup         : no_verge > lsd
 u32       10000 Unif             : no_verge > lsd
 u32       10000 Unif 10^9        : no_verge > lsd
 u32       10000 Small1           : range
@@ -84,6 +89,11 @@ u32       10000 Sparse 90%       : no_verge > lsd > heavy
 u32       10000 Heavy 4          : no_verge > lsd > heavy
 u32       10000 Composite        : no_verge > lsd
 u32       10000 Straddle         : range
+u32       10000 Binary           : range
+u32       10000 Exponential      : no_verge > lsd
+u32       10000 RootDup          : range
+u32       10000 TwoDup           : verge_merge > lsd
+u32       10000 EightDup         : no_verge > lsd
 u32       30000 Unif             : no_verge > lsd
 u32       30000 Unif 10^9        : no_verge > lsd
 u32       30000 Small1           : range
@@ -127,6 +137,11 @@ u32       30000 Sparse 90%       : no_verge > lsd > heavy
 u32       30000 Heavy 4          : no_verge > lsd > heavy
 u32       30000 Composite        : no_verge > lsd
 u32       30000 Straddle         : range
+u32       30000 Binary           : range
+u32       30000 Exponential      : no_verge > lsd
+u32       30000 RootDup          : range
+u32       30000 TwoDup           : verge_merge > lsd
+u32       30000 EightDup         : no_verge > lsd
 u32       50000 Unif             : no_verge > lsd
 u32       50000 Unif 10^9        : no_verge > lsd
 u32       50000 Small1           : range
@@ -170,6 +185,11 @@ u32       50000 Sparse 90%       : no_verge > lsd > heavy
 u32       50000 Heavy 4          : no_verge > lsd > heavy
 u32       50000 Composite        : no_verge > lsd
 u32       50000 Straddle         : range
+u32       50000 Binary           : range
+u32       50000 Exponential      : no_verge > lsd
+u32       50000 RootDup          : range
+u32       50000 TwoDup           : verge_merge > lsd
+u32       50000 EightDup         : no_verge > lsd
 u32      100000 Unif             : no_verge > lsd
 u32      100000 Unif 10^9        : no_verge > lsd
 u32      100000 Small1           : range
@@ -213,6 +233,11 @@ u32      100000 Sparse 90%       : no_verge > lsd > heavy
 u32      100000 Heavy 4          : no_verge > lsd > heavy
 u32      100000 Composite        : no_verge > lsd
 u32      100000 Straddle         : range
+u32      100000 Binary           : range
+u32      100000 Exponential      : no_verge > lsd
+u32      100000 RootDup          : range
+u32      100000 TwoDup           : verge_merge > lsd
+u32      100000 EightDup         : no_verge > lsd
 u32      200000 Unif             : no_verge > lsd
 u32      200000 Unif 10^9        : no_verge > lsd
 u32      200000 Small1           : range
@@ -256,6 +281,11 @@ u32      200000 Sparse 90%       : no_verge > lsd > heavy
 u32      200000 Heavy 4          : no_verge > lsd > heavy
 u32      200000 Composite        : no_verge > lsd
 u32      200000 Straddle         : range
+u32      200000 Binary           : range
+u32      200000 Exponential      : no_verge > lsd
+u32      200000 RootDup          : range
+u32      200000 TwoDup           : verge_merge > lsd
+u32      200000 EightDup         : no_verge > lsd
 u32      600000 Unif             : no_verge > lsd
 u32      600000 Unif 10^9        : no_verge > lsd
 u32      600000 Small1           : range
@@ -299,6 +329,11 @@ u32      600000 Sparse 90%       : no_verge > lsd > heavy
 u32      600000 Heavy 4          : no_verge > lsd > heavy
 u32      600000 Composite        : no_verge > lsd
 u32      600000 Straddle         : range
+u32      600000 Binary           : range
+u32      600000 Exponential      : no_verge > lsd
+u32      600000 RootDup          : range
+u32      600000 TwoDup           : verge_merge > lsd
+u32      600000 EightDup         : no_verge > lsd
 u32     1000000 Unif             : no_verge > lsd
 u32     1000000 Unif 10^9        : no_verge > lsd
 u32     1000000 Small1           : range
@@ -342,6 +377,11 @@ u32     1000000 Sparse 90%       : no_verge > lsd > heavy
 u32     1000000 Heavy 4          : no_verge > lsd > heavy
 u32     1000000 Composite        : no_verge > lsd
 u32     1000000 Straddle         : range
+u32     1000000 Binary           : range
+u32     1000000 Exponential      : no_verge > lsd
+u32     1000000 RootDup          : range
+u32     1000000 TwoDup           : verge_merge > lsd
+u32     1000000 EightDup         : no_verge > lsd
 u32     3000000 Unif             : no_verge > lsd
 u32     3000000 Unif 10^9        : no_verge > lsd
 u32     3000000 Small1           : range
@@ -385,6 +425,11 @@ u32     3000000 Sparse 90%       : no_verge > lsd > heavy
 u32     3000000 Heavy 4          : no_verge > lsd > heavy
 u32     3000000 Composite        : no_verge > lsd
 u32     3000000 Straddle         : range
+u32     3000000 Binary           : range
+u32     3000000 Exponential      : no_verge > lsd
+u32     3000000 RootDup          : range
+u32     3000000 TwoDup           : verge_merge > lsd
+u32     3000000 EightDup         : no_verge > lsd
 u32    10000000 Unif             : no_verge > lsd
 u32    10000000 Unif 10^9        : no_verge > lsd
 u32    10000000 Small1           : range
@@ -428,6 +473,11 @@ u32    10000000 Sparse 90%       : no_verge > lsd > heavy
 u32    10000000 Heavy 4          : no_verge > lsd > heavy
 u32    10000000 Composite        : no_verge > lsd
 u32    10000000 Straddle         : range
+u32    10000000 Binary           : range
+u32    10000000 Exponential      : no_verge > lsd
+u32    10000000 RootDup          : range
+u32    10000000 TwoDup           : verge_merge > lsd
+u32    10000000 EightDup         : no_verge > lsd
 u32    30000000 Unif             : no_verge > lsd
 u32    30000000 Unif 10^9        : no_verge > lsd
 u32    30000000 Small1           : range
@@ -471,6 +521,11 @@ u32    30000000 Sparse 90%       : no_verge > lsd > heavy
 u32    30000000 Heavy 4          : no_verge > lsd > heavy
 u32    30000000 Composite        : no_verge > lsd
 u32    30000000 Straddle         : range
+u32    30000000 Binary           : range
+u32    30000000 Exponential      : no_verge > lsd
+u32    30000000 RootDup          : range
+u32    30000000 TwoDup           : verge_merge > lsd
+u32    30000000 EightDup         : no_verge > lsd
 u32   100000000 Unif             : no_verge > lsd
 u32   100000000 Unif 10^9        : no_verge > lsd
 u32   100000000 Small1           : range
@@ -514,6 +569,11 @@ u32   100000000 Sparse 90%       : no_verge > lsd > heavy
 u32   100000000 Heavy 4          : no_verge > lsd > heavy
 u32   100000000 Composite        : no_verge > lsd
 u32   100000000 Straddle         : range
+u32   100000000 Binary           : range
+u32   100000000 Exponential      : no_verge > lsd
+u32   100000000 RootDup          : range
+u32   100000000 TwoDup           : verge_merge > lsd
+u32   100000000 EightDup         : verge_merge > lsd
 i32        1000 Unif             : no_verge > lsd
 i32        1000 +-10^9           : no_verge > lsd
 i32        1000 Small            : no_verge > lsd
@@ -547,10 +607,15 @@ i32        1000 Timestamps       : no_verge > lsd
 i32        1000 Aligned 2^16     : no_verge > lsd
 i32        1000 Prefix 20b       : no_verge > lsd
 i32        1000 Bimodal          : no_verge > lsd
-i32        1000 Sparse 90%       : few
+i32        1000 Sparse 90%       : dominant
 i32        1000 Heavy 4          : no_verge > lsd
 i32        1000 Composite        : no_verge > lsd
 i32        1000 Straddle         : no_verge > lsd
+i32        1000 Binary           : range
+i32        1000 Exponential      : no_verge > lsd
+i32        1000 RootDup          : range
+i32        1000 TwoDup           : verge_merge > lsd
+i32        1000 EightDup         : no_verge > lsd
 i32       10000 Unif             : no_verge > lsd
 i32       10000 +-10^9           : no_verge > lsd
 i32       10000 Small            : no_verge > lsd
@@ -588,6 +653,11 @@ i32       10000 Sparse 90%       : no_verge > lsd > heavy
 i32       10000 Heavy 4          : no_verge > lsd > heavy
 i32       10000 Composite        : no_verge > lsd
 i32       10000 Straddle         : range
+i32       10000 Binary           : range
+i32       10000 Exponential      : no_verge > lsd
+i32       10000 RootDup          : range
+i32       10000 TwoDup           : verge_merge > lsd
+i32       10000 EightDup         : no_verge > lsd
 i32       30000 Unif             : no_verge > lsd
 i32       30000 +-10^9           : no_verge > lsd
 i32       30000 Small            : no_verge > lsd
@@ -625,6 +695,11 @@ i32       30000 Sparse 90%       : no_verge > lsd > heavy
 i32       30000 Heavy 4          : no_verge > lsd > heavy
 i32       30000 Composite        : no_verge > lsd
 i32       30000 Straddle         : range
+i32       30000 Binary           : range
+i32       30000 Exponential      : no_verge > lsd
+i32       30000 RootDup          : range
+i32       30000 TwoDup           : verge_merge > lsd
+i32       30000 EightDup         : no_verge > lsd
 i32       50000 Unif             : no_verge > lsd
 i32       50000 +-10^9           : no_verge > lsd
 i32       50000 Small            : no_verge > lsd
@@ -662,6 +737,11 @@ i32       50000 Sparse 90%       : no_verge > lsd > heavy
 i32       50000 Heavy 4          : no_verge > lsd > heavy
 i32       50000 Composite        : no_verge > lsd
 i32       50000 Straddle         : range
+i32       50000 Binary           : range
+i32       50000 Exponential      : no_verge > lsd
+i32       50000 RootDup          : range
+i32       50000 TwoDup           : verge_merge > lsd
+i32       50000 EightDup         : no_verge > lsd
 i32      100000 Unif             : no_verge > lsd
 i32      100000 +-10^9           : no_verge > lsd
 i32      100000 Small            : no_verge > lsd
@@ -699,6 +779,11 @@ i32      100000 Sparse 90%       : no_verge > lsd > heavy
 i32      100000 Heavy 4          : no_verge > lsd > heavy
 i32      100000 Composite        : no_verge > lsd
 i32      100000 Straddle         : range
+i32      100000 Binary           : range
+i32      100000 Exponential      : no_verge > lsd
+i32      100000 RootDup          : range
+i32      100000 TwoDup           : verge_merge > lsd
+i32      100000 EightDup         : no_verge > lsd
 i32      200000 Unif             : no_verge > lsd
 i32      200000 +-10^9           : no_verge > lsd
 i32      200000 Small            : no_verge > lsd
@@ -736,6 +821,11 @@ i32      200000 Sparse 90%       : no_verge > lsd > heavy
 i32      200000 Heavy 4          : no_verge > lsd > heavy
 i32      200000 Composite        : no_verge > lsd
 i32      200000 Straddle         : range
+i32      200000 Binary           : range
+i32      200000 Exponential      : no_verge > lsd
+i32      200000 RootDup          : range
+i32      200000 TwoDup           : verge_merge > lsd
+i32      200000 EightDup         : no_verge > lsd
 i32      600000 Unif             : no_verge > lsd
 i32      600000 +-10^9           : no_verge > lsd
 i32      600000 Small            : range
@@ -773,6 +863,11 @@ i32      600000 Sparse 90%       : no_verge > lsd > heavy
 i32      600000 Heavy 4          : no_verge > lsd > heavy
 i32      600000 Composite        : no_verge > lsd
 i32      600000 Straddle         : range
+i32      600000 Binary           : range
+i32      600000 Exponential      : no_verge > lsd
+i32      600000 RootDup          : range
+i32      600000 TwoDup           : verge_merge > lsd
+i32      600000 EightDup         : no_verge > lsd
 i32     1000000 Unif             : no_verge > lsd
 i32     1000000 +-10^9           : no_verge > lsd
 i32     1000000 Small            : range
@@ -810,6 +905,11 @@ i32     1000000 Sparse 90%       : no_verge > lsd > heavy
 i32     1000000 Heavy 4          : no_verge > lsd > heavy
 i32     1000000 Composite        : no_verge > lsd
 i32     1000000 Straddle         : range
+i32     1000000 Binary           : range
+i32     1000000 Exponential      : no_verge > lsd
+i32     1000000 RootDup          : range
+i32     1000000 TwoDup           : verge_merge > lsd
+i32     1000000 EightDup         : no_verge > lsd
 i32     3000000 Unif             : no_verge > lsd
 i32     3000000 +-10^9           : no_verge > lsd
 i32     3000000 Small            : range
@@ -847,6 +947,11 @@ i32     3000000 Sparse 90%       : no_verge > lsd > heavy
 i32     3000000 Heavy 4          : no_verge > lsd > heavy
 i32     3000000 Composite        : no_verge > lsd
 i32     3000000 Straddle         : range
+i32     3000000 Binary           : range
+i32     3000000 Exponential      : no_verge > lsd
+i32     3000000 RootDup          : range
+i32     3000000 TwoDup           : verge_merge > lsd
+i32     3000000 EightDup         : no_verge > lsd
 i32    10000000 Unif             : no_verge > lsd
 i32    10000000 +-10^9           : no_verge > lsd
 i32    10000000 Small            : range
@@ -884,6 +989,11 @@ i32    10000000 Sparse 90%       : no_verge > lsd > heavy
 i32    10000000 Heavy 4          : no_verge > lsd > heavy
 i32    10000000 Composite        : no_verge > lsd
 i32    10000000 Straddle         : range
+i32    10000000 Binary           : range
+i32    10000000 Exponential      : no_verge > lsd
+i32    10000000 RootDup          : range
+i32    10000000 TwoDup           : verge_merge > lsd
+i32    10000000 EightDup         : no_verge > lsd
 i32    30000000 Unif             : no_verge > lsd
 i32    30000000 +-10^9           : no_verge > lsd
 i32    30000000 Small            : range
@@ -921,6 +1031,11 @@ i32    30000000 Sparse 90%       : no_verge > lsd > heavy
 i32    30000000 Heavy 4          : no_verge > lsd > heavy
 i32    30000000 Composite        : no_verge > lsd
 i32    30000000 Straddle         : range
+i32    30000000 Binary           : range
+i32    30000000 Exponential      : no_verge > lsd
+i32    30000000 RootDup          : range
+i32    30000000 TwoDup           : verge_merge > lsd
+i32    30000000 EightDup         : no_verge > lsd
 i32   100000000 Unif             : no_verge > lsd
 i32   100000000 +-10^9           : no_verge > lsd
 i32   100000000 Small            : range
@@ -958,6 +1073,11 @@ i32   100000000 Sparse 90%       : no_verge > lsd > heavy
 i32   100000000 Heavy 4          : no_verge > lsd > heavy
 i32   100000000 Composite        : no_verge > lsd
 i32   100000000 Straddle         : range
+i32   100000000 Binary           : range
+i32   100000000 Exponential      : no_verge > lsd
+i32   100000000 RootDup          : range
+i32   100000000 TwoDup           : verge_merge > lsd
+i32   100000000 EightDup         : verge_merge > lsd
 u64        1000 Unif             : no_verge > dlsd
 u64        1000 Unif 10^9        : no_verge > dlsd
 u64        1000 Small 4          : no_verge > dlsd
@@ -1000,10 +1120,15 @@ u64        1000 Timestamps       : no_verge > dlsd
 u64        1000 Aligned 2^16     : no_verge > dlsd
 u64        1000 Prefix 20b       : no_verge > dlsd
 u64        1000 Bimodal          : no_verge > dlsd > range
-u64        1000 Sparse 90%       : few
+u64        1000 Sparse 90%       : dominant
 u64        1000 Heavy 4          : no_verge > dlsd
 u64        1000 Composite        : no_verge > dlsd
 u64        1000 Straddle         : no_verge > dlsd
+u64        1000 Binary           : range
+u64        1000 Exponential      : no_verge > dlsd
+u64        1000 RootDup          : range
+u64        1000 TwoDup           : verge_merge > dlsd
+u64        1000 EightDup         : no_verge > dlsd
 u64       10000 Unif             : no_verge > dlsd
 u64       10000 Unif 10^9        : no_verge > dlsd
 u64       10000 Small 4          : no_verge > dlsd
@@ -1050,6 +1175,11 @@ u64       10000 Sparse 90%       : no_verge > dlsd > heavy
 u64       10000 Heavy 4          : no_verge > dlsd > heavy
 u64       10000 Composite        : no_verge > lsd_clustered
 u64       10000 Straddle         : no_verge > dlsd
+u64       10000 Binary           : range
+u64       10000 Exponential      : no_verge > lsd_clustered
+u64       10000 RootDup          : range
+u64       10000 TwoDup           : verge_merge > dlsd
+u64       10000 EightDup         : no_verge > dlsd
 u64       30000 Unif             : no_verge > roller
 u64       30000 Unif 10^9        : no_verge > roller
 u64       30000 Small 4          : no_verge > roller
@@ -1096,6 +1226,11 @@ u64       30000 Sparse 90%       : no_verge > dlsd > heavy
 u64       30000 Heavy 4          : no_verge > dlsd > heavy
 u64       30000 Composite        : no_verge > roller
 u64       30000 Straddle         : no_verge > roller
+u64       30000 Binary           : range
+u64       30000 Exponential      : no_verge > roller
+u64       30000 RootDup          : range
+u64       30000 TwoDup           : verge_merge > roller
+u64       30000 EightDup         : no_verge > roller
 u64       50000 Unif             : no_verge > roller
 u64       50000 Unif 10^9        : no_verge > roller
 u64       50000 Small 4          : no_verge > roller
@@ -1142,6 +1277,11 @@ u64       50000 Sparse 90%       : no_verge > dlsd > heavy
 u64       50000 Heavy 4          : no_verge > roller > heavy
 u64       50000 Composite        : no_verge > roller
 u64       50000 Straddle         : no_verge > roller
+u64       50000 Binary           : range
+u64       50000 Exponential      : no_verge > roller
+u64       50000 RootDup          : range
+u64       50000 TwoDup           : verge_merge > roller
+u64       50000 EightDup         : no_verge > roller
 u64      100000 Unif             : no_verge > roller
 u64      100000 Unif 10^9        : no_verge > roller
 u64      100000 Small 4          : no_verge > roller
@@ -1177,7 +1317,7 @@ u64      100000 Few 16           : few
 u64      100000 Int late out     : few
 u64      100000 Few16 late       : few
 u64      100000 Asc rnd tail     : tail_first > no_verge > dlsd
-u64      100000 Runs 8           : verge_simd_merge
+u64      100000 Runs 8           : verge_merge
 u64      100000 Runs 64          : verge_merge > roller
 u64      100000 Clusters         : no_verge > roller
 u64      100000 Timestamps       : no_verge > roller
@@ -1188,6 +1328,11 @@ u64      100000 Sparse 90%       : no_verge > dlsd > heavy
 u64      100000 Heavy 4          : no_verge > roller > heavy
 u64      100000 Composite        : no_verge > roller
 u64      100000 Straddle         : no_verge > roller
+u64      100000 Binary           : range
+u64      100000 Exponential      : no_verge > roller
+u64      100000 RootDup          : range
+u64      100000 TwoDup           : verge_merge > roller
+u64      100000 EightDup         : no_verge > roller
 u64      200000 Unif             : no_verge > roller
 u64      200000 Unif 10^9        : no_verge > roller
 u64      200000 Small 4          : no_verge > roller
@@ -1223,7 +1368,7 @@ u64      200000 Few 16           : few
 u64      200000 Int late out     : few
 u64      200000 Few16 late       : few
 u64      200000 Asc rnd tail     : tail_first > no_verge > dlsd
-u64      200000 Runs 8           : verge_simd_merge
+u64      200000 Runs 8           : verge_merge
 u64      200000 Runs 64          : verge_merge > roller
 u64      200000 Clusters         : no_verge > roller
 u64      200000 Timestamps       : no_verge > roller
@@ -1234,6 +1379,11 @@ u64      200000 Sparse 90%       : no_verge > dlsd > heavy
 u64      200000 Heavy 4          : no_verge > roller > heavy
 u64      200000 Composite        : no_verge > roller
 u64      200000 Straddle         : no_verge > roller
+u64      200000 Binary           : range
+u64      200000 Exponential      : no_verge > roller
+u64      200000 RootDup          : range
+u64      200000 TwoDup           : verge_merge > roller
+u64      200000 EightDup         : no_verge > roller
 u64      600000 Unif             : no_verge > roller
 u64      600000 Unif 10^9        : no_verge > roller
 u64      600000 Small 4          : no_verge > roller
@@ -1269,7 +1419,7 @@ u64      600000 Few 16           : few
 u64      600000 Int late out     : few
 u64      600000 Few16 late       : few
 u64      600000 Asc rnd tail     : tail_first > no_verge > roller
-u64      600000 Runs 8           : verge_simd_merge
+u64      600000 Runs 8           : verge_merge
 u64      600000 Runs 64          : verge_merge > roller
 u64      600000 Clusters         : no_verge > roller
 u64      600000 Timestamps       : no_verge > roller
@@ -1280,6 +1430,11 @@ u64      600000 Sparse 90%       : no_verge > roller > heavy
 u64      600000 Heavy 4          : no_verge > roller > heavy
 u64      600000 Composite        : no_verge > roller
 u64      600000 Straddle         : no_verge > roller
+u64      600000 Binary           : range
+u64      600000 Exponential      : no_verge > roller
+u64      600000 RootDup          : range
+u64      600000 TwoDup           : verge_merge > roller
+u64      600000 EightDup         : no_verge > roller
 u64     1000000 Unif             : no_verge > roller
 u64     1000000 Unif 10^9        : no_verge > roller
 u64     1000000 Small 4          : no_verge > roller
@@ -1315,7 +1470,7 @@ u64     1000000 Few 16           : few
 u64     1000000 Int late out     : few
 u64     1000000 Few16 late       : few
 u64     1000000 Asc rnd tail     : tail_first > no_verge > roller
-u64     1000000 Runs 8           : verge_simd_merge
+u64     1000000 Runs 8           : verge_merge
 u64     1000000 Runs 64          : verge_merge > roller
 u64     1000000 Clusters         : no_verge > roller
 u64     1000000 Timestamps       : no_verge > roller
@@ -1326,6 +1481,11 @@ u64     1000000 Sparse 90%       : no_verge > roller > heavy
 u64     1000000 Heavy 4          : no_verge > roller > heavy
 u64     1000000 Composite        : no_verge > roller
 u64     1000000 Straddle         : no_verge > roller
+u64     1000000 Binary           : range
+u64     1000000 Exponential      : no_verge > roller
+u64     1000000 RootDup          : range
+u64     1000000 TwoDup           : verge_merge > roller
+u64     1000000 EightDup         : no_verge > roller
 u64     3000000 Unif             : no_verge > roller
 u64     3000000 Unif 10^9        : no_verge > roller
 u64     3000000 Small 4          : no_verge > roller
@@ -1361,7 +1521,7 @@ u64     3000000 Few 16           : few
 u64     3000000 Int late out     : few
 u64     3000000 Few16 late       : few
 u64     3000000 Asc rnd tail     : tail_first > no_verge > roller
-u64     3000000 Runs 8           : verge_simd_merge
+u64     3000000 Runs 8           : verge_merge
 u64     3000000 Runs 64          : verge_merge > roller
 u64     3000000 Clusters         : no_verge > roller
 u64     3000000 Timestamps       : no_verge > roller
@@ -1372,6 +1532,11 @@ u64     3000000 Sparse 90%       : no_verge > roller > heavy
 u64     3000000 Heavy 4          : no_verge > roller > heavy
 u64     3000000 Composite        : no_verge > roller
 u64     3000000 Straddle         : range
+u64     3000000 Binary           : range
+u64     3000000 Exponential      : no_verge > roller
+u64     3000000 RootDup          : range
+u64     3000000 TwoDup           : verge_merge > roller
+u64     3000000 EightDup         : no_verge > roller
 u64    10000000 Unif             : no_verge > roller
 u64    10000000 Unif 10^9        : no_verge > roller
 u64    10000000 Small 4          : no_verge > roller
@@ -1407,7 +1572,7 @@ u64    10000000 Few 16           : few
 u64    10000000 Int late out     : few
 u64    10000000 Few16 late       : few
 u64    10000000 Asc rnd tail     : tail_first > no_verge > roller
-u64    10000000 Runs 8           : verge_simd_merge
+u64    10000000 Runs 8           : verge_merge
 u64    10000000 Runs 64          : verge_merge > roller
 u64    10000000 Clusters         : no_verge > roller
 u64    10000000 Timestamps       : no_verge > roller
@@ -1418,6 +1583,11 @@ u64    10000000 Sparse 90%       : no_verge > roller > heavy
 u64    10000000 Heavy 4          : no_verge > roller > heavy
 u64    10000000 Composite        : no_verge > roller
 u64    10000000 Straddle         : range
+u64    10000000 Binary           : range
+u64    10000000 Exponential      : no_verge > roller
+u64    10000000 RootDup          : range
+u64    10000000 TwoDup           : verge_merge > roller
+u64    10000000 EightDup         : no_verge > roller
 u64    30000000 Unif             : no_verge > roller
 u64    30000000 Unif 10^9        : no_verge > roller
 u64    30000000 Small 4          : no_verge > roller
@@ -1436,8 +1606,8 @@ u64    30000000 Zipf             : no_verge > roller
 u64    30000000 FakeZipf         : few
 u64    30000000 Almost Asc       : repaired
 u64    30000000 Almost Desc      : repaired
-u64    30000000 Asc Saw          : verge_whole > roller
-u64    30000000 Desc Saw         : verge_whole > roller
+u64    30000000 Asc Saw          : verge_merge > roller
+u64    30000000 Desc Saw         : verge_merge > roller
 u64    30000000 Asc Killer       : verge_merge > roller
 u64    30000000 Desc Killer      : verge_merge > roller
 u64    30000000 Sqrt             : plateaus
@@ -1453,7 +1623,7 @@ u64    30000000 Few 16           : few
 u64    30000000 Int late out     : few
 u64    30000000 Few16 late       : few
 u64    30000000 Asc rnd tail     : tail_first > no_verge > roller
-u64    30000000 Runs 8           : verge_simd_merge
+u64    30000000 Runs 8           : verge_merge
 u64    30000000 Runs 64          : verge_merge > roller
 u64    30000000 Clusters         : no_verge > roller
 u64    30000000 Timestamps       : no_verge > roller
@@ -1464,6 +1634,11 @@ u64    30000000 Sparse 90%       : no_verge > roller > heavy
 u64    30000000 Heavy 4          : no_verge > roller > heavy
 u64    30000000 Composite        : no_verge > roller
 u64    30000000 Straddle         : range
+u64    30000000 Binary           : range
+u64    30000000 Exponential      : no_verge > roller
+u64    30000000 RootDup          : range
+u64    30000000 TwoDup           : verge_merge > roller
+u64    30000000 EightDup         : no_verge > roller
 u64   100000000 Unif             : no_verge > roller
 u64   100000000 Unif 10^9        : no_verge > roller
 u64   100000000 Small 4          : no_verge > roller
@@ -1482,8 +1657,8 @@ u64   100000000 Zipf             : no_verge > roller
 u64   100000000 FakeZipf         : few
 u64   100000000 Almost Asc       : repaired
 u64   100000000 Almost Desc      : repaired
-u64   100000000 Asc Saw          : verge_whole > roller
-u64   100000000 Desc Saw         : verge_whole > roller
+u64   100000000 Asc Saw          : verge_merge
+u64   100000000 Desc Saw         : verge_merge
 u64   100000000 Asc Killer       : verge_merge > roller
 u64   100000000 Desc Killer      : verge_merge > roller
 u64   100000000 Sqrt             : plateaus
@@ -1499,7 +1674,7 @@ u64   100000000 Few 16           : few
 u64   100000000 Int late out     : few
 u64   100000000 Few16 late       : few
 u64   100000000 Asc rnd tail     : tail_first > no_verge > roller
-u64   100000000 Runs 8           : verge_simd_merge
+u64   100000000 Runs 8           : verge_merge
 u64   100000000 Runs 64          : verge_merge > roller
 u64   100000000 Clusters         : no_verge > roller
 u64   100000000 Timestamps       : no_verge > roller
@@ -1510,6 +1685,11 @@ u64   100000000 Sparse 90%       : no_verge > roller > heavy
 u64   100000000 Heavy 4          : no_verge > roller > heavy
 u64   100000000 Composite        : no_verge > roller
 u64   100000000 Straddle         : range
+u64   100000000 Binary           : range
+u64   100000000 Exponential      : no_verge > roller
+u64   100000000 RootDup          : range
+u64   100000000 TwoDup           : verge_merge > roller
+u64   100000000 EightDup         : verge_merge > roller
 i64        1000 Unif             : no_verge > dlsd
 i64        1000 +-10^9           : no_verge > dlsd
 i64        1000 Asc              : presorted
@@ -1551,10 +1731,15 @@ i64        1000 Timestamps       : no_verge > dlsd
 i64        1000 Aligned 2^16     : no_verge > dlsd
 i64        1000 Prefix 20b       : no_verge > dlsd
 i64        1000 Bimodal          : no_verge > dlsd
-i64        1000 Sparse 90%       : few
+i64        1000 Sparse 90%       : dominant
 i64        1000 Heavy 4          : no_verge > dlsd
 i64        1000 Composite        : no_verge > dlsd
 i64        1000 Straddle         : no_verge > dlsd
+i64        1000 Binary           : range
+i64        1000 Exponential      : no_verge > dlsd
+i64        1000 RootDup          : range
+i64        1000 TwoDup           : verge_merge > dlsd
+i64        1000 EightDup         : no_verge > dlsd
 i64       10000 Unif             : no_verge > dlsd
 i64       10000 +-10^9           : no_verge > dlsd
 i64       10000 Asc              : presorted
@@ -1600,6 +1785,11 @@ i64       10000 Sparse 90%       : no_verge > dlsd > heavy
 i64       10000 Heavy 4          : no_verge > dlsd > heavy
 i64       10000 Composite        : no_verge > lsd_clustered
 i64       10000 Straddle         : no_verge > dlsd
+i64       10000 Binary           : range
+i64       10000 Exponential      : no_verge > dlsd
+i64       10000 RootDup          : range
+i64       10000 TwoDup           : verge_merge > dlsd
+i64       10000 EightDup         : no_verge > dlsd
 i64       30000 Unif             : no_verge > roller
 i64       30000 +-10^9           : no_verge > roller
 i64       30000 Asc              : presorted
@@ -1645,6 +1835,11 @@ i64       30000 Sparse 90%       : no_verge > dlsd > heavy
 i64       30000 Heavy 4          : no_verge > dlsd > heavy
 i64       30000 Composite        : no_verge > roller
 i64       30000 Straddle         : no_verge > roller
+i64       30000 Binary           : range
+i64       30000 Exponential      : no_verge > roller
+i64       30000 RootDup          : range
+i64       30000 TwoDup           : verge_merge > roller
+i64       30000 EightDup         : no_verge > roller
 i64       50000 Unif             : no_verge > roller
 i64       50000 +-10^9           : no_verge > roller
 i64       50000 Asc              : presorted
@@ -1690,6 +1885,11 @@ i64       50000 Sparse 90%       : no_verge > dlsd > heavy
 i64       50000 Heavy 4          : no_verge > roller > heavy
 i64       50000 Composite        : no_verge > roller
 i64       50000 Straddle         : no_verge > roller
+i64       50000 Binary           : range
+i64       50000 Exponential      : no_verge > roller
+i64       50000 RootDup          : range
+i64       50000 TwoDup           : verge_merge > roller
+i64       50000 EightDup         : no_verge > roller
 i64      100000 Unif             : no_verge > roller
 i64      100000 +-10^9           : no_verge > roller
 i64      100000 Asc              : presorted
@@ -1724,7 +1924,7 @@ i64      100000 Few 16           : few
 i64      100000 Int late out     : few
 i64      100000 Few16 late       : few
 i64      100000 Asc rnd tail     : tail_first > no_verge > dlsd
-i64      100000 Runs 8           : verge_simd_merge
+i64      100000 Runs 8           : verge_merge
 i64      100000 Runs 64          : verge_merge > roller
 i64      100000 Clusters         : no_verge > roller
 i64      100000 Timestamps       : no_verge > roller
@@ -1735,6 +1935,11 @@ i64      100000 Sparse 90%       : no_verge > dlsd > heavy
 i64      100000 Heavy 4          : no_verge > roller > heavy
 i64      100000 Composite        : no_verge > roller
 i64      100000 Straddle         : no_verge > roller
+i64      100000 Binary           : range
+i64      100000 Exponential      : no_verge > roller
+i64      100000 RootDup          : range
+i64      100000 TwoDup           : verge_merge > roller
+i64      100000 EightDup         : no_verge > roller
 i64      200000 Unif             : no_verge > roller
 i64      200000 +-10^9           : no_verge > roller
 i64      200000 Asc              : presorted
@@ -1769,7 +1974,7 @@ i64      200000 Few 16           : few
 i64      200000 Int late out     : few
 i64      200000 Few16 late       : few
 i64      200000 Asc rnd tail     : tail_first > no_verge > dlsd
-i64      200000 Runs 8           : verge_simd_merge
+i64      200000 Runs 8           : verge_merge
 i64      200000 Runs 64          : verge_merge > roller
 i64      200000 Clusters         : no_verge > roller
 i64      200000 Timestamps       : no_verge > roller
@@ -1780,6 +1985,11 @@ i64      200000 Sparse 90%       : no_verge > dlsd > heavy
 i64      200000 Heavy 4          : no_verge > roller
 i64      200000 Composite        : no_verge > roller
 i64      200000 Straddle         : no_verge > roller
+i64      200000 Binary           : range
+i64      200000 Exponential      : no_verge > roller
+i64      200000 RootDup          : range
+i64      200000 TwoDup           : verge_merge > roller
+i64      200000 EightDup         : no_verge > roller
 i64      600000 Unif             : no_verge > roller
 i64      600000 +-10^9           : no_verge > roller
 i64      600000 Asc              : presorted
@@ -1814,7 +2024,7 @@ i64      600000 Few 16           : few
 i64      600000 Int late out     : few
 i64      600000 Few16 late       : few
 i64      600000 Asc rnd tail     : tail_first > no_verge > roller
-i64      600000 Runs 8           : verge_simd_merge
+i64      600000 Runs 8           : verge_merge
 i64      600000 Runs 64          : verge_merge > roller
 i64      600000 Clusters         : no_verge > roller
 i64      600000 Timestamps       : no_verge > roller
@@ -1825,6 +2035,11 @@ i64      600000 Sparse 90%       : no_verge > roller > heavy
 i64      600000 Heavy 4          : no_verge > roller > heavy
 i64      600000 Composite        : no_verge > roller
 i64      600000 Straddle         : no_verge > roller
+i64      600000 Binary           : range
+i64      600000 Exponential      : no_verge > roller
+i64      600000 RootDup          : range
+i64      600000 TwoDup           : verge_merge > roller
+i64      600000 EightDup         : no_verge > roller
 i64     1000000 Unif             : no_verge > roller
 i64     1000000 +-10^9           : no_verge > roller
 i64     1000000 Asc              : presorted
@@ -1859,7 +2074,7 @@ i64     1000000 Few 16           : few
 i64     1000000 Int late out     : few
 i64     1000000 Few16 late       : few
 i64     1000000 Asc rnd tail     : tail_first > no_verge > roller
-i64     1000000 Runs 8           : verge_simd_merge
+i64     1000000 Runs 8           : verge_merge
 i64     1000000 Runs 64          : verge_merge > roller
 i64     1000000 Clusters         : no_verge > roller
 i64     1000000 Timestamps       : no_verge > roller
@@ -1870,6 +2085,11 @@ i64     1000000 Sparse 90%       : no_verge > roller > heavy
 i64     1000000 Heavy 4          : no_verge > roller > heavy
 i64     1000000 Composite        : no_verge > roller
 i64     1000000 Straddle         : no_verge > roller
+i64     1000000 Binary           : range
+i64     1000000 Exponential      : no_verge > roller
+i64     1000000 RootDup          : range
+i64     1000000 TwoDup           : verge_merge > roller
+i64     1000000 EightDup         : no_verge > roller
 i64     3000000 Unif             : no_verge > roller
 i64     3000000 +-10^9           : no_verge > roller
 i64     3000000 Asc              : presorted
@@ -1904,7 +2124,7 @@ i64     3000000 Few 16           : few
 i64     3000000 Int late out     : few
 i64     3000000 Few16 late       : few
 i64     3000000 Asc rnd tail     : tail_first > no_verge > roller
-i64     3000000 Runs 8           : verge_simd_merge
+i64     3000000 Runs 8           : verge_merge
 i64     3000000 Runs 64          : verge_merge > roller
 i64     3000000 Clusters         : no_verge > roller
 i64     3000000 Timestamps       : no_verge > roller
@@ -1915,6 +2135,11 @@ i64     3000000 Sparse 90%       : no_verge > roller > heavy
 i64     3000000 Heavy 4          : no_verge > roller > heavy
 i64     3000000 Composite        : no_verge > roller
 i64     3000000 Straddle         : range
+i64     3000000 Binary           : range
+i64     3000000 Exponential      : no_verge > roller
+i64     3000000 RootDup          : range
+i64     3000000 TwoDup           : verge_merge > roller
+i64     3000000 EightDup         : no_verge > roller
 i64    10000000 Unif             : no_verge > roller
 i64    10000000 +-10^9           : no_verge > roller
 i64    10000000 Asc              : presorted
@@ -1949,7 +2174,7 @@ i64    10000000 Few 16           : few
 i64    10000000 Int late out     : few
 i64    10000000 Few16 late       : few
 i64    10000000 Asc rnd tail     : tail_first > no_verge > roller
-i64    10000000 Runs 8           : verge_simd_merge
+i64    10000000 Runs 8           : verge_merge
 i64    10000000 Runs 64          : verge_merge > roller
 i64    10000000 Clusters         : no_verge > roller
 i64    10000000 Timestamps       : no_verge > roller
@@ -1960,6 +2185,11 @@ i64    10000000 Sparse 90%       : no_verge > roller > heavy
 i64    10000000 Heavy 4          : no_verge > roller > heavy
 i64    10000000 Composite        : no_verge > roller
 i64    10000000 Straddle         : range
+i64    10000000 Binary           : range
+i64    10000000 Exponential      : no_verge > roller
+i64    10000000 RootDup          : range
+i64    10000000 TwoDup           : verge_merge > roller
+i64    10000000 EightDup         : no_verge > roller
 i64    30000000 Unif             : no_verge > roller
 i64    30000000 +-10^9           : no_verge > roller
 i64    30000000 Asc              : presorted
@@ -1976,8 +2206,8 @@ i64    30000000 Zipf             : no_verge > roller
 i64    30000000 FakeZipf         : few
 i64    30000000 Almost Asc       : repaired
 i64    30000000 Almost Desc      : repaired
-i64    30000000 Asc Saw          : verge_whole > roller
-i64    30000000 Desc Saw         : verge_whole > roller
+i64    30000000 Asc Saw          : verge_merge > roller
+i64    30000000 Desc Saw         : verge_merge > roller
 i64    30000000 Sqrt             : plateaus
 i64    30000000 Pipe Organ       : tail_first > repaired
 i64    30000000 Front            : tail_first
@@ -1994,7 +2224,7 @@ i64    30000000 Few 16           : few
 i64    30000000 Int late out     : few
 i64    30000000 Few16 late       : few
 i64    30000000 Asc rnd tail     : tail_first > no_verge > roller
-i64    30000000 Runs 8           : verge_simd_merge
+i64    30000000 Runs 8           : verge_merge
 i64    30000000 Runs 64          : verge_merge > roller
 i64    30000000 Clusters         : no_verge > roller
 i64    30000000 Timestamps       : no_verge > roller
@@ -2005,6 +2235,11 @@ i64    30000000 Sparse 90%       : no_verge > roller > heavy
 i64    30000000 Heavy 4          : no_verge > roller > heavy
 i64    30000000 Composite        : no_verge > roller
 i64    30000000 Straddle         : range
+i64    30000000 Binary           : range
+i64    30000000 Exponential      : no_verge > roller
+i64    30000000 RootDup          : range
+i64    30000000 TwoDup           : verge_merge > roller
+i64    30000000 EightDup         : no_verge > roller
 i64   100000000 Unif             : no_verge > roller
 i64   100000000 +-10^9           : no_verge > roller
 i64   100000000 Asc              : presorted
@@ -2021,8 +2256,8 @@ i64   100000000 Zipf             : no_verge > roller
 i64   100000000 FakeZipf         : few
 i64   100000000 Almost Asc       : repaired
 i64   100000000 Almost Desc      : repaired
-i64   100000000 Asc Saw          : verge_whole > roller
-i64   100000000 Desc Saw         : verge_whole > roller
+i64   100000000 Asc Saw          : verge_merge
+i64   100000000 Desc Saw         : verge_merge
 i64   100000000 Sqrt             : plateaus
 i64   100000000 Pipe Organ       : tail_first > repaired
 i64   100000000 Front            : tail_first
@@ -2039,7 +2274,7 @@ i64   100000000 Few 16           : few
 i64   100000000 Int late out     : few
 i64   100000000 Few16 late       : few
 i64   100000000 Asc rnd tail     : tail_first > no_verge > roller
-i64   100000000 Runs 8           : verge_simd_merge
+i64   100000000 Runs 8           : verge_merge
 i64   100000000 Runs 64          : verge_merge > roller
 i64   100000000 Clusters         : no_verge > roller
 i64   100000000 Timestamps       : no_verge > roller
@@ -2050,6 +2285,11 @@ i64   100000000 Sparse 90%       : no_verge > roller > heavy
 i64   100000000 Heavy 4          : no_verge > roller > heavy
 i64   100000000 Composite        : no_verge > roller
 i64   100000000 Straddle         : range
+i64   100000000 Binary           : range
+i64   100000000 Exponential      : no_verge > roller
+i64   100000000 RootDup          : range
+i64   100000000 TwoDup           : verge_merge > roller
+i64   100000000 EightDup         : verge_merge > roller
 f32        1000 Unif             : no_verge > lsd
 f32        1000 Small            : no_verge > lsd
 f32        1000 Asc              : repaired
@@ -2076,7 +2316,7 @@ f32        1000 Int 0..n         : no_verge > lsd
 f32        1000 Grid 0.25        : float_detect
 f32        1000 Prices           : no_verge > lsd
 f32        1000 Few 16           : few
-f32        1000 Sparse 90%       : few
+f32        1000 Sparse 90%       : dominant
 f32        1000 Heavy 4          : no_verge > lsd
 f32        1000 Int late out     : no_verge > lsd
 f32        1000 Few16 late       : few
@@ -2633,7 +2873,7 @@ f64        1000 Int 0..n         : no_verge > dlsd
 f64        1000 Grid 0.25        : float_detect
 f64        1000 Prices           : no_verge > dlsd
 f64        1000 Few 16           : few
-f64        1000 Sparse 90%       : few
+f64        1000 Sparse 90%       : dominant
 f64        1000 Heavy 4          : no_verge > dlsd
 f64        1000 Int late out     : no_verge > dlsd
 f64        1000 Few16 late       : few
@@ -2752,7 +2992,7 @@ f64       30000 Heavy 4          : no_verge > roller > heavy
 f64       30000 Int late out     : few
 f64       30000 Few16 late       : few
 f64       30000 Asc rnd tail     : tail_first > dlsd
-f64       30000 Runs 8           : verge_whole > roller
+f64       30000 Runs 8           : verge_merge
 f64       30000 Runs 64          : verge_merge > roller
 f64       30000 Clusters         : no_verge > roller
 f64       30000 Pareto 0.75      : no_verge > roller
@@ -2809,7 +3049,7 @@ f64       50000 Heavy 4          : no_verge > roller > heavy
 f64       50000 Int late out     : few
 f64       50000 Few16 late       : few
 f64       50000 Asc rnd tail     : tail_first > no_verge > dlsd
-f64       50000 Runs 8           : verge_whole > roller
+f64       50000 Runs 8           : verge_merge
 f64       50000 Runs 64          : verge_merge > roller
 f64       50000 Clusters         : no_verge > roller
 f64       50000 Pareto 0.75      : no_verge > roller
@@ -2866,7 +3106,7 @@ f64      100000 Heavy 4          : no_verge > roller > heavy
 f64      100000 Int late out     : few
 f64      100000 Few16 late       : few
 f64      100000 Asc rnd tail     : tail_first > no_verge > roller
-f64      100000 Runs 8           : verge_whole > roller
+f64      100000 Runs 8           : verge_merge
 f64      100000 Runs 64          : verge_merge > roller
 f64      100000 Clusters         : no_verge > roller
 f64      100000 Pareto 0.75      : no_verge > roller
@@ -2901,8 +3141,8 @@ f64      200000 Zipf             : no_verge > roller
 f64      200000 FakeZipf         : few
 f64      200000 Almost Asc       : repaired
 f64      200000 Almost Desc      : repaired
-f64      200000 Asc Saw          : verge_whole > roller
-f64      200000 Desc Saw         : verge_whole > roller
+f64      200000 Asc Saw          : verge_merge > roller
+f64      200000 Desc Saw         : verge_merge > roller
 f64      200000 Sqrt             : verge_merge > roller
 f64      200000 Pipe Organ       : tail_first > repaired
 f64      200000 Front            : tail_first
@@ -2923,7 +3163,7 @@ f64      200000 Heavy 4          : no_verge > roller > heavy
 f64      200000 Int late out     : few
 f64      200000 Few16 late       : few
 f64      200000 Asc rnd tail     : tail_first > no_verge > roller
-f64      200000 Runs 8           : verge_whole > roller
+f64      200000 Runs 8           : verge_merge
 f64      200000 Runs 64          : verge_merge > roller
 f64      200000 Clusters         : no_verge > roller
 f64      200000 Pareto 0.75      : no_verge > roller
@@ -2958,8 +3198,8 @@ f64      600000 Zipf             : no_verge > roller
 f64      600000 FakeZipf         : few
 f64      600000 Almost Asc       : repaired
 f64      600000 Almost Desc      : repaired
-f64      600000 Asc Saw          : verge_whole > roller
-f64      600000 Desc Saw         : verge_whole > roller
+f64      600000 Asc Saw          : verge_merge > roller
+f64      600000 Desc Saw         : verge_merge > roller
 f64      600000 Sqrt             : verge_merge > roller
 f64      600000 Pipe Organ       : tail_first > repaired
 f64      600000 Front            : tail_first
@@ -2980,7 +3220,7 @@ f64      600000 Heavy 4          : no_verge > roller > heavy
 f64      600000 Int late out     : few
 f64      600000 Few16 late       : few
 f64      600000 Asc rnd tail     : tail_first > no_verge > roller
-f64      600000 Runs 8           : verge_whole > roller
+f64      600000 Runs 8           : verge_merge
 f64      600000 Runs 64          : verge_merge > roller
 f64      600000 Clusters         : no_verge > roller
 f64      600000 Pareto 0.75      : no_verge > roller
@@ -3015,8 +3255,8 @@ f64     1000000 Zipf             : no_verge > roller
 f64     1000000 FakeZipf         : few
 f64     1000000 Almost Asc       : repaired
 f64     1000000 Almost Desc      : repaired
-f64     1000000 Asc Saw          : verge_whole > roller
-f64     1000000 Desc Saw         : verge_whole > roller
+f64     1000000 Asc Saw          : verge_merge
+f64     1000000 Desc Saw         : verge_merge
 f64     1000000 Sqrt             : verge_merge > roller
 f64     1000000 Pipe Organ       : tail_first > repaired
 f64     1000000 Front            : tail_first
@@ -3037,7 +3277,7 @@ f64     1000000 Heavy 4          : no_verge > roller > heavy
 f64     1000000 Int late out     : few
 f64     1000000 Few16 late       : few
 f64     1000000 Asc rnd tail     : tail_first > no_verge > roller
-f64     1000000 Runs 8           : verge_whole > roller
+f64     1000000 Runs 8           : verge_merge
 f64     1000000 Runs 64          : verge_merge > roller
 f64     1000000 Clusters         : no_verge > roller
 f64     1000000 Pareto 0.75      : no_verge > roller
@@ -3072,8 +3312,8 @@ f64     3000000 Zipf             : no_verge > roller
 f64     3000000 FakeZipf         : few
 f64     3000000 Almost Asc       : repaired
 f64     3000000 Almost Desc      : repaired
-f64     3000000 Asc Saw          : verge_whole > roller
-f64     3000000 Desc Saw         : verge_whole > roller
+f64     3000000 Asc Saw          : verge_merge > roller
+f64     3000000 Desc Saw         : verge_merge > roller
 f64     3000000 Sqrt             : verge_merge > roller
 f64     3000000 Pipe Organ       : tail_first > repaired
 f64     3000000 Front            : tail_first
@@ -3094,7 +3334,7 @@ f64     3000000 Heavy 4          : no_verge > roller > heavy
 f64     3000000 Int late out     : few
 f64     3000000 Few16 late       : few
 f64     3000000 Asc rnd tail     : tail_first > no_verge > roller
-f64     3000000 Runs 8           : verge_whole > roller
+f64     3000000 Runs 8           : verge_merge
 f64     3000000 Runs 64          : verge_merge > roller
 f64     3000000 Clusters         : no_verge > roller
 f64     3000000 Pareto 0.75      : no_verge > roller
@@ -3129,8 +3369,8 @@ f64    10000000 Zipf             : no_verge > roller
 f64    10000000 FakeZipf         : few
 f64    10000000 Almost Asc       : repaired
 f64    10000000 Almost Desc      : repaired
-f64    10000000 Asc Saw          : verge_whole > roller
-f64    10000000 Desc Saw         : verge_whole > roller
+f64    10000000 Asc Saw          : verge_merge
+f64    10000000 Desc Saw         : verge_merge
 f64    10000000 Sqrt             : verge_merge > roller
 f64    10000000 Pipe Organ       : tail_first > repaired
 f64    10000000 Front            : tail_first
@@ -3151,7 +3391,7 @@ f64    10000000 Heavy 4          : no_verge > roller > heavy
 f64    10000000 Int late out     : few
 f64    10000000 Few16 late       : few
 f64    10000000 Asc rnd tail     : tail_first > no_verge > roller
-f64    10000000 Runs 8           : verge_whole > roller
+f64    10000000 Runs 8           : verge_merge
 f64    10000000 Runs 64          : verge_merge > roller
 f64    10000000 Clusters         : no_verge > roller
 f64    10000000 Pareto 0.75      : no_verge > roller
@@ -3186,8 +3426,8 @@ f64    30000000 Zipf             : no_verge > roller
 f64    30000000 FakeZipf         : few
 f64    30000000 Almost Asc       : repaired
 f64    30000000 Almost Desc      : repaired
-f64    30000000 Asc Saw          : verge_whole > roller
-f64    30000000 Desc Saw         : verge_whole > roller
+f64    30000000 Asc Saw          : verge_merge > roller
+f64    30000000 Desc Saw         : verge_merge > roller
 f64    30000000 Sqrt             : verge_merge > roller
 f64    30000000 Pipe Organ       : tail_first > repaired
 f64    30000000 Front            : tail_first
@@ -3208,7 +3448,7 @@ f64    30000000 Heavy 4          : no_verge > roller > heavy
 f64    30000000 Int late out     : few
 f64    30000000 Few16 late       : few
 f64    30000000 Asc rnd tail     : tail_first > no_verge > roller
-f64    30000000 Runs 8           : verge_whole > roller
+f64    30000000 Runs 8           : verge_merge
 f64    30000000 Runs 64          : verge_merge > roller
 f64    30000000 Clusters         : no_verge > roller
 f64    30000000 Pareto 0.75      : no_verge > roller
@@ -3243,8 +3483,8 @@ f64   100000000 Zipf             : no_verge > roller
 f64   100000000 FakeZipf         : few
 f64   100000000 Almost Asc       : repaired
 f64   100000000 Almost Desc      : repaired
-f64   100000000 Asc Saw          : verge_whole > roller
-f64   100000000 Desc Saw         : verge_whole > roller
+f64   100000000 Asc Saw          : verge_merge
+f64   100000000 Desc Saw         : verge_merge
 f64   100000000 Sqrt             : verge_merge > roller
 f64   100000000 Pipe Organ       : tail_first > repaired
 f64   100000000 Front            : tail_first
@@ -3265,7 +3505,7 @@ f64   100000000 Heavy 4          : no_verge > roller > heavy
 f64   100000000 Int late out     : few
 f64   100000000 Few16 late       : few
 f64   100000000 Asc rnd tail     : tail_first > no_verge > roller
-f64   100000000 Runs 8           : verge_whole > roller
+f64   100000000 Runs 8           : verge_merge
 f64   100000000 Runs 64          : verge_merge > roller
 f64   100000000 Clusters         : no_verge > roller
 f64   100000000 Pareto 0.75      : no_verge > roller
@@ -4929,6 +5169,11 @@ r8u32      1000 Sparse 90%       : small_path > few
 r8u32      1000 Heavy 4          : small_path > packed > no_verge > dlsd
 r8u32      1000 Composite        : small_path > packed > no_verge > dlsd
 r8u32      1000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32      1000 Binary           : small_path > few
+r8u32      1000 Exponential      : small_path > packed > no_verge > dlsd
+r8u32      1000 RootDup          : small_path > packed > verge_merge > dlsd
+r8u32      1000 TwoDup           : small_path > packed > verge_merge > dlsd
+r8u32      1000 EightDup         : small_path > packed > no_verge > dlsd
 r8u32     10000 Unif             : small_path > packed > no_verge > dlsd
 r8u32     10000 Unif 10^9        : small_path > packed > no_verge > dlsd
 r8u32     10000 Small1           : small_path > packed > no_verge > dlsd
@@ -4972,6 +5217,11 @@ r8u32     10000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
 r8u32     10000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
 r8u32     10000 Composite        : small_path > packed > no_verge > dlsd
 r8u32     10000 Straddle         : small_path > packed > no_verge > dlsd
+r8u32     10000 Binary           : heavy
+r8u32     10000 Exponential      : small_path > packed > no_verge > dlsd
+r8u32     10000 RootDup          : small_path > few
+r8u32     10000 TwoDup           : small_path > packed > verge_merge > dlsd
+r8u32     10000 EightDup         : small_path > packed > no_verge > dlsd
 r8u32     30000 Unif             : small_path > lsd
 r8u32     30000 Unif 10^9        : small_path > lsd
 r8u32     30000 Small1           : small_path > lsd
@@ -5015,6 +5265,11 @@ r8u32     30000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
 r8u32     30000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
 r8u32     30000 Composite        : small_path > lsd
 r8u32     30000 Straddle         : small_path > lsd
+r8u32     30000 Binary           : heavy
+r8u32     30000 Exponential      : small_path > lsd
+r8u32     30000 RootDup          : small_path > lsd
+r8u32     30000 TwoDup           : small_path > lsd
+r8u32     30000 EightDup         : small_path > lsd
 r8u32     50000 Unif             : small_path > lsd
 r8u32     50000 Unif 10^9        : small_path > lsd
 r8u32     50000 Small1           : small_path > lsd
@@ -5058,6 +5313,11 @@ r8u32     50000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
 r8u32     50000 Heavy 4          : small_path > lsd > heavy
 r8u32     50000 Composite        : small_path > lsd
 r8u32     50000 Straddle         : small_path > lsd
+r8u32     50000 Binary           : heavy
+r8u32     50000 Exponential      : small_path > lsd
+r8u32     50000 RootDup          : small_path > lsd
+r8u32     50000 TwoDup           : small_path > lsd
+r8u32     50000 EightDup         : small_path > lsd
 r8u32    100000 Unif             : small_path > lsd
 r8u32    100000 Unif 10^9        : small_path > lsd
 r8u32    100000 Small1           : small_path > lsd
@@ -5101,6 +5361,11 @@ r8u32    100000 Sparse 90%       : small_path > packed > no_verge > dlsd > heavy
 r8u32    100000 Heavy 4          : small_path > lsd > heavy
 r8u32    100000 Composite        : small_path > lsd
 r8u32    100000 Straddle         : small_path > lsd
+r8u32    100000 Binary           : heavy
+r8u32    100000 Exponential      : small_path > lsd
+r8u32    100000 RootDup          : small_path > lsd
+r8u32    100000 TwoDup           : small_path > lsd
+r8u32    100000 EightDup         : small_path > lsd
 r8u32    200000 Unif             : small_path > lsd
 r8u32    200000 Unif 10^9        : small_path > lsd
 r8u32    200000 Small1           : small_path > lsd
@@ -5144,6 +5409,11 @@ r8u32    200000 Sparse 90%       : small_path > lsd > heavy
 r8u32    200000 Heavy 4          : small_path > lsd > heavy
 r8u32    200000 Composite        : small_path > lsd
 r8u32    200000 Straddle         : small_path > lsd
+r8u32    200000 Binary           : heavy
+r8u32    200000 Exponential      : small_path > lsd
+r8u32    200000 RootDup          : small_path > lsd
+r8u32    200000 TwoDup           : small_path > lsd
+r8u32    200000 EightDup         : small_path > lsd
 r8u32    600000 Unif             : small_path > lsd
 r8u32    600000 Unif 10^9        : small_path > lsd
 r8u32    600000 Small1           : small_path > lsd
@@ -5187,6 +5457,11 @@ r8u32    600000 Sparse 90%       : small_path > lsd > heavy
 r8u32    600000 Heavy 4          : small_path > lsd > heavy
 r8u32    600000 Composite        : small_path > lsd
 r8u32    600000 Straddle         : small_path > lsd
+r8u32    600000 Binary           : heavy
+r8u32    600000 Exponential      : small_path > lsd
+r8u32    600000 RootDup          : small_path > lsd
+r8u32    600000 TwoDup           : small_path > lsd
+r8u32    600000 EightDup         : small_path > lsd
 r8u32   1000000 Unif             : small_path > lsd
 r8u32   1000000 Unif 10^9        : small_path > lsd
 r8u32   1000000 Small1           : small_path > lsd
@@ -5230,6 +5505,11 @@ r8u32   1000000 Sparse 90%       : small_path > lsd > heavy
 r8u32   1000000 Heavy 4          : small_path > lsd > heavy
 r8u32   1000000 Composite        : small_path > lsd
 r8u32   1000000 Straddle         : small_path > lsd
+r8u32   1000000 Binary           : heavy
+r8u32   1000000 Exponential      : small_path > lsd
+r8u32   1000000 RootDup          : small_path > lsd
+r8u32   1000000 TwoDup           : small_path > lsd
+r8u32   1000000 EightDup         : small_path > lsd
 r8u32   3000000 Unif             : small_path > lsd
 r8u32   3000000 Unif 10^9        : small_path > lsd
 r8u32   3000000 Small1           : small_path > lsd
@@ -5273,6 +5553,11 @@ r8u32   3000000 Sparse 90%       : small_path > lsd > heavy
 r8u32   3000000 Heavy 4          : small_path > lsd > heavy
 r8u32   3000000 Composite        : small_path > lsd
 r8u32   3000000 Straddle         : small_path > lsd
+r8u32   3000000 Binary           : heavy
+r8u32   3000000 Exponential      : small_path > lsd
+r8u32   3000000 RootDup          : small_path > lsd
+r8u32   3000000 TwoDup           : small_path > lsd
+r8u32   3000000 EightDup         : small_path > lsd
 r8u32  10000000 Unif             : small_path > lsd
 r8u32  10000000 Unif 10^9        : small_path > lsd
 r8u32  10000000 Small1           : small_path > lsd
@@ -5316,6 +5601,11 @@ r8u32  10000000 Sparse 90%       : small_path > lsd > heavy
 r8u32  10000000 Heavy 4          : small_path > lsd > heavy
 r8u32  10000000 Composite        : small_path > lsd
 r8u32  10000000 Straddle         : small_path > lsd
+r8u32  10000000 Binary           : heavy
+r8u32  10000000 Exponential      : small_path > lsd
+r8u32  10000000 RootDup          : small_path > lsd
+r8u32  10000000 TwoDup           : small_path > lsd
+r8u32  10000000 EightDup         : small_path > lsd
 r16u64      1000 Unif             : packed > no_verge > dlsd
 r16u64      1000 Unif 10^9        : packed > no_verge > dlsd
 r16u64      1000 Small 4          : packed > no_verge > dlsd
@@ -5362,6 +5652,11 @@ r16u64      1000 Sparse 90%       : few
 r16u64      1000 Heavy 4          : packed > no_verge > dlsd
 r16u64      1000 Composite        : packed > no_verge > dlsd
 r16u64      1000 Straddle         : packed > no_verge > dlsd
+r16u64      1000 Binary           : few
+r16u64      1000 Exponential      : packed > no_verge > dlsd > verge_merge
+r16u64      1000 RootDup          : packed > verge_merge > dlsd
+r16u64      1000 TwoDup           : packed > verge_merge > dlsd
+r16u64      1000 EightDup         : packed > no_verge > dlsd
 r16u64     10000 Unif             : lsd
 r16u64     10000 Unif 10^9        : lsd
 r16u64     10000 Small 4          : lsd
@@ -5408,6 +5703,11 @@ r16u64     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
 r16u64     10000 Heavy 4          : packed > no_verge > dlsd > heavy
 r16u64     10000 Composite        : lsd
 r16u64     10000 Straddle         : lsd
+r16u64     10000 Binary           : few
+r16u64     10000 Exponential      : lsd
+r16u64     10000 RootDup          : few
+r16u64     10000 TwoDup           : few_wide
+r16u64     10000 EightDup         : few_wide
 r16u64     30000 Unif             : lsd
 r16u64     30000 Unif 10^9        : lsd
 r16u64     30000 Small 4          : lsd
@@ -5454,6 +5754,11 @@ r16u64     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
 r16u64     30000 Heavy 4          : lsd > heavy
 r16u64     30000 Composite        : lsd
 r16u64     30000 Straddle         : lsd
+r16u64     30000 Binary           : few
+r16u64     30000 Exponential      : lsd
+r16u64     30000 RootDup          : few_wide
+r16u64     30000 TwoDup           : few_wide
+r16u64     30000 EightDup         : few_wide
 r16u64     50000 Unif             : lsd
 r16u64     50000 Unif 10^9        : lsd
 r16u64     50000 Small 4          : lsd
@@ -5500,6 +5805,11 @@ r16u64     50000 Sparse 90%       : packed > no_verge > dlsd > heavy
 r16u64     50000 Heavy 4          : lsd > heavy
 r16u64     50000 Composite        : lsd
 r16u64     50000 Straddle         : lsd
+r16u64     50000 Binary           : few
+r16u64     50000 Exponential      : lsd
+r16u64     50000 RootDup          : few_wide
+r16u64     50000 TwoDup           : lsd
+r16u64     50000 EightDup         : few_wide
 r16u64    100000 Unif             : lsd
 r16u64    100000 Unif 10^9        : lsd
 r16u64    100000 Small 4          : lsd
@@ -5546,6 +5856,11 @@ r16u64    100000 Sparse 90%       : lsd > heavy
 r16u64    100000 Heavy 4          : lsd > heavy
 r16u64    100000 Composite        : lsd
 r16u64    100000 Straddle         : lsd
+r16u64    100000 Binary           : few
+r16u64    100000 Exponential      : lsd
+r16u64    100000 RootDup          : few_wide
+r16u64    100000 TwoDup           : lsd
+r16u64    100000 EightDup         : few_wide
 r16u64    200000 Unif             : lsd
 r16u64    200000 Unif 10^9        : lsd
 r16u64    200000 Small 4          : lsd
@@ -5592,6 +5907,11 @@ r16u64    200000 Sparse 90%       : lsd > heavy
 r16u64    200000 Heavy 4          : lsd > heavy
 r16u64    200000 Composite        : lsd
 r16u64    200000 Straddle         : lsd
+r16u64    200000 Binary           : few
+r16u64    200000 Exponential      : lsd
+r16u64    200000 RootDup          : few_wide
+r16u64    200000 TwoDup           : lsd
+r16u64    200000 EightDup         : few_wide
 r16u64    600000 Unif             : lsd
 r16u64    600000 Unif 10^9        : lsd
 r16u64    600000 Small 4          : lsd
@@ -5638,6 +5958,11 @@ r16u64    600000 Sparse 90%       : lsd > heavy
 r16u64    600000 Heavy 4          : lsd > heavy
 r16u64    600000 Composite        : lsd
 r16u64    600000 Straddle         : lsd
+r16u64    600000 Binary           : few
+r16u64    600000 Exponential      : lsd
+r16u64    600000 RootDup          : few_wide
+r16u64    600000 TwoDup           : lsd
+r16u64    600000 EightDup         : few_wide
 r16u64   1000000 Unif             : lsd
 r16u64   1000000 Unif 10^9        : lsd
 r16u64   1000000 Small 4          : lsd
@@ -5684,6 +6009,11 @@ r16u64   1000000 Sparse 90%       : lsd > heavy
 r16u64   1000000 Heavy 4          : lsd > heavy
 r16u64   1000000 Composite        : lsd
 r16u64   1000000 Straddle         : lsd
+r16u64   1000000 Binary           : few
+r16u64   1000000 Exponential      : lsd
+r16u64   1000000 RootDup          : few_wide
+r16u64   1000000 TwoDup           : lsd
+r16u64   1000000 EightDup         : lsd
 r16u64   3000000 Unif             : lsd
 r16u64   3000000 Unif 10^9        : lsd
 r16u64   3000000 Small 4          : lsd
@@ -5730,6 +6060,11 @@ r16u64   3000000 Sparse 90%       : lsd > heavy
 r16u64   3000000 Heavy 4          : lsd > heavy
 r16u64   3000000 Composite        : lsd
 r16u64   3000000 Straddle         : lsd
+r16u64   3000000 Binary           : few
+r16u64   3000000 Exponential      : lsd
+r16u64   3000000 RootDup          : few_wide
+r16u64   3000000 TwoDup           : lsd
+r16u64   3000000 EightDup         : lsd
 r16u64  10000000 Unif             : lsd
 r16u64  10000000 Unif 10^9        : lsd
 r16u64  10000000 Small 4          : lsd
@@ -5776,6 +6111,11 @@ r16u64  10000000 Sparse 90%       : lsd > heavy
 r16u64  10000000 Heavy 4          : lsd > heavy
 r16u64  10000000 Composite        : lsd
 r16u64  10000000 Straddle         : lsd
+r16u64  10000000 Binary           : few
+r16u64  10000000 Exponential      : lsd
+r16u64  10000000 RootDup          : few_wide
+r16u64  10000000 TwoDup           : lsd
+r16u64  10000000 EightDup         : lsd
 r32u64      1000 Unif             : packed > no_verge > dlsd
 r32u64      1000 Unif 10^9        : packed > no_verge > dlsd
 r32u64      1000 Small 4          : packed > no_verge > dlsd
@@ -5822,6 +6162,11 @@ r32u64      1000 Sparse 90%       : few
 r32u64      1000 Heavy 4          : packed > no_verge > dlsd
 r32u64      1000 Composite        : packed > no_verge > dlsd
 r32u64      1000 Straddle         : packed > no_verge > dlsd
+r32u64      1000 Binary           : few
+r32u64      1000 Exponential      : packed > no_verge > dlsd > std_small
+r32u64      1000 RootDup          : packed > verge_merge > dlsd
+r32u64      1000 TwoDup           : packed > verge_merge > dlsd
+r32u64      1000 EightDup         : packed > no_verge > dlsd
 r32u64     10000 Unif             : packed_in_place > no_verge > dlsd
 r32u64     10000 Unif 10^9        : packed_in_place > no_verge > dlsd
 r32u64     10000 Small 4          : packed_in_place > no_verge > dlsd
@@ -5868,6 +6213,11 @@ r32u64     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
 r32u64     10000 Heavy 4          : packed > no_verge > dlsd > heavy
 r32u64     10000 Composite        : packed_in_place > no_verge > dlsd
 r32u64     10000 Straddle         : packed_in_place > no_verge > dlsd
+r32u64     10000 Binary           : few
+r32u64     10000 Exponential      : packed_in_place > no_verge > dlsd > verge_merge > std_small > merge_small > network
+r32u64     10000 RootDup          : few
+r32u64     10000 TwoDup           : few_wide
+r32u64     10000 EightDup         : few_wide
 r32u64     30000 Unif             : packed_in_place > no_verge > roller
 r32u64     30000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64     30000 Small 4          : packed_in_place > no_verge > roller
@@ -5914,6 +6264,11 @@ r32u64     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
 r32u64     30000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64     30000 Composite        : packed_in_place > no_verge > roller
 r32u64     30000 Straddle         : packed_in_place > no_verge > roller
+r32u64     30000 Binary           : few
+r32u64     30000 Exponential      : packed_in_place > no_verge > roller > verge_merge > dlsd > std_small > merge_small > network
+r32u64     30000 RootDup          : few_wide
+r32u64     30000 TwoDup           : few_wide
+r32u64     30000 EightDup         : few_wide
 r32u64     50000 Unif             : packed_in_place > no_verge > roller
 r32u64     50000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64     50000 Small 4          : packed_in_place > no_verge > roller
@@ -5960,6 +6315,11 @@ r32u64     50000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 r32u64     50000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64     50000 Composite        : packed_in_place > no_verge > roller
 r32u64     50000 Straddle         : packed_in_place > no_verge > roller
+r32u64     50000 Binary           : few
+r32u64     50000 Exponential      : packed_in_place > no_verge > roller
+r32u64     50000 RootDup          : few_wide
+r32u64     50000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64     50000 EightDup         : few_wide
 r32u64    100000 Unif             : packed_in_place > no_verge > roller
 r32u64    100000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64    100000 Small 4          : packed_in_place > no_verge > roller
@@ -6006,6 +6366,11 @@ r32u64    100000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 r32u64    100000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64    100000 Composite        : packed_in_place > no_verge > roller
 r32u64    100000 Straddle         : packed_in_place > no_verge > roller
+r32u64    100000 Binary           : few
+r32u64    100000 Exponential      : packed_in_place > no_verge > roller
+r32u64    100000 RootDup          : few_wide
+r32u64    100000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64    100000 EightDup         : few_wide
 r32u64    200000 Unif             : packed_in_place > no_verge > roller
 r32u64    200000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64    200000 Small 4          : packed_in_place > no_verge > roller
@@ -6052,6 +6417,11 @@ r32u64    200000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r32u64    200000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64    200000 Composite        : packed_in_place > no_verge > roller
 r32u64    200000 Straddle         : packed_in_place > no_verge > roller
+r32u64    200000 Binary           : few
+r32u64    200000 Exponential      : packed_in_place > no_verge > roller
+r32u64    200000 RootDup          : few_wide
+r32u64    200000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64    200000 EightDup         : few_wide
 r32u64    600000 Unif             : packed_in_place > no_verge > roller
 r32u64    600000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64    600000 Small 4          : packed_in_place > no_verge > roller
@@ -6098,6 +6468,11 @@ r32u64    600000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r32u64    600000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64    600000 Composite        : packed_in_place > no_verge > roller > dlsd
 r32u64    600000 Straddle         : packed_in_place > no_verge > roller
+r32u64    600000 Binary           : few
+r32u64    600000 Exponential      : packed_in_place > no_verge > roller > lsd > dlsd
+r32u64    600000 RootDup          : few_wide
+r32u64    600000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64    600000 EightDup         : few_wide
 r32u64   1000000 Unif             : packed_in_place > no_verge > roller
 r32u64   1000000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64   1000000 Small 4          : packed_in_place > no_verge > roller
@@ -6144,6 +6519,11 @@ r32u64   1000000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r32u64   1000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64   1000000 Composite        : packed_in_place > no_verge > roller
 r32u64   1000000 Straddle         : packed_in_place > no_verge > roller
+r32u64   1000000 Binary           : few
+r32u64   1000000 Exponential      : packed_in_place > no_verge > roller > lsd > dlsd
+r32u64   1000000 RootDup          : few_wide
+r32u64   1000000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64   1000000 EightDup         : packed_in_place > no_verge > roller
 r32u64   3000000 Unif             : packed_in_place > no_verge > roller
 r32u64   3000000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64   3000000 Small 4          : packed_in_place > no_verge > roller
@@ -6190,6 +6570,11 @@ r32u64   3000000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r32u64   3000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64   3000000 Composite        : packed_in_place > no_verge > roller
 r32u64   3000000 Straddle         : packed_in_place > no_verge > roller
+r32u64   3000000 Binary           : few
+r32u64   3000000 Exponential      : packed_in_place > no_verge > roller > lsd > dlsd
+r32u64   3000000 RootDup          : few_wide
+r32u64   3000000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64   3000000 EightDup         : packed_in_place > no_verge > roller
 r32u64  10000000 Unif             : packed_in_place > no_verge > roller
 r32u64  10000000 Unif 10^9        : packed_in_place > no_verge > roller
 r32u64  10000000 Small 4          : packed_in_place > no_verge > roller
@@ -6236,6 +6621,11 @@ r32u64  10000000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r32u64  10000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r32u64  10000000 Composite        : packed_in_place > no_verge > roller
 r32u64  10000000 Straddle         : packed_in_place > no_verge > roller
+r32u64  10000000 Binary           : few
+r32u64  10000000 Exponential      : packed_in_place > no_verge > roller > verge_merge > lsd > dlsd
+r32u64  10000000 RootDup          : few_wide
+r32u64  10000000 TwoDup           : packed_in_place > verge_merge > roller
+r32u64  10000000 EightDup         : packed_in_place > no_verge > roller
 r128u32      1000 Unif             : packed > no_verge > dlsd
 r128u32      1000 Unif 10^9        : packed > no_verge > dlsd
 r128u32      1000 Small1           : packed > no_verge > dlsd
@@ -6279,6 +6669,11 @@ r128u32      1000 Sparse 90%       : few
 r128u32      1000 Heavy 4          : packed > no_verge > dlsd
 r128u32      1000 Composite        : packed > no_verge > dlsd
 r128u32      1000 Straddle         : packed > no_verge > dlsd
+r128u32      1000 Binary           : few
+r128u32      1000 Exponential      : packed > no_verge > dlsd
+r128u32      1000 RootDup          : packed > verge_merge > dlsd
+r128u32      1000 TwoDup           : packed > verge_merge > dlsd
+r128u32      1000 EightDup         : packed > no_verge > dlsd
 r128u32     10000 Unif             : packed_in_place > no_verge > dlsd
 r128u32     10000 Unif 10^9        : packed_in_place > no_verge > dlsd
 r128u32     10000 Small1           : few_wide
@@ -6322,6 +6717,11 @@ r128u32     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
 r128u32     10000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
 r128u32     10000 Composite        : packed_in_place > no_verge > dlsd
 r128u32     10000 Straddle         : few_wide
+r128u32     10000 Binary           : few
+r128u32     10000 Exponential      : packed_in_place > no_verge > dlsd
+r128u32     10000 RootDup          : few
+r128u32     10000 TwoDup           : few_wide
+r128u32     10000 EightDup         : few_wide
 r128u32     30000 Unif             : packed_in_place > no_verge > roller
 r128u32     30000 Unif 10^9        : packed_in_place > no_verge > roller
 r128u32     30000 Small1           : few_wide
@@ -6365,6 +6765,11 @@ r128u32     30000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 r128u32     30000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
 r128u32     30000 Composite        : packed_in_place > no_verge > roller
 r128u32     30000 Straddle         : few_wide
+r128u32     30000 Binary           : few
+r128u32     30000 Exponential      : packed_in_place > no_verge > roller
+r128u32     30000 RootDup          : few_wide
+r128u32     30000 TwoDup           : few_wide
+r128u32     30000 EightDup         : few_wide
 r128u32     50000 Unif             : packed_in_place > no_verge > roller
 r128u32     50000 Unif 10^9        : packed_in_place > no_verge > roller
 r128u32     50000 Small1           : few_wide
@@ -6408,6 +6813,11 @@ r128u32     50000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 r128u32     50000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
 r128u32     50000 Composite        : packed_in_place > no_verge > roller
 r128u32     50000 Straddle         : few_wide
+r128u32     50000 Binary           : few
+r128u32     50000 Exponential      : packed_in_place > no_verge > roller
+r128u32     50000 RootDup          : few_wide
+r128u32     50000 TwoDup           : packed_in_place > verge_merge > roller
+r128u32     50000 EightDup         : few_wide
 r128u32    100000 Unif             : packed_in_place > no_verge > roller
 r128u32    100000 Unif 10^9        : packed_in_place > no_verge > roller
 r128u32    100000 Small1           : few_wide
@@ -6451,6 +6861,11 @@ r128u32    100000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 r128u32    100000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r128u32    100000 Composite        : packed_in_place > no_verge > roller
 r128u32    100000 Straddle         : few_wide
+r128u32    100000 Binary           : few
+r128u32    100000 Exponential      : packed_in_place > no_verge > roller
+r128u32    100000 RootDup          : few_wide
+r128u32    100000 TwoDup           : packed_in_place > verge_merge > roller
+r128u32    100000 EightDup         : few_wide
 r128u32    200000 Unif             : packed_in_place > no_verge > roller
 r128u32    200000 Unif 10^9        : packed_in_place > no_verge > roller
 r128u32    200000 Small1           : few_wide
@@ -6494,6 +6909,11 @@ r128u32    200000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 r128u32    200000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r128u32    200000 Composite        : packed_in_place > no_verge > roller
 r128u32    200000 Straddle         : few_wide
+r128u32    200000 Binary           : few
+r128u32    200000 Exponential      : packed_in_place > no_verge > roller
+r128u32    200000 RootDup          : few_wide
+r128u32    200000 TwoDup           : packed_in_place > verge_merge > roller
+r128u32    200000 EightDup         : few_wide
 r128u32    600000 Unif             : packed_in_place > no_verge > roller
 r128u32    600000 Unif 10^9        : packed_in_place > no_verge > roller
 r128u32    600000 Small1           : few_wide
@@ -6537,6 +6957,11 @@ r128u32    600000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r128u32    600000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r128u32    600000 Composite        : packed_in_place > no_verge > roller
 r128u32    600000 Straddle         : few_wide
+r128u32    600000 Binary           : few
+r128u32    600000 Exponential      : packed_in_place > no_verge > roller
+r128u32    600000 RootDup          : few_wide
+r128u32    600000 TwoDup           : packed_in_place > verge_merge > roller
+r128u32    600000 EightDup         : few_wide
 r128u32   1000000 Unif             : packed_in_place > no_verge > roller
 r128u32   1000000 Unif 10^9        : packed_in_place > no_verge > roller
 r128u32   1000000 Small1           : few_wide
@@ -6580,6 +7005,11 @@ r128u32   1000000 Sparse 90%       : packed_in_place > no_verge > roller > heavy
 r128u32   1000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 r128u32   1000000 Composite        : packed_in_place > no_verge > roller
 r128u32   1000000 Straddle         : few_wide
+r128u32   1000000 Binary           : few
+r128u32   1000000 Exponential      : packed_in_place > no_verge > roller
+r128u32   1000000 RootDup          : few_wide
+r128u32   1000000 TwoDup           : packed_in_place > verge_merge > roller
+r128u32   1000000 EightDup         : packed_in_place > no_verge > roller
 ru8u32      1000 Unif             : small_path > packed > no_verge > dlsd
 ru8u32      1000 Unif 10^9        : small_path > packed > no_verge > dlsd
 ru8u32      1000 Small1           : small_path > packed > no_verge > dlsd
@@ -6623,6 +7053,11 @@ ru8u32      1000 Sparse 90%       : small_path > few
 ru8u32      1000 Heavy 4          : small_path > packed > no_verge > dlsd
 ru8u32      1000 Composite        : small_path > packed > no_verge > dlsd
 ru8u32      1000 Straddle         : small_path > packed > no_verge > dlsd
+ru8u32      1000 Binary           : small_path > few
+ru8u32      1000 Exponential      : small_path > packed > no_verge > dlsd
+ru8u32      1000 RootDup          : small_path > packed > verge_merge > dlsd
+ru8u32      1000 TwoDup           : small_path > packed > verge_merge > dlsd
+ru8u32      1000 EightDup         : small_path > packed > no_verge > dlsd
 ru8u32     10000 Unif             : small_path > packed > no_verge > dlsd
 ru8u32     10000 Unif 10^9        : small_path > packed > no_verge > dlsd
 ru8u32     10000 Small1           : small_path > packed > no_verge > dlsd
@@ -6666,6 +7101,11 @@ ru8u32     10000 Sparse 90%       : small_path > packed > no_verge > dlsd > heav
 ru8u32     10000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
 ru8u32     10000 Composite        : small_path > packed > no_verge > dlsd
 ru8u32     10000 Straddle         : small_path > packed > no_verge > dlsd
+ru8u32     10000 Binary           : heavy
+ru8u32     10000 Exponential      : small_path > packed > no_verge > dlsd
+ru8u32     10000 RootDup          : small_path > few
+ru8u32     10000 TwoDup           : small_path > packed > verge_merge > dlsd
+ru8u32     10000 EightDup         : small_path > packed > no_verge > dlsd
 ru8u32     30000 Unif             : small_path > lsd
 ru8u32     30000 Unif 10^9        : small_path > lsd
 ru8u32     30000 Small1           : small_path > lsd
@@ -6709,6 +7149,11 @@ ru8u32     30000 Sparse 90%       : small_path > packed > no_verge > dlsd > heav
 ru8u32     30000 Heavy 4          : small_path > packed > no_verge > dlsd > heavy
 ru8u32     30000 Composite        : small_path > lsd
 ru8u32     30000 Straddle         : small_path > lsd
+ru8u32     30000 Binary           : heavy
+ru8u32     30000 Exponential      : small_path > lsd
+ru8u32     30000 RootDup          : small_path > lsd
+ru8u32     30000 TwoDup           : small_path > lsd
+ru8u32     30000 EightDup         : small_path > lsd
 ru8u32     50000 Unif             : small_path > lsd
 ru8u32     50000 Unif 10^9        : small_path > lsd
 ru8u32     50000 Small1           : small_path > lsd
@@ -6752,6 +7197,11 @@ ru8u32     50000 Sparse 90%       : small_path > packed > no_verge > dlsd > heav
 ru8u32     50000 Heavy 4          : small_path > lsd > heavy
 ru8u32     50000 Composite        : small_path > lsd
 ru8u32     50000 Straddle         : small_path > lsd
+ru8u32     50000 Binary           : heavy
+ru8u32     50000 Exponential      : small_path > lsd
+ru8u32     50000 RootDup          : small_path > lsd
+ru8u32     50000 TwoDup           : small_path > lsd
+ru8u32     50000 EightDup         : small_path > lsd
 ru8u32    100000 Unif             : small_path > lsd
 ru8u32    100000 Unif 10^9        : small_path > lsd
 ru8u32    100000 Small1           : std_unstable_dups
@@ -6795,6 +7245,11 @@ ru8u32    100000 Sparse 90%       : std_unstable_dups
 ru8u32    100000 Heavy 4          : std_unstable_dups
 ru8u32    100000 Composite        : small_path > lsd
 ru8u32    100000 Straddle         : std_unstable_dups
+ru8u32    100000 Binary           : std_unstable_dups
+ru8u32    100000 Exponential      : std_unstable_dups
+ru8u32    100000 RootDup          : std_unstable_dups
+ru8u32    100000 TwoDup           : small_path > lsd
+ru8u32    100000 EightDup         : std_unstable_dups
 ru8u32    200000 Unif             : small_path > lsd
 ru8u32    200000 Unif 10^9        : small_path > lsd
 ru8u32    200000 Small1           : std_unstable_dups
@@ -6838,6 +7293,11 @@ ru8u32    200000 Sparse 90%       : std_unstable_dups
 ru8u32    200000 Heavy 4          : std_unstable_dups
 ru8u32    200000 Composite        : small_path > lsd
 ru8u32    200000 Straddle         : std_unstable_dups
+ru8u32    200000 Binary           : std_unstable_dups
+ru8u32    200000 Exponential      : std_unstable_dups
+ru8u32    200000 RootDup          : std_unstable_dups
+ru8u32    200000 TwoDup           : small_path > lsd
+ru8u32    200000 EightDup         : std_unstable_dups
 ru8u32    600000 Unif             : small_path > lsd
 ru8u32    600000 Unif 10^9        : small_path > lsd
 ru8u32    600000 Small1           : std_unstable_dups
@@ -6881,6 +7341,11 @@ ru8u32    600000 Sparse 90%       : std_unstable_dups
 ru8u32    600000 Heavy 4          : std_unstable_dups
 ru8u32    600000 Composite        : small_path > lsd
 ru8u32    600000 Straddle         : std_unstable_dups
+ru8u32    600000 Binary           : std_unstable_dups
+ru8u32    600000 Exponential      : std_unstable_dups
+ru8u32    600000 RootDup          : std_unstable_dups
+ru8u32    600000 TwoDup           : small_path > lsd
+ru8u32    600000 EightDup         : std_unstable_dups
 ru8u32   1000000 Unif             : small_path > lsd
 ru8u32   1000000 Unif 10^9        : small_path > lsd
 ru8u32   1000000 Small1           : std_unstable_dups
@@ -6924,6 +7389,11 @@ ru8u32   1000000 Sparse 90%       : std_unstable_dups
 ru8u32   1000000 Heavy 4          : std_unstable_dups
 ru8u32   1000000 Composite        : small_path > lsd
 ru8u32   1000000 Straddle         : std_unstable_dups
+ru8u32   1000000 Binary           : std_unstable_dups
+ru8u32   1000000 Exponential      : std_unstable_dups
+ru8u32   1000000 RootDup          : small_path > lsd
+ru8u32   1000000 TwoDup           : small_path > lsd
+ru8u32   1000000 EightDup         : std_unstable_dups
 ru8u32   3000000 Unif             : small_path > lsd
 ru8u32   3000000 Unif 10^9        : small_path > lsd
 ru8u32   3000000 Small1           : std_unstable_dups
@@ -6967,6 +7437,11 @@ ru8u32   3000000 Sparse 90%       : std_unstable_dups
 ru8u32   3000000 Heavy 4          : std_unstable_dups
 ru8u32   3000000 Composite        : small_path > lsd
 ru8u32   3000000 Straddle         : std_unstable_dups
+ru8u32   3000000 Binary           : std_unstable_dups
+ru8u32   3000000 Exponential      : std_unstable_dups
+ru8u32   3000000 RootDup          : small_path > lsd
+ru8u32   3000000 TwoDup           : small_path > lsd
+ru8u32   3000000 EightDup         : std_unstable_dups
 ru8u32  10000000 Unif             : small_path > lsd
 ru8u32  10000000 Unif 10^9        : small_path > lsd
 ru8u32  10000000 Small1           : std_unstable_dups
@@ -7010,6 +7485,11 @@ ru8u32  10000000 Sparse 90%       : std_unstable_dups
 ru8u32  10000000 Heavy 4          : std_unstable_dups
 ru8u32  10000000 Composite        : small_path > lsd
 ru8u32  10000000 Straddle         : std_unstable_dups
+ru8u32  10000000 Binary           : std_unstable_dups
+ru8u32  10000000 Exponential      : std_unstable_dups
+ru8u32  10000000 RootDup          : small_path > lsd
+ru8u32  10000000 TwoDup           : small_path > lsd
+ru8u32  10000000 EightDup         : std_unstable_dups
 ru16u64      1000 Unif             : packed > no_verge > dlsd
 ru16u64      1000 Unif 10^9        : packed > no_verge > dlsd
 ru16u64      1000 Small 4          : packed > no_verge > dlsd
@@ -7056,6 +7536,11 @@ ru16u64      1000 Sparse 90%       : few
 ru16u64      1000 Heavy 4          : packed > no_verge > dlsd
 ru16u64      1000 Composite        : packed > no_verge > dlsd
 ru16u64      1000 Straddle         : packed > no_verge > dlsd
+ru16u64      1000 Binary           : few
+ru16u64      1000 Exponential      : packed > no_verge > dlsd > verge_merge
+ru16u64      1000 RootDup          : packed > verge_merge > dlsd
+ru16u64      1000 TwoDup           : packed > verge_merge > dlsd
+ru16u64      1000 EightDup         : packed > no_verge > dlsd
 ru16u64     10000 Unif             : lsd
 ru16u64     10000 Unif 10^9        : lsd
 ru16u64     10000 Small 4          : lsd
@@ -7102,6 +7587,11 @@ ru16u64     10000 Sparse 90%       : packed > no_verge > dlsd > heavy
 ru16u64     10000 Heavy 4          : packed > no_verge > dlsd > heavy
 ru16u64     10000 Composite        : lsd
 ru16u64     10000 Straddle         : lsd
+ru16u64     10000 Binary           : few
+ru16u64     10000 Exponential      : lsd
+ru16u64     10000 RootDup          : few
+ru16u64     10000 TwoDup           : few_wide
+ru16u64     10000 EightDup         : few_wide
 ru16u64     30000 Unif             : lsd
 ru16u64     30000 Unif 10^9        : lsd
 ru16u64     30000 Small 4          : lsd
@@ -7148,6 +7638,11 @@ ru16u64     30000 Sparse 90%       : packed > no_verge > dlsd > heavy
 ru16u64     30000 Heavy 4          : lsd > heavy
 ru16u64     30000 Composite        : lsd
 ru16u64     30000 Straddle         : lsd
+ru16u64     30000 Binary           : few
+ru16u64     30000 Exponential      : lsd
+ru16u64     30000 RootDup          : few_wide
+ru16u64     30000 TwoDup           : few_wide
+ru16u64     30000 EightDup         : few_wide
 ru16u64     50000 Unif             : lsd
 ru16u64     50000 Unif 10^9        : lsd
 ru16u64     50000 Small 4          : lsd
@@ -7194,6 +7689,11 @@ ru16u64     50000 Sparse 90%       : packed > no_verge > dlsd > heavy
 ru16u64     50000 Heavy 4          : lsd > heavy
 ru16u64     50000 Composite        : lsd
 ru16u64     50000 Straddle         : lsd
+ru16u64     50000 Binary           : few
+ru16u64     50000 Exponential      : lsd
+ru16u64     50000 RootDup          : few_wide
+ru16u64     50000 TwoDup           : lsd
+ru16u64     50000 EightDup         : few_wide
 ru16u64    100000 Unif             : std_unstable_wide
 ru16u64    100000 Unif 10^9        : lsd
 ru16u64    100000 Small 4          : lsd
@@ -7240,6 +7740,11 @@ ru16u64    100000 Sparse 90%       : unstable_dups
 ru16u64    100000 Heavy 4          : unstable_dups
 ru16u64    100000 Composite        : std_unstable_wide
 ru16u64    100000 Straddle         : lsd
+ru16u64    100000 Binary           : unstable_dups
+ru16u64    100000 Exponential      : unstable_dups
+ru16u64    100000 RootDup          : unstable_dups
+ru16u64    100000 TwoDup           : lsd
+ru16u64    100000 EightDup         : unstable_dups
 ru16u64    200000 Unif             : std_unstable_wide
 ru16u64    200000 Unif 10^9        : lsd
 ru16u64    200000 Small 4          : lsd
@@ -7286,6 +7791,11 @@ ru16u64    200000 Sparse 90%       : unstable_dups
 ru16u64    200000 Heavy 4          : unstable_dups
 ru16u64    200000 Composite        : std_unstable_wide
 ru16u64    200000 Straddle         : lsd
+ru16u64    200000 Binary           : unstable_dups
+ru16u64    200000 Exponential      : unstable_dups
+ru16u64    200000 RootDup          : unstable_dups
+ru16u64    200000 TwoDup           : lsd
+ru16u64    200000 EightDup         : unstable_dups
 ru16u64    600000 Unif             : std_unstable_wide
 ru16u64    600000 Unif 10^9        : lsd
 ru16u64    600000 Small 4          : lsd
@@ -7332,6 +7842,11 @@ ru16u64    600000 Sparse 90%       : unstable_dups
 ru16u64    600000 Heavy 4          : unstable_dups
 ru16u64    600000 Composite        : std_unstable_wide
 ru16u64    600000 Straddle         : lsd
+ru16u64    600000 Binary           : unstable_dups
+ru16u64    600000 Exponential      : unstable_dups
+ru16u64    600000 RootDup          : unstable_dups
+ru16u64    600000 TwoDup           : lsd
+ru16u64    600000 EightDup         : unstable_dups
 ru16u64   1000000 Unif             : std_unstable_wide
 ru16u64   1000000 Unif 10^9        : lsd
 ru16u64   1000000 Small 4          : lsd
@@ -7378,6 +7893,11 @@ ru16u64   1000000 Sparse 90%       : unstable_dups
 ru16u64   1000000 Heavy 4          : unstable_dups
 ru16u64   1000000 Composite        : std_unstable_wide
 ru16u64   1000000 Straddle         : lsd
+ru16u64   1000000 Binary           : unstable_dups
+ru16u64   1000000 Exponential      : unstable_dups
+ru16u64   1000000 RootDup          : few_wide
+ru16u64   1000000 TwoDup           : lsd
+ru16u64   1000000 EightDup         : unstable_dups
 ru16u64   3000000 Unif             : std_unstable_wide
 ru16u64   3000000 Unif 10^9        : lsd
 ru16u64   3000000 Small 4          : lsd
@@ -7424,6 +7944,11 @@ ru16u64   3000000 Sparse 90%       : unstable_dups
 ru16u64   3000000 Heavy 4          : unstable_dups
 ru16u64   3000000 Composite        : std_unstable_wide
 ru16u64   3000000 Straddle         : lsd
+ru16u64   3000000 Binary           : unstable_dups
+ru16u64   3000000 Exponential      : unstable_dups
+ru16u64   3000000 RootDup          : few_wide
+ru16u64   3000000 TwoDup           : lsd
+ru16u64   3000000 EightDup         : unstable_dups
 ru16u64  10000000 Unif             : std_unstable_wide
 ru16u64  10000000 Unif 10^9        : lsd
 ru16u64  10000000 Small 4          : lsd
@@ -7470,6 +7995,11 @@ ru16u64  10000000 Sparse 90%       : unstable_dups
 ru16u64  10000000 Heavy 4          : unstable_dups
 ru16u64  10000000 Composite        : std_unstable_wide
 ru16u64  10000000 Straddle         : lsd
+ru16u64  10000000 Binary           : unstable_dups
+ru16u64  10000000 Exponential      : unstable_dups
+ru16u64  10000000 RootDup          : few_wide
+ru16u64  10000000 TwoDup           : lsd
+ru16u64  10000000 EightDup         : unstable_dups
 ru128u32      1000 Unif             : std_unstable_large
 ru128u32      1000 Unif 10^9        : std_unstable_large
 ru128u32      1000 Small1           : std_unstable_large
@@ -7513,6 +8043,11 @@ ru128u32      1000 Sparse 90%       : std_unstable_large
 ru128u32      1000 Heavy 4          : std_unstable_large
 ru128u32      1000 Composite        : std_unstable_large
 ru128u32      1000 Straddle         : std_unstable_large
+ru128u32      1000 Binary           : std_unstable_large
+ru128u32      1000 Exponential      : std_unstable_large
+ru128u32      1000 RootDup          : std_unstable_large
+ru128u32      1000 TwoDup           : std_unstable_large
+ru128u32      1000 EightDup         : std_unstable_large
 ru128u32     10000 Unif             : std_unstable_large
 ru128u32     10000 Unif 10^9        : std_unstable_large
 ru128u32     10000 Small1           : std_unstable_large
@@ -7556,6 +8091,11 @@ ru128u32     10000 Sparse 90%       : std_unstable_large
 ru128u32     10000 Heavy 4          : std_unstable_large
 ru128u32     10000 Composite        : std_unstable_large
 ru128u32     10000 Straddle         : std_unstable_large
+ru128u32     10000 Binary           : std_unstable_large
+ru128u32     10000 Exponential      : std_unstable_large
+ru128u32     10000 RootDup          : std_unstable_large
+ru128u32     10000 TwoDup           : std_unstable_large
+ru128u32     10000 EightDup         : std_unstable_large
 ru128u32     30000 Unif             : std_unstable_large
 ru128u32     30000 Unif 10^9        : std_unstable_large
 ru128u32     30000 Small1           : std_unstable_large
@@ -7599,6 +8139,11 @@ ru128u32     30000 Sparse 90%       : std_unstable_large
 ru128u32     30000 Heavy 4          : std_unstable_large
 ru128u32     30000 Composite        : std_unstable_large
 ru128u32     30000 Straddle         : std_unstable_large
+ru128u32     30000 Binary           : std_unstable_large
+ru128u32     30000 Exponential      : std_unstable_large
+ru128u32     30000 RootDup          : std_unstable_large
+ru128u32     30000 TwoDup           : std_unstable_large
+ru128u32     30000 EightDup         : std_unstable_large
 ru128u32     50000 Unif             : packed_in_place > no_verge > roller
 ru128u32     50000 Unif 10^9        : packed_in_place > no_verge > roller
 ru128u32     50000 Small1           : few_wide
@@ -7642,6 +8187,11 @@ ru128u32     50000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 ru128u32     50000 Heavy 4          : packed_in_place > no_verge > dlsd > heavy
 ru128u32     50000 Composite        : packed_in_place > no_verge > roller
 ru128u32     50000 Straddle         : few_wide
+ru128u32     50000 Binary           : few
+ru128u32     50000 Exponential      : packed_in_place > no_verge > roller
+ru128u32     50000 RootDup          : few_wide
+ru128u32     50000 TwoDup           : packed_in_place > verge_merge > roller
+ru128u32     50000 EightDup         : few_wide
 ru128u32    100000 Unif             : packed_in_place > no_verge > roller
 ru128u32    100000 Unif 10^9        : packed_in_place > no_verge > roller
 ru128u32    100000 Small1           : few_wide
@@ -7685,6 +8235,11 @@ ru128u32    100000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 ru128u32    100000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 ru128u32    100000 Composite        : packed_in_place > no_verge > roller
 ru128u32    100000 Straddle         : few_wide
+ru128u32    100000 Binary           : few
+ru128u32    100000 Exponential      : packed_in_place > no_verge > roller
+ru128u32    100000 RootDup          : few_wide
+ru128u32    100000 TwoDup           : packed_in_place > verge_merge > roller
+ru128u32    100000 EightDup         : few_wide
 ru128u32    200000 Unif             : packed_in_place > no_verge > roller
 ru128u32    200000 Unif 10^9        : packed_in_place > no_verge > roller
 ru128u32    200000 Small1           : few_wide
@@ -7728,6 +8283,11 @@ ru128u32    200000 Sparse 90%       : packed_in_place > no_verge > dlsd > heavy
 ru128u32    200000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 ru128u32    200000 Composite        : packed_in_place > no_verge > roller
 ru128u32    200000 Straddle         : few_wide
+ru128u32    200000 Binary           : few
+ru128u32    200000 Exponential      : packed_in_place > no_verge > roller
+ru128u32    200000 RootDup          : few_wide
+ru128u32    200000 TwoDup           : packed_in_place > verge_merge > roller
+ru128u32    200000 EightDup         : few_wide
 ru128u32    600000 Unif             : packed_in_place > no_verge > roller
 ru128u32    600000 Unif 10^9        : packed_in_place > no_verge > roller
 ru128u32    600000 Small1           : few_wide
@@ -7771,6 +8331,11 @@ ru128u32    600000 Sparse 90%       : packed_in_place > no_verge > roller > heav
 ru128u32    600000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 ru128u32    600000 Composite        : packed_in_place > no_verge > roller
 ru128u32    600000 Straddle         : few_wide
+ru128u32    600000 Binary           : few
+ru128u32    600000 Exponential      : packed_in_place > no_verge > roller
+ru128u32    600000 RootDup          : few_wide
+ru128u32    600000 TwoDup           : packed_in_place > verge_merge > roller
+ru128u32    600000 EightDup         : few_wide
 ru128u32   1000000 Unif             : packed_in_place > no_verge > roller
 ru128u32   1000000 Unif 10^9        : packed_in_place > no_verge > roller
 ru128u32   1000000 Small1           : few_wide
@@ -7814,3 +8379,8 @@ ru128u32   1000000 Sparse 90%       : packed_in_place > no_verge > roller > heav
 ru128u32   1000000 Heavy 4          : packed_in_place > no_verge > roller > heavy
 ru128u32   1000000 Composite        : packed_in_place > no_verge > roller
 ru128u32   1000000 Straddle         : few_wide
+ru128u32   1000000 Binary           : few
+ru128u32   1000000 Exponential      : packed_in_place > no_verge > roller
+ru128u32   1000000 RootDup          : few_wide
+ru128u32   1000000 TwoDup           : packed_in_place > verge_merge > roller
+ru128u32   1000000 EightDup         : packed_in_place > no_verge > roller

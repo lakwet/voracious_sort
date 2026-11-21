@@ -5,7 +5,7 @@ geometric mean and median of the ratios against each other sort.
 Usage:
     python tools/bench_report.py <files or folders>... [options]
 
-Folders are searched for bench-cpu-*.txt; the machine of a file is the
+Folders are searched for bench*.csv (and older bench-cpu-*.txt); the machine of a file is the
 name of the first folder under the given one (e.g. ryzen/u8/...), else the
 host in the file name.
 
@@ -53,7 +53,7 @@ def files_of(paths):
             continue
         for root, _, names in os.walk(p):
             for n in sorted(names):
-                if n.startswith('bench-cpu-') and n.endswith('.txt'):
+                if n.startswith('bench') and (n.endswith('.csv') or (n.startswith('bench-cpu-') and n.endswith('.txt'))):
                     full = os.path.join(root, n)
                     rel = os.path.relpath(full, p).split(os.sep)
                     machine = rel[0] if len(rel) > 2 else host_of(full)
@@ -62,7 +62,7 @@ def files_of(paths):
 
 
 def host_of(path):
-    m = re.match(r'bench-cpu-(.+)-\d{4}-\d\d-\d\d', os.path.basename(path))
+    m = re.match(r'bench(?:-cpu|-type-\w+|-big(?:-type-\w+)?|-records(?:-\w+)?)?-(.+)-\d{4}-\d\d-\d\d', os.path.basename(path))
     return m.group(1) if m else os.path.basename(path)
 
 

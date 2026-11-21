@@ -1,10 +1,10 @@
 //! Records sorted through packed integers `(key - min) << index_bits |
 //! index` (the index on log2(n) bits, 33 from 4.29G records), in a u64 when
-//! they fit, else a u128: sorted by `devour_sort2`, equal keys keep their
+//! they fit, else a u128: sorted by `devour_sort`, equal keys keep their
 //! index order (stable).
 
 use super::permute::permute;
-use crate::v2::sorts::devour::devour_sort2;
+use crate::v2::sorts::devour::devour_sort;
 
 /// The packed (key, index) sort, then the permutation applied in place by
 /// following its cycles: an element already at its place is not touched,
@@ -25,7 +25,7 @@ pub(crate) fn sort_in_place<T, E: Fn(&T) -> u128>(
             .enumerate()
             .map(|(i, x)| (((enc(x) - lo) << index_bits) as u64) | i as u64)
             .collect();
-        devour_sort2(&mut packed);
+        devour_sort(&mut packed);
         let mask = (1u64 << index_bits).wrapping_sub(1);
         permute(arr, &mut packed, |p| (p & mask) as usize, |p, i| *p = (*p & !mask) | i as u64);
         true
@@ -35,7 +35,7 @@ pub(crate) fn sort_in_place<T, E: Fn(&T) -> u128>(
             .enumerate()
             .map(|(i, x)| ((enc(x) - lo) << index_bits) | i as u128)
             .collect();
-        devour_sort2(&mut packed);
+        devour_sort(&mut packed);
         let mask = (1u128 << index_bits).wrapping_sub(1);
         permute(arr, &mut packed, |p| (p & mask) as usize, |p, i| *p = (*p & !mask) | i as u128);
         true
@@ -63,7 +63,7 @@ pub(crate) unsafe fn sort_into<T, E: Fn(&T) -> u128>(
     if key_bits + index_bits <= 64 {
         let mut packed: Vec<u64> =
             (0..n).map(|i| (((enc(&*src.add(i)) - lo) << index_bits) as u64) | i as u64).collect();
-        devour_sort2(&mut packed);
+        devour_sort(&mut packed);
         let mask = (1u64 << index_bits).wrapping_sub(1);
         for (j, &p) in packed.iter().enumerate() {
             dst.add(j).write(std::ptr::read(src.add((p & mask) as usize)));
@@ -72,7 +72,7 @@ pub(crate) unsafe fn sort_into<T, E: Fn(&T) -> u128>(
     } else if key_bits + index_bits <= 128 {
         let mut packed: Vec<u128> =
             (0..n).map(|i| ((enc(&*src.add(i)) - lo) << index_bits) | i as u128).collect();
-        devour_sort2(&mut packed);
+        devour_sort(&mut packed);
         let mask = (1u128 << index_bits).wrapping_sub(1);
         for (j, &p) in packed.iter().enumerate() {
             dst.add(j).write(std::ptr::read(src.add((p & mask) as usize)));

@@ -74,9 +74,7 @@ fn power(s0: usize, s1: usize, s2: usize, n: usize) -> u32 {
 }
 
 /// A half of `c` runs that `shrink` leaves as it is.
-fn no_shrink(c: usize) -> bool {
-    c <= 2 || c.is_power_of_two()
-}
+fn no_shrink(c: usize) -> bool { c <= 2 || c.is_power_of_two() }
 
 struct Plan<'a, T> {
     bounds: &'a [usize],
@@ -145,7 +143,8 @@ impl<T: Copy + PartialOrd> Plan<'_, T> {
                 best = (ah + ch + ta + tb + ta.min(tb), How::InPlace);
             }
         }
-        let mid = if m % 2 == 0 { b[i..j].binary_search(&(b[i] + m / 2)).ok() } else { None };
+        let mid =
+            if m.is_multiple_of(2) { b[i..j].binary_search(&(b[i] + m / 2)).ok() } else { None };
         let free = best.1 == How::Done;
         if let (true, true, Some(c0), false) = (self.rot, j - i >= 3, mid, free) {
             // No run cut: the halves are slices of the bounds.
@@ -303,7 +302,13 @@ unsafe fn hole_left<T: Copy + PartialOrd>(v: &mut [T], bp: *mut T, s: usize, mid
 }
 
 /// The right run in `bp[..e - mid]`, the left one home at `v[s..mid]`.
-unsafe fn hole_right<T: Copy + PartialOrd>(v: &mut [T], bp: *mut T, s: usize, mid: usize, e: usize) {
+unsafe fn hole_right<T: Copy + PartialOrd>(
+    v: &mut [T],
+    bp: *mut T,
+    s: usize,
+    mid: usize,
+    e: usize,
+) {
     let lb = e - mid;
     let b = std::slice::from_raw_parts(bp as *const T, lb);
     let first = b[0];
@@ -368,7 +373,13 @@ pub fn hybrid<T: Copy + PartialOrd>(v: &mut [T], bounds: &[usize], scratch: &mut
     run(v, bounds, scratch, true, true)
 }
 
-fn run<T: Copy + PartialOrd>(v: &mut [T], bounds: &[usize], scratch: &mut Vec<T>, rot: bool, val: bool) {
+fn run<T: Copy + PartialOrd>(
+    v: &mut [T],
+    bounds: &[usize],
+    scratch: &mut Vec<T>,
+    rot: bool,
+    val: bool,
+) {
     check(v.len(), bounds);
     if bounds.len() <= 2 {
         return;
@@ -380,9 +391,8 @@ fn run<T: Copy + PartialOrd>(v: &mut [T], bounds: &[usize], scratch: &mut Vec<T>
     }
     let vals = if val { v.as_ptr() } else { ptr::null() };
     let (p, root, _) = plan(bounds, vals, n / 2, rot);
-    // Only the room the plan uses: a fresh buffer of n / 2 per call costs
-    // its page faults where the plan needs less (two runs 9:1 at 10M: 12 %
-    // in voracious v2 on the Ryzen).
+    // Only the room the plan uses: each page of a fresh buffer costs a page
+    // fault, so the buffer is not made larger than the plan needs.
     let k = bounds.len() - 1;
     let need = p.need_home(0, k, root) + 1;
     #[cfg(any())]

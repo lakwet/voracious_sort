@@ -1,6 +1,15 @@
-//! Version 2: the radix sorts with all the improvements, beside the 1.x
-//! library.
+//! Version 2: the radix sorts of 2.0.
 //!
+//! How a sort goes: `api` (the `RadixSort` trait) or `sorts` (the free
+//! functions) call the chain of the key type in `types` (one file per type,
+//! one per key type and record size for the records: each chain can change
+//! without touching the others). A chain is a list of rules tried in order:
+//! small arrays first, then `inspect` (already sorted?), `special` (a
+//! distribution with a faster method?), `runs` (long sorted runs to keep and
+//! merge?), and the `decide` rules pick the `engines` for the rest. The
+//! thresholds come from `cache`, the cache sizes read at run time.
+//!
+//! - `api`: the `RadixSort` trait (`voracious_sort`, `_by_key`...);
 //! - `sorts`: the entry points: `devour` (integers, `char`), `ravenous`
 //!   (floats), `by_key` (records);
 //! - `decide`: the rules, as tables: the radix path every key type goes
@@ -16,11 +25,7 @@
 //! - `dev`: the decision trace (feature `v2_trace`) and the switch of the
 //!   rule under test (trace and sentinel bench compare both sides).
 
-// Outside the tests nothing calls v2 yet (the public API points to the 1.x
-// sorts until 2.0): dead code is only reported in the test builds with
-// `voracious_multithread`, where the crate's tests (src/tests) call it.
-#![cfg_attr(not(all(test, feature = "voracious_multithread")), allow(dead_code))]
-
+pub(crate) mod api;
 #[macro_use]
 pub(crate) mod dev;
 #[macro_use]
@@ -32,6 +37,5 @@ pub(crate) mod engines;
 pub(crate) mod inspect;
 pub(crate) mod runs;
 pub(crate) mod sorts;
+#[cfg(test)] pub(crate) mod testing;
 pub(crate) mod types;
-#[cfg(test)]
-pub(crate) mod testing;

@@ -15,32 +15,32 @@ mod sealed {
     sealed!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, char, bool);
 }
 
-/// Integer types, `char` and `bool`, sortable by [`devour_sort2`].
-pub trait DevourSort2: sealed::Sealed + Copy + Ord {
+/// Integer types, `char` and `bool`, sortable by [`devour_sort`].
+pub trait DevourSort: sealed::Sealed + Copy + Ord {
     #[doc(hidden)]
     /// Sorts `arr` by the chain of the type.
-    fn devour_sort2_impl(arr: &mut [Self]);
+    fn devour_sort_impl(arr: &mut [Self]);
 }
 
 /// Sorts slices of `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`,
 /// `i32`, `i64`, `i128`, `isize`, `char` or `bool`.
 ///
-/// ```text
-/// use voracious_radix_sort::devour_sort2;
+/// ```
+/// use voracious_radix_sort::devour_sort;
 ///
 /// let mut v = vec![5i64, -3, 12, 0, -40];
-/// devour_sort2(&mut v);
+/// devour_sort(&mut v);
 /// assert_eq!(v, vec![-40, -3, 0, 5, 12]);
 /// ```
 #[inline]
-pub fn devour_sort2<T: DevourSort2>(arr: &mut [T]) { T::devour_sort2_impl(arr); }
+pub fn devour_sort<T: DevourSort>(arr: &mut [T]) { T::devour_sort_impl(arr); }
 
 /// Each type: its own chain (`types`).
 macro_rules! own_chain {
     ($($t:ident),*) => {$(
-        impl DevourSort2 for $t {
+        impl DevourSort for $t {
             #[inline]
-            fn devour_sort2_impl(arr: &mut [$t]) {
+            fn devour_sort_impl(arr: &mut [$t]) {
                 crate::v2::types::$t::sort(arr);
             }
         }
@@ -51,15 +51,15 @@ own_chain!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, char, bool);
 /// `usize` / `isize`: sorted as the integer of the same width.
 macro_rules! pointer_width {
     ($t:ty, $as:ty) => {
-        impl DevourSort2 for $t {
+        impl DevourSort for $t {
             #[inline]
-            fn devour_sort2_impl(arr: &mut [$t]) {
+            fn devour_sort_impl(arr: &mut [$t]) {
                 const _: () = assert!(std::mem::size_of::<$t>() == std::mem::size_of::<$as>());
                 // SAFETY: same size, alignment and value representation.
                 let same = unsafe {
                     std::slice::from_raw_parts_mut(arr.as_mut_ptr() as *mut $as, arr.len())
                 };
-                <$as as DevourSort2>::devour_sort2_impl(same);
+                <$as as DevourSort>::devour_sort_impl(same);
             }
         }
     };

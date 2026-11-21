@@ -1,5 +1,5 @@
-use super::super::sorts::comparative_sort::insertion_sort_try;
-use super::super::sorts::utils::Params;
+use crate::v1::sorts::comparative_sort::insertion_sort_try;
+use crate::v1::sorts::utils::Params;
 
 #[test]
 fn test_comparative_sort_insertion_sort_try() {

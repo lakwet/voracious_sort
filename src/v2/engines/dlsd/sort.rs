@@ -67,9 +67,7 @@ macro_rules! dlsd_sort {
 
         #[inline(always)]
         /// Decodes every key in place.
-        fn decode_all(keys: &mut [$uint]) {
-            keys.iter_mut().for_each(|k| *k = w::decode_key(*k));
-        }
+        fn decode_all(keys: &mut [$uint]) { keys.iter_mut().for_each(|k| *k = w::decode_key(*k)); }
 
         /// The digits of the prefix: `digits` digits of `width` bits, the
         /// prefix being bits `base..top` of `key - min` (exact when `base` is 0).

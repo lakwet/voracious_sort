@@ -38,21 +38,15 @@ fn simd_flip<T>() -> Option<(u32, u8)> {
     }
 }
 
-/// The vector merge on f64 keys. OFF: the f64 path (mode 2 of the 64-bit
-/// network in `simd.rs`, tested correct) is kept but never runs, because it
-/// lost everywhere on the Snapdragon X: Runs 8 100k 2.90 to 4.05, 1M 4.25 to
-/// 6.14 ns per key (the f64 radix sort is faster than these merges, unlike
-/// u64 / i64). With the keys converted once (`merge_runs_simd`) it stays mixed
-/// (Runs 8 100k 2.83 to 2.40, 1M 4.35 to 4.60, 10M 4.74 to 4.30; Saw 10k
-/// +7 % through the in-cache merges, which still convert each block). Kept
-/// to measure on x86 (Ryzen, Intel) before removing it: turn this on and
-/// compare in the same run.
+/// The vector merge on f64 keys: off. The f64 path (mode 2 of the 64-bit
+/// network in `simd.rs`, tested correct) is kept but never runs: the f64
+/// radix sort beat it on ARM, unlike for u64 / i64, and converting the keys
+/// once left it mixed. To measure on x86 before removing it.
 pub(crate) const SIMD_F64: bool = false;
 
-/// The smallest array of 64-bit keys whose unpredictable
-/// merges are merged by vector blocks (below, the radix sort in the cache
-/// wins: i64 Runs 8 10k 2.02 against 2.65 ns per key on the Snapdragon X).
-/// Measured on one machine only: to check on x86 (Ryzen, Intel).
+/// The smallest array of 64-bit keys whose unpredictable merges are merged
+/// by vector blocks: below, the radix sort in the cache wins. Measured on
+/// ARM only.
 pub(crate) const SIMD_MIN_ARRAY_SIZE: usize = 1 << 16;
 
 /// Whether unpredictable merges of `n` keys of type `T` are merged by
@@ -114,7 +108,7 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
         return;
     }
     // Ping-pong while the array and its buffer fit in a quarter of the L2,
-    // from 4096 keys (journal §52).
+    // from 4096 keys.
     let bytes = 2 * arr.len() * std::mem::size_of::<T>();
     if separators.len() >= 4
         && arr.len() >= 4096
@@ -123,14 +117,13 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
         pingpong(arr, separators);
         return;
     }
-    // Merge under test: the hybrid of kwaymerge (buffer n/2, allocated here),
-    // beyond the cache. In the cache the old merges stay (ping-pong, or
-    // two-ended into the scratch and copied back, by SIMD blocks for 32-bit
-    // keys: Saw f32 10k 1.42, f64 1.15, Pipe Organ u32 10k 1.10 times slower
-    // through the hybrid).
+    // Beyond the cache: the k-way merge of kwaymerge (buffer n / 2, allocated
+    // here). In the cache the older merges stay faster: ping-pong, or
+    // two-ended into the scratch and copied back (by SIMD blocks for 32-bit
+    // keys).
     let in_cache = std::mem::size_of_val(arr)
         <= crate::v2::cache::budget(crate::v2::cache::Budget::MergeTwoWay) / 2;
-    if crate::v2::dev::ab::new_merge() && !in_cache {
+    if !in_cache {
         kway::hybrid(arr, separators, &mut Vec::new());
         let n = arr.len();
         separators.clear();
@@ -168,9 +161,8 @@ pub(crate) fn merge_runs_simd<T: Copy + PartialOrd>(arr: &mut [T], separators: &
     }
     // Floats: the whole array turned into unsigned keys of the same order
     // once, merged as u32 / u64, turned back. Converting each block inside
-    // the vector merge cost more: LLVM no longer kept the four streams in
-    // registers and the block choice became a branch (f32 kernel 0.92
-    // against 0.46 ns per key at 1M on the Snapdragon X).
+    // the vector merge cost twice as much: LLVM no longer kept the four
+    // streams in registers and the block choice became a branch.
     match simd_flip::<T>() {
         Some((32, 2)) => {
             // SAFETY: `T` is f32 (checked by name in `simd_flip`): 32 bits.
@@ -291,126 +283,4 @@ fn merge_out<T: Copy + PartialOrd>(a: &[T], b: &[T], dst: &mut [T]) {
     dst[k..].copy_from_slice(&b[j..]);
 }
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v2::testing::*;
-
-    /// A key and its first position: compared by the key only, so that the
-    /// stability shows.
-    #[derive(Clone, Copy, Debug)]
-    struct Rec {
-        key: u32,
-        pos: u32,
-    }
-
-    impl PartialEq for Rec {
-        fn eq(&self, o: &Rec) -> bool { self.key == o.key }
-    }
-
-    impl PartialOrd for Rec {
-        fn partial_cmp(&self, o: &Rec) -> Option<std::cmp::Ordering> {
-            self.key.partial_cmp(&o.key)
-        }
-    }
-
-    /// Cuts `0..n` into `runs` segments at random places (empty ones kept
-    /// out): the separators.
-    fn cuts(n: usize, runs: usize, r: &mut Rng) -> Vec<usize> {
-        let mut s: Vec<usize> = (1..runs).map(|_| (r.next() % (n as u64 + 1)) as usize).collect();
-        s.push(0);
-        s.push(n);
-        s.sort_unstable();
-        s.dedup();
-        s
-    }
-
-    /// Runs (sorted stably), merged: the stable sort of the whole, at every
-    /// size (in place and ping-pong) and number of runs (2 to 64).
-    #[test]
-    fn stable_merges() {
-        let mut r = Rng(11);
-        for &n in SIZES.iter().chain(LARGE.iter()) {
-            for &runs in [2usize, 3, 4, 5, 8, 64].iter() {
-                for &distinct in [4u64, 1 << 32].iter() {
-                    let mut a: Vec<Rec> = (0..n as u32)
-                        .map(|pos| Rec { key: (r.next() % distinct) as u32, pos })
-                        .collect();
-                    let mut separators = cuts(n, runs, &mut r);
-                    for w in separators.windows(2) {
-                        a[w[0]..w[1]].sort_by_key(|x| x.key);
-                    }
-                    let mut expected = a.clone();
-                    expected.sort_by_key(|x| x.key);
-                    merge_runs(&mut a, &mut separators);
-                    let same =
-                        a.iter().zip(&expected).all(|(x, y)| x.key == y.key && x.pos == y.pos);
-                    assert!(
-                        same,
-                        "n={} runs={} distinct={}: not the stable order",
-                        n, runs, distinct
-                    );
-                }
-            }
-        }
-    }
-
-    /// The SIMD merges of every key type they take: sorted runs merged into
-    /// the sorted array (floats in their total order, without NaN: the
-    /// float chains set them aside first, and the f64 keys take the scalar
-    /// merge, which compares with `<`).
-    macro_rules! simd_case {
-        ($t:ty, $from:expr, $key:expr) => {{
-            let mut r = Rng(13);
-            for &n in SIZES.iter().chain(LARGE.iter()) {
-                for &runs in [2usize, 3, 7, 64].iter() {
-                    let mut a: Vec<$t> = (0..n).map(|_| $from(r.next())).collect();
-                    let mut separators = cuts(n, runs, &mut r);
-                    for w in separators.windows(2) {
-                        a[w[0]..w[1]].sort_unstable_by_key(|&x| $key(x));
-                    }
-                    let mut expected = a.clone();
-                    expected.sort_unstable_by_key(|&x| $key(x));
-                    merge_runs_simd(&mut a, &mut separators);
-                    let same = a.iter().zip(&expected).all(|(&x, &y)| $key(x) == $key(y));
-                    assert!(same, "{} n={} runs={}", stringify!($t), n, runs);
-                }
-            }
-        }};
-    }
-
-    #[test]
-    fn simd_merges() {
-        simd_case!(u32, |x| x as u32, |x: u32| x);
-        simd_case!(i32, |x| x as i32, |x: i32| x);
-        let f32_of = |x: u64| Some(f32::from_bits(x as u32)).filter(|v| !v.is_nan()).unwrap_or(1.5);
-        let f64_of = |x: u64| Some(f64::from_bits(x)).filter(|v| !v.is_nan()).unwrap_or(1.5);
-        simd_case!(f32, f32_of, |x: f32| float_key_32(x.to_bits()));
-        simd_case!(u64, |x| x, |x: u64| x);
-        simd_case!(i64, |x| x as i64, |x: i64| x);
-        simd_case!(f64, f64_of, |x: f64| float_key_64(x.to_bits()));
-    }
-
-    /// The merge probes on their three cases: runs one after the other
-    /// (predictable, not dense), runs strictly alternating (periodic:
-    /// predictable and dense), random runs (unpredictable).
-    #[test]
-    fn merge_probes() {
-        use predictable::{dense_merge, predictable_merge, predictable_pair};
-        let n = 1000u32;
-        let apart: Vec<u32> = (0..n).collect();
-        let alternate: Vec<u32> =
-            (0..n / 2).map(|i| 2 * i).chain((0..n / 2).map(|i| 2 * i + 1)).collect();
-        let mut r = Rng(17);
-        let mut random: Vec<u32> = (0..n).map(|_| r.next() as u32).collect();
-        let mid = (n / 2) as usize;
-        random[..mid].sort_unstable();
-        random[mid..].sort_unstable();
-        assert!(predictable_merge(&apart, mid) && !dense_merge(&apart, mid));
-        assert!(predictable_merge(&alternate, mid) && dense_merge(&alternate, mid));
-        assert!(!predictable_merge(&random, mid));
-        assert!(predictable_pair(&apart[..mid], &apart[mid..]));
-        assert!(!predictable_pair(&random[..mid], &random[mid..]));
-    }
-}
+#[cfg(test)] mod tests;

@@ -33,14 +33,10 @@ mod imp {
     }
 
     /// The smallest L2 (data or unified) and the page size, in bytes.
-    pub(crate) fn query() -> (Option<usize>, Option<usize>) {
-        (smallest(2), page())
-    }
+    pub(crate) fn query() -> (Option<usize>, Option<usize>) { (smallest(2), page()) }
 
     /// The smallest L1, L2 and L3 (data or unified), in bytes.
-    pub(crate) fn levels() -> [Option<usize>; 3] {
-        [smallest(1), smallest(2), smallest(3)]
-    }
+    pub(crate) fn levels() -> [Option<usize>; 3] { [smallest(1), smallest(2), smallest(3)] }
 
     fn page() -> Option<usize> {
         let mut info = std::mem::MaybeUninit::<SystemInfo>::zeroed();
@@ -113,9 +109,7 @@ mod imp {
     }
 
     /// The smallest L1, L2 and L3 (data or unified), in bytes.
-    pub(crate) fn levels() -> [Option<usize>; 3] {
-        [smallest(1), smallest(2), smallest(3)]
-    }
+    pub(crate) fn levels() -> [Option<usize>; 3] { [smallest(1), smallest(2), smallest(3)] }
 
     /// Sizes like "1024K" or "12M".
     fn parse_size(s: &str) -> Option<usize> {
@@ -218,14 +212,10 @@ mod imp {
 #[cfg(any(miri, not(any(windows, target_os = "linux", target_os = "macos"))))]
 mod imp {
     /// The smallest L2 (data or unified) and the page size, in bytes.
-    pub(crate) fn query() -> (Option<usize>, Option<usize>) {
-        (None, None)
-    }
+    pub(crate) fn query() -> (Option<usize>, Option<usize>) { (None, None) }
 
     /// The smallest L1, L2 and L3 (data or unified), in bytes.
-    pub(crate) fn levels() -> [Option<usize>; 3] {
-        [None, None, None]
-    }
+    pub(crate) fn levels() -> [Option<usize>; 3] { [None, None, None] }
 }
 
 pub(super) use imp::{levels, query};

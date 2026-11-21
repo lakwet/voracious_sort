@@ -1,9 +1,8 @@
-use super::super::sorts::utils::{
-    compute_max_level, compute_offset, copy_nonoverlapping,
-    get_empty_histograms, get_histogram, get_partial_histograms,
-    offset_from_bits, only_one_bucket_filled, prefix_sums, Params,
+use crate::v1::sorts::utils::{
+    compute_max_level, compute_offset, copy_nonoverlapping, get_empty_histograms, get_histogram,
+    get_partial_histograms, offset_from_bits, only_one_bucket_filled, prefix_sums, Params,
 };
-use super::super::Radixable;
+use crate::v1::Radixable;
 
 #[test]
 fn test_utils_copy_nonoverlapping() {
@@ -55,8 +54,7 @@ fn test_utils_offset_from_bits() {
     let bits = 32;
     let zero: u32 = 0;
     let one: u32 = 1;
-    let (offset, raw_offset) =
-        offset_from_bits(&mut arr, max, radix, bits, zero, one);
+    let (offset, raw_offset) = offset_from_bits(&mut arr, max, radix, bits, zero, one);
     assert_eq!(offset, 0);
     assert_eq!(raw_offset, 5);
 }
@@ -101,8 +99,7 @@ fn test_utils_get_empty_histograms() {
 
 #[test]
 fn test_utils_get_histogram() {
-    let mut v: Vec<u64> =
-        vec![0, 1, 2, 3, 1, 1, 2, 1, 3, 0, 1, 2, 1, 0, 3, 1, 2, 3, 1, 0, 1, 0];
+    let mut v: Vec<u64> = vec![0, 1, 2, 3, 1, 1, 2, 1, 3, 0, 1, 2, 1, 0, 3, 1, 2, 3, 1, 0, 1, 0];
     let arr = v.as_mut_slice();
     let p = Params::new(0, 2, 62, 1); // level, radix, offset, max_level
     let (mask, shift) = arr[0].get_mask_and_shift(&p);
@@ -120,26 +117,14 @@ fn test_utils_get_partial_histograms() {
     let histograms = get_partial_histograms(&mut arr, &p, 4);
 
     assert_eq!(histograms.len(), 4);
-    assert_eq!(histograms[0], vec![
-        7, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ]);
-    assert_eq!(histograms[1], vec![
-        5, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ]);
-    assert_eq!(histograms[2], vec![
-        6, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ]);
-    assert_eq!(histograms[3], vec![
-        6, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0
-    ]);
+    assert_eq!(histograms[0], vec![7, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(histograms[1], vec![5, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(histograms[2], vec![6, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(histograms[3], vec![6, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
 
     let histograms = get_partial_histograms(&mut arr, &p, 2);
 
     assert_eq!(histograms.len(), 2);
-    assert_eq!(histograms[0], vec![
-        7, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ]);
-    assert_eq!(histograms[1], vec![
-        5, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ]);
+    assert_eq!(histograms[0], vec![7, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(histograms[1], vec![5, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 }

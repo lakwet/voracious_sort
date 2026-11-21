@@ -107,11 +107,9 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
     true
 }
 
-/// Widest table counted on 4 lanes: beyond, one lane (Snapdragon X, u32
-/// at 100k-10M, against the cache rule alone: Gaussian over 46k values 0.95
-/// to 0.79 and 0.85 to 0.74 ns per key, uniform over 10k-40k values 3-17 %
-/// faster; uniform over 60k values at 10M 0.69 to 0.75; 4096 was 30 %
-/// slower on a Gaussian over ~4.5k values).
+/// Widest table counted on 4 lanes; beyond, one lane, which keeps the
+/// table in cache (measured on u32 from 100k to 10M keys; 4096 was too
+/// small).
 const LANES_MAX_WIDTH: usize = 8192;
 
 /// Counter lanes of a count table of `width` counters for `n` keys: 4 lanes
@@ -161,10 +159,8 @@ pub(crate) fn domain_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
     decode: D,
 ) {
     let width = (U::MAX_U64 + 1) as usize;
-    // Wide domains (16-bit keys): 4 lanes only when keys repeat nearby. One
-    // lane keeps a quarter of the table in cache (u16 at 1M-10M, against 4
-    // lanes: uniform 0.87 to 0.70 ns per key, Gaussian 0.58 to 0.37,
-    // sawtooth 0.47 to 0.34; Zipf keeps its 4 lanes).
+    // Wide domains (16-bit keys): 4 lanes only when keys repeat nearby; one
+    // lane keeps a quarter of the table in cache.
     let four = lanes_for(width, keys.len()) == 4 && (width <= 256 || repeats_near(keys));
     // Mixed index only for keys sharing their low byte (the case it fixes;
     // 3-6 % faster without it otherwise).
@@ -227,7 +223,7 @@ fn domain_count_with<
     // Wide domains (16-bit keys), `MIX`: counter of key k at k ^ (k >> 8)
     // (a bijection within each block of 256 counters). Keys sharing their
     // low byte would otherwise hit counters 1 KiB apart, all in the same few
-    // L1 sets (u16 multiples of 256 at 1M-10M: 4.3 to 0.35 ns per key).
+    // L1 sets (ten times slower on multiples of 256).
     let idx = |k: U| {
         let e = encode(k).to_u64() as usize;
         if MIX {
@@ -450,90 +446,4 @@ fn count_window<U: Key, E: Fn(U) -> U + Copy>(
     None
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v2::sorts::devour::keys::{flip16, flip32, flip64, flip8, id16, id32, id64, id8};
-    use crate::v2::testing::*;
-
-    /// The detectors count from `FEW_MIN` keys on: shorter arrays never
-    /// reach these sorts.
-    const MIN: usize = crate::v2::special::FEW_MIN;
-
-    /// `domain_count` on 8- and 16-bit keys, unsigned and signed codecs.
-    macro_rules! domain {
-        ($u:ty, $enc:ident) => {
-            for_each_case::<$u>(|shape, a| {
-                if a.len() < MIN {
-                    return;
-                }
-                let mut got = a.clone();
-                domain_count(&mut got, $enc, $enc);
-                let what = format!(
-                    "domain {} {} {} n={}",
-                    stringify!($u),
-                    stringify!($enc),
-                    shape,
-                    a.len()
-                );
-                assert!(sorted_by(&got, $enc), "{}: not sorted", what);
-                assert!(same_values(&got, &a), "{}: values changed", what);
-            })
-        };
-    }
-
-    #[test]
-    fn domain() {
-        domain!(u8, id8);
-        domain!(u8, flip8);
-        domain!(u16, id16);
-        domain!(u16, flip16);
-    }
-
-    /// `exact_count` over the exact range of the keys (narrow ones), and
-    /// `window_count` from a sample range: sorted when it returns `true`,
-    /// untouched otherwise; narrow keys always counted.
-    macro_rules! ranges {
-        ($u:ty, $enc:ident) => {
-            for_each_case::<$u>(|shape, a| {
-                if a.len() < MIN {
-                    return;
-                }
-                let what =
-                    format!("{} {} {} n={}", stringify!($u), stringify!($enc), shape, a.len());
-                let lo = a.iter().map(|&k| $enc(k)).min().unwrap();
-                let hi = a.iter().map(|&k| $enc(k)).max().unwrap();
-                let width = (hi - lo) as u128 + 1;
-                if width <= 1 << 16 {
-                    let mut got = a.clone();
-                    exact_count(&mut got, lo, width as usize, $enc, $enc);
-                    assert!(sorted_by(&got, $enc), "exact {}: not sorted", what);
-                    assert!(same_values(&got, &a), "exact {}: values changed", what);
-                }
-                // The window starts on the range of the first and middle keys,
-                // when narrow against the limit (the callers' condition).
-                let (x, y) = (a[0], a[a.len() / 2]);
-                let (s, t) = if $enc(x) <= $enc(y) { (x, y) } else { (y, x) };
-                if 2 * (($enc(t) - $enc(s)) as u128 + 1) >= 1 << 16 {
-                    return;
-                }
-                let mut got = a.clone();
-                if window_count(&mut got, s, t, 1 << 16, $enc, $enc) {
-                    assert!(sorted_by(&got, $enc), "window {}: not sorted", what);
-                    assert!(same_values(&got, &a), "window {}: values changed", what);
-                } else {
-                    assert!(got == a, "window {}: gave up but changed", what);
-                    assert!(width > 1 << 16, "window {}: narrow keys not counted", what);
-                }
-            })
-        };
-    }
-
-    #[test]
-    fn exact_and_window() {
-        ranges!(u32, id32);
-        ranges!(u32, flip32);
-        ranges!(u64, id64);
-        ranges!(u64, flip64);
-    }
-}
+#[cfg(test)] mod tests;

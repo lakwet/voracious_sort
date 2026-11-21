@@ -21,6 +21,25 @@ pub(crate) const SIZES: &[usize] = &[
     4095, 4096, 4097, 20_000,
 ];
 
+/// Sizes around every threshold derived from the cache of this machine:
+/// each budget (`cache::BUDGETS`, in bytes) divided by the key widths and
+/// by the divisors the chains use (L2 / 12, / 24, / 48...), minus one, the
+/// size itself, plus one. Up to `max` keys.
+pub(crate) fn cache_sizes(max: usize) -> Vec<usize> {
+    use crate::v2::cache::{budget, BUDGETS};
+    let mut sizes = Vec::new();
+    for &(b, _) in BUDGETS.iter() {
+        for d in [1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 128] {
+            let n = budget(b) / d;
+            sizes.extend([n.saturating_sub(1), n, n + 1]);
+        }
+    }
+    sizes.retain(|&n| n > 64 && n <= max);
+    sizes.sort_unstable();
+    sizes.dedup();
+    sizes
+}
+
 /// Sizes beyond the cache-sized pieces (rollercoaster leaves, ping-pong).
 pub(crate) const LARGE: &[usize] = &[40_000, 200_000];
 

@@ -15,6 +15,7 @@ const DEFAULT_L2: usize = 1 << 20;
 const DEFAULT_PAGE: usize = 4096;
 /// Values read outside these bounds are ignored (bad report).
 const L2_RANGE: (usize, usize) = (128 << 10, 256 << 20);
+/// The same for the page size.
 const PAGE_RANGE: (usize, usize) = (4096, 1 << 20);
 
 #[derive(Clone, Copy, Debug)]
@@ -24,10 +25,10 @@ struct CacheSizes {
 }
 
 /// The decisions taken from the cache size, one budget each, so that each
-/// can follow the cache level that fits it on a given CPU (journal §68: on
-/// the Core Ultra 9 185H, 2 MiB L2 and 24 MiB L3, a larger size helped
-/// some decisions at 10M keys and hurt others). Every budget is the L2
-/// for now; the call sites keep their own fractions of it.
+/// can follow the cache level that fits it on a given CPU (with a small L2
+/// and a large L3, a larger size helps some decisions and hurts others).
+/// Every budget is the L2 for now; the call sites keep their own fractions
+/// of it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Budget {
     /// 11-bit digits for 32-bit keys while keys and buffer fit (`engines/lsd`).
@@ -59,6 +60,7 @@ pub(crate) enum Budget {
 }
 
 /// Every budget with its name (benchmarks).
+#[cfg(test)]
 pub(crate) const BUDGETS: [(Budget, &str); 13] = [
     (Budget::Lsd11, "lsd11"),
     (Budget::Roller32, "roller32"),
@@ -86,11 +88,9 @@ pub(crate) fn budget(b: Budget) -> usize {
         }
     }
     match b {
-        // Measured on the three machines (journal §69, §85): the 32-bit
+        // Measured on three machines (ARM, AMD, Intel): the 32-bit
         // rollercoaster threshold and the wide counting follow the largest
-        // cache a core reaches (Core Ultra 185H 10M u32: Unif 10.9 to 6.9 ns
-        // per key, sawtooth 5.5-7.8 to 1.1-2.3; Ryzen 3950X widecount u32
-        // 10M 0.88, roller32 neutral; Snapdragon X: no L3, unchanged).
+        // cache a core reaches.
         Budget::Roller32 | Budget::WideCount => largest_bytes(),
         _ => l2_bytes(),
     }
@@ -118,10 +118,7 @@ pub(crate) fn l2_bytes() -> usize {
 }
 
 /// Largest cache a core reaches: the L2, or the L3 when one is reported
-/// above it (Snapdragon X: 12 MiB L2, no L3; Ryzen 3950X: 512 KiB L2,
-/// 16 MiB L3 per CCX; Core Ultra 185H: 2 MiB L2, 24 MiB L3). For the
-/// decisions measured to follow it on the three machines (journal §69, §85,
-/// §87).
+/// above it. For the decisions measured to follow it on three machines.
 #[inline]
 pub(crate) fn largest_bytes() -> usize {
     #[cfg(test)]
@@ -142,25 +139,19 @@ pub(crate) static L2_OVERRIDE: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
 
 /// The L2 size as the OS reports it (`None`: not read, the default is used).
-pub(crate) fn reported_l2() -> Option<usize> {
-    os::query().0
-}
+#[cfg(test)]
+pub(crate) fn reported_l2() -> Option<usize> { os::query().0 }
 
 /// L1 data, L2 and L3 sizes as the OS reports them (smallest of each level;
 /// for reports: the sorts read the L2 alone).
-pub(crate) fn reported_levels() -> [Option<usize>; 3] {
-    os::levels()
-}
+#[cfg(test)]
+pub(crate) fn reported_levels() -> [Option<usize>; 3] { os::levels() }
 
 /// Page size in bytes.
 #[inline]
-pub(crate) fn page_bytes() -> usize {
-    sizes().page
-}
+pub(crate) fn page_bytes() -> usize { sizes().page }
 
-fn sizes() -> CacheSizes {
-    *SIZES.get_or_init(detect)
-}
+fn sizes() -> CacheSizes { *SIZES.get_or_init(detect) }
 
 fn detect() -> CacheSizes {
     let (l2, page) = os::query();

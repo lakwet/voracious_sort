@@ -1,5 +1,5 @@
 //! Records of at most 16 bytes sorted by i128 keys: the whole decision chain of
-//! this pair (copy of the shared records chain of 2026-11-17; edit here
+//! this pair (copy of the shared records chain; edit here
 //! only, see `types`).
 //!
 //! Records over 8 bytes: runs at both ends, then one read of the keys and
@@ -48,7 +48,7 @@ const UNSTABLE_MSD_MIN: usize = 64;
 const UNSTABLE_PDQ_MAX: usize = 32768;
 /// Unstable sort, small records: the rules toward the standard library's
 /// unstable sort from this many (below, the radix sort in the cache is
-/// faster: Saw 16 B at 10k 4.2 against 7.8 ns per record).
+/// faster).
 const UNSTABLE_PDQ_MIN: usize = 65536;
 /// Unstable sort of small records in disorder: keys wider than this many
 /// bits go to the standard library's unstable sort.
@@ -167,8 +167,7 @@ fn chain<T, E: Fn(&T) -> u128>(arr: &mut [T], enc: &E) {
             && LSD_TURNS * s.turns > n
             => do {
             // Written here, not in a function: as a call, the histogram loop
-            // came out 8 % slower (r16u64 1M Unif / Timestamps / Clusters,
-            // Surface binary A/B).
+            // came out slower.
             if LSD11.load(std::sync::atomic::Ordering::Relaxed) {
                 lsd11(arr, enc, s.lo as u64);
                 return;

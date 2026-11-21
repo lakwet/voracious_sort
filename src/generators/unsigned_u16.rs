@@ -25,10 +25,7 @@ pub fn helper_random_array_asc_sawtooth_u16(size: usize) -> Vec<u16> {
 
 // Descending sawtooth
 pub fn helper_random_array_desc_sawtooth_u16(size: usize) -> Vec<u16> {
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as u16)
-        .collect::<Vec<u16>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as u16).collect::<Vec<u16>>()
 }
 
 // All equals
@@ -69,8 +66,7 @@ pub fn helper_random_array_fakezipf_u16(size: usize) -> Vec<u16> {
     array
 }
 
-pub fn generators_u16(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<u16>, &'static str)> {
+pub fn generators_u16() -> Vec<(&'static dyn Fn(usize) -> Vec<u16>, &'static str)> {
     vec![
         (&helper_random_array_uniform_u16, "-- Unif       :"),
         (&helper_random_array_small_u16, "-- Small      :"),
@@ -83,8 +79,7 @@ pub fn generators_u16(
 }
 
 #[cfg(target_pointer_width = "16")]
-pub fn generators_usize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
+pub fn generators_usize() -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
     generators_u16()
         .into_iter()
         .map(|(gen, title)| {
@@ -95,11 +90,7 @@ pub fn generators_usize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<usize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<usize>, title)
         })
         .collect()
 }

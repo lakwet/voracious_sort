@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "voracious_radix_sort"
-version = "1.2.2"
+version = "2.0.0"
 dependencies = [
  "blazing-radix",
  "glidesort",

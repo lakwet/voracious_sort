@@ -17,7 +17,14 @@ use core::ptr;
 /// One piece of a hole merge (inputs disjoint from the output); `pred`: the
 /// decision of the whole merge, if taken.
 #[inline]
-unsafe fn piece<T: Copy + PartialOrd>(a: *const T, la: usize, b: *const T, lb: usize, d: *mut T, pred: Option<bool>) {
+unsafe fn piece<T: Copy + PartialOrd>(
+    a: *const T,
+    la: usize,
+    b: *const T,
+    lb: usize,
+    d: *mut T,
+    pred: Option<bool>,
+) {
     merge_out_p(a, la, b, lb, d, pred)
 }
 
@@ -31,29 +38,24 @@ unsafe fn pred_once<T: PartialOrd>(a: *const T, la: usize, b: *const T, lb: usiz
 #[inline(always)]
 pub fn count(_: usize) {}
 
-/// Copies `n` elements (overlap allowed); nothing if `src == dst`.
-#[inline]
-pub unsafe fn copy<T>(src: *const T, dst: *mut T, n: usize) {
-    if n > 0 && src != dst as *const T {
-        ptr::copy(src, dst, n);
-        count(n);
-    }
-}
-
-/// `a` when `c`, else `b`, kept a select (v2 `gap::pick`).
+/// `a` when `c`, else `b`, kept a select (`cmov`) by
+/// `select_unpredictable`. Used by the x86 steps only.
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 #[inline(always)]
-pub fn pick<T>(c: bool, a: *const T, b: *const T) -> *const T {
-    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
-    return std::hint::select_unpredictable(c, a, b);
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-    return (b as usize ^ ((a as usize ^ b as usize) & (c as usize).wrapping_neg())) as *const T;
+fn pick<T>(c: bool, a: *const T, b: *const T) -> *const T {
+    std::hint::select_unpredictable(c, a, b)
 }
 
 /// An empty `asm!` in a branch: the compiler keeps the branch instead of a
 /// conditional move (v2 `bidir::keep_branch`).
 #[inline(always)]
 fn keep_branch() {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "arm",
+        target_arch = "aarch64"
+    ))]
     unsafe {
         std::arch::asm!("", options(nomem, nostack, preserves_flags));
     }
@@ -62,7 +64,13 @@ fn keep_branch() {
 /// Stable co-rank: the first `k` outputs of merge(a, b) are a[..i] and
 /// b[..k - i]; returns `i`.
 #[inline]
-pub unsafe fn corank<T: PartialOrd>(a: *const T, la: usize, b: *const T, lb: usize, k: usize) -> usize {
+pub unsafe fn corank<T: PartialOrd>(
+    a: *const T,
+    la: usize,
+    b: *const T,
+    lb: usize,
+    k: usize,
+) -> usize {
     let (mut lo, mut hi) = (k.saturating_sub(lb), k.min(la));
     while lo < hi {
         let i = lo + (hi - lo) / 2;
@@ -94,12 +102,11 @@ pub fn predictable<T: PartialOrd>(a: &[T], b: &[T]) -> bool {
 }
 
 /// One branchless step from the front: the lower of `*r`, `*l` (`l` on
-/// ties) written at `d`, its run and `d` advanced. Per architecture, as
-/// measured (`examples/kern.rs`, four chains, u64 / rec16):
-/// x86 (Ryzen): the pointer chosen, `l` advanced as `l - t + 1` (one
-/// operation less than `l + !t`; idea seen in glidesort): -27 % / -9 %;
-/// aarch64 (Snapdragon X): the value chosen among the two loaded, `l + !t`
-/// (`l - t + 1` is 15 % slower there).
+/// ties) written at `d`, its run and `d` advanced. One form per
+/// architecture, the faster one measured on each: on x86 the pointer is
+/// chosen and `l` advanced as `l - t + 1` (one operation less than
+/// `l + !t`; idea seen in glidesort); on aarch64 the value is chosen among
+/// the two loaded and `l` advanced as `l + !t`.
 #[inline(always)]
 unsafe fn front<T: Copy + PartialOrd>(l: &mut *const T, r: &mut *const T, d: &mut *mut T) {
     #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
@@ -145,7 +152,13 @@ unsafe fn back<T: Copy + PartialOrd>(le: &mut *const T, re: &mut *const T, de: &
 /// One chain forward, disjoint (or the output behind `r`): the rest of both
 /// runs copied after.
 #[inline(always)]
-unsafe fn fwd<T: Copy + PartialOrd>(mut l: *const T, ln: usize, mut r: *const T, rn: usize, mut d: *mut T) {
+unsafe fn fwd<T: Copy + PartialOrd>(
+    mut l: *const T,
+    ln: usize,
+    mut r: *const T,
+    rn: usize,
+    mut d: *mut T,
+) {
     let (le, re) = (l.add(ln), r.add(rn));
     while l < le && r < re {
         front(&mut l, &mut r, &mut d);
@@ -171,7 +184,13 @@ unsafe fn bwd<T: Copy + PartialOrd>(l: *const T, ln: usize, r: *const T, rn: usi
 /// ends without any bound check, then the middle forward. `BRANCHY`: real
 /// branches, for predictable interleavings.
 #[inline(always)]
-unsafe fn bidir<T: Copy + PartialOrd, const BRANCHY: bool>(a: *const T, la: usize, b: *const T, lb: usize, d: *mut T) {
+unsafe fn bidir<T: Copy + PartialOrd, const BRANCHY: bool>(
+    a: *const T,
+    la: usize,
+    b: *const T,
+    lb: usize,
+    d: *mut T,
+) {
     let steps = la.min(lb);
     let (mut lf, mut le, mut rf, mut re) = (a, a.add(la), b, b.add(lb));
     let (mut df, mut de) = (d, d.add(la + lb));
@@ -210,7 +229,13 @@ const ROUND_MIN: usize = 8;
 /// `min(la, lb)` unchecked steps from both ends (each round leaves about a
 /// third when the runs are 1:2), then one checked chain for the end.
 #[inline(always)]
-unsafe fn rounds<T: Copy + PartialOrd>(mut a: *const T, mut la: usize, mut b: *const T, mut lb: usize, mut d: *mut T) {
+unsafe fn rounds<T: Copy + PartialOrd>(
+    mut a: *const T,
+    mut la: usize,
+    mut b: *const T,
+    mut lb: usize,
+    mut d: *mut T,
+) {
     while la.min(lb) >= ROUND_MIN {
         let steps = la.min(lb);
         let (mut lf, mut le, mut rf, mut re) = (a, a.add(la), b, b.add(lb));
@@ -233,7 +258,13 @@ unsafe fn rounds<T: Copy + PartialOrd>(mut a: *const T, mut la: usize, mut b: *c
 /// phase is the shortest of the four sub-runs, the rests by `rounds`.
 /// Steps: `front`, `back` (per architecture). Inputs disjoint from `d`.
 #[inline(never)]
-pub unsafe fn four<T: Copy + PartialOrd>(l: *const T, ln: usize, r: *const T, rn: usize, d: *mut T) {
+pub unsafe fn four<T: Copy + PartialOrd>(
+    l: *const T,
+    ln: usize,
+    r: *const T,
+    rn: usize,
+    d: *mut T,
+) {
     count(ln + rn);
     if ln == 0 || rn == 0 || *l.add(ln - 1) <= *r {
         ptr::copy_nonoverlapping(l, d, ln);
@@ -277,20 +308,31 @@ pub const GALLOP_MIN: usize = 8;
 
 /// A merge gallops when its short run is under a quarter (galloping from
 /// 1:16 only, out of place, was measured neutral to 13 % slower).
-pub fn skewed(short: usize, len: usize) -> bool {
-    4 * short < len
-}
+pub fn skewed(short: usize, len: usize) -> bool { 4 * short < len }
 
 /// Out-of-place stable merge of `a` and `b` into `d`, all disjoint (v2
 /// `merge_out`): ordered → copied; head and tail blocks already ordered
 /// against the other run copied; balanced → predictable ? branchy
 /// two-ended : 4 chains; skewed → galloping stretches.
-pub unsafe fn merge_out<T: Copy + PartialOrd>(a: *const T, la: usize, b: *const T, lb: usize, d: *mut T) {
+pub unsafe fn merge_out<T: Copy + PartialOrd>(
+    a: *const T,
+    la: usize,
+    b: *const T,
+    lb: usize,
+    d: *mut T,
+) {
     merge_out_p(a, la, b, lb, d, None)
 }
 
 /// `merge_out` with the predictability already decided (`Some`).
-pub unsafe fn merge_out_p<T: Copy + PartialOrd>(a: *const T, la: usize, b: *const T, lb: usize, d: *mut T, pred: Option<bool>) {
+pub unsafe fn merge_out_p<T: Copy + PartialOrd>(
+    a: *const T,
+    la: usize,
+    b: *const T,
+    lb: usize,
+    d: *mut T,
+    pred: Option<bool>,
+) {
     if la == 0 || lb == 0 || *a.add(la - 1) <= *b {
         ptr::copy_nonoverlapping(a, d, la);
         ptr::copy_nonoverlapping(b, d.add(la), lb);

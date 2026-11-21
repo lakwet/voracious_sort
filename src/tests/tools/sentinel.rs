@@ -15,8 +15,8 @@
 //! side, default 5, the median kept). Results also go to
 //! `traces/sentinel-last.txt`.
 
-use crate::v2::dev::ab::NEW_RULE;
 use super::cells::{env_size, parse_key, visit, Visit};
+use crate::v2::dev::ab::NEW_RULE;
 use std::collections::BTreeSet;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -87,7 +87,9 @@ impl Visit for Sentinel {
                 times[side].push(start.elapsed().as_nanos() as f64 / (count * n) as f64);
                 NEW_RULE.store(false, Relaxed);
                 assert!(
-                    work[0].windows(2).all(|p| p[1].partial_cmp(&p[0]) != Some(std::cmp::Ordering::Less)),
+                    work[0]
+                        .windows(2)
+                        .all(|p| p[1].partial_cmp(&p[0]) != Some(std::cmp::Ordering::Less)),
                     "not sorted: {} (rule {})",
                     key,
                     side
@@ -109,9 +111,7 @@ impl Visit for Sentinel {
     }
 }
 
-fn geo(r: &[f64]) -> f64 {
-    (r.iter().map(|x| x.ln()).sum::<f64>() / r.len().max(1) as f64).exp()
-}
+fn geo(r: &[f64]) -> f64 { (r.iter().map(|x| x.ln()).sum::<f64>() / r.len().max(1) as f64).exp() }
 
 #[test]
 #[ignore]

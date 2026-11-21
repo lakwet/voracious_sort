@@ -19,12 +19,10 @@ thread_local! {
 
 #[cfg(feature = "v2_trace")]
 /// Records one decision step of the current sort.
-pub(crate) fn note(step: &'static str) {
-    STEPS.with(|s| s.borrow_mut().push(step));
-}
+pub(crate) fn note(step: &'static str) { STEPS.with(|s| s.borrow_mut().push(step)); }
 
 /// The labels noted since the last call, each once, in order of first note.
-#[cfg(feature = "v2_trace")]
+#[cfg(all(test, feature = "v2_trace"))]
 pub(crate) fn take() -> Vec<&'static str> {
     let steps = STEPS.with(|s| std::mem::take(&mut *s.borrow_mut()));
     let mut seen = Vec::new();

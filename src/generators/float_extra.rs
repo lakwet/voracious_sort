@@ -13,31 +13,29 @@ macro_rules! float_extra {
 
             fn pareto(size: usize, shape: f64) -> Vec<$t> {
                 let p = Pareto::new(0.1, shape).unwrap();
-                (0..size).into_par_iter().map(|_| p.sample(&mut crate::generators::rng()) as $t).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| p.sample(&mut crate::generators::rng()) as $t)
+                    .collect()
             }
 
             // Heavy-tailed sizes, prices, populations.
-            pub fn pareto_075(size: usize) -> Vec<$t> {
-                pareto(size, 0.75)
-            }
+            pub fn pareto_075(size: usize) -> Vec<$t> { pareto(size, 0.75) }
 
-            pub fn pareto_100(size: usize) -> Vec<$t> {
-                pareto(size, 1.0)
-            }
+            pub fn pareto_100(size: usize) -> Vec<$t> { pareto(size, 1.0) }
 
-            pub fn pareto_200(size: usize) -> Vec<$t> {
-                pareto(size, 2.0)
-            }
+            pub fn pareto_200(size: usize) -> Vec<$t> { pareto(size, 2.0) }
 
-            pub fn pareto_150(size: usize) -> Vec<$t> {
-                pareto(size, 1.5)
-            }
+            pub fn pareto_150(size: usize) -> Vec<$t> { pareto(size, 1.5) }
 
             // Unix times in seconds with a fraction, increasing with jitter.
             pub fn timestamps(size: usize) -> Vec<$t> {
                 (0..size)
                     .into_par_iter()
-                    .map(|i| (1.7e9 + i as f64 * 0.01 + crate::generators::rng().random_range(0.0..0.05)) as $t)
+                    .map(|i| {
+                        (1.7e9 + i as f64 * 0.01 + crate::generators::rng().random_range(0.0..0.05))
+                            as $t
+                    })
                     .collect()
             }
 
@@ -68,7 +66,9 @@ macro_rules! float_extra {
             pub fn sensor(size: usize) -> Vec<$t> {
                 (0..size)
                     .into_par_iter()
-                    .map(|_| (crate::generators::rng().random_range(1500..2500) as f64 / 100.0) as $t)
+                    .map(|_| {
+                        (crate::generators::rng().random_range(1500..2500) as f64 / 100.0) as $t
+                    })
                     .collect()
             }
 

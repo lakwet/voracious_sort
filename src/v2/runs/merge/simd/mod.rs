@@ -27,8 +27,8 @@ pub(crate) fn available() -> bool {
 pub(crate) fn merge_u32<const M: u8>(a: &[u32], b: &[u32], dst: &mut [u32]) {
     assert_eq!(dst.len(), a.len() + b.len());
     if a.len() >= 4 && b.len() >= 4 && available() {
-        let k = STREAMS;
-        let k = if k > 1 && a.len() + b.len() >= k * SPLIT_MIN { k } else { 1 };
+        #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+        let k = if STREAMS > 1 && a.len() + b.len() >= STREAMS * SPLIT_MIN { STREAMS } else { 1 };
         // SAFETY: the vector unit is present (`available`); lengths checked.
         #[cfg(target_arch = "aarch64")]
         unsafe {
@@ -51,6 +51,7 @@ pub(crate) fn merge_u32<const M: u8>(a: &[u32], b: &[u32], dst: &mut [u32]) {
 /// for the caller, which orders signed zeros afterwards).
 pub(crate) trait Lane: Copy + Ord {
     /// Zero of the lane type.
+    #[cfg_attr(not(any(target_arch = "aarch64", target_arch = "x86_64")), allow(dead_code))]
     const ZERO: Self;
     /// The key compared in mode `M` (0 unsigned, 1 signed, 2 float bits).
     fn key<const M: u8>(self) -> Self;
@@ -75,8 +76,7 @@ impl Lane for u64 {
         match M {
             0 => self,
             1 => self ^ (1 << 63),
-            // f64: never runs while `SIMD_F64` is off (it lost to the f64
-            // radix sort on the Snapdragon X); kept to measure on x86.
+            // f64: never runs while `SIMD_F64` is off (see there).
             _ => self ^ ((((self as i64) >> 63) as u64) | (1 << 63)),
         }
     }
@@ -97,8 +97,8 @@ pub(crate) fn available64() -> bool {
 pub(crate) fn merge_u64<const M: u8>(a: &[u64], b: &[u64], dst: &mut [u64]) {
     assert_eq!(dst.len(), a.len() + b.len());
     if a.len() >= 4 && b.len() >= 4 && available64() {
-        let k = STREAMS;
-        let k = if k > 1 && a.len() + b.len() >= k * SPLIT_MIN { k } else { 1 };
+        #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+        let k = if STREAMS > 1 && a.len() + b.len() >= STREAMS * SPLIT_MIN { STREAMS } else { 1 };
         // SAFETY: the vector unit is present (`available64`); lengths checked.
         #[cfg(target_arch = "aarch64")]
         unsafe {
@@ -116,12 +116,15 @@ pub(crate) fn merge_u64<const M: u8>(a: &[u64], b: &[u64], dst: &mut [u64]) {
 
 /// Independent block merges run together in one loop (the output cut by
 /// binary searches): 1 (one merge), 2 or 4.
+#[cfg_attr(not(any(target_arch = "aarch64", target_arch = "x86_64")), allow(dead_code))]
 pub(crate) const STREAMS: usize = 4;
 /// Shortest part per stream.
+#[cfg_attr(not(any(target_arch = "aarch64", target_arch = "x86_64")), allow(dead_code))]
 const SPLIT_MIN: usize = 256;
 
 /// Number of elements of `a` among the first `d` of the merge of `a` and
 /// `b` (left first on ties).
+#[cfg_attr(not(any(target_arch = "aarch64", target_arch = "x86_64")), allow(dead_code))]
 fn corank<E: Lane, const M: u8>(a: &[E], b: &[E], d: usize) -> usize {
     let (mut lo, mut hi) = (d.saturating_sub(b.len()), d.min(a.len()));
     while lo < hi {
@@ -321,55 +324,12 @@ macro_rules! streams {
     };
 }
 
-#[cfg(target_arch = "aarch64")]
-mod neon;
+#[cfg(target_arch = "aarch64")] mod neon;
 
-#[cfg(target_arch = "x86_64")]
-mod sse;
+#[cfg(target_arch = "x86_64")] mod sse;
 
-#[cfg(target_arch = "aarch64")]
-mod neon64;
+#[cfg(target_arch = "aarch64")] mod neon64;
 
-#[cfg(target_arch = "x86_64")]
-mod sse64;
+#[cfg(target_arch = "x86_64")] mod sse64;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v2::testing::*;
-
-    /// Two sorted runs of every length pair up to 40 and a few long ones,
-    /// merged in each mode (0 unsigned, 1 signed, 2 float bits) against
-    /// the merged order of the same keys.
-    macro_rules! check {
-        ($u:ty, $merge:expr, $key:expr) => {{
-            let key: fn($u) -> $u = $key;
-            let mut r = Rng(19);
-            let lens: Vec<usize> = (0..40).chain([255, 1000, 20_000].iter().copied()).collect();
-            for &la in lens.iter() {
-                for &lb in [0usize, 1, 3, 4, 5, 17, 39, 1000].iter() {
-                    let mut a: Vec<$u> = (0..la).map(|_| r.next() as $u).collect();
-                    let mut b: Vec<$u> = (0..lb).map(|_| r.next() as $u).collect();
-                    a.sort_unstable_by_key(|&x| key(x));
-                    b.sort_unstable_by_key(|&x| key(x));
-                    let mut dst = vec![0 as $u; la + lb];
-                    $merge(&a, &b, &mut dst);
-                    let mut expected: Vec<$u> = a.iter().chain(&b).copied().collect();
-                    expected.sort_unstable_by_key(|&x| key(x));
-                    let same = dst.iter().zip(&expected).all(|(&x, &y)| key(x) == key(y));
-                    assert!(same, "{} {} {}+{}", stringify!($merge), stringify!($key), la, lb);
-                }
-            }
-        }};
-    }
-
-    #[test]
-    fn merges() {
-        check!(u32, merge_u32::<0>, |x| x);
-        check!(u32, merge_u32::<1>, |x| x ^ 1 << 31);
-        check!(u32, merge_u32::<2>, float_key_32);
-        check!(u64, merge_u64::<0>, |x| x);
-        check!(u64, merge_u64::<1>, |x| x ^ 1 << 63);
-        check!(u64, merge_u64::<2>, float_key_64);
-    }
-}
+#[cfg(test)] mod tests;

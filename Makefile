@@ -1,210 +1,154 @@
-test: ## run test
-	@cargo test --release --features "voracious_multithread"
+# `make` alone lists the targets.
 
-check: ## check code
-	@cargo check --features "voracious_multithread"
+FEATURES = --features "voracious_multithread"
 
-clean: ## clean build files
-	@cargo clean
+# ---------------------------------------------------------------------------
+# Tests
 
-lint: ## lint code
+# Duration measured on the reference machine (Surface Pro 11, Snapdragon X
+# Elite X1E80100, 12 cores, 16 GB, Windows 11).
+test: ## correctness tests (public API in tests/, unit tests, doc examples); QUICK=1: up to 100k
+	@echo "Correctness tests: about 30 min on a Surface Pro 11 (Snapdragon X Elite X1E80100, 12 cores, 16 GB),"
+	@echo "plus about 10 min to compile the first time."
+	@echo "Slower machines take longer; QUICK=1 make test: sizes up to 100k only."
+	@cargo test --release $(FEATURES)
+
+test-miri: ## memory checks under Miri (nightly): small arrays, small cache forced
+	@rustup component add miri rust-src --toolchain nightly
+	@cargo +nightly miri test --lib $(FEATURES) miri_
+
+test-fuzzy: ## random arrays against the standard sort for FUZZ_SECONDS (60); FUZZ_SEED=<seed> replays a case
+	@cargo test --release $(FEATURES) --test fuzzy -- --ignored --nocapture
+
+# ---------------------------------------------------------------------------
+# Code
+
+build: ## build the library (release)
+	@cargo build --release $(FEATURES)
+
+check: ## compile everything (library, tests, benchmarks) without running it
+	@cargo check --tests $(FEATURES)
+
+lint: ## clippy on the library, the tests and the trace
 	@rustup component add clippy
 	@cargo clippy --lib --tests --features "voracious_multithread v2_trace"
 
-doc: ## build doc and open it in the browser
-	@cargo doc --open
-
-fmt: ## format code
-	@rustup component add rustfmt
+fmt: ## format the code (nightly rustfmt, as the CI checks it)
 	@rustup component add rustfmt --toolchain nightly
-	@cargo +nightly fmt
+	@cargo +nightly fmt --all
 
-build-dev: ## build in dev mode
-	@cargo build --features "voracious_multithread"
+doc: ## build the documentation and open it
+	@cargo doc --no-deps --open $(FEATURES)
 
-build-dev-single: ## build in dev mode without multithread sort
-	@cargo build
+clean: ## remove the build files
+	@cargo clean
 
-build-release: ## build in release mode
-	@cargo build --release --features "voracious_multithread"
+# ---------------------------------------------------------------------------
+# Benchmarks (src/tests/bench/bench_cpu.rs): voracious 2.0 against 1.x, std
+# and the best rivals of each type. Two files per run in
+# resultsbenchs/<machine>/: a report to read (.txt, also printed) and the
+# raw data (.csv, for tools/bench_report.py).
 
-build-release-single: ## build in release mode without multithread sort
-	@cargo build --release
-
-# Usage: make bench speed_test_u64 (any test name or filter, e.g. speed_dedicated)
-# The speed modules must be enabled in src/tests/bench/mod.rs (see README).
-BENCH_ARGS := $(filter-out bench,$(MAKECMDGOALS))
 ifeq ($(OS),Windows_NT)
 # Avoid the dlltool dependency of getrandom on the windows-gnu toolchain.
 BENCH_RUSTFLAGS ?= --cfg getrandom_backend="rdrand" -C target-feature=+rdrand
 endif
-
-bench: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
-bench: ## run a speed test with its output: make bench <test_name>
-	@cargo test --release --features "voracious_multithread" $(BENCH_ARGS) -- --nocapture --test-threads=1
-
-# Turn the extra goals given to "make bench" into no-ops.
-ifeq (bench,$(firstword $(MAKECMDGOALS)))
-$(BENCH_ARGS):
-	@:
+# NATIVE=1: every sort compiled for this CPU (-C target-cpu=native); by
+# default the generic build a user of the crate gets.
+ifeq ($(NATIVE),1)
+BENCH_RUSTFLAGS += -C target-cpu=native
 endif
 
-# CPU benchmark of the v2 sorts against the other sorts: writes one file,
-# bench-cpu-<host>-<date>.txt, at the repository root (about a night):
-# make benchcpu
-# Compiled for the CPU of the machine (every sort alike).
-BENCH_CPU_RUSTFLAGS = $(BENCH_RUSTFLAGS) -C target-cpu=native
+BENCH_RUN = cargo test --release --lib $(FEATURES) bench_cpu -- --ignored --nocapture --test-threads=1
+BENCH_SIZES_ALL = 1000,10000,30000,50000,100000,200000,600000,1000000,3000000,10000000
+BENCH_SIZES_TYPE = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
+# Large arrays: as far as the memory allows (an array, its copy and a buffer
+# within half the RAM, BENCH_MEM_MB), one measurement each.
+BENCH_SIZES_BIG = 30000000,100000000,300000000,1000000000,2000000000,5000000000,10000000000
+BENCH_TYPES_BIG = u32,u64,i64,f32,f64,u128
+# Large arrays of the by-type benchmarks: more arrays than 3 measurements give.
+BENCH_MIN_SORTS_TYPE = 2000000:8,5000000:5,10000000:5
 
-benchcpu: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchcpu: ## CPU benchmark (one output file bench-cpu-*.txt, about a night)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+bench: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+bench: export BENCH_NAME = bench
+bench: export BENCH_PARTS = int,float,wide
+bench: export BENCH_SORTS = best
+bench: export BENCH_SIZES = $(BENCH_SIZES_ALL)
+bench: ## every key type, 1k to 10M keys (several hours)
+	@$(BENCH_RUN)
 
-benchcpu-quick: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchcpu-quick: export BENCH_MAX = 1000000
-benchcpu-quick: export BENCH_REPS = 1
-benchcpu-quick: ## short CPU benchmark (up to 1M keys, one repetition): checks the setup
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-benchfaults: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchfaults: export BENCH_FAULTS = 1
-benchfaults: export AB_MERGE = ab2
-benchfaults: export BENCH_AB = 1
-benchfaults: export BENCH_SORTS = best
-benchfaults: export BENCH_PARTS = int
-benchfaults: export BENCH_TYPES = u64
-benchfaults: export BENCH_SIZES = 100000,1000000,10000000
-benchfaults: ## page faults of every measurement, u64 100k / 1M / 10M (TEMPORARY, ~10 min)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-benchtune: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchtune: export BENCH_PARTS = tune
-benchtune: export BENCH_MAX = 10000000
-benchtune: ## CPU tuning: each cache-derived decision alone, 10k to 10M (a few hours)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-benchfix: export RUSTFLAGS =
-benchfix: export BENCH_PARTS = int,float
-benchfix: export BENCH_TYPES = u32,i32,u64,i64,f32,f64
-benchfix: export BENCH_SIZES = 10000,100000,1000000,10000000
-benchfix: export BENCH_SORTS = std,v1,glidesort,blazing
-benchfix: export BENCH_MIN_ARRAYS = 1
-benchfix: ## short check of the merge fixes: keys against std, v1, glidesort, blazing, generic build (~15 min)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-benchfix-native: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchfix-native: export BENCH_PARTS = int,float
-benchfix-native: export BENCH_TYPES = u32,i32,u64,i64,f32,f64
-benchfix-native: export BENCH_SIZES = 10000,100000,1000000,10000000
-benchfix-native: export BENCH_SORTS = std,v1,glidesort,blazing
-benchfix-native: export BENCH_MIN_ARRAYS = 1
-benchfix-native: ## the same with target-cpu=native (~15 min)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-benchbilan: export RUSTFLAGS =
-benchbilan: export BENCH_PARTS = int,float,wide,records
-benchbilan: export BENCH_TYPES = u8,i8,u16,i16,u32,i32,u64,i64,u128,i128,f32,f64,u32 8B,u64 16B
-benchbilan: export BENCH_SIZES = 1000,10000,50000,100000,1000000,5000000,10000000
-benchbilan: export BENCH_SORTS = std,std unstable,std cached,v1,glidesort,blazing,radsort,rdst,turbosort
-benchbilan: export BENCH_MIN_ARRAYS = 1
-benchbilan: ## every type against every sort, 1k to 10M, generic build: the list of losses (1-3 h)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-# Benchmarks by type (src/tests/bench): v2, v1, std (stable or unstable as
-# the case) and the best rivals of the type: two, a third when it beats
-# the v2 on its own cases (bench_cpu: best_rivals),
-# 500 to 10M (14 sizes), generic build, one output file bench-cpu-*.txt.
-#   make bench-type T=u32      one key type (u8 ... i128, f32, f64, char)
-#   make bench-keys            every key type
-#   make bench-records         every record; T=u64: the records of u64 keys
-BENCH_BY_TYPE_SIZES = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
-BENCH_BY_TYPE_SORTS = best
-# Large arrays: more sorts than the 3 repetitions give (2M: 8, 5M and 10M: 5).
-BENCH_BY_TYPE_MIN_SORTS = 2000000:8,5000000:5,10000000:5
-
-bench-type: export RUSTFLAGS =
+bench-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+bench-type: export BENCH_NAME = bench-type-$(T)
 bench-type: export BENCH_PARTS = int,float,wide
 bench-type: export BENCH_TYPES = $(T)
-bench-type: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
-bench-type: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
+bench-type: export BENCH_SORTS = best
+bench-type: export BENCH_SIZES = $(BENCH_SIZES_TYPE)
 bench-type: export BENCH_MIN_ARRAYS = 1
-bench-type: export BENCH_MIN_SORTS = $(BENCH_BY_TYPE_MIN_SORTS)
-bench-type: ## one key type against v1 and the rivals: make bench-type T=u32
+bench-type: export BENCH_MIN_SORTS = $(BENCH_MIN_SORTS_TYPE)
+bench-type: ## one key type, 500 to 10M keys: make bench-type T=u32 (u8 ... i128, f32, f64, char)
 	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+	@$(BENCH_RUN)
 
-bench-keys: export RUSTFLAGS =
-bench-keys: export BENCH_PARTS = int,float,wide
-bench-keys: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
-bench-keys: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
-bench-keys: export BENCH_MIN_ARRAYS = 1
-bench-keys: export BENCH_MIN_SORTS = $(BENCH_BY_TYPE_MIN_SORTS)
-bench-keys: ## every key type against v1 and the rivals
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
-
-bench-records: export RUSTFLAGS =
+bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
 bench-records: export BENCH_PARTS = records
 bench-records: export BENCH_TYPES = $(T)
-bench-records: export BENCH_SIZES = $(BENCH_BY_TYPE_SIZES)
-bench-records: export BENCH_SORTS = $(BENCH_BY_TYPE_SORTS)
+bench-records: export BENCH_SORTS = best
+bench-records: export BENCH_SIZES = $(BENCH_SIZES_TYPE)
 bench-records: export BENCH_MIN_ARRAYS = 1
-bench-records: export BENCH_MIN_SORTS = $(BENCH_BY_TYPE_MIN_SORTS)
-bench-records: ## every record against v1 and the rivals (T=u64: records of u64 keys only)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+bench-records: export BENCH_MIN_SORTS = $(BENCH_MIN_SORTS_TYPE)
+bench-records: ## structs sorted by key, 500 to 10M (T=u64: keys of one type)
+	@$(BENCH_RUN)
 
-benchbig: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchbig: export BENCH_PARTS = big
-benchbig: export BENCH_MAX = 1000000000
-benchbig: export BENCH_REPS ?= 1
-benchbig: ## very large arrays, 30M to 1G keys: rollercoaster against LSD (a few hours, memory: 3 arrays)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+bench-big: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+bench-big: export BENCH_NAME = bench-big
+bench-big: export BENCH_PARTS = int,float,wide
+bench-big: export BENCH_TYPES = $(BENCH_TYPES_BIG)
+bench-big: export BENCH_SORTS = best
+bench-big: export BENCH_SIZES = $(BENCH_SIZES_BIG)
+bench-big: export BENCH_MAX = 10000000000
+bench-big: export BENCH_MIN_ARRAYS = 1
+bench-big: export BENCH_REPS = 1
+bench-big: ## main key types, 30M keys up to what the RAM holds (hours)
+	@$(BENCH_RUN)
 
-benchlsd32: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-benchlsd32: export BENCH_PARTS = big
-benchlsd32: export BENCH_MAX = 1000000000
-benchlsd32: export BENCH_TYPES = u32,f32
-benchlsd32: export BENCH_BIG_SIZES = 1000000,3000000,10000000,30000000,100000000
-benchlsd32: export BENCH_REPS = 3
-benchlsd32: ## u32 / f32, 1M to 100M: current rule against LSD and rollercoaster forced (~15 min)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+bench-big-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+bench-big-type: export BENCH_NAME = bench-big-type-$(T)
+bench-big-type: export BENCH_PARTS = int,float,wide
+bench-big-type: export BENCH_TYPES = $(T)
+bench-big-type: export BENCH_SORTS = best
+bench-big-type: export BENCH_SIZES = $(BENCH_SIZES_BIG)
+bench-big-type: export BENCH_MAX = 10000000000
+bench-big-type: export BENCH_MIN_ARRAYS = 1
+bench-big-type: export BENCH_REPS = 1
+bench-big-type: ## one key type, 30M keys up to what the RAM holds: make bench-big-type T=u64
+	@test -n "$(T)" || (echo "usage: make bench-big-type T=u64" && exit 1)
+	@$(BENCH_RUN)
 
-benchbigrivals: export RUSTFLAGS =
-benchbigrivals: export BENCH_PARTS = int,float
-benchbigrivals: export BENCH_TYPES = u32,f32
-benchbigrivals: export BENCH_SIZES = 30000000,100000000
-benchbigrivals: export BENCH_SORTS = v1,glidesort,blazing,radsort
-benchbigrivals: export BENCH_MIN_ARRAYS = 1
-benchbigrivals: ## u32 / f32 at 30M and 100M against v1, glidesort, blazing, radsort (~2 h)
-	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+# ---------------------------------------------------------------------------
+# Development: a change goes trace-ab (which cells it moves) -> sentinel
+# (time those cells and controls) -> tests -> trace-write (see README).
 
-benchnuit: benchlsd32 benchbigrivals ## the two above in a row (~2-3 h)
+TRACE_RUN = cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
 
-# Method (see src/tests/tools/trace.rs, src/tests/tools/sentinel.rs): a change goes
-# trace-ab (which cells move) -> sentinel (time those cells and controls).
-trace: ## decision trace against the reference of this CPU (no timing; ~10 min, TRACE_MAX=10M ~1 min)
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
+trace: ## decision trace against the reference of this CPU (no timing; TRACE_MAX=10M: faster)
+	@$(TRACE_RUN)
 
 trace-ab: export TRACE_AB = 1
-trace-ab: ## cells moved by the rule under test (v2::dev::ab), list in traces/moved.txt
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
+trace-ab: ## cells moved by the rule under test (src/v2/dev/ab.rs), listed in traces/moved.txt
+	@$(TRACE_RUN)
 
 trace-write: export TRACE_WRITE = 1
-trace-write: ## write the reference trace of this CPU (after a commit that moves cells)
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
-
-trace-ref: export TRACE_WRITE = 1
-trace-ref: ## new machine: update dev, write its reference trace, show the file to send (~20-30 min, no timing)
-	git checkout dev
-	git pull
-	@cargo test --release --lib --features "voracious_multithread v2_trace" tests::tools::trace -- --ignored --nocapture --test-threads=1
-	@echo "File to send:"
+trace-write: ## write the reference trace of this CPU (new machine, or after cells moved)
+	@$(TRACE_RUN)
 	@git status --short --untracked-files=all traces
 
-sentinel: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
-sentinel: ## rule under test off / on on the moved cells + controls (minutes)
-	@cargo test --release --lib --features "voracious_multithread" tests::tools::sentinel -- --ignored --nocapture --test-threads=1
+sentinel: export RUSTFLAGS = $(BENCH_RUSTFLAGS) -C target-cpu=native
+sentinel: ## rule under test off / on, on the moved cells and controls (minutes)
+	@cargo test --release --lib $(FEATURES) tests::tools::sentinel -- --ignored --nocapture --test-threads=1
 
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test benchfaults bench bench-type bench-keys bench-records benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write trace-ref sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test test-miri test-fuzzy build check lint fmt doc clean bench bench-type bench-records bench-big bench-big-type trace trace-ab trace-write sentinel help

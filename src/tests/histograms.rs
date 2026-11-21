@@ -11,9 +11,9 @@ use super::super::generators::unsigned_u16::*;
 use super::super::generators::unsigned_u32::*;
 use super::super::generators::unsigned_u64::*;
 use super::super::generators::unsigned_u8::*;
-use super::super::sorts::utils::Params;
-use super::super::traits::radix_key::RadixKey;
-use super::super::Radixable;
+use crate::v1::sorts::utils::Params;
+use crate::v1::traits::radix_key::RadixKey;
+use crate::v1::Radixable;
 
 // The dedicated `get_full_histograms` of each type must count, at each
 // level, the same digits as a plain one-element-at-a-time count. A level
@@ -52,13 +52,7 @@ where
             }
         }
         let got = dummy.get_full_histograms(arr, &p);
-        assert!(
-            got == expected,
-            "{} bits, radix {}, {} levels",
-            bits,
-            radix,
-            max_level
-        );
+        assert!(got == expected, "{} bits, radix {}, {} levels", bits, radix, max_level);
     }
 }
 
@@ -78,16 +72,12 @@ fn test_histograms_all_levels() {
     check_histograms(&mut helper_random_array_uniform_i128(n), 128, &[]);
     check_histograms(&mut helper_random_array_uniform_f32(n), 32, &[]);
     check_histograms(&mut helper_random_array_uniform_f64(n), 64, &[]);
-    let mut us: Vec<usize> = helper_random_array_uniform_u64(n)
-        .iter()
-        .map(|&x| x as usize)
-        .collect();
+    let mut us: Vec<usize> =
+        helper_random_array_uniform_u64(n).iter().map(|&x| x as usize).collect();
     check_histograms(&mut us, 8 * std::mem::size_of::<usize>(), &[]);
     check_histograms(&mut helper_random_array_uniform_char(n), 32, &[7, 11]);
-    let mut is: Vec<isize> = helper_random_array_uniform_i64(n)
-        .iter()
-        .map(|&x| x as isize)
-        .collect();
+    let mut is: Vec<isize> =
+        helper_random_array_uniform_i64(n).iter().map(|&x| x as isize).collect();
     check_histograms(&mut is, 8 * std::mem::size_of::<isize>(), &[]);
 }
 
@@ -95,8 +85,8 @@ fn test_histograms_all_levels() {
 // remainder loop missed a level and panicked (1.2.1).
 #[test]
 fn test_lsd_u128_every_width() {
-    use super::super::sorts::lsd_sort::lsd_radixsort;
-    use super::super::RadixSort;
+    use crate::v1::sorts::lsd_sort::lsd_radixsort;
+    use crate::v1::RadixSort;
     for bits in (8..=128).step_by(8) {
         for n in [1_001usize, 5_003, 100_003] {
             let a: Vec<u128> = helper_random_array_uniform_u128(n)

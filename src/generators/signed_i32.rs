@@ -175,10 +175,7 @@ pub fn helper_random_array_desc_sawtooth_i32(size: usize) -> Vec<i32> {
     }
 
     let limit = (size as f64 / ((size as f64).log2() * 0.9)) as i32;
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as i32 % limit)
-        .collect::<Vec<i32>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as i32 % limit).collect::<Vec<i32>>()
 }
 
 // Pipe Organ
@@ -192,8 +189,7 @@ pub fn helper_random_array_pipe_organ_i32(size: usize) -> Vec<i32> {
 
 // Push Front
 pub fn helper_random_array_push_front_i32(size: usize) -> Vec<i32> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as i32).collect::<Vec<i32>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as i32).collect::<Vec<i32>>();
 
     if size > 0 {
         array[size - 1] = 0;
@@ -204,8 +200,7 @@ pub fn helper_random_array_push_front_i32(size: usize) -> Vec<i32> {
 
 // Push middle
 pub fn helper_random_array_push_middle_i32(size: usize) -> Vec<i32> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as i32).collect::<Vec<i32>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as i32).collect::<Vec<i32>>();
 
     if size > 0 {
         array[size - 1] = (size / 2) as i32;
@@ -223,9 +218,7 @@ fn helper_normal(size: usize, range: f32) -> Vec<i32> {
 }
 
 // Normale(0, 2^10)
-pub fn helper_random_array_normale_10_i32(size: usize) -> Vec<i32> {
-    helper_normal(size, 1024.0)
-}
+pub fn helper_random_array_normale_10_i32(size: usize) -> Vec<i32> { helper_normal(size, 1024.0) }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_i32(size: usize) -> Vec<i32> {
@@ -237,8 +230,7 @@ pub fn helper_random_array_normale_30_i32(size: usize) -> Vec<i32> {
     helper_normal(size, 1_000_000_000.0)
 }
 
-pub fn generators_i32(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<i32>, &'static str)> {
+pub fn generators_i32() -> Vec<(&'static dyn Fn(usize) -> Vec<i32>, &'static str)> {
     vec![
         (&helper_random_array_uniform_i32, "-- Unif       :"),
         (&helper_random_array_109_i32, "-- +-10^9     :"),
@@ -264,8 +256,7 @@ pub fn generators_i32(
 }
 
 #[cfg(target_pointer_width = "32")]
-pub fn generators_isize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<isize>, &'static str)> {
+pub fn generators_isize() -> Vec<(&'static dyn Fn(usize) -> Vec<isize>, &'static str)> {
     generators_i32()
         .into_iter()
         .map(|(gen, title)| {
@@ -276,11 +267,7 @@ pub fn generators_isize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<isize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<isize>, title)
         })
         .collect()
 }

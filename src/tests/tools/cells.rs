@@ -6,8 +6,8 @@
 use crate::generators as g;
 use crate::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
 use crate::v2::sorts::by_key;
-use crate::v2::sorts::devour::devour_sort2;
-use crate::v2::sorts::ravenous::ravenous_sort2;
+use crate::v2::sorts::devour::devour_sort;
+use crate::v2::sorts::ravenous::ravenous_sort;
 
 /// Sizes of every type; the 32- and 64-bit keys add `BIG`.
 pub(super) const SIZES: [usize; 10] =
@@ -62,9 +62,7 @@ unsafe impl<T> Sync for Shared<T> {}
 struct ByKey<K, const W: usize>(Rec<K, W>);
 
 impl<K: PartialEq, const W: usize> PartialEq for ByKey<K, W> {
-    fn eq(&self, o: &Self) -> bool {
-        self.0.key == o.0.key
-    }
+    fn eq(&self, o: &Self) -> bool { self.0.key == o.0.key }
 }
 
 impl<K: PartialOrd, const W: usize> PartialOrd for ByKey<K, W> {
@@ -140,79 +138,79 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
     ty!(
         "u32",
         all(g::unsigned_u32::generators_u32(), g::int_extra::extra_u32::generators()),
-        devour_sort2,
+        devour_sort,
         true
     );
     ty!(
         "i32",
         all(g::signed_i32::generators_i32(), g::int_extra::extra_i32::generators()),
-        devour_sort2,
+        devour_sort,
         true
     );
     ty!(
         "u64",
         all(g::unsigned_u64::generators_u64(), g::int_extra::extra_u64::generators()),
-        devour_sort2,
+        devour_sort,
         true
     );
     ty!(
         "i64",
         all(g::signed_i64::generators_i64(), g::int_extra::extra_i64::generators()),
-        devour_sort2,
+        devour_sort,
         true
     );
     ty!(
         "f32",
         all(g::float_32::generators_f32(), g::float_extra::extra_f32::generators()),
-        ravenous_sort2,
+        ravenous_sort,
         true
     );
     ty!(
         "f64",
         all(g::float_64::generators_f64(), g::float_extra::extra_f64::generators()),
-        ravenous_sort2,
+        ravenous_sort,
         true
     );
     ty!(
         "u16",
         all(g::unsigned_u16::generators_u16(), g::narrow_extra::extra_u16::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     ty!(
         "i16",
         all(g::signed_i16::generators_i16(), g::narrow_extra::extra_i16::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     ty!(
         "u8",
         all(g::unsigned_u8::generators_u8(), g::narrow_extra::extra_u8::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     ty!(
         "i8",
         all(g::signed_i8::generators_i8(), g::narrow_extra::extra_i8::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     ty!(
         "char",
         all(g::char::generators_char(), g::narrow_extra::extra_char::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     ty!(
         "u128",
         all(g::unsigned_u128::generators_u128(), g::int128_extra::extra_u128::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     ty!(
         "i128",
         all(g::signed_i128::generators_i128(), g::int128_extra::extra_i128::generators()),
-        devour_sort2,
+        devour_sort,
         false
     );
     // Records sorted by key (stable, but the last), as in the CPU bench;

@@ -22,24 +22,16 @@ macro_rules! key_codec {
     };
     (unsigned, $uint:ty, $sint:ty) => {
         #[inline(always)]
-        fn encode(bits: $uint) -> $uint {
-            bits
-        }
+        fn encode(bits: $uint) -> $uint { bits }
 
         #[inline(always)]
-        fn decode(key: $uint) -> $uint {
-            key
-        }
+        fn decode(key: $uint) -> $uint { key }
     };
     (signed, $uint:ty, $sint:ty) => {
         #[inline(always)]
-        fn encode(bits: $uint) -> $uint {
-            bits ^ (1 << (BITS - 1))
-        }
+        fn encode(bits: $uint) -> $uint { bits ^ (1 << (BITS - 1)) }
 
         #[inline(always)]
-        fn decode(key: $uint) -> $uint {
-            key ^ (1 << (BITS - 1))
-        }
+        fn decode(key: $uint) -> $uint { key ^ (1 << (BITS - 1)) }
     };
 }

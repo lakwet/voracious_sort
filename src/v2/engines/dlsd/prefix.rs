@@ -8,9 +8,7 @@ macro_rules! dlsd_prefix {
     ($uint:ty) => {
         /// Sample size: n / `SAMPLE_DIV` keys, at least `SAMPLE_MIN`.
         #[inline(always)]
-        fn sample_size(n: usize) -> usize {
-            (n / SAMPLE_DIV).max(SAMPLE_MIN).min(n)
-        }
+        fn sample_size(n: usize) -> usize { (n / SAMPLE_DIV).max(SAMPLE_MIN).min(n) }
 
         /// Position of the `i`-th sampled key: frac(i x golden ratio) x n,
         /// spread like a stride but in resonance with no period of the data.

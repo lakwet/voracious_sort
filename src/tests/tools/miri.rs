@@ -6,8 +6,8 @@
 
 use crate::v2::cache::L2_OVERRIDE;
 use crate::v2::sorts::by_key::{devour_sort_by_key, devour_sort_unstable_by_key};
-use crate::v2::sorts::devour::devour_sort2;
-use crate::v2::sorts::ravenous::ravenous_sort2;
+use crate::v2::sorts::devour::devour_sort;
+use crate::v2::sorts::ravenous::ravenous_sort;
 
 /// Forced L2 (and largest cache) in bytes: thresholds of a few hundred to a
 /// few thousand keys.
@@ -69,7 +69,7 @@ macro_rules! check_ints {
                 let mut a: Vec<$t> = keys.iter().map(|&k| k as $t).collect();
                 let mut e = a.clone();
                 e.sort_unstable();
-                devour_sort2(&mut a);
+                devour_sort(&mut a);
                 assert!(a == e, "{} n {} {}", stringify!($t), n, name);
             }
         }
@@ -86,7 +86,7 @@ fn miri_devour() {
                     keys.iter().map(|&k| char::from_u32((k % 0xD000) as u32).unwrap()).collect();
                 let mut e = a.clone();
                 e.sort_unstable();
-                devour_sort2(&mut a);
+                devour_sort(&mut a);
                 assert!(a == e, "char n {} {}", n, name);
             }
         }
@@ -107,13 +107,13 @@ fn miri_ravenous() {
                 }
                 let mut e = a.clone();
                 e.sort_unstable_by(|x, y| x.total_cmp(y));
-                ravenous_sort2(&mut a);
+                ravenous_sort(&mut a);
                 let same = a.iter().zip(e.iter()).all(|(x, y)| x.to_bits() == y.to_bits());
                 assert!(same, "f64 n {} {}", n, name);
                 let mut b: Vec<f32> = keys.iter().map(|&k| (k >> 40) as f32 - 5e6).collect();
                 let mut e = b.clone();
                 e.sort_unstable_by(|x, y| x.total_cmp(y));
-                ravenous_sort2(&mut b);
+                ravenous_sort(&mut b);
                 let same = b.iter().zip(e.iter()).all(|(x, y)| x.to_bits() == y.to_bits());
                 assert!(same, "f32 n {} {}", n, name);
             }
@@ -163,7 +163,8 @@ fn miri_records() {
                     .enumerate()
                     .map(|(i, &k)| ((k >> 12) as f64 - 1e15, i as u32))
                     .collect();
-                for (j, v) in [f64::NAN, -f64::NAN, -0.0, 0.0, f64::NEG_INFINITY].iter().enumerate() {
+                for (j, v) in [f64::NAN, -f64::NAN, -0.0, 0.0, f64::NEG_INFINITY].iter().enumerate()
+                {
                     if j < n {
                         recs[j * n / 5].0 = *v;
                     }
@@ -172,7 +173,10 @@ fn miri_records() {
                 devour_sort_by_key(&mut a, |r| r.0);
                 let mut e = recs.clone();
                 e.sort_by(|x, y| x.0.total_cmp(&y.0));
-                let same = a.iter().zip(e.iter()).all(|(x, y)| x.0.to_bits() == y.0.to_bits() && x.1 == y.1);
+                let same = a
+                    .iter()
+                    .zip(e.iter())
+                    .all(|(x, y)| x.0.to_bits() == y.0.to_bits() && x.1 == y.1);
                 assert!(same, "f64 key n {} {}", n, name);
             }
         }

@@ -1,6 +1,6 @@
 //! char: the whole decision chain of this type, sorted as its code point
 //! (the order of `char`; sorting permutes valid values only). Copy of the
-//! shared integer chain of 2026-11-17 (as u32); edit here only.
+//! shared integer chain (as u32); edit here only.
 //!
 //! 1. at most `NETWORK_MAX` keys: a sorting network; up to `MERGE_MAX`:
 //!    blocks and a merge;
@@ -20,12 +20,13 @@ use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
 use crate::v2::sorts::devour::keys::*;
-use crate::v2::sorts::devour::DevourSort2;
+use crate::v2::sorts::devour::DevourSort;
 use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use crate::v2::special::plateaus::plateaus;
 use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
 
-/// Up to this size: `sort_unstable` (in-process A/B, Snapdragon X Elite).
+/// Up to this size: `sort_unstable` (measured where it crosses the radix
+/// path).
 const SMALL: usize = 200;
 
 /// The rollercoaster from this size (the L2 bytes; for its memory, n instead of 2n).
@@ -126,7 +127,7 @@ fn sort_chunk(bits: &mut [u32], _: &mut Vec<MaybeUninit<u32>>) {
     }
 }
 
-/// The radix path (copy of `decide::path` of 2026-11-17); the first matching
+/// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
 fn path(
     arr: &mut [u32],

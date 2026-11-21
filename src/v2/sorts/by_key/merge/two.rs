@@ -126,15 +126,14 @@ pub(crate) fn merge_two_body<T, E: Fn(&T) -> u128, const BRANCHY: bool>(
 
 /// Touches every page of the buffer's capacity before the merges: the page
 /// faults of a fresh allocation cost about twice as much when they happen
-/// in the middle of a merge (32-byte records at 1M: 7.0 ns for the first
-/// round against 3.0 for zeroing + 1.4 for the round).
+/// in the middle of a merge than when the buffer is filled first.
 pub(crate) fn prefault<T>(buf: &mut Vec<MaybeUninit<T>>) {
     // SAFETY: bytes of the spare capacity, written only.
     // WATCH: these bytes are never read, so LLVM may drop the fill when the
     // surrounding code changes (seen once after a refactor of
-    // `merge_all_kway`: 0.01 ns per element instead of 0.74, and the faults
-    // back in the first merge round; journal §71). If the first merge round
-    // slows down again, write one byte per page with `write_volatile`.
+    // `merge_all_kway`: the page faults came back in the first merge
+    // round). If the first merge round slows down again, write one byte per
+    // page with `write_volatile`.
     unsafe {
         std::ptr::write_bytes(
             buf.as_mut_ptr() as *mut u8,

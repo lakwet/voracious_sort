@@ -37,14 +37,10 @@ unsafe fn from_key<const M: u8>(v: V) -> V {
 }
 
 #[inline(always)]
-unsafe fn ld<const M: u8>(p: *const u32) -> V {
-    to_key::<M>(vld1q_u32(p))
-}
+unsafe fn ld<const M: u8>(p: *const u32) -> V { to_key::<M>(vld1q_u32(p)) }
 
 #[inline(always)]
-unsafe fn st<const M: u8>(p: *mut u32, v: V) {
-    vst1q_u32(p, from_key::<M>(v))
-}
+unsafe fn st<const M: u8>(p: *mut u32, v: V) { vst1q_u32(p, from_key::<M>(v)) }
 
 /// A plain select: LLVM makes it a `csel` here.
 #[inline(always)]

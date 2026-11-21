@@ -1,33 +1,27 @@
 //! u8: the whole decision chain of this type (copy of the shared integer
-//! chain of 2026-11-17; edit here only, see `types`).
+//! chain; edit here only, see `types`).
 //!
 //! 1. at most `NETWORK_MAX` keys: a sorting network; up to `MERGE_MAX`:
 //!    blocks and a merge;
-//! 2. already sorted, reversed or constant arrays (one scan);
-//! 3. from 256 keys: counted over their 256 values;
-//! 3. up to `SMALL` keys: `sort_unstable`;
-//! 4. the radix path (`path`), with the detectors (`detect`) and the engine
+//! 2. up to 2^32 keys: the order check that writes nothing unless the
+//!    array is reversed, then the byte counting sort (`engines::bytes`);
+//! 3. beyond: the radix path (`path`), with the detectors (`detect`) and the engine
 //!    of each chunk (`sort_chunk`).
 
 use std::mem::MaybeUninit;
 
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
-use crate::v2::dev::ab::new_rule;
 use crate::v2::engines::bytes;
-use crate::v2::engines::counting::domain_count;
 use crate::v2::engines::lsd::wu8;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
 use crate::v2::sorts::devour::keys::*;
-use crate::v2::sorts::devour::DevourSort2;
+use crate::v2::sorts::devour::DevourSort;
 use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use crate::v2::special::plateaus::plateaus;
 use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
-
-/// Up to this size: `sort_unstable` (in-process A/B, Snapdragon X Elite).
-const SMALL: usize = 150;
 
 /// The rollercoaster from this size (never: 8 and 16 bits).
 fn roller_min() -> usize { usize::MAX }
@@ -52,9 +46,9 @@ fn sort_large(arr: &mut [u8]) {
     chain! {
         "merge_small" if n <= MERGE_MAX => do { merge_sort(bits_of(arr), id8, id8) };
     }
-    // Rule under test: beyond the small merge, the order check that writes
-    // nothing unless reversed, then the byte counting sort (`engines::bytes`).
-    if new_rule() && n <= u32::MAX as usize {
+    // Beyond the small merge: the order check that writes nothing unless
+    // reversed, then the byte counting sort (`engines::bytes`, u32 counters).
+    if n <= u32::MAX as usize {
         if bytes::sorted_or_reversed(arr) {
             trace!("presorted");
         } else {
@@ -70,12 +64,7 @@ fn sort_large(arr: &mut [u8]) {
         },
         Err(known) => known,
     };
-    chain! {
-        // 8-bit keys: counting over the 256 values beats any detection.
-        "count8" if n >= 256 && n <= u32::MAX as usize
-            => do { domain_count(bits_of(arr), id8, id8) };
-        "std_small" if n <= SMALL => do { arr.sort_unstable() };
-    }
+    // Beyond 2^32 keys (counters too narrow): the radix path.
     let buffer = std::cell::RefCell::new(Vec::new());
     let sort_chunk = |chunk: &mut [u8]| sort_chunk(bits_of(chunk), &mut buffer.borrow_mut());
     path(arr, known, &detect, &sort_chunk);
@@ -125,7 +114,7 @@ fn sort_chunk(bits: &mut [u8], _: &mut Vec<MaybeUninit<u8>>) {
     wu8::lsd(bits);
 }
 
-/// The radix path (copy of `decide::path` of 2026-11-17); the first matching
+/// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
 fn path(
     arr: &mut [u8],

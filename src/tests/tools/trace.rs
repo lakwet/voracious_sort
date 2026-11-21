@@ -20,10 +20,10 @@
 
 #![cfg(feature = "v2_trace")]
 
+use super::cells::{env_list, env_size, parse_key, visit, Visit};
 use crate::v2::cache::{l2_bytes, largest_bytes};
 use crate::v2::dev::ab::NEW_RULE;
 use crate::v2::dev::trace;
-use super::cells::{env_list, env_size, parse_key, visit, Visit};
 use std::collections::BTreeMap;
 use std::sync::atomic::Ordering::Relaxed;
 
@@ -34,9 +34,7 @@ struct Tracer {
 }
 
 impl Visit for Tracer {
-    fn wants(&self, _: &str) -> bool {
-        true
-    }
+    fn wants(&self, _: &str) -> bool { true }
     fn cell<T: Copy + PartialOrd + Send + 'static>(
         &mut self,
         key: &str,

@@ -1,5 +1,5 @@
 //! f64: the whole decision chain of this type (copy of the shared float
-//! chain of 2026-11-17; edit here only, see `types`). Sorted through the
+//! chain; edit here only, see `types`). Sorted through the
 //! encoded bits (`sorts::ravenous`: unsigned order = `total_cmp` order).
 //!
 //! 1. at most `NETWORK_MAX` keys: a sorting network;
@@ -22,14 +22,13 @@ use crate::v2::special::floats::{detect64, few64};
 use crate::v2::special::heavy::{dominant, heavy_from_spread, HEAVY_MIN};
 use crate::v2::special::{spread, DENSE_MIN};
 
-/// Up to this size: `sort_unstable` on the encoded keys (where it crosses
-/// the radix path, median over the distributions, Snapdragon X Elite).
+/// Up to this size: `sort_unstable` on the encoded keys (measured where it
+/// crosses the radix path, median over the distributions).
 const SMALL: usize = 700;
 
 /// From this size the presorted check and the repair of nearly sorted
-/// arrays come before the float detectors (f32 timestamps, a few distinct
-/// values nearly in order: 0.67 to 0.15-0.27 ns per key at 10k-3M). Below,
-/// the detectors first (1k: sparse 2.8 against 3.6).
+/// arrays come before the float detectors (timestamps: a few distinct
+/// values nearly in order); below, the detectors first.
 const PRESORTED_FIRST_MIN: usize = 4096;
 
 /// The rollercoaster from this size (L2 / 48, where the DLSD's keys and
@@ -116,7 +115,7 @@ fn sort_large(arr: &mut [f64]) {
     f64_bits::order_signed_zeros(arr);
 }
 
-/// The radix path (copy of `decide::path` of 2026-11-17); the first matching
+/// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
 fn path(
     arr: &mut [f64],

@@ -13,7 +13,10 @@ macro_rules! int128_extra {
             use super::*;
 
             fn random(size: usize) -> Vec<$t> {
-                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<u128>() as $t).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random::<u128>() as $t)
+                    .collect()
             }
 
             // Random UUID (v4): 122 random bits, version and variant fixed.
@@ -37,7 +40,10 @@ macro_rules! int128_extra {
                     .map(|_| {
                         let mut rng = crate::generators::rng();
                         let ms = start + rng.random_range(0..DAY_MS);
-                        ((ms << 80) | (0x7 << 76) | (rng.random::<u128>() & ((1 << 76) - 1) & !(0x3 << 62)) | (0x2 << 62)) as $t
+                        ((ms << 80)
+                            | (0x7 << 76)
+                            | (rng.random::<u128>() & ((1 << 76) - 1) & !(0x3 << 62))
+                            | (0x2 << 62)) as $t
                     })
                     .collect()
             }
@@ -51,7 +57,9 @@ macro_rules! int128_extra {
                     .into_par_iter()
                     .map(|i| {
                         let ms = start + i as u128 / 16;
-                        let r = crate::generators::rng().random::<u128>() & ((1 << 76) - 1) & !(0x3 << 62);
+                        let r = crate::generators::rng().random::<u128>()
+                            & ((1 << 76) - 1)
+                            & !(0x3 << 62);
                         ((ms << 80) | (0x7 << 76) | r | (0x2 << 62)) as $t
                     })
                     .collect()
@@ -62,42 +70,60 @@ macro_rules! int128_extra {
                 let start: u128 = 1_700_000_000_000_000_000;
                 (0..size)
                     .into_par_iter()
-                    .map(|i| (start + i as u128 * 1000 + crate::generators::rng().random_range(0..5000)) as $t)
+                    .map(|i| {
+                        (start + i as u128 * 1000 + crate::generators::rng().random_range(0..5000))
+                            as $t
+                    })
                     .collect()
             }
 
             // Small values stored in 128 bits.
             pub fn small32(size: usize) -> Vec<$t> {
-                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<u32>() as $t).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random::<u32>() as $t)
+                    .collect()
             }
 
             pub fn small64(size: usize) -> Vec<$t> {
-                (0..size).into_par_iter().map(|_| crate::generators::rng().random::<u64>() as $t).collect()
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random::<u64>() as $t)
+                    .collect()
             }
 
             // Fixed-point amounts: up to 10^6 units with 18 decimals (< 2^80).
             pub fn fixed_point(size: usize) -> Vec<$t> {
                 (0..size)
                     .into_par_iter()
-                    .map(|_| crate::generators::rng().random_range(0..1_000_000_000_000_000_000_000_000u128) as $t)
+                    .map(|_| {
+                        crate::generators::rng()
+                            .random_range(0..1_000_000_000_000_000_000_000_000u128)
+                            as $t
+                    })
                     .collect()
             }
 
             // Composite keys: high half among 64 values (tenant), low half random.
             pub fn composite(size: usize) -> Vec<$t> {
                 let mut rng = crate::generators::rng();
-                let highs: Vec<u128> = (0..64).map(|_| (rng.random::<u64>() as u128) << 64).collect();
-                (0..size).map(|_| (highs[rng.random_range(0..64)] | rng.random::<u64>() as u128) as $t).collect()
+                let highs: Vec<u128> =
+                    (0..64).map(|_| (rng.random::<u64>() as u128) << 64).collect();
+                (0..size)
+                    .map(|_| (highs[rng.random_range(0..64)] | rng.random::<u64>() as u128) as $t)
+                    .collect()
             }
 
             // IPv6 addresses: 1024 /48 prefixes, a small subnet, random interface ids.
             pub fn ipv6(size: usize) -> Vec<$t> {
                 let mut rng = crate::generators::rng();
-                let prefixes: Vec<u128> = (0..1024).map(|_| (rng.random::<u64>() as u128 >> 16) << 80).collect();
+                let prefixes: Vec<u128> =
+                    (0..1024).map(|_| (rng.random::<u64>() as u128 >> 16) << 80).collect();
                 (0..size)
                     .map(|_| {
                         let subnet = (rng.random_range(0..16u128)) << 64;
-                        (prefixes[rng.random_range(0..1024)] | subnet | rng.random::<u64>() as u128) as $t
+                        (prefixes[rng.random_range(0..1024)] | subnet | rng.random::<u64>() as u128)
+                            as $t
                     })
                     .collect()
             }
@@ -107,7 +133,9 @@ macro_rules! int128_extra {
                 let mut rng = crate::generators::rng();
                 let k = (size / 200).max(1);
                 let centres: Vec<u128> = (0..k).map(|_| rng.random::<u128>() >> 1).collect();
-                let mut array: Vec<$t> = (0..size).map(|i| (centres[i % k] + rng.random_range(0..1024u128)) as $t).collect();
+                let mut array: Vec<$t> = (0..size)
+                    .map(|i| (centres[i % k] + rng.random_range(0..1024u128)) as $t)
+                    .collect();
                 array.as_mut_slice().shuffle(&mut rng);
                 array
             }
@@ -118,7 +146,11 @@ macro_rules! int128_extra {
                     .into_par_iter()
                     .map(|i| {
                         let v = crate::generators::rng().random_range(0..1u128 << 40) as $t;
-                        if i % 2 == 0 { v } else { <$t>::MAX - v }
+                        if i % 2 == 0 {
+                            v
+                        } else {
+                            <$t>::MAX - v
+                        }
                     })
                     .collect()
             }
@@ -187,7 +219,13 @@ macro_rules! int128_extra {
                 let mut rng = crate::generators::rng();
                 let values: Vec<$t> = (0..4).map(|_| rng.random::<u128>() as $t).collect();
                 (0..size)
-                    .map(|_| if rng.random_range(0..10) < 6 { values[rng.random_range(0..4)] } else { rng.random::<u128>() as $t })
+                    .map(|_| {
+                        if rng.random_range(0..10) < 6 {
+                            values[rng.random_range(0..4)]
+                        } else {
+                            rng.random::<u128>() as $t
+                        }
+                    })
                     .collect()
             }
 
@@ -197,14 +235,20 @@ macro_rules! int128_extra {
                     .into_par_iter()
                     .map(|_| {
                         let mut rng = crate::generators::rng();
-                        if rng.random_range(0..10) == 0 { rng.random::<u128>() as $t } else { 0 }
+                        if rng.random_range(0..10) == 0 {
+                            rng.random::<u128>() as $t
+                        } else {
+                            0
+                        }
                     })
                     .collect()
             }
 
             // Zipf over 10^6 random values (exponent 1).
             pub fn zipf(size: usize) -> Vec<$t> {
-                super::super::zipf(size, 1_000_000, || crate::generators::rng().random::<u128>() as $t)
+                super::super::zipf(size, 1_000_000, || {
+                    crate::generators::rng().random::<u128>() as $t
+                })
             }
 
             pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<$t>, &'static str)> {
