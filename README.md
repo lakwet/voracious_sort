@@ -192,6 +192,11 @@ make bench-big-type T=u64
 NATIVE=1 make bench         # any of them, compiled for this CPU (see below)
 ```
 
+The rival sorts are optional dependencies behind the `bench` feature, which
+the `make bench...` targets turn on: `make test` and the CI do not build them.
+By hand: `cargo test --release --lib --features "voracious_multithread bench"
+bench_cpu -- --ignored --nocapture --test-threads=1`.
+
 ### How they are built
 
 - **The inputs**: for each key type, dozens of distributions of the keys

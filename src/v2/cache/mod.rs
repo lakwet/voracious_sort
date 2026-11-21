@@ -139,12 +139,12 @@ pub(crate) static L2_OVERRIDE: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
 
 /// The L2 size as the OS reports it (`None`: not read, the default is used).
-#[cfg(test)]
+#[cfg(all(test, feature = "bench"))]
 pub(crate) fn reported_l2() -> Option<usize> { os::query().0 }
 
 /// L1 data, L2 and L3 sizes as the OS reports them (smallest of each level;
 /// for reports: the sorts read the L2 alone).
-#[cfg(test)]
+#[cfg(all(test, feature = "bench"))]
 pub(crate) fn reported_levels() -> [Option<usize>; 3] { os::levels() }
 
 /// Page size in bytes.

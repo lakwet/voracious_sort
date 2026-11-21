@@ -1,3 +1,4 @@
+#[cfg(feature = "bench")]
 mod bench;
 mod comparative_sort;
 mod custom;

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voracious Bench</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='9' width='3' height='6' rx='1' fill='%232a78d6'/%3E%3Crect x='6.5' y='5' width='3' height='10' rx='1' fill='%232a78d6'/%3E%3Crect x='12' y='1' width='3' height='14' rx='1' fill='%232a78d6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Voracious bench</h1>
+      <span class="muted small">bench file viewer</span>
+    </div>
+    <div class="runs" id="runs" aria-label="Loaded files"></div>
+    <div class="actions">
+      <button class="btn primary" id="open">Open…</button>
+      <button class="btn" id="theme">Theme: auto</button>
+      <input type="file" id="file" accept=".csv,.txt" multiple hidden>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <div class="filters" id="filters"></div>
+  <main id="main"></main>
+  <div id="drop" class="drop" hidden><div>Drop the file to open it</div></div>
+  <div id="tooltip" class="tooltip" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="js/parse.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

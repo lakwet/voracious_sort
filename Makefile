@@ -1,6 +1,8 @@
 # `make` alone lists the targets.
 
 FEATURES = --features "voracious_multithread"
+# The benchmarks also build the rival sorts (feature `bench`, off for `make test`).
+BENCH_FEATURES = --features "voracious_multithread bench"
 
 # ---------------------------------------------------------------------------
 # Tests
@@ -27,11 +29,11 @@ build: ## build the library (release)
 	@cargo build --release $(FEATURES)
 
 check: ## compile everything (library, tests, benchmarks) without running it
-	@cargo check --tests $(FEATURES)
+	@cargo check --tests $(BENCH_FEATURES)
 
 lint: ## clippy on the library, the tests and the trace
 	@rustup component add clippy
-	@cargo clippy --lib --tests --features "voracious_multithread v2_trace"
+	@cargo clippy --lib --tests --features "voracious_multithread v2_trace bench"
 
 fmt: ## format the code (nightly rustfmt, as the CI checks it)
 	@rustup component add rustfmt --toolchain nightly
@@ -59,7 +61,7 @@ ifeq ($(NATIVE),1)
 BENCH_RUSTFLAGS += -C target-cpu=native
 endif
 
-BENCH_RUN = cargo test --release --lib $(FEATURES) bench_cpu -- --ignored --nocapture --test-threads=1
+BENCH_RUN = cargo test --release --lib $(BENCH_FEATURES) bench_cpu -- --ignored --nocapture --test-threads=1
 BENCH_SIZES_ALL = 1000,10000,30000,50000,100000,200000,600000,1000000,3000000,10000000
 BENCH_SIZES_TYPE = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
 # Large arrays: as far as the memory allows (an array, its copy and a buffer
