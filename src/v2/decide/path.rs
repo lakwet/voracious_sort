@@ -73,6 +73,17 @@ pub(crate) fn merges_unpredictable<T: Copy + PartialOrd>(
     chunks: &[(usize, usize)],
     levels: usize,
 ) -> bool {
+    // Merge under test (`AB_MERGE=ab2`): unpredictable merges merged by the
+    // hybrid instead of the whole radix sort, beyond the cache and for the
+    // keys without the 32-bit SIMD block merge (Runs 8 f64 1M 7.43 to 3.84
+    // ns per key, u64 4.88 to 2.94; u32 / f32 lost 1.11-1.42 against their
+    // SIMD merges, Saw f64 10k 1.12 in the cache).
+    let in_cache = std::mem::size_of_val(arr)
+        <= crate::v2::cache::budget(crate::v2::cache::Budget::MergeTwoWay) / 2;
+    let simd32 = std::mem::size_of::<T>() == 4 && crate::v2::runs::merge::simd_applies::<T>();
+    if crate::v2::dev::ab::merge_unpredictable_too() && !in_cache && !simd32 {
+        return false;
+    }
     let beyond = std::mem::size_of_val(arr) > crate::v2::cache::largest_bytes() / 4;
     let dense_levels = beyond && levels >= DENSE_LEVELS;
     let narrow = std::mem::size_of::<T>() <= 2;

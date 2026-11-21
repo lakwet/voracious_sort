@@ -225,6 +225,48 @@ fn geo(values: &[f64]) -> f64 {
     (values.iter().map(|v| v.ln()).sum::<f64>() / values.len().max(1) as f64).exp()
 }
 
+/// Temporary (page-fault study, BENCH_TRIM): free heap memory given back to the system.
+fn tmp_trim() {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        extern "C" {
+            fn malloc_trim(pad: usize) -> i32;
+        }
+        // SAFETY: glibc's malloc_trim, no precondition.
+        unsafe { malloc_trim(0) };
+    }
+}
+
+/// Temporary (page-fault study, BENCH_FAULTS): page faults of the process so far (Linux:
+/// minor faults; Windows: all faults, soft ones included).
+fn tmp_minflt() -> u64 {
+    #[cfg(windows)]
+    {
+        #[repr(C)]
+        #[derive(Default)]
+        struct Counters {
+            cb: u32,
+            page_fault_count: u32,
+            rest: [usize; 8],
+        }
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetCurrentProcess() -> isize;
+            fn K32GetProcessMemoryInfo(process: isize, counters: *mut Counters, cb: u32) -> i32;
+        }
+        let mut c = Counters { cb: std::mem::size_of::<Counters>() as u32, ..Default::default() };
+        // SAFETY: a pseudo handle and a counters struct of the size given.
+        unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut c, c.cb) };
+        c.page_fault_count as u64
+    }
+    #[cfg(not(windows))]
+    {
+        let s = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let rest = &s[s.rfind(')').map_or(0, |i| i + 2)..];
+        rest.split(' ').nth(7).and_then(|x| x.parse().ok()).unwrap_or(0)
+    }
+}
+
 /// Median ns per key of each variant on each distribution at `size`. The
 /// variants sort copies of the same batch, in an order rotating between
 /// repetitions; `ordered(a, b)`: `a` may come before `b`.
@@ -241,7 +283,11 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
             let batch: Vec<Vec<T>> = (0..count).map(|_| gen(size)).collect();
             for k in 0..nv {
                 let v = (k + rep) % nv;
+                if std::env::var("BENCH_TRIM").is_ok() {
+                    tmp_trim();
+                }
                 let mut work = batch.clone();
+                let faults0 = tmp_minflt();
                 let start = std::time::Instant::now();
                 // A sort that panics loses its measurement, not the run.
                 let sorted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -255,6 +301,9 @@ fn measure<T: Clone>(report: &mut Report, cfg: &Config, label: &str, gens: &Gens
                     continue;
                 }
                 times[v].push(start.elapsed().as_nanos() as f64 / (count * size) as f64);
+                if std::env::var("BENCH_FAULTS").is_ok() {
+                    report.line(&format!("faults,{},{},{},{},{}", label, size, short_name(name), variants[v].name, tmp_minflt().wrapping_sub(faults0)));
+                }
                 if rep == 0 && !work.iter().all(|a| a.windows(2).all(|p| ordered(&p[0], &p[1]))) {
                     report.line(&format!("CHECK FAILED,{},{},{},{}", label, size, short_name(name), variants[v].name));
                 }

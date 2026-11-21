@@ -65,6 +65,17 @@ benchcpu-quick: export BENCH_REPS = 1
 benchcpu-quick: ## short CPU benchmark (up to 1M keys, one repetition): checks the setup
 	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
 
+benchfaults: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
+benchfaults: export BENCH_FAULTS = 1
+benchfaults: export AB_MERGE = ab2
+benchfaults: export BENCH_AB = 1
+benchfaults: export BENCH_SORTS = best
+benchfaults: export BENCH_PARTS = int
+benchfaults: export BENCH_TYPES = u64
+benchfaults: export BENCH_SIZES = 100000,1000000,10000000
+benchfaults: ## page faults of every measurement, u64 100k / 1M / 10M (TEMPORARY, ~10 min)
+	@cargo test --release --lib --features "voracious_multithread" bench_cpu -- --ignored --nocapture --test-threads=1
+
 benchtune: export RUSTFLAGS = $(BENCH_CPU_RUSTFLAGS)
 benchtune: export BENCH_PARTS = tune
 benchtune: export BENCH_MAX = 10000000
@@ -196,4 +207,4 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test bench bench-type bench-keys bench-records benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write trace-ref sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help
+.PHONY: test benchfaults bench bench-type bench-keys bench-records benchcpu benchcpu-quick benchfix benchfix-native benchbilan benchlsd32 benchbigrivals benchnuit trace trace-ab trace-write trace-ref sentinel check clean lint doc fmt build-dev build-dev-single build-release build-release-single help

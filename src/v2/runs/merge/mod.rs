@@ -4,6 +4,7 @@ mod bidir;
 mod classic;
 mod gallop;
 mod gap;
+mod kway;
 mod predictable;
 pub(crate) mod simd;
 mod two_way;
@@ -120,6 +121,20 @@ pub(crate) fn merge_runs<T: Copy + PartialOrd>(arr: &mut [T], separators: &mut V
         && bytes <= crate::v2::cache::budget(crate::v2::cache::Budget::PingPong) / 4
     {
         pingpong(arr, separators);
+        return;
+    }
+    // Merge under test: the hybrid of kwaymerge (buffer n/2, allocated here),
+    // beyond the cache. In the cache the old merges stay (ping-pong, or
+    // two-ended into the scratch and copied back, by SIMD blocks for 32-bit
+    // keys: Saw f32 10k 1.42, f64 1.15, Pipe Organ u32 10k 1.10 times slower
+    // through the hybrid).
+    let in_cache = std::mem::size_of_val(arr)
+        <= crate::v2::cache::budget(crate::v2::cache::Budget::MergeTwoWay) / 2;
+    if crate::v2::dev::ab::new_merge() && !in_cache {
+        kway::hybrid(arr, separators, &mut Vec::new());
+        let n = arr.len();
+        separators.clear();
+        separators.extend([0, n]);
         return;
     }
     // Several merges: allocate the scratch once (as the original merge).
