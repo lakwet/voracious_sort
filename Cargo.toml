@@ -21,8 +21,8 @@ include = [
     "src/v2/**/*.rs",
     "!src/v2/testing.rs",
     "!src/**/tests.rs",
-    "README.md",
-    "LICENSE",
+    "/README.md",
+    "/LICENSE",
 ]
 
 [features]
