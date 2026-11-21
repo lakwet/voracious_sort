@@ -1,11 +1,10 @@
-use super::super::algo::verge_sort_heuristic::{
-    backward_orientation, compute_big_enough_run, explore_around,
-    explore_backward_asc, explore_backward_desc, explore_backward_plateau,
-    explore_forward_asc, explore_forward_desc, explore_forward_plateau,
-    explore_simple_forward, forward_orientation, jump,
+use super::super::generators::unsigned_u64::*;
+use crate::v1::algo::verge_sort_heuristic::{
+    backward_orientation, compute_big_enough_run, explore_around, explore_backward_asc,
+    explore_backward_desc, explore_backward_plateau, explore_forward_asc, explore_forward_desc,
+    explore_forward_plateau, explore_simple_forward, forward_orientation, jump,
     verge_sort_preprocessing, BackwardGrowth, ForwardGrowth, Orientation,
 };
-use super::super::generators::unsigned_u64::*;
 
 fn default_sort(arr: &mut [u64], _radix: usize) { arr.sort_unstable(); }
 
@@ -170,55 +169,55 @@ fn test_verge_sort_heuristic_jump() {
 #[test]
 fn test_verge_sort_heuristic_backward_orientation() {
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 2), Orientation::IsAsc);
+    assert_eq!(backward_orientation(&mut arr, 2), Orientation::Asc);
 
     let mut arr = vec![0, 2, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 2), Orientation::IsPlateau);
+    assert_eq!(backward_orientation(&mut arr, 2), Orientation::Plateau);
 
     let mut arr = vec![0, 3, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 2), Orientation::IsDesc);
+    assert_eq!(backward_orientation(&mut arr, 2), Orientation::Desc);
 
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(backward_orientation(&mut arr, 0), Orientation::IsNone);
+    assert_eq!(backward_orientation(&mut arr, 0), Orientation::None);
 }
 
 #[test]
 fn test_verge_sort_heuristic_forward_orientation() {
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(forward_orientation(&mut arr, 2), Orientation::IsAsc);
+    assert_eq!(forward_orientation(&mut arr, 2), Orientation::Asc);
 
     let mut arr = vec![0, 2, 2, 2, 0];
-    assert_eq!(forward_orientation(&mut arr, 2), Orientation::IsPlateau);
+    assert_eq!(forward_orientation(&mut arr, 2), Orientation::Plateau);
 
     let mut arr = vec![0, 3, 2, 1, 0];
-    assert_eq!(forward_orientation(&mut arr, 2), Orientation::IsDesc);
+    assert_eq!(forward_orientation(&mut arr, 2), Orientation::Desc);
 
     let mut arr = vec![0, 1, 2, 3, 0];
-    assert_eq!(forward_orientation(&mut arr, 4), Orientation::IsNone);
+    assert_eq!(forward_orientation(&mut arr, 4), Orientation::None);
 }
 
 #[test]
 fn test_verge_sort_heuristic_explore_simple_forward() {
     let mut arr: Vec<u64> = vec![0, 0, 0, 1, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsAsc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Asc);
 
     let mut arr: Vec<u64> = vec![0, 0, 0, 0, 0];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsPlateau);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Plateau);
 
     let mut arr: Vec<u64> = vec![2, 2, 2, 1, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsDesc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Desc);
 
     let mut arr: Vec<u64> = vec![0, 2, 0, 1, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsNone);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::None);
 
     let mut arr: Vec<u64> = vec![0, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsAsc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Asc);
 
     let mut arr: Vec<u64> = vec![0, 0];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsPlateau);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Plateau);
 
     let mut arr: Vec<u64> = vec![2, 1];
-    assert_eq!(explore_simple_forward(&mut arr), Orientation::IsDesc);
+    assert_eq!(explore_simple_forward(&mut arr), Orientation::Desc);
 }
 
 #[test]
@@ -280,8 +279,7 @@ fn test_verge_sort_heuristic_explore_around() {
 fn test_verge_sort_heuristic_verge_sort_preprocessing() {
     for _ in 0..100 {
         let mut arr = helper_random_array_uniform_u64(10_000);
-        let separators =
-            verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
+        let separators = verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
         for k in 0..(separators.len() - 1) {
             for i in separators[k]..(separators[k + 1] - 1) {
                 assert!(arr[i] <= arr[i + 1]);
@@ -289,8 +287,7 @@ fn test_verge_sort_heuristic_verge_sort_preprocessing() {
         }
 
         let mut arr = helper_random_array_sqrt_u64(10_000);
-        let separators =
-            verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
+        let separators = verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
         for k in 0..(separators.len() - 1) {
             for i in separators[k]..(separators[k + 1] - 1) {
                 assert!(arr[i] <= arr[i + 1]);
@@ -298,8 +295,7 @@ fn test_verge_sort_heuristic_verge_sort_preprocessing() {
         }
 
         let mut arr = helper_random_array_zipf_u64(10_000);
-        let separators =
-            verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
+        let separators = verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
         for k in 0..(separators.len() - 1) {
             for i in separators[k]..(separators[k + 1] - 1) {
                 assert!(arr[i] <= arr[i + 1]);
@@ -307,8 +303,7 @@ fn test_verge_sort_heuristic_verge_sort_preprocessing() {
         }
 
         let mut arr = helper_random_array_almost_desc_u64(10_000);
-        let separators =
-            verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
+        let separators = verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
         for k in 0..(separators.len() - 1) {
             for i in separators[k]..(separators[k + 1] - 1) {
                 assert!(arr[i] <= arr[i + 1]);
@@ -316,12 +311,199 @@ fn test_verge_sort_heuristic_verge_sort_preprocessing() {
         }
 
         let mut arr = helper_random_array_almost_asc_u64(10_000);
-        let separators =
-            verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
+        let separators = verge_sort_preprocessing(arr.as_mut_slice(), 8, &default_sort);
 
         for k in 0..(separators.len() - 1) {
             for i in separators[k]..(separators[k + 1] - 1) {
                 assert!(arr[i] <= arr[i + 1]);
+            }
+        }
+    }
+}
+
+/// The Verge variant of v2 (`v2::runs::verge`) must take exactly the same
+/// decisions as the original one: same explorations, same separators, same array (stable).
+#[test]
+fn test_verge_fast_same_as_original() {
+    use super::super::generators::float_32::generators_f32;
+    use crate::v1::algo::verge_sort_heuristic as orig;
+    use crate::v2::runs::verge as fast;
+    use crate::v2::runs::verge::scan;
+
+    // Explorations on every start position of patterned arrays.
+    let patterns: Vec<Vec<u64>> = vec![
+        (0..300).collect(),
+        (0..300).rev().collect(),
+        vec![7; 300],
+        (0..300).map(|i| (i / 37) as u64).collect(),
+        (0..300).map(|i| if i % 50 < 25 { i as u64 } else { 1000 - i as u64 }).collect(),
+        (0..300).map(|i| ((i * 7919) % 13) as u64).collect(),
+        (0..300).map(|i| if i == 150 { 0 } else { i as u64 }).collect(),
+    ];
+    for p in patterns.iter() {
+        let mut a = p.clone();
+        for s in 0..a.len() {
+            assert_eq!(scan::explore_forward_asc(&a, s), orig::explore_forward_asc(&mut a, s));
+            assert_eq!(scan::explore_forward_desc(&a, s), orig::explore_forward_desc(&mut a, s));
+            assert_eq!(
+                scan::explore_forward_plateau(&a, s),
+                orig::explore_forward_plateau(&mut a, s)
+            );
+            for m in [0, s / 2, s].iter() {
+                assert_eq!(
+                    scan::explore_backward_asc(&a, s, *m),
+                    orig::explore_backward_asc(&mut a, s, *m)
+                );
+                assert_eq!(
+                    scan::explore_backward_desc(&a, s, *m),
+                    orig::explore_backward_desc(&mut a, s, *m)
+                );
+                assert_eq!(
+                    scan::explore_backward_plateau(&a, s, *m),
+                    orig::explore_backward_plateau(&mut a, s, *m)
+                );
+            }
+        }
+    }
+
+    // Whole pre-processing on every f32 distribution and several sizes.
+    let fallback = |a: &mut [f32], _r: usize| a.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    for size in [200usize, 1_000, 10_000, 100_000].iter() {
+        for (gen, name) in generators_f32().iter() {
+            let input = gen(*size);
+            let mut a = input.clone();
+            let mut b = input.clone();
+            let mut c = input.clone();
+            let sa = orig::verge_sort_preprocessing(&mut a, 8, &fallback);
+            let sb = fast::verge_sort_preprocessing_fast::<_, true>(&mut b, 8, &fallback);
+            let sc = fast::verge_sort_preprocessing_fast::<_, false>(&mut c, 8, &fallback);
+            assert_eq!(sa, sb, "{} {} separators (stable)", name, size);
+            assert_eq!(sa, sc, "{} {} separators (unstable)", name, size);
+            let bits = |v: &[f32]| v.iter().map(|x| x.to_bits()).collect::<Vec<u32>>();
+            assert!(bits(&a) == bits(&b), "{} {} array (stable)", name, size);
+            // Unstable: same multiset, and each segment sorted.
+            for w in sc.windows(2) {
+                assert!(
+                    c[w[0]..w[1]].windows(2).all(|p| p[0] <= p[1]),
+                    "{} {} segment",
+                    name,
+                    size
+                );
+            }
+            let mut ma = bits(&a);
+            let mut mc = bits(&c);
+            ma.sort_unstable();
+            mc.sort_unstable();
+            assert!(ma == mc, "{} {} multiset", name, size);
+        }
+    }
+}
+
+/// The merge of runs of v2 (`v2::runs::merge::merge_runs`) must give exactly
+/// the result of the original k-way merge
+/// (stable merge: equal keys keep their order).
+#[test]
+fn test_v2_merge_runs_same_as_original() {
+    use crate::v1::algo::k_way_merge::k_way_merge;
+    use crate::v2::runs::merge::merge_runs;
+
+    #[derive(Clone, Copy, Debug)]
+    struct S {
+        k: u32,
+        id: u32,
+    }
+    impl PartialEq for S {
+        fn eq(&self, o: &Self) -> bool { self.k == o.k }
+    }
+    impl PartialOrd for S {
+        fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> { self.k.partial_cmp(&o.k) }
+    }
+
+    let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for case in 0..3000 {
+        let n = 2 + (next() % 400) as usize;
+        let range = [2u64, 10, 1000, 1 << 30][case % 4];
+        // Random run boundaries, including tiny runs (insert path).
+        let mut seps = vec![0usize];
+        while *seps.last().unwrap() < n {
+            let len = match next() % 4 {
+                0 => 1 + (next() % 3) as usize,
+                1 => 1 + (next() % 20) as usize,
+                _ => 1 + (next() % 200) as usize,
+            };
+            seps.push((seps.last().unwrap() + len).min(n));
+        }
+        let mut arr: Vec<S> =
+            (0..n).map(|i| S { k: (next() % range) as u32, id: i as u32 }).collect();
+        for w in seps.windows(2) {
+            arr[w[0]..w[1]].sort_by_key(|a| a.k);
+        }
+        // Special shapes: sorted + moved element (Front / Middle).
+        if case % 10 == 0 {
+            arr = (0..n).map(|i| S { k: i as u32, id: i as u32 }).collect();
+            arr[n - 1].k = [0u32, (n / 2) as u32][case % 20 / 10];
+            seps = vec![0, n - 1, n];
+        }
+        let mut a = arr.clone();
+        let mut b = arr.clone();
+        k_way_merge(&mut a, &mut seps.clone());
+        merge_runs(&mut b, &mut seps.clone());
+        let ka: Vec<(u32, u32)> = a.iter().map(|s| (s.k, s.id)).collect();
+        let kb: Vec<(u32, u32)> = b.iter().map(|s| (s.k, s.id)).collect();
+        assert!(ka == kb, "case {} n {} seps {:?}", case, n, seps);
+    }
+}
+
+/// Near-sorted repair: sorted result when it succeeds, permutation of the
+/// input in every case.
+#[test]
+fn test_v2_near_sorted_repair() {
+    use crate::v2::inspect::near_sorted::repair_ascending;
+    let mut seed = 0x2545_f491_4f6c_dd1du64;
+    let mut next = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for case in 0..4000 {
+        let n = 1 + (next() % 3000) as usize;
+        let dups = case % 3 == 0;
+        let mut arr: Vec<u32> =
+            (0..n).map(|i| if dups { (i / 7) as u32 } else { i as u32 }).collect();
+        // Disorder: a few far swaps, adjacent swaps, moved blocks, or random.
+        let swaps = match case % 5 {
+            0 => 0,
+            1 => 1 + (next() % 4) as usize,
+            2 => 1 + (next() % 40) as usize,
+            3 => n / 4 + 1,
+            _ => 3,
+        };
+        for _ in 0..swaps {
+            let i = (next() % n as u64) as usize;
+            let j = if case % 2 == 0 { (next() % n as u64) as usize } else { (i + 1).min(n - 1) };
+            arr.swap(i, j);
+        }
+        if case % 7 == 0 {
+            arr.reverse();
+        }
+        let mut expected = arr.clone();
+        expected.sort_unstable();
+        {
+            let mut a = arr.clone();
+            let sorted = repair_ascending(&mut a);
+            if sorted {
+                assert!(a == expected, "case {} n {} sorted wrongly", case, n);
+            } else {
+                let mut b = a.clone();
+                b.sort_unstable();
+                assert!(b == expected, "case {} n {} not a permutation", case, n);
             }
         }
     }

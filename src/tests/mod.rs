@@ -1,15 +1,18 @@
+mod bench;
 mod comparative_sort;
+mod custom;
 mod dedicated;
 mod histograms;
 mod nan;
 mod regions_graph;
+mod tools;
+mod v1_records;
+mod v2;
+mod v2_cases;
+mod v2_matrix;
 #[rustfmt::skip] mod sorts;
 mod stable_sort;
 mod types;
 mod utils;
 mod utils_mt;
 mod verge_sort_heuristic;
-
-// mod test_helpers;
-// #[rustfmt::skip] mod speed_sort;
-// #[rustfmt::skip] mod speed_sort_ded;

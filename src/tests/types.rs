@@ -1,5 +1,5 @@
-use super::super::sorts::utils::Params;
-use super::super::Radixable;
+use crate::v1::sorts::utils::Params;
+use crate::v1::Radixable;
 
 #[test]
 fn test_types_compute_offset() {
@@ -59,15 +59,9 @@ fn test_types_mask_for_high_bits() {
 
     let high_mask = number.mask_for_high_bits(p.radix, p.offset, p.max_level);
 
-    assert_eq!(
-        high_mask,
-        0b1111_1111_1111_1111_1111_1111_0000_0000_0000_0000u64
-    );
+    assert_eq!(high_mask, 0b1111_1111_1111_1111_1111_1111_0000_0000_0000_0000u64);
 
-    assert_eq!(
-        high_mask & number,
-        0b1111_0001_0010_1011_1011_0101_0000_0000_0000_0000u64,
-    );
+    assert_eq!(high_mask & number, 0b1111_0001_0010_1011_1011_0101_0000_0000_0000_0000u64,);
 
     let p = Params::new(0, 9, 24, 2); // level, radix, offset, max_level
     let number: u64 = 0b11_1111_0001_0010_1011_1011_0101_0010_0100_1110_0101;
@@ -75,15 +69,9 @@ fn test_types_mask_for_high_bits() {
 
     let high_mask = number.mask_for_high_bits(p.radix, p.offset, p.max_level);
 
-    assert_eq!(
-        high_mask,
-        0b00_1111_1111_1111_1111_1100_0000_0000_0000_0000_0000u64
-    );
+    assert_eq!(high_mask, 0b00_1111_1111_1111_1111_1100_0000_0000_0000_0000_0000u64);
 
-    assert_eq!(
-        high_mask & number,
-        0b00_1111_0001_0010_1011_1000_0000_0000_0000_0000_0000,
-    );
+    assert_eq!(high_mask & number, 0b00_1111_0001_0010_1011_1000_0000_0000_0000_0000_0000,);
 }
 
 #[test]

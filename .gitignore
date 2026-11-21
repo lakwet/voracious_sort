@@ -1,2 +1,6 @@
 /target
 **/*.rs.bk
+/bench-cpu-*.txt
+/traces/moved.txt
+/traces/sentinel-last.txt
+/algo_doc/

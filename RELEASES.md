@@ -1,3 +1,61 @@
+# Version **2.0.0** (November 21<sup>st</sup> 2026)
+
+**Breaking change.** The single-thread sort is rewritten; the public API is
+smaller and simpler. Version 1.2.2 stays available for those who prefer it.
+
+### What changes for users
+
+- `RadixSort` is now one trait without type parameters, implemented for
+  slices (and `Vec` through `Deref`):
+  - `voracious_sort()` and `voracious_stable_sort()` sort `bool`, `char`,
+    `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`, `i32`, `i64`,
+    `i128`, `isize`, `f32` and `f64`;
+  - `voracious_mt_sort(thread_n)` (feature `voracious_multithread`): the
+    multithread sort of 1.x (peeka sort), **not reworked yet**;
+  - `voracious_sort_by_key(key)` (stable) and
+    `voracious_sort_unstable_by_key(key)` sort any element by a key.
+- **`Radixable` and `RadixKey` are removed.** Structs no longer implement a
+  trait to be sorted: call `voracious_sort_by_key(|x| x.key)` instead. A key
+  type of your own implements `SortKey` (its encoding into an unsigned
+  integer of the same order).
+- **The 1.x sorting functions are no longer public**: `american_flag_sort`,
+  `counting_sort`, `dlsd_radixsort`, `lsd_radixsort`, `lsd_stable_radixsort`,
+  `msd_radixsort`, `msd_stable_radixsort`, `peeka_sort`,
+  `rollercoaster_sort`, `ska_sort`, `awardofthesky_sort`, `voracious_sort`,
+  `boolean_sort`, `insertion_sort`, `cs_u16`, `lsd_f32`, `lsd_u32`, and the
+  `Dispatcher` trait. Use the trait methods.
+- New free functions: `devour_sort` (`bool`, `char`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`, `i32`, `i64`, `i128`, `isize`) and
+  `ravenous_sort` (`f32`, `f64`), the same sorts as `voracious_sort`.
+- Floats are sorted in [`f64::total_cmp`] order (NaNs of both signs, -0.0
+  before +0.0), bit for bit.
+- Minimum Rust version: 1.88.
+
+### Migration
+
+```rust
+// 1.x
+impl Radixable<u64> for Event { type Key = u64; fn key(&self) -> u64 { self.time } }
+events.voracious_sort();
+// 2.0
+events.voracious_sort_by_key(|e| e.time);
+```
+
+### Inside
+
+- One chain of decisions per key type: sorting networks and merges for
+  small arrays, detection of sorted, reversed and nearly sorted arrays, of
+  narrow ranges, few values, heavy duplicates, plateaus and clusters, Verge
+  runs merged by a k-way merge (powersort order, half-size buffer), LSD /
+  DLSD / MSD radix sorts and the rollercoaster, thresholds derived from the
+  cache sizes read at run time.
+- A new sort for records by key (key and index packed when they fit).
+- New tests: the public API on every type and many distributions at every
+  threshold, Miri (`make test-miri`), fuzzy tests (`make test-fuzzy`); CI on
+  Linux, Windows and macOS.
+- New benchmarks (`make bench`, `make bench-type`, `make bench-records`,
+  `make bench-big`): duration, time per element and ratio to v2 of every
+  sort; no results published with this release.
+
 # Version **1.2.2** (November 2026)
 
 ### Bug fix:

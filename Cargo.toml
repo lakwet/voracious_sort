@@ -1,8 +1,10 @@
 [package]
 name = "voracious_radix_sort"
-version = "1.2.2"
+version = "2.0.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
+# Minimum Rust: 1.88 (std::hint::select_unpredictable in the v2 merges; 1.87 fails).
+rust-version = "1.88"
 description = "State of the art radix sort algorithms. Single thread and multi thread versions."
 license = "MIT"
 readme = "README.md"
@@ -10,13 +12,37 @@ documentation = "https://docs.rs/voracious_radix_sort/"
 repository = "https://github.com/lakwet/voracious_sort"
 keywords = ["sort", "algorithms", "radixsort", "research"]
 categories = ["algorithms", "science", "concurrency"]
+# Only what a user builds: the library sources (unit tests in `tests.rs`
+# files, generators, benchmarks and tests stay in the repository), the
+# readme and the license.
+include = [
+    "src/lib.rs",
+    "src/v1/**/*.rs",
+    "src/v2/**/*.rs",
+    "!src/v2/testing.rs",
+    "!src/**/tests.rs",
+    "README.md",
+    "LICENSE",
+]
 
 [features]
 voracious_multithread = ["rayon"]
+# Decision trace of the v2 sorts (tests only, see src/v2/trace.rs).
+v2_trace = []
+
+[lints.rust]
+# The v1 also covers 8- and 128-bit pointer widths (no such target yet).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_pointer_width, values("8", "128"))'] }
 
 [dependencies]
 rayon = { version = "1.12.0", optional = true }
 
 [dev-dependencies]
+rayon = "1.12.0"
+blazing-radix = "0.1.0"
+radsort = "0.1.1"
+rdst = { version = "0.20.14", default-features = false }
+turbosort = "0.2.2"
+glidesort = "0.1.2"
 rand = "0.10.3"
 rand_distr = "0.6.0"

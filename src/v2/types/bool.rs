@@ -1,0 +1,67 @@
+//! bool: copy of the boolean sort of voracious 1.x (`sorts::boolean_sort`),
+//! kept apart so that the v2 never calls the v1.
+//!
+//! One vectorized pass counts the `true` values and the descents (`true`
+//! before `false`); a sorted array (no descent) is left untouched, otherwise
+//! the array is rewritten with two fills (`false` then `true`).
+
+/// Bytes summed side by side (one vector of 8-bit lanes).
+const LANES: usize = 32;
+/// Blocks summed before the lanes are flushed: an 8-bit lane holds at most
+/// 255 ones.
+const ROUNDS: usize = 255;
+
+/// Number of `true` among `bytes[..n]` and of descents (`true` followed by
+/// `false`) among the pairs `(bytes[i], bytes[i + 1])`, in one pass: the
+/// bytes (0 or 1) are added into 32 lanes of 8-bit counters, flushed every
+/// 255 rounds, which the compiler vectorizes.
+#[inline]
+fn count(bytes: &[u8]) -> (usize, usize) {
+    let n = bytes.len();
+    let (a, b) = (&bytes[..n - 1], &bytes[1..]);
+    let (mut ones, mut descents) = (0usize, 0usize);
+    let (blocks_a, rest_a) = a.as_chunks::<LANES>();
+    let (blocks_b, rest_b) = b.as_chunks::<LANES>();
+    let (mut ca, mut cb) = (blocks_a.iter(), blocks_b.iter());
+    loop {
+        let mut acc_one = [0u8; LANES];
+        let mut acc_desc = [0u8; LANES];
+        let mut rounds = 0;
+        while rounds < ROUNDS {
+            let (Some(x), Some(y)) = (ca.next(), cb.next()) else { break };
+            for k in 0..LANES {
+                acc_one[k] += x[k];
+                acc_desc[k] += x[k] & (y[k] ^ 1);
+            }
+            rounds += 1;
+        }
+        ones += acc_one.iter().map(|&v| v as usize).sum::<usize>();
+        descents += acc_desc.iter().map(|&v| v as usize).sum::<usize>();
+        if rounds < ROUNDS {
+            break;
+        }
+    }
+    for (&x, &y) in rest_a.iter().zip(rest_b) {
+        ones += x as usize;
+        descents += (x & (y ^ 1)) as usize;
+    }
+    (ones + bytes[n - 1] as usize, descents)
+}
+
+/// Sorts `arr` (`false` before `true`): the count of `true` and of descents
+/// in one pass, nothing written when sorted, else two fills.
+pub(crate) fn sort(arr: &mut [bool]) {
+    let n = arr.len();
+    if n < 2 {
+        return;
+    }
+    // SAFETY: a `bool` is one byte holding 0 or 1.
+    let bytes = unsafe { std::slice::from_raw_parts(arr.as_ptr() as *const u8, n) };
+    let (trues, descents) = count(bytes);
+    if descents == 0 {
+        return;
+    }
+    let falses = n - trues;
+    arr[..falses].fill(false);
+    arr[falses..].fill(true);
+}

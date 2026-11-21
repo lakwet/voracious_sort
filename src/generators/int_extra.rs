@@ -1,0 +1,284 @@
+//! Generators shared by u32, u64, i32 and i64, added to each type's own list
+//! so that every integer type is measured on the same situations: real data
+//! shapes (identifiers, timestamps, aligned addresses, sorted logs) and the
+//! worst cases of the detectors (late outlier, late extra value, random tail),
+//! and the distributions of other sort benchmarks (sort-research-rs: binary;
+//! IPS4o: exponential, RootDup, TwoDup, EightDup).
+
+use rand::seq::SliceRandom;
+use rand::RngExt;
+use rayon::prelude::*;
+
+macro_rules! int_extra {
+    ($t:ty, $name:ident, $stamp_base:expr) => {
+        pub mod $name {
+            use super::*;
+
+            // Narrow range (ratings, ages, counters): 0..=100
+            pub fn int_narrow(size: usize) -> Vec<$t> {
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random_range(0..=100) as $t)
+                    .collect()
+            }
+
+            // Identifiers: shuffled 0..n
+            pub fn int_wide(size: usize) -> Vec<$t> {
+                let mut array: Vec<$t> = (0..size).map(|i| i as $t).collect();
+                array.as_mut_slice().shuffle(&mut crate::generators::rng());
+                array
+            }
+
+            // Few distinct values: 16 random full-range values
+            pub fn few16(size: usize) -> Vec<$t> {
+                let mut rng = crate::generators::rng();
+                let values: Vec<$t> = (0..16).map(|_| rng.random::<$t>()).collect();
+                (0..size).map(|_| values[rng.random_range(0..16)]).collect()
+            }
+
+            // Detector worst case: narrow integers, one wide outlier late (at 95 %)
+            pub fn int_late_outlier(size: usize) -> Vec<$t> {
+                let mut array = int_narrow(size);
+                if size > 0 {
+                    array[size * 95 / 100] = <$t>::MAX / 3;
+                }
+                array
+            }
+
+            // Detector worst case: 16 distinct values, a 17th one late (at 95 %)
+            pub fn few16_late(size: usize) -> Vec<$t> {
+                let mut array = few16(size);
+                if size > 0 {
+                    array[size * 95 / 100] = 12_345;
+                }
+                array
+            }
+
+            // Detector worst case: ascending for 90 %, random tail
+            pub fn asc_random_tail(size: usize) -> Vec<$t> {
+                let mut rng = crate::generators::rng();
+                let cut = size * 9 / 10;
+                (0..size)
+                    .map(|i| if i < cut { i as $t } else { rng.random_range(0..size.max(1)) as $t })
+                    .collect()
+            }
+
+            // Concatenation of k independently sorted random sources
+            // (sorted logs from several machines).
+            fn sorted_runs(size: usize, k: usize) -> Vec<$t> {
+                let mut array: Vec<$t> = (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random::<$t>())
+                    .collect();
+                for r in 0..k {
+                    array[r * size / k..(r + 1) * size / k].sort_unstable();
+                }
+                array
+            }
+
+            pub fn runs8(size: usize) -> Vec<$t> { sorted_runs(size, 8) }
+
+            pub fn runs64(size: usize) -> Vec<$t> { sorted_runs(size, 64) }
+
+            // Tight clusters: n / 200 random centres, each key within 2^10 of
+            // its centre, shuffled. The top bits name the cluster.
+            pub fn clusters(size: usize) -> Vec<$t> {
+                let mut rng = crate::generators::rng();
+                let k = (size / 200).max(1);
+                let centres: Vec<$t> = (0..k).map(|_| rng.random::<$t>() >> 1).collect();
+                let mut array: Vec<$t> = (0..size)
+                    .map(|i| centres[i % k].wrapping_add(rng.random_range(0..1024) as $t))
+                    .collect();
+                array.as_mut_slice().shuffle(&mut rng);
+                array
+            }
+
+            // Timestamps: a large common prefix (an epoch), increasing with
+            // jitter (events logged slightly out of order).
+            pub fn timestamps(size: usize) -> Vec<$t> {
+                let mut rng = crate::generators::rng();
+                (0..size)
+                    .map(|i| {
+                        ($stamp_base as $t)
+                            .wrapping_add((i as $t).wrapping_mul(16))
+                            .wrapping_add(rng.random_range(0..256) as $t)
+                    })
+                    .collect()
+            }
+
+            // Aligned addresses: random multiples of 2^16 (low digits all zero)
+            pub fn aligned(size: usize) -> Vec<$t> {
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random::<$t>() & !0xFFFF)
+                    .collect()
+            }
+
+            // Common high prefix: a fixed random prefix, 20 random low bits
+            pub fn prefix20(size: usize) -> Vec<$t> {
+                let prefix = crate::generators::rng().random::<$t>() & !0xF_FFFF;
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| prefix | (crate::generators::rng().random_range(0..1 << 20) as $t))
+                    .collect()
+            }
+
+            // Bimodal: half near zero, half near the top of the range
+            pub fn bimodal(size: usize) -> Vec<$t> {
+                (0..size)
+                    .into_par_iter()
+                    .map(|i| {
+                        let v = crate::generators::rng().random_range(0..1 << 20) as $t;
+                        if i % 2 == 0 {
+                            v
+                        } else {
+                            <$t>::MAX - v
+                        }
+                    })
+                    .collect()
+            }
+
+            // Sparse data: 90 % zeros, 10 % random values
+            pub fn sparse90(size: usize) -> Vec<$t> {
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| {
+                        let mut rng = crate::generators::rng();
+                        if rng.random_range(0..10) == 0 {
+                            rng.random::<$t>()
+                        } else {
+                            0
+                        }
+                    })
+                    .collect()
+            }
+
+            // Heavy hitters: 60 % of the keys among 4 values, the rest random
+            pub fn heavy4(size: usize) -> Vec<$t> {
+                let mut rng = crate::generators::rng();
+                let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
+                (0..size)
+                    .map(|_| {
+                        if rng.random_range(0..10) < 6 {
+                            values[rng.random_range(0..4)]
+                        } else {
+                            rng.random::<$t>()
+                        }
+                    })
+                    .collect()
+            }
+
+            // Composite keys: high half among 64 values (tenant, category),
+            // low half random
+            pub fn composite(size: usize) -> Vec<$t> {
+                const HALF: u32 = <$t>::BITS / 2;
+                let mut rng = crate::generators::rng();
+                let highs: Vec<$t> = (0..64).map(|_| rng.random::<$t>() >> HALF << HALF).collect();
+                (0..size)
+                    .map(|_| {
+                        highs[rng.random_range(0..64)] | rng.random_range(0..1u64 << HALF) as $t
+                    })
+                    .collect()
+            }
+
+            // Narrow range across the half-width boundary: 2^(bits/4 + 2)
+            // values around 2^(bits/2)
+            pub fn straddle(size: usize) -> Vec<$t> {
+                const HALF: u32 = <$t>::BITS / 2;
+                let width = 1u64 << (<$t>::BITS / 4 + 2);
+                let base = ((1 as $t) << HALF).wrapping_sub((width / 2) as $t);
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| {
+                        base.wrapping_add(crate::generators::rng().random_range(0..width) as $t)
+                    })
+                    .collect()
+            }
+
+            // Two values only, 0 and 1 (random_binary of sort-research-rs,
+            // the bench of glidesort / ipnsort)
+            pub fn binary(size: usize) -> Vec<$t> {
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| crate::generators::rng().random_range(0..2) as $t)
+                    .collect()
+            }
+
+            // Exponential (IPS4o, Axtmann et al.): an interval [2^j, 2^(j+1))
+            // chosen uniformly, then a value uniformly inside it
+            pub fn exponential(size: usize) -> Vec<$t> {
+                const BITS: u32 = <$t>::BITS - 1;
+                (0..size)
+                    .into_par_iter()
+                    .map(|_| {
+                        let mut rng = crate::generators::rng();
+                        let j = rng.random_range(0..BITS);
+                        let low = (1 as $t) << j;
+                        low | (rng.random::<$t>() & low.wrapping_sub(1))
+                    })
+                    .collect()
+            }
+
+            // RootDup (IPS4o): i mod sqrt(n), a repeating ramp of sqrt(n)
+            // values
+            pub fn root_dup(size: usize) -> Vec<$t> {
+                let root = ((size as f64).sqrt() as usize).max(1);
+                (0..size).into_par_iter().map(|i| (i % root) as $t).collect()
+            }
+
+            // TwoDup (IPS4o): (i^2 + n/2) mod n
+            pub fn two_dup(size: usize) -> Vec<$t> {
+                let n = size.max(1) as u128;
+                (0..size)
+                    .into_par_iter()
+                    .map(|i| ((i as u128 * i as u128 + n / 2) % n) as $t)
+                    .collect()
+            }
+
+            // EightDup (IPS4o): (i^8 + n/2) mod n
+            pub fn eight_dup(size: usize) -> Vec<$t> {
+                let n = size.max(1) as u128;
+                (0..size)
+                    .into_par_iter()
+                    .map(|i| {
+                        let sq = |x: u128| x * x % n;
+                        ((sq(sq(sq(i as u128 % n))) + n / 2) % n) as $t
+                    })
+                    .collect()
+            }
+
+            pub fn generators() -> Vec<(&'static dyn Fn(usize) -> Vec<$t>, &'static str)> {
+                vec![
+                    (&int_narrow, "-- Int 0..100 :"),
+                    (&int_wide, "-- Int 0..n   :"),
+                    (&few16, "-- Few 16     :"),
+                    (&int_late_outlier, "-- Int late out:"),
+                    (&few16_late, "-- Few16 late :"),
+                    (&asc_random_tail, "-- Asc rnd tail:"),
+                    (&runs8, "-- Runs 8     :"),
+                    (&runs64, "-- Runs 64    :"),
+                    (&clusters, "-- Clusters   :"),
+                    (&timestamps, "-- Timestamps :"),
+                    (&aligned, "-- Aligned 2^16:"),
+                    (&prefix20, "-- Prefix 20b :"),
+                    (&bimodal, "-- Bimodal    :"),
+                    (&sparse90, "-- Sparse 90% :"),
+                    (&heavy4, "-- Heavy 4    :"),
+                    (&composite, "-- Composite  :"),
+                    (&straddle, "-- Straddle   :"),
+                    (&binary, "-- Binary     :"),
+                    (&exponential, "-- Exponential:"),
+                    (&root_dup, "-- RootDup    :"),
+                    (&two_dup, "-- TwoDup     :"),
+                    (&eight_dup, "-- EightDup   :"),
+                ]
+            }
+        }
+    };
+}
+
+// Epochs: seconds since 1970 for 32-bit keys, nanoseconds for 64-bit keys.
+int_extra!(u32, extra_u32, 1_700_000_000u32);
+int_extra!(i32, extra_i32, 1_700_000_000i32);
+int_extra!(u64, extra_u64, 1_700_000_000_000_000_000u64);
+int_extra!(i64, extra_i64, 1_700_000_000_000_000_000i64);

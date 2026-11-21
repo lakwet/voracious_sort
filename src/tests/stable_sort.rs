@@ -1,8 +1,6 @@
 use std::cmp::Ordering;
 
-use super::super::{
-    lsd_stable_radixsort, msd_stable_radixsort, RadixSort, Radixable,
-};
+use crate::v1::{lsd_stable_radixsort, msd_stable_radixsort, RadixSort, Radixable};
 
 #[derive(Clone, Copy, Debug)]
 struct Record {
@@ -15,9 +13,7 @@ impl PartialEq for Record {
 }
 
 impl PartialOrd for Record {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.key.partial_cmp(&other.key)
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { self.key.partial_cmp(&other.key) }
 }
 
 impl Radixable<u32> for Record {
@@ -27,19 +23,15 @@ impl Radixable<u32> for Record {
 }
 
 fn assert_stable(keys: Vec<u32>, sort: impl FnOnce(&mut Vec<Record>)) {
-    let mut records: Vec<_> = keys
-        .into_iter()
-        .enumerate()
-        .map(|(position, key)| Record { key, position })
-        .collect();
+    let mut records: Vec<_> =
+        keys.into_iter().enumerate().map(|(position, key)| Record { key, position }).collect();
     let mut expected = records.clone();
     expected.sort_by_key(|record| record.key);
     sort(&mut records);
 
     // Record equality compares keys only; compare payloads explicitly so that
     // reordering equal keys cannot pass a stability check.
-    for (index, (actual, expected)) in records.iter().zip(&expected).enumerate()
-    {
+    for (index, (actual, expected)) in records.iter().zip(&expected).enumerate() {
         assert_eq!(
             (actual.key, actual.position),
             (expected.key, expected.position),

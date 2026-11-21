@@ -1,0 +1,55 @@
+//! The rules: which way each array goes, one file per decision, written
+//! as tables (the first matching line wins). Sizes are compared with the
+//! caches (`cache::budget`); shapes come from samples of the keys (`shape`).
+//!
+//! - `path`: the radix path every key type goes through (presorted check,
+//!   near-sorted repair, detectors, Verge, merges);
+//! - `chunks`: the engine of each chunk of the radix path, per key family;
+//! - `records`: the thresholds of the records sort (and its chain);
+//! - `shape`: ordered keys, tight clusters, read on samples.
+//!
+//! The chains of the sorts are written with `chain!`: one line per rule.
+
+/// A decision chain: rules tried in order, the first one that sorts the
+/// array returns from the function (or closure). A rule is a trace label,
+/// an optional guard (`if ...`), then either
+/// - `do { ... }`: an action that always sorts (its label noted first), or
+/// - `try expr`: an attempt returning whether it sorted (the label noted
+///   when it did).
+///
+/// `_` in place of the label: an attempt noting its own labels (a group of
+/// detectors). A first line `return value;` gives the value returned (the
+/// detector groups return `true`). It expands to the plain `if` chain (no
+/// indirection).
+macro_rules! chain {
+    (@ ($($r:expr)?)) => {};
+    (@ ($($r:expr)?) $label:literal $(if $cond:expr)? => do $body:block; $($rest:tt)*) => {
+        if true $(&& $cond)? {
+            trace!($label);
+            $body;
+            return $($r)?;
+        }
+        chain!(@ ($($r)?) $($rest)*);
+    };
+    (@ ($($r:expr)?) $label:literal $(if $cond:expr)? => try $e:expr; $($rest:tt)*) => {
+        if true $(&& $cond)? && $crate::v2::dev::trace::hit($e, $label) {
+            return $($r)?;
+        }
+        chain!(@ ($($r)?) $($rest)*);
+    };
+    (@ ($($r:expr)?) _ $(if $cond:expr)? => try $e:expr; $($rest:tt)*) => {
+        if true $(&& $cond)? && $e {
+            return $($r)?;
+        }
+        chain!(@ ($($r)?) $($rest)*);
+    };
+    (return $r:expr; $($rules:tt)*) => {
+        chain!(@ ($r) $($rules)*);
+    };
+    ($($rules:tt)*) => {
+        chain!(@ () $($rules)*);
+    };
+}
+
+pub(crate) mod path;
+pub(crate) mod shape;

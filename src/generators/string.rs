@@ -7,7 +7,7 @@ pub fn helper_random_array_uniform_string(
     string_size: usize,
 ) -> Vec<String> {
     (0..size).into_par_iter().map(|_|
-        rand::rng().sample_iter(&Alphanumeric)
+        crate::generators::rng().sample_iter(&Alphanumeric)
             .take(string_size)
             .map(char::from)
             .collect::<String>()

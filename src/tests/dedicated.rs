@@ -1,6 +1,6 @@
-use super::super::dedicated::cs_u16::cs_u16;
-use super::super::dedicated::lsd_f32::lsd_f32;
-use super::super::dedicated::lsd_u32::lsd_u32;
+use crate::v1::dedicated::cs_u16::cs_u16;
+use crate::v1::dedicated::lsd_f32::lsd_f32;
+use crate::v1::dedicated::lsd_u32::lsd_u32;
 
 use super::super::generators::float_32::*;
 use super::super::generators::unsigned_u16::*;

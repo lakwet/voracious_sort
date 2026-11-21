@@ -7,7 +7,7 @@ use rayon::prelude::*;
 pub fn helper_random_array_uniform_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<u64>())
+        .map(|_| crate::generators::rng().random::<u64>())
         .collect::<Vec<u64>>()
 }
 
@@ -15,7 +15,7 @@ pub fn helper_random_array_uniform_u64(size: usize) -> Vec<u64> {
 pub fn helper_random_array_uniform_10_9_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..1_000_000_000))
+        .map(|_| crate::generators::rng().random_range(0..1_000_000_000))
         .collect::<Vec<u64>>()
 }
 
@@ -27,13 +27,7 @@ pub fn helper_random_array_ascending_u64(size: usize) -> Vec<u64> {
 fn helper_asc_xth_start(size: usize, frac: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|i| {
-            if i < size / frac {
-                rand::rng().random::<u64>()
-            } else {
-                i as u64
-            }
-        })
+        .map(|i| if i < size / frac { crate::generators::rng().random::<u64>() } else { i as u64 })
         .collect::<Vec<u64>>()
 }
 
@@ -57,7 +51,7 @@ fn helper_asc_xth(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i > size - (size / frac) {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 i as u64
             }
@@ -66,19 +60,13 @@ fn helper_asc_xth(size: usize, frac: usize) -> Vec<u64> {
 }
 
 // Asc1pm
-pub fn helper_random_array_asc1pm_u64(size: usize) -> Vec<u64> {
-    helper_asc_xth(size, 1000)
-}
+pub fn helper_random_array_asc1pm_u64(size: usize) -> Vec<u64> { helper_asc_xth(size, 1000) }
 
 // Asc1pct
-pub fn helper_random_array_asc1pct_u64(size: usize) -> Vec<u64> {
-    helper_asc_xth(size, 100)
-}
+pub fn helper_random_array_asc1pct_u64(size: usize) -> Vec<u64> { helper_asc_xth(size, 100) }
 
 // Asc10pct
-pub fn helper_random_array_asc10pct_u64(size: usize) -> Vec<u64> {
-    helper_asc_xth(size, 10)
-}
+pub fn helper_random_array_asc10pct_u64(size: usize) -> Vec<u64> { helper_asc_xth(size, 10) }
 
 // Descending
 pub fn helper_random_array_descending_u64(size: usize) -> Vec<u64> {
@@ -90,7 +78,7 @@ fn helper_desc_xthst(size: usize, frac: usize) -> Vec<u64> {
         .into_par_iter()
         .map(|i| {
             if i < size / frac {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 (size - i) as u64
             }
@@ -99,26 +87,20 @@ fn helper_desc_xthst(size: usize, frac: usize) -> Vec<u64> {
 }
 
 // Desc1pmst
-pub fn helper_random_array_desc1pmst_u64(size: usize) -> Vec<u64> {
-    helper_desc_xthst(size, 1000)
-}
+pub fn helper_random_array_desc1pmst_u64(size: usize) -> Vec<u64> { helper_desc_xthst(size, 1000) }
 
 // Desc1pctst
-pub fn helper_random_array_desc1pctst_u64(size: usize) -> Vec<u64> {
-    helper_desc_xthst(size, 100)
-}
+pub fn helper_random_array_desc1pctst_u64(size: usize) -> Vec<u64> { helper_desc_xthst(size, 100) }
 
 // Desc10pctst
-pub fn helper_random_array_desc10pctst_u64(size: usize) -> Vec<u64> {
-    helper_desc_xthst(size, 10)
-}
+pub fn helper_random_array_desc10pctst_u64(size: usize) -> Vec<u64> { helper_desc_xthst(size, 10) }
 
 fn helper_desc_xth(size: usize, frac: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
         .map(|i| {
             if i > size - (size / frac) {
-                rand::rng().random::<u64>()
+                crate::generators::rng().random::<u64>()
             } else {
                 (size - i) as u64
             }
@@ -127,23 +109,17 @@ fn helper_desc_xth(size: usize, frac: usize) -> Vec<u64> {
 }
 
 // Desc1pm
-pub fn helper_random_array_desc1pm_u64(size: usize) -> Vec<u64> {
-    helper_desc_xth(size, 1000)
-}
+pub fn helper_random_array_desc1pm_u64(size: usize) -> Vec<u64> { helper_desc_xth(size, 1000) }
 
 // Desc1pct
-pub fn helper_random_array_desc1pct_u64(size: usize) -> Vec<u64> {
-    helper_desc_xth(size, 100)
-}
+pub fn helper_random_array_desc1pct_u64(size: usize) -> Vec<u64> { helper_desc_xth(size, 100) }
 
 // Desc10pct
-pub fn helper_random_array_desc10pct_u64(size: usize) -> Vec<u64> {
-    helper_desc_xth(size, 10)
-}
+pub fn helper_random_array_desc10pct_u64(size: usize) -> Vec<u64> { helper_desc_xth(size, 10) }
 
 // All equals
 pub fn helper_random_array_allequals_u64(size: usize) -> Vec<u64> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let value: u64 = rng.random();
 
     vec![value; size]
@@ -153,14 +129,20 @@ pub fn helper_random_array_allequals_u64(size: usize) -> Vec<u64> {
 pub fn helper_random_array_alternating16_u64(size: usize) -> Vec<u64> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..16))
+        .map(|_| crate::generators::rng().random_range(0..16))
         .collect::<Vec<u64>>()
 }
 
-// Zipf
+// Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_u64(size: usize) -> Vec<u64> {
+    super::zipf(size, usize::MAX, || crate::generators::rng().random::<u64>())
+}
+
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_u64(size: usize) -> Vec<u64> {
     let mut array: Vec<u64> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u64 = 0;
@@ -172,7 +154,7 @@ pub fn helper_random_array_zipf_u64(size: usize) -> Vec<u64> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);
@@ -191,19 +173,15 @@ fn helper_small(size: usize, range: u64) -> Vec<u64> {
 
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random_range(0..range))
+        .map(|_| crate::generators::rng().random_range(0..range))
         .collect::<Vec<u64>>()
 }
 
 // Small size1
-pub fn helper_random_array_small_size1_u64(size: usize) -> Vec<u64> {
-    helper_small(size, 255)
-}
+pub fn helper_random_array_small_size1_u64(size: usize) -> Vec<u64> { helper_small(size, 255) }
 
 // Small size2
-pub fn helper_random_array_small_size2_u64(size: usize) -> Vec<u64> {
-    helper_small(size, 65_535)
-}
+pub fn helper_random_array_small_size2_u64(size: usize) -> Vec<u64> { helper_small(size, 65_535) }
 
 // Small size3
 pub fn helper_random_array_small_size3_u64(size: usize) -> Vec<u64> {
@@ -232,7 +210,7 @@ pub fn helper_random_array_small_size7_u64(size: usize) -> Vec<u64> {
 
 // Sqrt
 pub fn helper_random_array_sqrt_u64(size: usize) -> Vec<u64> {
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let sqrt = (size as f64).sqrt() as usize;
     let mut array: Vec<u64> = Vec::with_capacity(size);
 
@@ -262,7 +240,7 @@ pub fn helper_random_array_almost_asc_u64(size: usize) -> Vec<u64> {
         return helper_random_array_uniform_u64(size);
     }
 
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut array = helper_random_array_ascending_u64(size);
 
     for _ in 0..((size as f64).log2() as usize) {
@@ -283,7 +261,7 @@ pub fn helper_random_array_almost_desc_u64(size: usize) -> Vec<u64> {
         return helper_random_array_uniform_u64(size);
     }
 
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut array = helper_random_array_descending_u64(size);
 
     for _ in 0..((size as f64).log2() as usize) {
@@ -318,10 +296,7 @@ pub fn helper_random_array_desc_sawtooth_u64(size: usize) -> Vec<u64> {
     }
 
     let limit = (size as f64 / ((size as f64).log2() * 0.9)) as u64;
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as u64 % limit)
-        .collect::<Vec<u64>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as u64 % limit).collect::<Vec<u64>>()
 }
 
 // Ascending sawtooth killer
@@ -347,10 +322,7 @@ pub fn helper_random_array_desc_sawtooth_killer_u64(size: usize) -> Vec<u64> {
     }
 
     let limit = (size as f64 / ((size as f64).log2() * 1.1)) as u64;
-    (0..size)
-        .into_par_iter()
-        .map(|i| (size - 1 - i) as u64 % limit)
-        .collect::<Vec<u64>>()
+    (0..size).into_par_iter().map(|i| (size - 1 - i) as u64 % limit).collect::<Vec<u64>>()
 }
 
 // Pipe Organ
@@ -364,8 +336,7 @@ pub fn helper_random_array_pipe_organ_u64(size: usize) -> Vec<u64> {
 
 // Push Front
 pub fn helper_random_array_push_front_u64(size: usize) -> Vec<u64> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as u64).collect::<Vec<u64>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as u64).collect::<Vec<u64>>();
 
     if size > 0 {
         array[size - 1] = 0;
@@ -376,8 +347,7 @@ pub fn helper_random_array_push_front_u64(size: usize) -> Vec<u64> {
 
 // Push middle
 pub fn helper_random_array_push_middle_u64(size: usize) -> Vec<u64> {
-    let mut array =
-        (0..size).into_par_iter().map(|i| i as u64).collect::<Vec<u64>>();
+    let mut array = (0..size).into_par_iter().map(|i| i as u64).collect::<Vec<u64>>();
 
     if size > 0 {
         array[size - 1] = (size / 2) as u64;
@@ -391,16 +361,14 @@ fn helper_normal(size: usize, bound: f64) -> Vec<u64> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let v: f64 = normal.sample(&mut rand::rng());
+            let v: f64 = normal.sample(&mut crate::generators::rng());
             v.abs() as u64
         })
         .collect::<Vec<u64>>()
 }
 
 // Normale(0, 2^10)
-pub fn helper_random_array_normale_10_u64(size: usize) -> Vec<u64> {
-    helper_normal(size, 1024.0)
-}
+pub fn helper_random_array_normale_10_u64(size: usize) -> Vec<u64> { helper_normal(size, 1024.0) }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_u64(size: usize) -> Vec<u64> {
@@ -427,35 +395,35 @@ pub fn helper_random_array_normale_63_u64(size: usize) -> Vec<u64> {
     helper_normal(size, 4_000_000_000_000_000_000.0)
 }
 
-pub fn generators_u64(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<u64>, &'static str)> {
+pub fn generators_u64() -> Vec<(&'static dyn Fn(usize) -> Vec<u64>, &'static str)> {
     vec![
         (&helper_random_array_uniform_u64, "-- Unif       :"),
         (&helper_random_array_uniform_10_9_u64, "-- Unif 10^9  :"),
-        (&helper_random_array_small_size1_u64, "-- Small 1    :"),
-        (&helper_random_array_small_size2_u64, "-- Small 2    :"),
-        (&helper_random_array_small_size3_u64, "-- Small 3    :"),
+        // (&helper_random_array_small_size1_u64, "-- Small 1    :"),
+        // (&helper_random_array_small_size2_u64, "-- Small 2    :"),
+        // (&helper_random_array_small_size3_u64, "-- Small 3    :"),
         (&helper_random_array_small_size4_u64, "-- Small 4    :"),
         (&helper_random_array_small_size5_u64, "-- Small 5    :"),
         (&helper_random_array_small_size6_u64, "-- Small 6    :"),
         (&helper_random_array_small_size7_u64, "-- Small 7    :"),
         (&helper_random_array_ascending_u64, "-- Asc        :"),
-        (&helper_random_array_asc1pmst_u64, "-- Asc1pmst   :"),
-        (&helper_random_array_asc1pctst_u64, "-- Asc1pctst  :"),
+        // (&helper_random_array_asc1pmst_u64, "-- Asc1pmst   :"),
+        // (&helper_random_array_asc1pctst_u64, "-- Asc1pctst  :"),
         (&helper_random_array_asc10pctst_u64, "-- Asc10pctst :"),
-        (&helper_random_array_asc1pm_u64, "-- Asc1pm     :"),
-        (&helper_random_array_asc1pct_u64, "-- Asc1pct    :"),
+        // (&helper_random_array_asc1pm_u64, "-- Asc1pm     :"),
+        // (&helper_random_array_asc1pct_u64, "-- Asc1pct    :"),
         (&helper_random_array_asc10pct_u64, "-- Asc10pct   :"),
         (&helper_random_array_descending_u64, "-- Desc       :"),
-        (&helper_random_array_desc1pmst_u64, "-- Desc1pmst  :"),
-        (&helper_random_array_desc1pctst_u64, "-- Desc1pctst :"),
+        // (&helper_random_array_desc1pmst_u64, "-- Desc1pmst  :"),
+        // (&helper_random_array_desc1pctst_u64, "-- Desc1pctst :"),
         (&helper_random_array_desc10pctst_u64, "-- Desc10pctst:"),
-        (&helper_random_array_desc1pm_u64, "-- Desc1pm    :"),
-        (&helper_random_array_desc1pct_u64, "-- Desc1pct   :"),
+        // (&helper_random_array_desc1pm_u64, "-- Desc1pm    :"),
+        // (&helper_random_array_desc1pct_u64, "-- Desc1pct   :"),
         (&helper_random_array_desc10pct_u64, "-- Desc10pct  :"),
         (&helper_random_array_allequals_u64, "-- Equal      :"),
         (&helper_random_array_alternating16_u64, "-- Alt16      :"),
         (&helper_random_array_zipf_u64, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_u64, "-- FakeZipf   :"),
         (&helper_random_array_almost_asc_u64, "-- Almost Asc :"),
         (&helper_random_array_almost_desc_u64, "-- Almost Desc:"),
         (&helper_random_array_asc_sawtooth_u64, "-- Asc Saw    :"),
@@ -467,17 +435,16 @@ pub fn generators_u64(
         (&helper_random_array_push_front_u64, "-- Front      :"),
         (&helper_random_array_push_middle_u64, "-- Middle     :"),
         (&helper_random_array_normale_10_u64, "-- Normale 10 :"),
-        (&helper_random_array_normale_20_u64, "-- Normale 20 :"),
+        // (&helper_random_array_normale_20_u64, "-- Normale 20 :"),
         (&helper_random_array_normale_30_u64, "-- Normale 30 :"),
-        (&helper_random_array_normale_40_u64, "-- Normale 40 :"),
+        // (&helper_random_array_normale_40_u64, "-- Normale 40 :"),
         (&helper_random_array_normale_51_u64, "-- Normale 51 :"),
-        (&helper_random_array_normale_63_u64, "-- Normale 63 :"),
+        // (&helper_random_array_normale_63_u64, "-- Normale 63 :"),
     ]
 }
 
 #[cfg(target_pointer_width = "64")]
-pub fn generators_usize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
+pub fn generators_usize() -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
     generators_u64()
         .into_iter()
         .map(|(gen, title)| {
@@ -488,11 +455,7 @@ pub fn generators_usize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<usize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<usize>, title)
         })
         .collect()
 }

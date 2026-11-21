@@ -5,10 +5,7 @@ use rayon::prelude::*;
 
 // Uniform
 pub fn helper_random_array_uniform_u8(size: usize) -> Vec<u8> {
-    (0..size)
-        .into_par_iter()
-        .map(|_| rand::rng().random::<u8>())
-        .collect::<Vec<u8>>()
+    (0..size).into_par_iter().map(|_| crate::generators::rng().random::<u8>()).collect::<Vec<u8>>()
 }
 
 // Ascending sawtooth
@@ -23,13 +20,19 @@ pub fn helper_random_array_desc_sawtooth_u8(size: usize) -> Vec<u8> {
 
 // All equals
 pub fn helper_random_array_allequals_u8(size: usize) -> Vec<u8> {
-    vec![rand::rng().random(); size]
+    vec![crate::generators::rng().random(); size]
 }
 
-// Zipf
+// Zipf: frequencies in 1 / rank over min(size, domain) random values
 pub fn helper_random_array_zipf_u8(size: usize) -> Vec<u8> {
+    super::zipf(size, 1 << 8, || crate::generators::rng().random::<u8>())
+}
+
+// Fake Zipf: n / 2 copies of a random value, then n / 4, ... (about
+// log2(n) distinct values, geometric frequencies)
+pub fn helper_random_array_fakezipf_u8(size: usize) -> Vec<u8> {
     let mut array: Vec<u8> = Vec::with_capacity(size);
-    let mut rng = rand::rng();
+    let mut rng = crate::generators::rng();
     let mut quantity = size / 2;
     let mut i = 0;
     let mut value: u8 = 0;
@@ -41,7 +44,7 @@ pub fn helper_random_array_zipf_u8(size: usize) -> Vec<u8> {
             i += 1;
         }
 
-        quantity = quantity / 2;
+        quantity /= 2;
     }
     while i < size {
         array.push(value);
@@ -58,25 +61,24 @@ pub fn helper_random_array_normale_10_u8(size: usize) -> Vec<u8> {
     let normal = Normal::new(0.0, 1024.0).unwrap();
     (0..size)
         .into_par_iter()
-        .map(|_| normal.sample(&mut rand::rng()) as u8)
+        .map(|_| normal.sample(&mut crate::generators::rng()) as u8)
         .collect::<Vec<u8>>()
 }
 
-pub fn generators_u8() -> Vec<(&'static dyn Fn(usize) -> Vec<u8>, &'static str)>
-{
+pub fn generators_u8() -> Vec<(&'static dyn Fn(usize) -> Vec<u8>, &'static str)> {
     vec![
         (&helper_random_array_uniform_u8, "-- Unif       :"),
         (&helper_random_array_asc_sawtooth_u8, "-- Asc Saw    :"),
         (&helper_random_array_desc_sawtooth_u8, "-- Desc Saw   :"),
         (&helper_random_array_allequals_u8, "-- Equal      :"),
         (&helper_random_array_zipf_u8, "-- Zipf       :"),
+        (&helper_random_array_fakezipf_u8, "-- FakeZipf   :"),
         (&helper_random_array_normale_10_u8, "-- Normale 10 :"),
     ]
 }
 
 #[cfg(target_pointer_width = "8")]
-pub fn generators_usize(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
+pub fn generators_usize() -> Vec<(&'static dyn Fn(usize) -> Vec<usize>, &'static str)> {
     generators_u8()
         .into_iter()
         .map(|(gen, title)| {
@@ -87,11 +89,7 @@ pub fn generators_usize(
                 }
             };
 
-            (
-                Box::leak(Box::new(new_gen))
-                    as &'static dyn Fn(usize) -> Vec<usize>,
-                title,
-            )
+            (Box::leak(Box::new(new_gen)) as &'static dyn Fn(usize) -> Vec<usize>, title)
         })
         .collect()
 }

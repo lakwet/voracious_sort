@@ -4,11 +4,10 @@
 
 use std::cmp::Ordering;
 
-#[cfg(feature = "voracious_multithread")]
-use super::super::peeka_sort;
-use super::super::{
-    american_flag_sort, counting_sort, dlsd_radixsort, lsd_radixsort, lsd_stable_radixsort,
-    msd_radixsort, msd_stable_radixsort, rollercoaster_sort, ska_sort, thiel_radixsort,
+#[cfg(feature = "voracious_multithread")] use crate::v1::peeka_sort;
+use crate::v1::{
+    american_flag_sort, awardofthesky_sort, counting_sort, dlsd_radixsort, lsd_radixsort,
+    lsd_stable_radixsort, msd_radixsort, msd_stable_radixsort, rollercoaster_sort, ska_sort,
     voracious_sort, RadixSort, Radixable,
 };
 
@@ -76,7 +75,7 @@ macro_rules! all_sorts {
             ("msd_stable_radixsort", Box::new(|v: &mut Vec<$t>| msd_stable_radixsort(v, 8))),
             ("rollercoaster_sort", Box::new(|v: &mut Vec<$t>| rollercoaster_sort(v, 8))),
             ("ska_sort", Box::new(|v: &mut Vec<$t>| ska_sort(v, 8))),
-            ("thiel_radixsort", Box::new(|v: &mut Vec<$t>| thiel_radixsort(v, 8))),
+            ("awardofthesky_sort", Box::new(|v: &mut Vec<$t>| awardofthesky_sort(v, 8))),
             ("voracious_sort", Box::new(|v: &mut Vec<$t>| voracious_sort(v, 8))),
             #[cfg(feature = "voracious_multithread")]
             ("peeka_sort", Box::new(|v: &mut Vec<$t>| peeka_sort(v, 8, 100_000, 4))),
@@ -107,12 +106,7 @@ fn test_nan_f64_all_sorts() {
 
 #[test]
 fn test_nan_f32_all_sorts() {
-    all_sorts!(
-        f32,
-        |x: f64| x as f32,
-        |x: f32| x.is_sign_negative(),
-        |x: f32| x.to_bits() as u64
-    );
+    all_sorts!(f32, |x: f64| x as f32, |x: f32| x.is_sign_negative(), |x: f32| x.to_bits() as u64);
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -126,9 +120,7 @@ impl PartialEq for Rec {
 }
 
 impl PartialOrd for Rec {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.key.partial_cmp(&other.key)
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { self.key.partial_cmp(&other.key) }
 }
 
 impl Radixable<f64> for Rec {

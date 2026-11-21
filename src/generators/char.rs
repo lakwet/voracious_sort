@@ -3,23 +3,22 @@ use rayon::prelude::*;
 
 fn get_charset() -> Vec<char> {
     vec![
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-        'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1',
-        '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-        'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-        'U', 'V', 'W', 'X', 'Y', 'Z',
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+        's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+        'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
     ]
 }
 
 pub fn helper_random_array_uniform_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
-        .map(|_| rand::rng().random::<char>())
+        .map(|_| crate::generators::rng().random::<char>())
         .collect::<Vec<char>>()
 }
 
 pub fn helper_random_array_equal_char(size: usize) -> Vec<char> {
-    vec![rand::rng().random::<char>(); size]
+    vec![crate::generators::rng().random::<char>(); size]
 }
 
 pub fn helper_random_array_charset_char(size: usize) -> Vec<char> {
@@ -27,7 +26,7 @@ pub fn helper_random_array_charset_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let index: usize = rand::rng().random_range(0..charset.len());
+            let index: usize = crate::generators::rng().random_range(0..charset.len());
             charset[index]
         })
         .collect::<Vec<char>>()
@@ -39,7 +38,7 @@ pub fn helper_random_array_charset_den_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let index: usize = rand::rng().random_range(0..charset.len());
+            let index: usize = crate::generators::rng().random_range(0..charset.len());
             charset[index]
         })
         .collect::<Vec<char>>()
@@ -54,14 +53,13 @@ pub fn helper_random_array_charset_vden_char(size: usize) -> Vec<char> {
     (0..size)
         .into_par_iter()
         .map(|_| {
-            let index: usize = rand::rng().random_range(0..charset.len());
+            let index: usize = crate::generators::rng().random_range(0..charset.len());
             charset[index]
         })
         .collect::<Vec<char>>()
 }
 
-pub fn generators_char(
-) -> Vec<(&'static dyn Fn(usize) -> Vec<char>, &'static str)> {
+pub fn generators_char() -> Vec<(&'static dyn Fn(usize) -> Vec<char>, &'static str)> {
     vec![
         (&helper_random_array_uniform_char, "-- Unif       :"),
         (&helper_random_array_equal_char, "-- Equal      :"),
