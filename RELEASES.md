@@ -1,4 +1,4 @@
-# Version **2.0.0** (2026)
+# Version **2.0.0** (November 21<sup>st</sup> 2026)
 
 **Breaking change.** The single-thread sort is rewritten; the public API is
 smaller and simpler. Version 1.2.2 stays available for those who prefer it.
