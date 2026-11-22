@@ -347,13 +347,21 @@ fn scan16<const DESC: bool>(arr: &[u16]) -> usize {
 /// then what writes (sorted head, repair, Verge) and the engine.
 fn chain2(arr: &mut [u16]) {
     let n = arr.len();
-    let known = match if blocks16_scan() { presorted16(arr) } else { presorted(arr) } {
+    let mut known = match if blocks16_scan() { presorted16(arr) } else { presorted(arr) } {
         Ok(()) => {
             trace!("presorted");
             return;
         },
         Err(known) => known,
     };
+    // A first key above the last made the scan go descending and fail at
+    // once, the ascending head left unknown (Pipe organ: half the array
+    // sorted, then the tail): measured (it stops at the first inversion,
+    // nothing on random keys). Pipe organ 20-26 % faster (Zen 2, Surface).
+    // Bit 256: off.
+    if !skip(256) && known.ascending_prefix == 0 {
+        known.ascending_prefix = scan16::<false>(arr);
+    }
     if n < TINY_MAX {
         if tiny_probe(arr) {
             return;
@@ -373,6 +381,10 @@ fn chain2(arr: &mut [u16]) {
             }
             return;
         }
+        if !skip(1 << 20) && window256(arr, &sample) {
+            trace!("window256");
+            return;
+        }
         if detectors::range(arr, &sample) {
             trace!("range");
             return;
@@ -384,7 +396,18 @@ fn chain2(arr: &mut [u16]) {
         if n >= HEAVY_MIN && may_be_heavy(&sample, |x, y| x == y) {
             let mut sorted = sample;
             merge_sort(&mut sorted[..], id16, id16);
-            if heavy_sorted_by(
+            // The extraction only when one value holds half of the sample
+            // (Sparse); several heavy values go to the LSD (Heavy 4 5k-65k:
+            // 1.62-1.20 of blazing down to 1.30-0.94 on Zen 2). Bit 131072:
+            // always extract.
+            let top = sorted
+                .chunk_by(|a, b| a == b)
+                .map(|r| r.len())
+                .max()
+                .unwrap_or(0);
+            if !skip(131072) && top < SAMPLE / 2 {
+                trace!("heavy_skipped");
+            } else if heavy_sorted_by(
                 arr,
                 &sorted,
                 HEAVY_MIN,
@@ -441,6 +464,84 @@ fn tiny_dominant(arr: &mut [u16]) -> bool {
     arr[..p].copy_from_slice(&others[..p]);
     arr[p..p + c].fill(best);
     arr[p + c..].copy_from_slice(&others[p..]);
+    true
+}
+
+/// Keys within a window of 256 values around the spread sample's range when
+/// the sample spans at most 64 values (Range 16: 0.95-1.00 of blazing down
+/// to 0.81-0.91; a range nearly full, Small, stays faster in `range`):
+/// straight, or rotated by half the domain (values near both ends, Bimodal)
+/// on ARM only (Surface 1.38 to 1.15 of blazing; Zen 2 1.27 to 1.43). One
+/// pass, 4 lanes of 32-bit counters, the window checked in the same loop
+/// without a branch (an OR of the offsets' high bits); nothing written when
+/// a key falls outside. Then the values written from the counts by 32-key
+/// stores. Idea: blazing-radix `compact_range`. Bit 2^20: off.
+fn window256(arr: &mut [u16], sample: &[u16; SAMPLE]) -> bool {
+    const R: u16 = 1 << 15;
+    let (mut lo, mut hi, mut rlo, mut rhi) = (u16::MAX, 0u16, u16::MAX, 0u16);
+    for &v in sample.iter() {
+        lo = lo.min(v);
+        hi = hi.max(v);
+        rlo = rlo.min(v ^ R);
+        rhi = rhi.max(v ^ R);
+    }
+    if hi - lo <= 64 {
+        let base = lo.saturating_sub((255 - (hi - lo)) / 2).min(u16::MAX - 255);
+        window_count256::<0>(arr, base)
+    } else if cfg!(target_arch = "aarch64") && rhi - rlo <= 64 {
+        let base = rlo.saturating_sub((255 - (rhi - rlo)) / 2).min(u16::MAX - 255);
+        window_count256::<R>(arr, base)
+    } else {
+        false
+    }
+}
+
+/// The counting of `window256` in [`base`, `base + 255`] (keys xored with
+/// `ROT`).
+fn window_count256<const ROT: u16>(arr: &mut [u16], base: u16) -> bool {
+    let n = arr.len();
+    let mut c = [[0u32; 256]; 4];
+    let mut out = 0u16;
+    let (quads, rest) = arr.as_chunks::<4>();
+    for q in quads {
+        for l in 0..4 {
+            let d = (q[l] ^ ROT).wrapping_sub(base);
+            out |= d;
+            c[l][(d & 255) as usize] += 1;
+        }
+    }
+    for &k in rest {
+        let d = (k ^ ROT).wrapping_sub(base);
+        out |= d;
+        c[0][(d & 255) as usize] += 1;
+    }
+    if out > 255 {
+        return false;
+    }
+    let mut counts = [0u32; 256];
+    for d in 0..256 {
+        counts[d] = c[0][d] + c[1][d] + c[2][d] + c[3][d];
+    }
+    // Rotated keys from `ROT` on are the smallest original values: written
+    // first when the window crosses that point.
+    let hi = base as usize + 255;
+    let split = if ROT != 0 && (base as usize) < ROT as usize && hi >= ROT as usize {
+        (ROT - base) as usize
+    } else {
+        0
+    };
+    let mut start = 0;
+    for d in (split..256).chain(0..split) {
+        let cnt = counts[d] as usize;
+        let v = (base.wrapping_add(d as u16)) ^ ROT;
+        if cnt <= 32 && n - start >= 32 {
+            arr[start..start + 32].copy_from_slice(&[v; 32]);
+        } else {
+            arr[start..start + cnt].fill(v);
+        }
+        start += cnt;
+    }
+    debug_assert_eq!(start, n);
     true
 }
 
@@ -1589,23 +1690,12 @@ fn lsd16_with<C: Count16, const M: u8>(keys: &mut [u16], buf: &mut [MaybeUninit<
         (true, false) => write_counts16(keys, &lo, first & 0xFF00, 0),
         (false, true) => write_counts16(keys, &hi, first & 0x00FF, 8),
         (true, true) => {
-            if M == 3 && skip(1 << 20) {
-                // Both prefix chains in one loop (independent dependencies).
-                let (mut sl, mut sh) = (0usize, 0usize);
-                for d in 0..256 {
-                    let (nl, nh) = (sl + lo[d].get(), sh + hi[d].get());
-                    lo[d].put(sl);
-                    hi[d].put(sh);
-                    (sl, sh) = (nl, nh);
-                }
-            } else {
-                for table in [&mut lo, &mut hi] {
-                    let mut sum = 0usize;
-                    for c in table.iter_mut() {
-                        let next = sum + c.get();
-                        c.put(sum);
-                        sum = next;
-                    }
+            for table in [&mut lo, &mut hi] {
+                let mut sum = 0usize;
+                for c in table.iter_mut() {
+                    let next = sum + c.get();
+                    c.put(sum);
+                    sum = next;
                 }
             }
             let dst = buf.as_mut_ptr() as *mut u16;
@@ -1626,7 +1716,7 @@ fn lsd16_with<C: Count16, const M: u8>(keys: &mut [u16], buf: &mut [MaybeUninit<
                 // of blazing on Zen 2, 1.11 to 0.96 on Haswell; 31
                 // distributions 1-2 % faster on Zen 2, 2-6 % on Haswell).
                 // Bit 2^22: the former branch-free positions.
-                if M == 1 || (M == 3 && (seq_high_pass() || (skip(256) && n < 1000))) {
+                if M == 1 || (M == 3 && seq_high_pass()) {
                     scatter16::<C, 8, true>(mid, keys.as_mut_ptr(), &mut hi);
                 } else {
                     scatter16::<C, 8, false>(mid, keys.as_mut_ptr(), &mut hi);
@@ -1867,9 +1957,6 @@ fn sort_chunk(bits: &mut [u16], _: &mut Vec<MaybeUninit<u16>>) {
         network_sort(bits, id16, id16);
     } else if bits.len() <= MERGE_MAX && !skip(1 << 31) {
         merge_sort(bits, id16, id16);
-    } else if bits.len() <= CHUNK_STD_MAX && skip(131072) {
-        // TMP (A/B, bit 131072): the former `sort_unstable` up to 128 keys.
-        bits.sort_unstable();
     } else {
         lsd16_mode::<3, true>(bits);
     }
@@ -1899,7 +1986,8 @@ fn path(
         // A sorted prefix of at least half the array: the tail alone goes
         // through the path, then one merge. A short tail: sorted (or
         // reversed) as it is, else the engine.
-        "tail_first" if tail_first(n, p) && !(skip(524288) && n < DOMAIN_MIN) => do {
+        "pipe" if pipe_direct() && tail_first(n, p) && pipe_merge(arr, p) => do {};
+        "tail_first" if tail_first(n, p) => do {
             let tail = &mut arr[p..];
             if tail.len() >= TAIL_PATH_MIN {
                 path(tail, Unsorted::default(), detect, sort);
@@ -1956,6 +2044,57 @@ fn path(
             merge_runs(arr, &mut separators);
         };
     }
+}
+
+/// The direct merge of `pipe_merge` on x86 (Zen 2: Pipe organ 10-25 %
+/// faster below 1000 keys, 2 % beyond); ARM keeps the vector merges of
+/// `merge_runs` (3 times faster there). Bit 524288 flips it (A/B).
+#[inline(always)]
+fn pipe_direct() -> bool { cfg!(not(target_arch = "aarch64")) != skip(524288) }
+
+/// An ascending run of `p` keys followed by a
+/// descending one to the end (Pipe organ): merged straight into a buffer,
+/// the descending run read from its end (no reversal), from both ends at
+/// once (smallest keys from the front, largest from the back: two
+/// independent chains), then copied back. `false`, nothing changed, when
+/// the tail is not descending.
+fn pipe_merge(arr: &mut [u16], p: usize) -> bool {
+    let n = arr.len();
+    if p == 0 || p >= n || scan16::<true>(&arr[p..]) != n - p {
+        return false;
+    }
+    let mut buf: Vec<u16> = Vec::with_capacity(n);
+    // SAFETY: every slot is written below before being read.
+    unsafe { buf.set_len(n) };
+    let (a, b) = arr.split_at(p);
+    // Front: a[i] ascending, b[j] descending read from its end.
+    let (mut i, mut j) = (0usize, b.len());
+    // Back: a[ie - 1] its largest left, b[jb] the largest left of b.
+    let (mut ie, mut jb) = (a.len(), 0usize);
+    let half = n / 2;
+    for k in 0..half {
+        // Front: the smaller of a[i] and b[j - 1].
+        let x = if i < a.len() { a[i] } else { u16::MAX };
+        let y = if j > 0 { b[j - 1] } else { u16::MAX };
+        let take_a = x <= y;
+        buf[k] = if take_a { x } else { y };
+        i += take_a as usize;
+        j -= (!take_a) as usize;
+        // Back: the larger of a[ie - 1] and b[jb].
+        let xa = if ie > 0 { a[ie - 1] } else { 0 };
+        let yb = if jb < b.len() { b[jb] } else { 0 };
+        let take_ab = xa > yb;
+        buf[n - 1 - k] = if take_ab { xa } else { yb };
+        ie -= take_ab as usize;
+        jb += (!take_ab) as usize;
+    }
+    if n % 2 == 1 {
+        let x = if i < a.len() { a[i] } else { u16::MAX };
+        let y = if j > 0 { b[j - 1] } else { u16::MAX };
+        buf[half] = x.min(y);
+    }
+    arr.copy_from_slice(&buf);
+    true
 }
 
 /// Tails from this length go through the whole path (repair, detectors);
