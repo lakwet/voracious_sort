@@ -63,7 +63,9 @@ endif
 
 BENCH_RUN = cargo test --release --lib $(BENCH_FEATURES) bench_cpu -- --ignored --nocapture --test-threads=1
 BENCH_SIZES_ALL = 1000,10000,30000,50000,100000,200000,600000,1000000,3000000,10000000
-BENCH_SIZES_TYPE = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
+BENCH_SIZES_RECORDS = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000
+# Key types: up to 30M as well (beyond the last cache level of every machine).
+BENCH_SIZES_TYPE = $(BENCH_SIZES_RECORDS),30000000
 # Large arrays: as far as the memory allows (an array, its copy and a buffer
 # within half the RAM, BENCH_MEM_MB), one measurement each.
 BENCH_SIZES_BIG = 30000000,100000000,300000000,1000000000,2000000000,5000000000,10000000000
@@ -87,16 +89,33 @@ bench-type: export BENCH_SORTS = best
 bench-type: export BENCH_SIZES = $(BENCH_SIZES_TYPE)
 bench-type: export BENCH_MIN_ARRAYS = 1
 bench-type: export BENCH_MIN_SORTS = $(BENCH_MIN_SORTS_TYPE)
-bench-type: ## one key type, 500 to 10M keys: make bench-type T=u32 (u8 ... i128, f32, f64, char)
+bench-type: ## one key type, 500 to 30M keys: make bench-type T=u32 (u8 ... i128, f32, f64, char)
 	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
 	@$(BENCH_RUN)
+
+# Simulated u16 bench (examples/ab_u16.rs, cold, median of 11): a few minutes
+# instead of the test binary's build; v2 against std, turbosort and blazing,
+# written to resultsbenchs/<host>/abench-cold-u16-<host>-<UTC date>.csv for
+# the bench viewer. Not the official bench (published numbers: bench-type).
+ABENCH_SIZES = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,1000000,2000000,5000000,10000000,30000000
+ABENCH_HOST := $(shell hostname)
+ifeq ($(OS),Windows_NT)
+ABENCH_CPU := $(shell powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).Name")
+else
+ABENCH_CPU := $(shell grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')
+endif
+
+abench-u16: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
+	@mkdir -p resultsbenchs/$(ABENCH_HOST)
+	COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_u16 example, cold)" 	  CSV=resultsbenchs/$(ABENCH_HOST)/abench-cold-u16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SKIP_MASKS="0:v2,0:std,0:turbosort" DOM_SIZES=$(ABENCH_SIZES) 	  cargo run --release --example ab_u16 --features "bench ab"
 
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
 bench-records: export BENCH_PARTS = records
 bench-records: export BENCH_TYPES = $(T)
 bench-records: export BENCH_SORTS = best
-bench-records: export BENCH_SIZES = $(BENCH_SIZES_TYPE)
+bench-records: export BENCH_SIZES = $(BENCH_SIZES_RECORDS)
 bench-records: export BENCH_MIN_ARRAYS = 1
 bench-records: export BENCH_MIN_SORTS = $(BENCH_MIN_SORTS_TYPE)
 bench-records: ## structs sorted by key, 500 to 10M (T=u64: keys of one type)

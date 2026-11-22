@@ -32,6 +32,9 @@ v2_trace = []
 # The benchmarks against the rival sorts (tests only, `make bench...`):
 # without it `cargo test` / `make test` / the CI do not build the rival crates.
 bench = ["dep:blazing-radix", "dep:radsort", "dep:rdst", "dep:turbosort", "dep:glidesort"]
+# TMP (dev only): the A/B switches of the u16 chain, for examples/ab_u16.rs
+# (a measuring binary that builds in seconds instead of the whole test crate).
+ab = []
 
 [lints.rust]
 # The v1 also covers 8- and 128-bit pointer widths (no such target yet).
@@ -51,3 +54,7 @@ glidesort = { version = "0.1.2", optional = true }
 rayon = "1.12.0"
 rand = "0.10.3"
 rand_distr = "0.6.0"
+
+[[example]]
+name = "ab_u16"
+required-features = ["bench", "ab"]

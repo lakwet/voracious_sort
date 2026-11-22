@@ -87,3 +87,27 @@ pub use v2::api::{RadixSort, Sortable};
 pub use v2::sorts::by_key::SortKey;
 pub use v2::sorts::devour::{devour_sort, DevourSort};
 pub use v2::sorts::ravenous::{ravenous_sort, RavenousSort};
+
+/// TMP (dev only, feature `ab`): the A/B switches of the u16 chain, for the
+/// measuring examples (`examples/ab_u16.rs`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u16_skip(mask: u32) {
+    v2::types::u16::SKIP.store(mask, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// TMP (dev only, feature `ab`): the u16 LSD of the chunks alone (no chain).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u16_lsd(keys: &mut [u16]) { v2::types::u16::ab_lsd(keys) }
+
+/// TMP (dev only, feature `ab`): the u16 domain count alone (no chain).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u16_domain(keys: &mut [u16]) { v2::types::u16::ab_domain(keys) }
+
+/// TMP (dev only, features `ab` and `v2_trace`): the decision labels noted
+/// since the last call.
+#[cfg(all(feature = "ab", feature = "v2_trace"))]
+#[doc(hidden)]
+pub fn ab_trace_take() -> Vec<&'static str> { v2::dev::trace::take() }

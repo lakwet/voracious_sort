@@ -185,7 +185,7 @@ make test-fuzzy   # random arrays, for a while
 
 ```sh
 make bench                  # every key type, 1 000 to 10 000 000 elements
-make bench-type T=u64       # one key type (u8 ... i128, f32, f64, char), 500 to 10 000 000
+make bench-type T=u64       # one key type (u8 ... i128, f32, f64, char), 500 to 30 000 000
 make bench-records          # structs sorted by key (T=u64: keys of one type)
 make bench-big              # 30 million elements and more, as far as the RAM allows
 make bench-big-type T=u64
