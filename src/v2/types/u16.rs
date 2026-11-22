@@ -106,10 +106,10 @@ fn sort_big(arr: &mut [u16]) {
 /// keys, 2^22 high pass one key at a time, 2^23 no `flat_byte16`; 2^24
 /// `sort_big` from 65 536 keys).
 #[cfg(any(test, feature = "ab"))]
-pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 #[inline(always)]
-fn skip(bit: u32) -> bool {
+fn skip(bit: u64) -> bool {
     #[cfg(any(test, feature = "ab"))]
     return SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit != 0;
     #[cfg(not(any(test, feature = "ab")))]
@@ -282,6 +282,12 @@ fn tiny_probe(arr: &mut [u16]) -> bool {
 #[inline(always)]
 fn blocks16_scan() -> bool { cfg!(target_arch = "aarch64") != skip(1 << 30) }
 
+/// 16-bit counters in the chunk LSD below 65 536 keys: ARM (Surface 2-7 %
+/// faster on random keys at 1100-10k); x86 32-bit (Zen 2: 16-bit 25-30 %
+/// slower). Bit 2^48: flipped.
+#[inline(always)]
+fn narrow_counters() -> bool { cfg!(target_arch = "aarch64") != skip(1 << 48) }
+
 /// The high pass of the LSD one key at a time (blazing-style): x86 (Zen 2
 /// 1-2 %, Haswell 2-6 % faster); ARM keeps the branch-free positions
 /// (Surface: 1-3 % faster). Bit 2^22 flips it (A/B).
@@ -362,6 +368,10 @@ fn chain2(arr: &mut [u16]) {
     if !skip(256) && known.ascending_prefix == 0 {
         known.ascending_prefix = scan16::<false>(arr);
     }
+    if skip(1 << 34) && n >= TINY_MAX {
+        sort_chunk(bits_of(arr), &mut Vec::new());
+        return;
+    }
     if n < TINY_MAX {
         if tiny_probe(arr) {
             return;
@@ -370,6 +380,21 @@ fn chain2(arr: &mut [u16]) {
         let sample = spread(arr);
         if few_compare(arr, &sample) {
             trace!("few_cmp");
+            return;
+        }
+        if skip(1 << 35) {
+            sort_chunk(bits_of(arr), &mut Vec::new());
+            return;
+        }
+        // The window before the domain count (a 256-value window costs less
+        // than 65 536 counters: Range 16, Bimodal from 131 072 keys): on ARM
+        // at every size (Surface: Range 16 0.49 to 0.31 ns per key at 200k,
+        // 0.41 to 0.33 at 1M-5M), on x86 below 262 144 keys (Zen 2: from
+        // 500k the domain count's single read is faster). Bit 2^56: after.
+        // Bit 2^59 flips the per-architecture part (A/B).
+        let window_first = (cfg!(target_arch = "aarch64") != skip(1 << 59)) || n < 1 << 18;
+        if window_first && !skip(1 << 56) && !skip(1 << 20) && window256(arr, &sample) {
+            trace!("window256");
             return;
         }
         if n >= domain_min() {
@@ -381,15 +406,60 @@ fn chain2(arr: &mut [u16]) {
             }
             return;
         }
-        if !skip(1 << 20) && window256(arr, &sample) {
+        if (!window_first || skip(1 << 56)) && !skip(1 << 20) && window256(arr, &sample) {
             trace!("window256");
             return;
         }
-        if detectors::range(arr, &sample) {
+        // One low byte on the sample (Aligned): only the high byte counted,
+        // checked on every key (`flat_byte16`). Bit 2^54: off.
+        if !skip(1 << 54)
+            && sample.iter().all(|&v| v & 255 == sample[0] & 255)
+            && flat_byte16::<u32, true>(arr)
+        {
+            trace!("flat_byte");
+            return;
+        }
+        // A sample that looks random (`looks_random`) goes straight to the
+        // engine: `few`, heavy keys and `range` would all fail on it, and the
+        // repair and Verge checks find nothing (Zen 2: Unif, Gaussian,
+        // Normal 13, Sensor 3-6 % faster at 1100-10k, Runs 8 4-11 %;
+        // FakeZipf, Few 16 ~4 % slower below 2000, still far ahead of
+        // blazing). Bit 2^53: off.
+        if !skip(1 << 53) && looks_random(arr, &sample) {
+            trace!("random_sample");
+            sort_chunk(bits_of(arr), &mut Vec::new());
+            return;
+        }
+        if !skip(1 << 37) && detectors::range(arr, &sample) {
             trace!("range");
             return;
         }
-        if n >= SHORT_FEW_MIN && detectors::few(arr, &sample) {
+        // One value holding half of the sample (Sparse) extracted before
+        // `few`, which counts until `FEW_MAX` and fails (Zen 2 at 5k: Sparse
+        // 2.13 to 1.18 ns per key, FakeZipf 0.97 to 1.50, blazing 3.3-3.6:
+        // both kept well ahead, more evenly). Bit 2^43: after `few`.
+        if !skip(1 << 43) && n >= HEAVY_MIN && may_be_heavy(&sample, |x, y| x == y) {
+            let mut sorted = sample;
+            merge_sort(&mut sorted[..], id16, id16);
+            let top = sorted.chunk_by(|a, b| a == b).map(|r| r.len()).max().unwrap_or(0);
+            if top >= SAMPLE / 2
+                && heavy_sorted_by(
+                    arr,
+                    &sorted,
+                    HEAVY_MIN,
+                    &|r: &mut [u16]| sort(r),
+                    |x, y| x == y,
+                    |x, y| x < y,
+                )
+            {
+                trace!("heavy_first");
+                return;
+            }
+        }
+        if n >= SHORT_FEW_MIN
+            && !skip(1 << 38)
+            && if skip(1 << 39) { detectors::few(arr, &sample) } else { few16(arr, &sample) }
+        {
             trace!("few");
             return;
         }
@@ -420,9 +490,100 @@ fn chain2(arr: &mut [u16]) {
             }
         }
     }
+    if skip(1 << 36) {
+        sort_chunk(bits_of(arr), &mut Vec::new());
+        return;
+    }
     let buffer = std::cell::RefCell::new(Vec::new());
     let sort_chunk = |chunk: &mut [u16]| sort_chunk(bits_of(chunk), &mut buffer.borrow_mut());
     path(arr, known, &|_: &mut [u16], _: usize| false, &sort_chunk);
+}
+
+/// A random array, cheapest test first (see its use in `chain2`): the
+/// spread sample spans beyond what `range` counts; 16 evenly spaced keys
+/// change direction at least 5 times (random: ~9; Pipe organ, Near sorted,
+/// a sorted head: 0-2); the sample holds at most 2 repeats in 4096 hashed
+/// bits (random keys: ~0.5 by chance; Clusters, 256 values: ~7 true ones).
+fn looks_random(arr: &[u16], sample: &[u16; SAMPLE]) -> bool {
+    let n = arr.len();
+    let (lo, hi) = sample.iter().fold((u16::MAX, 0u16), |(l, h), &v| (l.min(v), h.max(v)));
+    if ((hi - lo) as usize) < n / crate::v2::special::RANGE_KEYS_PER_COUNTER {
+        return false;
+    }
+    let step = n / 16;
+    let mut turns = 0usize;
+    for k in 1..15 {
+        let (a, b, c) = (arr[(k - 1) * step], arr[k * step], arr[(k + 1) * step]);
+        turns += ((a < b) != (b < c)) as usize;
+    }
+    if turns < 5 {
+        return false;
+    }
+    let mut bits = [0u64; 64];
+    let mut repeats = 0u32;
+    for &v in sample.iter() {
+        let h = ((v as u32).wrapping_mul(0x9E37_79B1) >> 20) as usize;
+        repeats += ((bits[h >> 6] >> (h & 63)) & 1) as u32;
+        bits[h >> 6] |= 1 << (h & 63);
+    }
+    repeats <= 2
+}
+
+/// Few distinct values (at most `FEW_MAX`): the sample of the shared `few`
+/// (at least 64 keys) with an estimate of the distinct values (Chao1: seen +
+/// f1 (f1 - 1) / (2 (f2 + 1)), f1 and f2 the values seen once and twice):
+/// beyond `FEW_MAX` nothing is counted (bit 2^40: beyond 2 `FEW_MAX`; 2^41:
+/// no estimate), else the shared counting. Heavy 4 (4 values for
+/// 60 % of the keys, the rest random) passed the half-distinct rule and
+/// counted until `FEW_MAX`, 1.6 times the LSD at 2000 keys. Bit 2^39: the
+/// shared `few`.
+#[inline(never)]
+fn few16(values: &mut [u16], sample: &[u16; SAMPLE]) -> bool {
+    use crate::v2::special::{FEW_BIG_MIN, FEW_MAX, FEW_TABLE, FEW_TABLE_BITS};
+    let n = values.len();
+    let hash = |v: u16| {
+        ((v as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> (64 - FEW_TABLE_BITS)) as usize
+    };
+    // At least the 64 keys of the spread sample (Heavy 4 at 1100-1500 keys
+    // 18-24 % faster; bit 2^46: 16 as the shared `few`).
+    let s = (n / 32).clamp(if skip(1 << 46) { 16 } else { 64 }, 256);
+    let mut keys = [0u16; FEW_TABLE];
+    let mut seen = [0u16; FEW_TABLE];
+    let (mut distinct, mut f1, mut f2) = (0, 0usize, 0usize);
+    for i in 0..s as u64 {
+        let v = if (i as usize) < SAMPLE {
+            sample[i as usize]
+        } else {
+            values[(((i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 32) * n as u64) >> 32) as usize]
+        };
+        let mut h = hash(v);
+        while seen[h] != 0 && keys[h] != v {
+            h = (h + 1) & (FEW_TABLE - 1);
+        }
+        if seen[h] == 0 {
+            keys[h] = v;
+            distinct += 1;
+            if distinct > s / 2 {
+                return false;
+            }
+        }
+        // Values seen once (f1) and twice (f2), kept as the sample goes
+        // (without a branch: a match mispredicted on repeated values).
+        let c = seen[h];
+        f1 = f1 + (c == 0) as usize - (c == 1) as usize;
+        f2 = f2 + (c == 1) as usize - (c == 2) as usize;
+        seen[h] = c + 1;
+    }
+    let limit = if skip(1 << 40) { 2 * FEW_MAX } else { FEW_MAX };
+    if !skip(1 << 41) && distinct + f1 * f1.saturating_sub(1) / (2 * (f2 + 1)) > limit {
+        trace!("few_estimate");
+        return false;
+    }
+    if distinct > FEW_TABLE / 8 && n >= FEW_BIG_MIN {
+        detectors::few_count::<{ 4 * FEW_TABLE }>(values)
+    } else {
+        detectors::few_count::<FEW_TABLE>(values)
+    }
 }
 
 /// One value holding at least 7 of 18 sampled keys (bit 2^28: off)
@@ -470,12 +631,13 @@ fn tiny_dominant(arr: &mut [u16]) -> bool {
 /// Keys within a window of 256 values around the spread sample's range when
 /// the sample spans at most 64 values (Range 16: 0.95-1.00 of blazing down
 /// to 0.81-0.91; a range nearly full, Small, stays faster in `range`):
-/// straight, or rotated by half the domain (values near both ends, Bimodal)
-/// on ARM only (Surface 1.38 to 1.15 of blazing; Zen 2 1.27 to 1.43). One
-/// pass, 4 lanes of 32-bit counters, the window checked in the same loop
-/// without a branch (an OR of the offsets' high bits); nothing written when
-/// a key falls outside. Then the values written from the counts by 32-key
-/// stores. Idea: blazing-radix `compact_range`. Bit 2^20: off.
+/// straight, or rotated by half the domain (values near both ends, Bimodal;
+/// bit 2^24: not rotated). The window checked by its own pass (an OR of the
+/// offsets' high bits), then 4 lanes of 32-bit counters; nothing written
+/// when a key falls outside. Then the used buckets written from the counts
+/// by 32-key stores, the empty ones skipped (Bimodal 1100-5000 keys 10-28 %
+/// faster on the Surface; rotated on Zen 2: 0.60 to 0.48 at 10k, = blazing).
+/// Idea: blazing-radix `compact_range`. Bit 2^20: off.
 fn window256(arr: &mut [u16], sample: &[u16; SAMPLE]) -> bool {
     const R: u16 = 1 << 15;
     let (mut lo, mut hi, mut rlo, mut rhi) = (u16::MAX, 0u16, u16::MAX, 0u16);
@@ -488,7 +650,12 @@ fn window256(arr: &mut [u16], sample: &[u16; SAMPLE]) -> bool {
     if hi - lo <= 64 {
         let base = lo.saturating_sub((255 - (hi - lo)) / 2).min(u16::MAX - 255);
         window_count256::<0>(arr, base)
-    } else if cfg!(target_arch = "aarch64") && rhi - rlo <= 64 {
+    } else if !skip(1 << 44) && hi >> 8 == lo >> 8 {
+        // One high byte on the sample (Small): the window is that block of
+        // 256 values (Surface: 1100-5000 keys 18-32 % faster than `range`,
+        // 10-14k 15-30 % slower, still under blazing). Bit 2^44: off.
+        window_count256::<0>(arr, lo & 0xFF00)
+    } else if !skip(1 << 24) && rhi - rlo <= 64 {
         let base = rlo.saturating_sub((255 - (rhi - rlo)) / 2).min(u16::MAX - 255);
         window_count256::<R>(arr, base)
     } else {
@@ -501,22 +668,41 @@ fn window256(arr: &mut [u16], sample: &[u16; SAMPLE]) -> bool {
 fn window_count256<const ROT: u16>(arr: &mut [u16], base: u16) -> bool {
     let n = arr.len();
     let mut c = [[0u32; 256]; 4];
-    let mut out = 0u16;
     let (quads, rest) = arr.as_chunks::<4>();
-    for q in quads {
-        for l in 0..4 {
-            let d = (q[l] ^ ROT).wrapping_sub(base);
-            out |= d;
-            c[l][(d & 255) as usize] += 1;
+    if skip(1 << 42) {
+        // TMP (A/B, bit 2^42): the window checked in the counting loop.
+        let mut out = 0u16;
+        for q in quads {
+            for l in 0..4 {
+                let d = (q[l] ^ ROT).wrapping_sub(base);
+                out |= d;
+                c[l][(d & 255) as usize] += 1;
+            }
         }
-    }
-    for &k in rest {
-        let d = (k ^ ROT).wrapping_sub(base);
-        out |= d;
-        c[0][(d & 255) as usize] += 1;
-    }
-    if out > 255 {
-        return false;
+        for &k in rest {
+            let d = (k ^ ROT).wrapping_sub(base);
+            out |= d;
+            c[0][(d & 255) as usize] += 1;
+        }
+        if out > 255 {
+            return false;
+        }
+    } else {
+        // The window checked first by its own pass (vectorized, nothing
+        // counted when a key falls outside), then a counting loop with
+        // nothing else in it. Idea: blazing-radix `compact_range`.
+        let out = arr.iter().fold(0u16, |o, &k| o | (k ^ ROT).wrapping_sub(base));
+        if out > 255 {
+            return false;
+        }
+        for q in quads {
+            for l in 0..4 {
+                c[l][((q[l] ^ ROT).wrapping_sub(base) & 255) as usize] += 1;
+            }
+        }
+        for &k in rest {
+            c[0][((k ^ ROT).wrapping_sub(base) & 255) as usize] += 1;
+        }
     }
     let mut counts = [0u32; 256];
     for d in 0..256 {
@@ -530,12 +716,39 @@ fn window_count256<const ROT: u16>(arr: &mut [u16], base: u16) -> bool {
     } else {
         0
     };
+    // TMP (A/B, bit 2^25: the whole window): only from the first to the
+    // last bucket used, in writing order (Bimodal fills 32 of the 256).
+    let at = |p: usize| (p + split) & 255;
+    let (first, last) = if skip(1 << 25) {
+        (0, 255)
+    } else {
+        let f = (0..256).find(|&p| counts[at(p)] != 0).unwrap_or(0);
+        let l = (0..256).rev().find(|&p| counts[at(p)] != 0).unwrap_or(0);
+        (f, l)
+    };
     let mut start = 0;
-    for d in (split..256).chain(0..split) {
+    for d in (first..=last).map(at) {
         let cnt = counts[d] as usize;
+        // Empty buckets skipped (predictable: a rotated window centred on
+        // the split leaves its used buckets at both ends of the writing
+        // order, Bimodal: 224 empty of 256). Bit 2^26: written.
+        if !skip(1 << 26) && cnt == 0 {
+            continue;
+        }
         let v = (base.wrapping_add(d as u16)) ^ ROT;
         if cnt <= 32 && n - start >= 32 {
             arr[start..start + 32].copy_from_slice(&[v; 32]);
+        } else if cnt > 32 && cnt <= 128 && !skip(1 << 45) {
+            // 33-128 keys: 32-key stores (the excess overwritten by the
+            // next buckets), the last one ending at the bucket's end; a
+            // `fill` call per bucket cost more (Small 10-14k keys).
+            let end = start + cnt;
+            let mut o = start;
+            while end - o > 32 {
+                arr[o..o + 32].copy_from_slice(&[v; 32]);
+                o += 32;
+            }
+            arr[end - 32..end].copy_from_slice(&[v; 32]);
         } else {
             arr[start..start + cnt].fill(v);
         }
@@ -561,16 +774,48 @@ fn tiny_range<const ROT: u16, C: Count16>(arr: &mut [u16]) -> bool {
         return false;
     }
     let mut c = [[C::ZERO; 256]; 2];
-    let (pairs, rest) = arr.as_chunks::<2>();
-    for p in pairs {
-        c[0][((p[0] ^ ROT) - lo) as usize].inc();
-        c[1][((p[1] ^ ROT) - lo) as usize].inc();
-    }
-    for &v in rest {
-        c[0][((v ^ ROT) - lo) as usize].inc();
-    }
-    for d in 0..=span {
-        c[0][d].put(c[0][d].get() + c[1][d].get());
+    // Digits masked by 255 (the span is checked): no bounds check per key,
+    // 10-20 % faster at 500-1000 keys (Surface, Bimodal, Range 16, Small).
+    // From 768 keys 4 lanes of 32-bit counters (bit 2^33: never; 2^32: the
+    // former unmasked count). Idea: blazing-radix `compact_range`.
+    if n >= 768 && !skip(1 << 33) && !skip(1 << 32) {
+        let mut q = [[0u32; 256]; 4];
+        let (quads, rest) = arr.as_chunks::<4>();
+        for k in quads {
+            for l in 0..4 {
+                q[l][((k[l] ^ ROT).wrapping_sub(lo) & 255) as usize] += 1;
+            }
+        }
+        for &v in rest {
+            q[0][((v ^ ROT).wrapping_sub(lo) & 255) as usize] += 1;
+        }
+        for d in 0..=span {
+            c[0][d].put((q[0][d] + q[1][d] + q[2][d] + q[3][d]) as usize);
+        }
+    } else if !skip(1 << 32) {
+        let (pairs, rest) = arr.as_chunks::<2>();
+        for p in pairs {
+            c[0][((p[0] ^ ROT).wrapping_sub(lo) & 255) as usize].inc();
+            c[1][((p[1] ^ ROT).wrapping_sub(lo) & 255) as usize].inc();
+        }
+        for &v in rest {
+            c[0][((v ^ ROT).wrapping_sub(lo) & 255) as usize].inc();
+        }
+        for d in 0..=span {
+            c[0][d].put(c[0][d].get() + c[1][d].get());
+        }
+    } else {
+        let (pairs, rest) = arr.as_chunks::<2>();
+        for p in pairs {
+            c[0][((p[0] ^ ROT) - lo) as usize].inc();
+            c[1][((p[1] ^ ROT) - lo) as usize].inc();
+        }
+        for &v in rest {
+            c[0][((v ^ ROT) - lo) as usize].inc();
+        }
+        for d in 0..=span {
+            c[0][d].put(c[0][d].get() + c[1][d].get());
+        }
     }
     // Rotated keys from `ROT` on are the smallest original values: written
     // first when the range crosses that point.
@@ -580,7 +825,7 @@ fn tiny_range<const ROT: u16, C: Count16>(arr: &mut [u16]) -> bool {
         &c[0],
         (split..=span).chain(0..split),
         |d| (lo + d as u16) ^ ROT,
-        |v| ((v ^ ROT) - lo) as usize,
+        |v| ((v ^ ROT).wrapping_sub(lo) & 255) as usize,
     );
     true
 }
@@ -1128,9 +1373,9 @@ pub(crate) fn ab_lsd(keys: &mut [u16]) { lsd16_mode::<3, true>(keys) }
 #[cfg(feature = "ab")]
 pub(crate) fn ab_domain(keys: &mut [u16]) { domain_count16(keys) }
 
-/// TMP (A/B, bit 2^24): `DOMAIN_MIN`, or 65 536 keys.
+/// From this size the domain count.
 #[inline(always)]
-fn domain_min() -> usize { if skip(1 << 24) { 1 << 16 } else { DOMAIN_MIN } }
+fn domain_min() -> usize { DOMAIN_MIN }
 
 /// Counting sort over the 16-bit domain (copy of the shared `domain_count`,
 /// one lane of counters).
@@ -1662,7 +1907,33 @@ fn lsd16_with<C: Count16, const M: u8>(keys: &mut [u16], buf: &mut [MaybeUninit<
         // Two lanes per byte (consecutive keys on different counters).
         let mut lo = [[C::ZERO; 256]; 2];
         let mut hi = [[C::ZERO; 256]; 2];
-        {
+        if !skip(1 << 57) && n >= 4096 && smooth_high(keys) {
+            // Smooth keys (`smooth_high`): 8 keys sharing their high byte add
+            // 8 to its counter at once (the same counter otherwise waits on
+            // its own previous store; Depth 5k-10k: Surface 25-28 %, Zen 2
+            // 9 % faster). Idea: blazing-radix. Bit 2^57: off.
+            let (oct, rest) = keys.as_chunks::<8>();
+            for o in oct {
+                for i in 0..4 {
+                    lo[0][(o[2 * i] & 255) as usize].inc();
+                    lo[1][(o[2 * i + 1] & 255) as usize].inc();
+                }
+                let h = o[0] >> 8;
+                if o.iter().all(|&k| k >> 8 == h) {
+                    let c = &mut hi[0][h as usize];
+                    c.put(c.get() + 8);
+                } else {
+                    for i in 0..4 {
+                        hi[0][(o[2 * i] >> 8) as usize].inc();
+                        hi[1][(o[2 * i + 1] >> 8) as usize].inc();
+                    }
+                }
+            }
+            for &k in rest {
+                lo[0][(k & 255) as usize].inc();
+                hi[0][(k >> 8) as usize].inc();
+            }
+        } else {
             let (pairs, rest) = keys.as_chunks::<2>();
             for p in pairs {
                 lo[0][(p[0] & 255) as usize].inc();
@@ -1726,6 +1997,17 @@ fn lsd16_with<C: Count16, const M: u8>(keys: &mut [u16], buf: &mut [MaybeUninit<
     }
 }
 
+/// Whether at least 60 of the first 64 neighbours share their high byte
+/// (Depth: ~62; Runs 8: ~37 at 5k, ~57 at 20k, where the shared-byte test of 8 keys
+/// mispredicts: 15-23 % slower on Zen 2).
+fn smooth_high(keys: &[u16]) -> bool {
+    let mut same = 0usize;
+    for i in 0..63 {
+        same += (keys[i] >> 8 == keys[i + 1] >> 8) as usize;
+    }
+    same >= 60
+}
+
 /// A byte constant on 16 spread keys (idea of the shared LSD): only the
 /// other byte counted (2 lanes), every key ORed to check the first one; when
 /// it is constant indeed, the keys are written from the counts and `true`
@@ -1748,6 +2030,57 @@ fn flat_byte16<C: Count16, const LOW_ONLY: bool>(keys: &mut [u16]) -> bool {
     } else {
         return false;
     };
+    let other = 0xFFu16 << (8 - shift);
+    if !skip(1 << 55) {
+        // 4 lanes of 32-bit counters, written by 32-key stores (as the
+        // window). Bit 2^55: the former 2 lanes and 16-key stores.
+        let mut q = [[0u32; 256]; 4];
+        let mut x = [0u16; 4];
+        let (quads, rest) = keys.as_chunks::<4>();
+        for k in quads {
+            for l in 0..4 {
+                q[l][((k[l] >> shift) & 255) as usize] += 1;
+                x[l] |= k[l] ^ first;
+            }
+        }
+        for &k in rest {
+            q[0][((k >> shift) & 255) as usize] += 1;
+            x[0] |= k ^ first;
+        }
+        if (x[0] | x[1] | x[2] | x[3]) & other != 0 {
+            return false;
+        }
+        let mut counts = [0u32; 256];
+        for d in 0..256 {
+            counts[d] = q[0][d] + q[1][d] + q[2][d] + q[3][d];
+        }
+        if counts[((first >> shift) & 255) as usize] as usize != n {
+            let rest = first & other;
+            let mut start = 0;
+            for d in 0..256 {
+                let cnt = counts[d] as usize;
+                if cnt == 0 {
+                    continue;
+                }
+                let v = rest | ((d as u16) << shift);
+                if cnt <= 32 && n - start >= 32 {
+                    keys[start..start + 32].copy_from_slice(&[v; 32]);
+                } else if cnt > 32 && cnt <= 128 {
+                    let end = start + cnt;
+                    let mut o = start;
+                    while end - o > 32 {
+                        keys[o..o + 32].copy_from_slice(&[v; 32]);
+                        o += 32;
+                    }
+                    keys[end - 32..end].copy_from_slice(&[v; 32]);
+                } else {
+                    keys[start..start + cnt].fill(v);
+                }
+                start += cnt;
+            }
+        }
+        return true;
+    }
     let mut lanes = [[C::ZERO; 256]; 2];
     let (mut x0, mut x1) = (0u16, 0u16);
     let (pairs, rest) = keys.as_chunks::<2>();
@@ -1761,7 +2094,6 @@ fn flat_byte16<C: Count16, const LOW_ONLY: bool>(keys: &mut [u16]) -> bool {
         lanes[0][((k >> shift) & 255) as usize].inc();
         x0 |= k ^ first;
     }
-    let other = 0xFFu16 << (8 - shift);
     if (x0 | x1) & other != 0 {
         return false;
     }
@@ -1936,11 +2268,7 @@ fn sort_chunk(bits: &mut [u16], _: &mut Vec<MaybeUninit<u16>>) {
         wu16::lsd(bits);
         return;
     }
-    let dom = if skip(1 << 25) {
-        1 << 14
-    } else if skip(1 << 26) {
-        1 << 15
-    } else if skip(1 << 27) {
+    let dom = if skip(1 << 27) {
         // TMP (A/B, bit 2^27): the LSD up to `DOMAIN_MIN`.
         usize::MAX
     } else {
@@ -1957,6 +2285,8 @@ fn sort_chunk(bits: &mut [u16], _: &mut Vec<MaybeUninit<u16>>) {
         network_sort(bits, id16, id16);
     } else if bits.len() <= MERGE_MAX && !skip(1 << 31) {
         merge_sort(bits, id16, id16);
+    } else if narrow_counters() {
+        lsd16_mode::<3, false>(bits);
     } else {
         lsd16_mode::<3, true>(bits);
     }
@@ -1971,6 +2301,45 @@ const CHUNK_STD_MAX: usize = 128;
 #[cfg(test)]
 pub(crate) static OLD_CHUNK: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
+
+/// Directions of 32 spread adjacent pairs (copy of `probe_pairs`, without a
+/// branch: random keys mispredicted half of them, ~50 ns at 1100 keys on
+/// Zen 2). Bit 2^51: the shared one, inside the repair.
+fn probe_pairs16(arr: &[u16]) -> crate::v2::inspect::presorted::Probes {
+    let step = (arr.len() - 1) / 32;
+    let (mut ascending, mut descending) = (0, 0);
+    for k in 0..32 {
+        let (a, b) = (arr[k * step], arr[k * step + 1]);
+        ascending += (a < b) as usize;
+        descending += (a > b) as usize;
+    }
+    crate::v2::inspect::presorted::Probes { ascending, descending }
+}
+
+/// No monotone run of n / log2 n keys (copy of `can_skip_verge`, each grid
+/// window checked without a branch per pair: random keys mispredicted
+/// them, ~150 ns at 5000 keys on Zen 2). Bit 2^52: the shared one.
+fn can_skip_verge16(arr: &[u16]) -> bool {
+    const PROBE: usize = 8;
+    let n = arr.len();
+    let step = crate::v2::runs::verge::compute_big_enough_run(n) / 2;
+    if step <= PROBE {
+        return false;
+    }
+    let mut p = 0;
+    let mut monotone = false;
+    while p + PROBE < n {
+        let w = &arr[p..=p + PROBE];
+        let (mut up, mut down) = (true, true);
+        for i in 0..PROBE {
+            up &= w[i] <= w[i + 1];
+            down &= w[i] >= w[i + 1];
+        }
+        monotone |= up | down;
+        p += step;
+    }
+    !monotone
+}
 
 /// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
@@ -1999,6 +2368,10 @@ fn path(
     }
     let simd_rule = merge::simd_rule_applies::<u16>(n);
     let random_runs = !simd_rule && starts_with_random_runs(arr, p);
+    let mut known = known;
+    if known.probes.is_none() && !skip(1 << 51) {
+        known.probes = Some(probe_pairs16(arr));
+    }
     let (sorted, equal_pairs) = if random_runs || skip(128) {
         (false, known.probes.map_or(0, |p| p.equal()))
     } else {
@@ -2010,7 +2383,10 @@ fn path(
     chain! {
         "repaired" if sorted => do {};
         _ if !skip(32) => try detect(arr, equal_pairs);
-        "no_verge" if skip(64) || small_chain(n) || random_runs || can_skip_verge(arr) => do {
+        "no_verge" if skip(64)
+            || small_chain(n)
+            || random_runs
+            || if skip(1 << 52) { can_skip_verge(arr) } else { can_skip_verge16(arr) } => do {
             sort(arr)
         };
     }
@@ -2072,6 +2448,36 @@ fn pipe_merge(arr: &mut [u16], p: usize) -> bool {
     // Back: a[ie - 1] its largest left, b[jb] the largest left of b.
     let (mut ie, mut jb) = (a.len(), 0usize);
     let half = n / 2;
+    if !skip(1 << 58) {
+        // Unchecked reads and writes (bit 2^58: the checked loop below).
+        let (ap, bp, out) = (a.as_ptr(), b.as_ptr(), buf.as_mut_ptr());
+        let (al, bl) = (a.len(), b.len());
+        // SAFETY: each read is guarded by its index test (i < al, j > 0,
+        // ie > 0, jb < bl); k < half and n - 1 - k >= half, both below n.
+        unsafe {
+            for k in 0..half {
+                let x = if i < al { *ap.add(i) } else { u16::MAX };
+                let y = if j > 0 { *bp.add(j - 1) } else { u16::MAX };
+                let take_a = x <= y;
+                *out.add(k) = if take_a { x } else { y };
+                i += take_a as usize;
+                j -= (!take_a) as usize;
+                let xa = if ie > 0 { *ap.add(ie - 1) } else { 0 };
+                let yb = if jb < bl { *bp.add(jb) } else { 0 };
+                let take_ab = xa > yb;
+                *out.add(n - 1 - k) = if take_ab { xa } else { yb };
+                ie -= take_ab as usize;
+                jb += (!take_ab) as usize;
+            }
+        }
+        if n % 2 == 1 {
+            let x = if i < al { a[i] } else { u16::MAX };
+            let y = if j > 0 { b[j - 1] } else { u16::MAX };
+            buf[half] = x.min(y);
+        }
+        arr.copy_from_slice(&buf);
+        return true;
+    }
     for k in 0..half {
         // Front: the smaller of a[i] and b[j - 1].
         let x = if i < a.len() { a[i] } else { u16::MAX };

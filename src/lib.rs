@@ -92,7 +92,7 @@ pub use v2::sorts::ravenous::{ravenous_sort, RavenousSort};
 /// measuring examples (`examples/ab_u16.rs`).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_u16_skip(mask: u32) {
+pub fn ab_u16_skip(mask: u64) {
     v2::types::u16::SKIP.store(mask, std::sync::atomic::Ordering::Relaxed);
 }
 

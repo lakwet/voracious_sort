@@ -54,7 +54,7 @@ macro_rules! int_few {
         }
 
         /// The counting pass of `few` in a table of `TABLE` slots.
-        fn few_count<const TABLE: usize>(values: &mut [$t]) -> bool {
+        pub(crate) fn few_count<const TABLE: usize>(values: &mut [$t]) -> bool {
             let n = values.len();
             let bits = TABLE.trailing_zeros();
             let mask = TABLE - 1;

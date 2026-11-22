@@ -110,6 +110,17 @@ abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 	@mkdir -p resultsbenchs/$(ABENCH_HOST)
 	COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_u16 example, cold)" 	  CSV=resultsbenchs/$(ABENCH_HOST)/abench-cold-u16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SKIP_MASKS="0:v2,0:std,0:turbosort" DOM_SIZES=$(ABENCH_SIZES) 	  cargo run --release --example ab_u16 --features "bench ab"
 
+# The per-architecture choices of the u16 sort flipped one at a time (does a
+# choice follow the instruction set or the cache size?): window before the
+# domain count from 262 144 keys, 16-bit LSD counters, high pass one key at a
+# time, order scan by blocks of 16, direct Pipe organ merge. Cold; the table
+# goes to resultsbenchs/<host>/abench-arch-<host>-<UTC date>.txt.
+ABENCH_ARCH_SIZES = 1000,5000,20000,100000,200000,500000,1000000,2000000,5000000
+abench-arch: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+abench-arch: ## u16 per-architecture choices flipped one at a time, cold (~15 min)
+	@mkdir -p resultsbenchs/$(ABENCH_HOST)
+	COLD=1 TOTAL=12000000 REPS=11 	  SKIP_MASKS="0:new,576460752303423488:win,281474976710656:c16,4194304:hiseq,1073741824:blk16,524288:pipe" 	  DOM_SIZES=$(ABENCH_ARCH_SIZES) cargo run --release --example ab_u16 --features "bench ab" 	  | tee resultsbenchs/$(ABENCH_HOST)/abench-arch-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).txt
+
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
 bench-records: export BENCH_PARTS = records

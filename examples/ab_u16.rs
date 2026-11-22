@@ -33,7 +33,7 @@ fn order(rep: usize, j: usize, k: usize) -> usize {
 
 /// Random shapes (few values, straight and wrapped ranges, one byte, random)
 /// against `sort_unstable`, under every mask.
-fn check(masks: &[(u32, String)]) {
+fn check(masks: &[(u64, String)]) {
     let mut seed = 0x1234_5678_9abc_def1u64;
     for n in 65..1100 {
         for shape in 0..9u64 {
@@ -70,6 +70,24 @@ fn check(masks: &[(u32, String)]) {
             }
         }
     }
+    // Every distribution beyond the short preparation.
+    let mut gens = generators::unsigned_u16::generators_u16();
+    gens.extend(generators::narrow_extra::extra_u16::generators());
+    for n in [1100, 1500, 2000, 3001, 5000, 10_007, 40_000, 70_000, 140_000] {
+        for _ in 0..3 {
+            for (gen, title) in gens.iter() {
+                let a = gen(n);
+                let mut r = a.clone();
+                r.sort_unstable();
+                for m in masks {
+                    ab_u16_skip(m.0);
+                    let mut w = a.clone();
+                    devour_sort(&mut w);
+                    assert!(w == r, "n {} {} mask {}", n, title, m.1);
+                }
+            }
+        }
+    }
     ab_u16_skip(0);
     println!("check ok");
 }
@@ -77,7 +95,7 @@ fn check(masks: &[(u32, String)]) {
 /// TRACE build (feature `v2_trace`, debug is enough): the decision labels
 /// of one array per size and distribution, under each mask.
 #[cfg(feature = "v2_trace")]
-fn trace(masks: &[(u32, String)]) {
+fn trace(masks: &[(u64, String)]) {
     let sizes: Vec<usize> = std::env::var("DOM_SIZES")
         .ok()
         .map(|v| v.split(',').map(|x| x.parse().unwrap()).collect())
@@ -168,7 +186,7 @@ fn prof(which: &str) {
 }
 
 fn main() {
-    let masks: Vec<(u32, String)> = std::env::var("SKIP_MASKS")
+    let masks: Vec<(u64, String)> = std::env::var("SKIP_MASKS")
         .unwrap_or("2048:old,0:new".into())
         .split(',')
         .map(|m| {
