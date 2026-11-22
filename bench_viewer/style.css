@@ -12,6 +12,8 @@
   --win: #1c5cab;
   --lose: #b02a2c;
   --cell-empty: #ecebe7;
+  --cell-noise: #e3e2de;
+  --cell-noise-ink: #6b6a65;
   --grid: #e7e5df;
   --series-1: #2a78d6;
   --series-2: #eb6834;
@@ -42,6 +44,8 @@
     --win: #6da7ec;
     --lose: #f08a87;
     --cell-empty: #222220;
+    --cell-noise: #2e2e2b;
+    --cell-noise-ink: #9d9c94;
     --grid: #2a2a27;
     --series-1: #3987e5;
     --series-2: #d95926;
@@ -69,6 +73,8 @@
   --win: #6da7ec;
   --lose: #f08a87;
   --cell-empty: #222220;
+  --cell-noise: #2e2e2b;
+  --cell-noise-ink: #9d9c94;
   --grid: #2a2a27;
   --series-1: #3987e5;
   --series-2: #d95926;
@@ -273,6 +279,7 @@ main { padding: 16px 24px 48px; display: flex; flex-direction: column; gap: 16px
 .cell-main { font-weight: 600; font-size: 13px; }
 .cell-sub { font-size: 10.5px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; margin: 0 auto; }
 .empty-cell { background: var(--cell-empty); }
+.noise-swatch { display: inline-block; width: 22px; height: 12px; border-radius: 3px; background: var(--cell-noise); vertical-align: middle; margin-right: 6px; }
 .heat tfoot th { padding-top: 8px; }
 .link { border: 0; background: none; padding: 0; cursor: pointer; color: var(--ink); font-weight: 600; }
 .link:hover { color: var(--accent); text-decoration: underline; }

@@ -96,7 +96,7 @@ const state = {
   gen: '',
   yLog: false,
   size: null,
-  lossMin: 3,
+  noisePct: 3, // percent: ratios within ± this of 1 are noise (grey, neither won nor lost), every page
   lossAll: true,
   sortBy: { key: null, dir: 1 },
   lossSort: { key: 'factor', dir: -1 },
@@ -180,17 +180,59 @@ function rivalOf(c, size, gen) {
   return { ratio: v[best] / v[c.refIdx], name: c.t.sorts[best], ns: v[best], refNs: v[c.refIdx] };
 }
 
-// Geometric mean of the ratios rival / reference at one size, and wins.
+// Noise band: a ratio within ±state.noisePct % of 1 is neither a win nor a loss.
+function inNoise(r) {
+  const n = state.noisePct / 100;
+  return n > 0 && Number.isFinite(r) && r < 1 + n && r > 1 / (1 + n);
+}
+function isWin(r) {
+  return Number.isFinite(r) && r > 1 && !inNoise(r);
+}
+function isLoss(r) {
+  return Number.isFinite(r) && r < 1 && !inNoise(r);
+}
+
+// Geometric mean of the ratios rival / reference at one size, wins, losses
+// and ties (within the noise band).
 function sizeSummary(c, size) {
   const ratios = [];
   let wins = 0;
+  let lost = 0;
   for (const g of c.t.gens) {
     const r = rivalOf(c, size, g);
     if (!r || !Number.isFinite(r.ratio)) continue;
     ratios.push(r.ratio);
-    if (r.ratio > 1) wins++;
+    if (isWin(r.ratio)) wins++;
+    else if (isLoss(r.ratio)) lost++;
   }
-  return { geo: geo(ratios), wins, count: ratios.length };
+  return { geo: geo(ratios), wins, lost, ties: ratios.length - wins - lost, count: ratios.length };
+}
+
+// The small line of a summary cell: won / count, the ties (noise band) and
+// the lost cases.
+function winText(sm) {
+  const lost = sm.count - sm.wins - sm.ties;
+  return `${sm.wins}/${sm.count}` + (state.noisePct > 0 ? ` · ≈${sm.ties}` : '') + ` · ✗${lost}`;
+}
+
+// Slider of the noise band (Overview, Heatmap).
+function noiseControl() {
+  const range = html('input', {
+    type: 'range',
+    min: 0,
+    max: 30,
+    step: 1,
+    value: state.noisePct,
+    oninput: (e) => (e.target.nextSibling.textContent = '± ' + e.target.value + ' %'),
+    onchange: (e) => set({ noisePct: Number(e.target.value) }),
+  });
+  return html('div', { class: 'filter-row tight' }, [
+    html('label', { class: 'field', title: 'Ratios within this band of 1 are measurement noise: shown in grey, counted neither as won nor as lost' }, [
+      html('span', { class: 'field-label', text: 'Noise band' }),
+      html('span', { class: 'range' }, [range, html('span', { class: 'range-val', text: '± ' + state.noisePct + ' %' })]),
+    ]),
+    state.noisePct > 0 ? html('span', { class: 'muted small' }, [html('span', { class: 'noise-swatch' }), `within ± ${state.noisePct} %: noise (“≈” counts them)`]) : null,
+  ]);
 }
 
 function compLabel(c) {
@@ -382,12 +424,14 @@ function overview(main, run) {
   const body = html('tbody');
   let totalWins = 0;
   let totalCells = 0;
+  let totalTies = 0;
   for (const l of labels) {
     const c = typeCtx(run, l);
     const tr = html('tr', {}, [html('th', { class: 'row-head' }, [html('button', { class: 'link', onclick: () => set({ label: l, tab: 'curves' }), text: l })])]);
     const all = [];
     let w = 0;
     let n = 0;
+    let ties = 0;
     for (const s of sizes) {
       if (!c.t.sizes.includes(s)) {
         tr.append(html('td', { class: 'cell empty-cell' }));
@@ -400,11 +444,13 @@ function overview(main, run) {
       }
       w += sm.wins;
       n += sm.count;
-      tr.append(ratioCell(sm.geo, `${sm.wins}/${sm.count}`, () => set({ label: l, size: s, tab: 'detail' }), () => tipSummary(c, s, sm)));
+      ties += sm.ties;
+      tr.append(ratioCell(sm.geo, winText(sm), () => set({ label: l, size: s, tab: 'detail' }), () => tipSummary(c, s, sm)));
     }
     totalWins += w;
     totalCells += n;
-    tr.append(ratioCell(geo(all), `${w}/${n}`, () => set({ label: l, tab: 'map' }), null, 'total'));
+    totalTies += ties;
+    tr.append(ratioCell(geo(all), winText({ wins: w, count: n, ties }), () => set({ label: l, tab: 'map' }), null, 'total'));
     body.append(tr);
   }
   table.append(body);
@@ -415,12 +461,23 @@ function overview(main, run) {
       stat(labels.length, labels.length > 1 ? 'types measured' : 'type measured'),
       stat(sizes.length, 'sizes, from ' + fmtSize(sizes[0]) + ' to ' + fmtSize(sizes[sizes.length - 1])),
       stat(pct + ' %', `of the cases won by ${c0.refName} (${nf0.format(totalWins)} of ${nf0.format(totalCells)})`),
+      state.noisePct > 0
+        ? stat(
+            (totalCells ? Math.round((100 * totalTies) / totalCells) : 0) + ' %',
+            `of the cases judged equal, within ± ${state.noisePct} % (${nf0.format(totalTies)} of ${nf0.format(totalCells)})`,
+          )
+        : null,
+      stat(
+        (totalCells ? Math.round((100 * (totalCells - totalWins - totalTies)) / totalCells) : 0) + ' %',
+        `of the cases lost by ${c0.refName}${state.noisePct > 0 ? ` beyond ± ${state.noisePct} %` : ''} (${nf0.format(totalCells - totalWins - totalTies)} of ${nf0.format(totalCells)})`,
+        totalCells - totalWins - totalTies > 0 ? 'bad' : '',
+      ),
       stat(run.failures.length, run.failures.length ? 'failures (see Machine info)' : 'failed check', run.failures.length ? 'bad' : ''),
     ]),
     section(
       `${c0.refName} against ${compLabel(c0)}`,
-      'Each cell: geometric mean over the distributions of the ratio “time of the other sort / time of the reference” (> 1: the reference is faster), and the number of distributions won. Click a cell for the detail.',
-      [ratioLegend(), html('div', { class: 'scroll-x' }, [table])],
+      'Each cell: geometric mean over the distributions of the ratio “time of the other sort / time of the reference” (> 1: the reference is faster), and the distributions won / measured, “≈” those within the noise band, “✗” those lost beyond it. Click a cell for the detail.',
+      [noiseControl(), ratioLegend(), html('div', { class: 'scroll-x' }, [table])],
     ),
   );
 }
@@ -430,8 +487,10 @@ function stat(value, text, cls) {
 }
 
 function ratioCell(ratio, small, onclick, tip, cls) {
-  const bg = ratioColor(ratio);
-  const td = html('td', { class: 'cell clickable ' + (cls || ''), style: `background:${bg};color:${inkOn(bg)}`, onclick, tabindex: 0 }, [
+  const noise = inNoise(ratio);
+  const bg = noise ? cssVar('--cell-noise') : ratioColor(ratio);
+  const ink = noise ? cssVar('--cell-noise-ink') : inkOn(bg);
+  const td = html('td', { class: 'cell clickable ' + (cls || '') + (noise ? ' noise' : ''), style: `background:${bg};color:${ink}`, onclick, tabindex: 0 }, [
     html('div', { class: 'cell-main', text: fmtRatio(ratio) }),
     small ? html('div', { class: 'cell-sub', text: small }) : null,
   ]);
@@ -447,11 +506,12 @@ function tipSummary(c, size, sm) {
   const body = html('div', {}, [html('div', { class: 'tip-title', text: `${c.label} · ${fmtSizeLong(size)}` })]);
   body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: 'mean ratio' }), html('span', { class: 'tip-val', text: fmtRatio(sm.geo) })]));
   body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: 'won by ' + c.refName }), html('span', { class: 'tip-val', text: `${sm.wins} / ${sm.count}` })]));
+  if (state.noisePct > 0) body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: `within ± ${state.noisePct} % (noise)` }), html('span', { class: 'tip-val', text: String(sm.ties) })]));
   // Who wins the lost cells.
   const who = {};
   for (const g of c.t.gens) {
     const r = rivalOf(c, size, g);
-    if (r && r.ratio < 1) who[r.name] = (who[r.name] || 0) + 1;
+    if (r && isLoss(r.ratio)) who[r.name] = (who[r.name] || 0) + 1;
   }
   const lost = Object.entries(who).sort((a, b) => b[1] - a[1]);
   if (lost.length) {
@@ -554,7 +614,7 @@ function map(main, run) {
     const tr = html('tr', {}, [html('th', { class: 'row-head', text: g })]);
     for (const s of t.sizes) {
       const r = rivalOf(c, s, g);
-      const sub = r && state.comp === 'best' && r.ratio < 1 ? r.name : null;
+      const sub = r && state.comp === 'best' && isLoss(r.ratio) ? r.name : null;
       tr.append(ratioCell(r ? r.ratio : NaN, sub, () => set({ size: s, tab: 'detail' }), () => tipCell(c, s, g)));
     }
     body.append(tr);
@@ -563,15 +623,32 @@ function map(main, run) {
   const geoRow = html('tr', {}, [html('th', { class: 'row-head', text: 'geometric mean' })]);
   for (const s of t.sizes) {
     const sm = sizeSummary(c, s);
-    geoRow.append(ratioCell(sm.geo, `${sm.wins}/${sm.count}`, () => set({ size: s, tab: 'detail' }), () => tipSummary(c, s, sm), 'total'));
+    geoRow.append(ratioCell(sm.geo, winText(sm), () => set({ size: s, tab: 'detail' }), () => tipSummary(c, s, sm), 'total'));
   }
   foot.append(geoRow);
   table.append(body, foot);
+  let mw = 0;
+  let mt = 0;
+  let mn = 0;
+  for (const s of t.sizes) {
+    const sm = sizeSummary(c, s);
+    mw += sm.wins;
+    mt += sm.ties;
+    mn += sm.count;
+  }
+  const pctOf = (k) => (mn ? Math.round((100 * k) / mn) : 0) + ' %';
+  const shares = html('p', {
+    class: 'muted small',
+    text:
+      `Won: ${pctOf(mw)} (${mw} of ${mn})` +
+      (state.noisePct > 0 ? ` · judged equal, within ± ${state.noisePct} %: ${pctOf(mt)} (${mt})` : '') +
+      ` · lost: ${pctOf(mn - mw - mt)} (${mn - mw - mt})`,
+  });
   main.append(
     section(
       `${state.label}: ${c.refName} against ${compLabel(c)}`,
-      'One row per distribution, one column per size. Ratio “time of the other sort / time of the reference”. In red, the lost cases, with the name of the winning sort. Hover for every time; click for the detail.',
-      [ratioLegend(), html('div', { class: 'scroll-x' }, [table])],
+      'One row per distribution, one column per size. Ratio “time of the other sort / time of the reference”. In red, the lost cases, with the name of the winning sort; in grey, within the noise band. Hover for every time; click for the detail.',
+      [noiseControl(), shares, ratioLegend(), html('div', { class: 'scroll-x' }, [table])],
     ),
   );
 }
@@ -655,10 +732,10 @@ function detail(main, run) {
         html('div', { class: 'dur', text: fmtDur(x * size) }),
         html('div', { class: 'sub', text: i === c.refIdx ? fmtNs(x) + ' ns/key' : '× ' + fmtRatio(ratio) }),
       ]);
-      if (i !== c.refIdx && Number.isFinite(ratio)) ratio < 1 && td.querySelector('.sub').classList.add('lose');
+      if (i !== c.refIdx && isLoss(ratio)) td.querySelector('.sub').classList.add('lose');
       tr.append(td);
     }
-    const gapTd = html('td', { class: 'gap-col' }, [ratioBar(row.gap), html('span', { class: 'gap-text', text: fmtRatio(row.gap) + (row.rival && row.gap < 1 && state.comp === 'best' ? ' · ' + row.rival.name : '') })]);
+    const gapTd = html('td', { class: 'gap-col' }, [ratioBar(row.gap), html('span', { class: 'gap-text', text: fmtRatio(row.gap) + (row.rival && isLoss(row.gap) && state.comp === 'best' ? ' · ' + row.rival.name : '') })]);
     tr.append(gapTd);
     body.append(tr);
   }
@@ -678,8 +755,8 @@ function detail(main, run) {
     });
     const gm = geo(ratios);
     const valid = ratios.filter(Number.isFinite);
-    geoRow.append(html('td', { class: 'num' }, [html('div', { class: 'sub' + (gm < 1 ? ' lose' : ''), text: '× ' + fmtRatio(gm) })]));
-    winRow.append(html('td', { class: 'num', text: `${valid.filter((r) => r > 1).length} / ${valid.length}` }));
+    geoRow.append(html('td', { class: 'num' }, [html('div', { class: 'sub' + (isLoss(gm) ? ' lose' : ''), text: '× ' + fmtRatio(gm) })]));
+    winRow.append(html('td', { class: 'num', text: `${valid.filter((r) => isWin(r)).length} / ${valid.length}` }));
   }
   const sm = sizeSummary(c, size);
   geoRow.append(html('td', { class: 'gap-col' }, [ratioBar(sm.geo), html('span', { class: 'gap-text', text: fmtRatio(sm.geo) })]));
@@ -699,7 +776,7 @@ function detail(main, run) {
 // ---------------------------------------------------------------- losses
 
 function losses(main, run) {
-  const min = state.lossMin / 100;
+  const min = state.noisePct / 100;
   const list = [];
   const labels = state.lossAll ? [...run.labels.keys()] : [state.label];
   for (const l of labels) {
@@ -720,11 +797,11 @@ function losses(main, run) {
     const y = b[key];
     return (typeof x === 'string' ? x.localeCompare(y) : x - y) * ls.dir;
   });
-  const range = html('input', { type: 'range', min: 0, max: 50, step: 1, value: state.lossMin, oninput: (e) => (e.target.nextSibling.textContent = e.target.value + ' %'), onchange: (e) => set({ lossMin: Number(e.target.value) }) });
+  const range = html('input', { type: 'range', min: 0, max: 50, step: 1, value: state.noisePct, oninput: (e) => (e.target.nextSibling.textContent = e.target.value + ' %'), onchange: (e) => set({ noisePct: Number(e.target.value) }) });
   const scope = html('input', { type: 'checkbox', onchange: (e) => set({ lossAll: e.target.checked }) });
   scope.checked = state.lossAll;
   const controls = html('div', { class: 'filter-row tight' }, [
-    html('label', { class: 'field' }, [html('span', { class: 'field-label', text: 'Loss of at least' }), html('span', { class: 'range' }, [range, html('span', { class: 'range-val', text: state.lossMin + ' %' })])]),
+    html('label', { class: 'field' }, [html('span', { class: 'field-label', text: 'Loss of at least (noise band)' }), html('span', { class: 'range' }, [range, html('span', { class: 'range-val', text: state.noisePct + ' %' })])]),
     html('label', { class: 'check' }, [scope, html('span', { text: 'all types' })]),
   ]);
   if (!state.lossAll) controls.prepend(select('Type', state.label, [...run.labels.keys()].map((l) => [l, l]), (v) => set({ label: v })));
@@ -757,7 +834,7 @@ function losses(main, run) {
   const refName = typeCtx(run, labels[0]).refName;
   main.append(
     section(
-      `Cases where ${refName} loses by at least ${state.lossMin} %`,
+      `Cases where ${refName} loses by at least ${state.noisePct} %`,
       `${nf0.format(list.length)} case${list.length === 1 ? '' : 's'}${list.length > MAX ? ` (the first ${MAX} shown)` : ''}. Loss = time of the reference / time of the winner. Click a row for the detail.`,
       [
         controls,
