@@ -42,6 +42,8 @@ pub(crate) mod i16;
 pub(crate) mod i32;
 pub(crate) mod i64;
 pub(crate) mod i8;
+#[macro_use]
+pub(crate) mod narrow16;
 pub(crate) mod records;
 pub(crate) mod u128;
 pub(crate) mod u16;

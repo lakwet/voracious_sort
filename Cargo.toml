@@ -58,3 +58,7 @@ rand_distr = "0.6.0"
 [[example]]
 name = "ab_u16"
 required-features = ["bench", "ab"]
+
+[[example]]
+name = "ab_i16"
+required-features = ["bench", "ab"]

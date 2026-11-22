@@ -288,6 +288,8 @@ cols,u16,size,gen,{},blazing", names.join(",")).unwrap();
                                 c[k as usize] += 1;
                             }
                             std::hint::black_box(&c);
+                        } else if v < masks.len() && masks[v].1 == "gen" {
+                            voracious_radix_sort::ab_u16_gen(w);
                         } else if v < masks.len() && masks[v].1 == "dom" {
                             voracious_radix_sort::ab_u16_domain(w);
                         } else if v < masks.len() && masks[v].1.starts_with("lsd") {

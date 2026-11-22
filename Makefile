@@ -101,6 +101,8 @@ ABENCH_SIZES = 500,1000,5000,10000,20000,50000,80000,100000,200000,500000,100000
 ABENCH_HOST := $(shell hostname)
 ifeq ($(OS),Windows_NT)
 ABENCH_CPU := $(shell powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).Name")
+else ifeq ($(shell uname),Darwin)
+ABENCH_CPU := $(shell sysctl -n machdep.cpu.brand_string)
 else
 ABENCH_CPU := $(shell grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')
 endif
@@ -109,6 +111,21 @@ abench-u16: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 	@mkdir -p resultsbenchs/$(ABENCH_HOST)
 	COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_u16 example, cold)" 	  CSV=resultsbenchs/$(ABENCH_HOST)/abench-cold-u16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SKIP_MASKS="0:v2,0:std,0:turbosort" DOM_SIZES=$(ABENCH_SIZES) 	  cargo run --release --example ab_u16 --features "bench ab"
+
+# The 16-bit family (u16 and i16), one after the other: the full bench of
+# each type (bench-type, the test binary: its build takes several minutes),
+# each type in its own files (bench-type-u16-..., bench-type-i16-...).
+bench-16: ## u16 then i16: make bench-type for both (long; one file per type)
+	@$(MAKE) --no-print-directory bench-type T=u16
+	@$(MAKE) --no-print-directory bench-type T=i16
+
+# Simulated i16 bench (examples/ab_i16.rs, cold, median of 11): the generic
+# chain against std, turbosort and blazing, written to
+# resultsbenchs/<host>/abench-cold-i16-<host>-<UTC date>.csv for the viewer.
+abench-i16: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+abench-i16: ## simulated i16 bench, cold, ~15 min (for the bench viewer)
+	@mkdir -p resultsbenchs/$(ABENCH_HOST)
+	CHECK=1 COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_i16 example, cold)" 	  CSV=resultsbenchs/$(ABENCH_HOST)/abench-cold-i16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SORTS=gen,std,turbo DOM_SIZES=$(ABENCH_SIZES) cargo run --release --example ab_i16 --features "bench ab"
 
 # The per-architecture choices of the u16 sort flipped one at a time (does a
 # choice follow the instruction set or the cache size?): window before the

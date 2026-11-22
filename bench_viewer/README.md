@@ -24,6 +24,7 @@ Views:
   share of cases judged equal is shown; so is a gap under a floor in ns per
   sort (2 ns by default), whatever its ratio: 10 % of 100 ns is not 10 % of a
   second (sorted or constant arrays sort in a few ns per thousand keys);
+- **Sizes, distributions** (every page): any array size or distribution can be left out (the chips under the sorts);
 - **Machines** (two files or more): the same type compared across machines;
 - **Machine info**: CPU, caches, compiler, commit, failed checks.
 

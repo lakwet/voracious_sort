@@ -91,6 +91,8 @@ const state = {
   comp: 'best', // 'best' or a sort name
   variants: false, // the variants of the reference count as rivals
   hidden: new Set(),
+  hiddenSizes: new Set(), // array sizes left out, every page
+  hiddenGens: new Set(), // distributions left out, every page
   tab: 'overview',
   metric: 'ns',
   gen: '',
@@ -105,8 +107,8 @@ const state = {
 
 function saveUi() {
   try {
-    const { runs, hidden, ...rest } = state;
-    localStorage.setItem(STORE_UI, JSON.stringify({ ...rest, hidden: [...hidden] }));
+    const { runs, hidden, hiddenSizes, hiddenGens, ...rest } = state;
+    localStorage.setItem(STORE_UI, JSON.stringify({ ...rest, hidden: [...hidden], hiddenSizes: [...hiddenSizes], hiddenGens: [...hiddenGens] }));
   } catch (e) {}
 }
 
@@ -114,7 +116,12 @@ function loadUi() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_UI) || 'null');
     if (!s) return;
-    Object.assign(state, s, { hidden: new Set(s.hidden || []), runs: [] });
+    Object.assign(state, s, {
+      hidden: new Set(s.hidden || []),
+      hiddenSizes: new Set(s.hiddenSizes || []),
+      hiddenGens: new Set(s.hiddenGens || []),
+      runs: [],
+    });
   } catch (e) {}
 }
 
@@ -149,9 +156,23 @@ function currentRun() {
   return state.runs[state.run] || null;
 }
 
+// The sizes kept (state.hiddenSizes left out; all of them if none would be left).
+function shownSizes(sizes) {
+  const kept = sizes.filter((s) => !state.hiddenSizes.has(s));
+  return kept.length ? kept : sizes;
+}
+
 function typeCtx(run, label) {
-  const t = run && run.labels.get(label);
-  if (!t) return null;
+  const t0 = run && run.labels.get(label);
+  if (!t0) return null;
+  const keptGens = t0.gens.filter((g) => !state.hiddenGens.has(g));
+  const t = {
+    ...t0,
+    sizes: shownSizes(t0.sizes),
+    allSizes: t0.sizes,
+    gens: keptGens.length ? keptGens : t0.gens,
+    allGens: t0.gens,
+  };
   let refIdx = t.sorts.indexOf(state.ref);
   if (refIdx < 0) refIdx = 0;
   const refName = t.sorts[refIdx];
@@ -341,10 +362,28 @@ function render() {
       html('button', { class: 'tab' + (state.tab === k ? ' active' : ''), role: 'tab', 'aria-selected': state.tab === k, onclick: () => set({ tab: k }), text: name }),
     ),
   );
+  // The scroll position kept across a redraw of the same tab (a filter
+  // changed: the page stays where it was); a new tab starts at the top. The
+  // height is held while the page is rebuilt, so the browser does not
+  // clamp the scroll to an emptied page.
+  const sameTab = render.lastTab === state.tab;
+  const y = window.scrollY;
+  main.style.minHeight = sameTab ? main.offsetHeight + 'px' : '';
   document.getElementById('filters').replaceChildren(filters(run));
   const view = { overview, curves, map, detail, losses, machines, machine }[state.tab] || overview;
   main.replaceChildren();
   view(main, run);
+  render.lastTab = state.tab;
+  if (!sameTab) return;
+  window.scrollTo(0, y);
+  // Charts are drawn on the next frame (Curves, Machines): the position is
+  // set again once they are in, then the held height released.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      main.style.minHeight = '';
+    }),
+  );
 }
 
 function runChips() {
@@ -429,6 +468,62 @@ function filters(run) {
       );
     }
     wrap.append(chips);
+    // Sizes shown (every page; at least one stays).
+    const sz = html('div', { class: 'chips', role: 'group', 'aria-label': 'Sizes shown' });
+    sz.append(html('span', { class: 'field-label', text: 'Sizes' }));
+    const all = t.allSizes || t.sizes;
+    for (const n of all) {
+      const on = !state.hiddenSizes.has(n);
+      sz.append(
+        html(
+          'button',
+          {
+            class: 'chip' + (on ? ' on' : ''),
+            'aria-pressed': on,
+            title: on ? 'Hide size ' + fmtSizeLong(n) : 'Show size ' + fmtSizeLong(n),
+            onclick: () => {
+              const h = new Set(state.hiddenSizes);
+              on ? h.add(n) : h.delete(n);
+              if (all.every((x) => h.has(x))) return;
+              set({ hiddenSizes: h, size: null });
+            },
+          },
+          [fmtSize(n)],
+        ),
+      );
+    }
+    if (state.hiddenSizes.size) {
+      sz.append(html('button', { class: 'chip', title: 'Show every size', onclick: () => set({ hiddenSizes: new Set(), size: null }) }, ['all']));
+    }
+    wrap.append(sz);
+    // Distributions shown (every page; at least one stays).
+    const gz = html('div', { class: 'chips', role: 'group', 'aria-label': 'Distributions shown' });
+    gz.append(html('span', { class: 'field-label', text: 'Distributions' }));
+    const allGens = t.allGens || t.gens;
+    for (const g of allGens) {
+      const on = !state.hiddenGens.has(g);
+      gz.append(
+        html(
+          'button',
+          {
+            class: 'chip' + (on ? ' on' : ''),
+            'aria-pressed': on,
+            title: on ? 'Hide ' + g : 'Show ' + g,
+            onclick: () => {
+              const h = new Set(state.hiddenGens);
+              on ? h.add(g) : h.delete(g);
+              if (allGens.every((x) => h.has(x))) return;
+              set({ hiddenGens: h });
+            },
+          },
+          [g],
+        ),
+      );
+    }
+    if (state.hiddenGens.size) {
+      gz.append(html('button', { class: 'chip', title: 'Show every distribution', onclick: () => set({ hiddenGens: new Set() }) }, ['all']));
+    }
+    wrap.append(gz);
   }
   return wrap;
 }
@@ -444,7 +539,7 @@ function section(title, sub, children) {
 
 function overview(main, run) {
   const labels = [...run.labels.keys()];
-  const sizes = [...new Set(labels.flatMap((l) => run.labels.get(l).sizes))].sort((a, b) => a - b);
+  const sizes = shownSizes([...new Set(labels.flatMap((l) => run.labels.get(l).sizes))].sort((a, b) => a - b));
   const table = html('table', { class: 'grid-table overview' });
   const head = html('tr', {}, [html('th', { text: 'Type' }), ...sizes.map((s) => html('th', { class: 'num', text: fmtSize(s) })), html('th', { class: 'num', text: 'All' })]);
   table.append(html('thead', {}, [head]));
@@ -892,7 +987,7 @@ function machines(main) {
       points: c.t.sizes.map((s) => ({ x: s, y: sizeSummary(c, s).geo })),
     };
   });
-  const xs = [...new Set(runs.flatMap((r) => r.labels.get(label).sizes))].sort((a, b) => a - b);
+  const xs = shownSizes([...new Set(runs.flatMap((r) => r.labels.get(label).sizes))].sort((a, b) => a - b));
   const chart = html('div', { class: 'chart-wrap' });
   const c0 = typeCtx(runs[0], label);
   main.append(

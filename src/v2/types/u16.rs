@@ -37,6 +37,13 @@ int_detectors!(detectors, u16, u16, id16, id16, super::roller_min);
 
 /// Sorts `arr`: a sorting network up to `NETWORK_MAX` keys, else the chain.
 pub(crate) fn sort(arr: &mut [u16]) {
+    // The generic 16-bit chain (`narrow16`, instance for u16): this file's
+    // chain made generic with i16 and improved since (bit 2^50 of the A/B
+    // switches: this file's chain).
+    if !skip(1 << 50) {
+        super::narrow16::nu16::sort(arr);
+        return;
+    }
     if arr.len() <= NETWORK_MAX {
         trace!("network");
         network_sort(bits_of(arr), id16, id16);
@@ -118,6 +125,10 @@ fn skip(bit: u64) -> bool {
         false
     }
 }
+
+/// The A/B switches, for the generic copy (`narrow16`).
+#[inline(always)]
+pub(crate) fn skip_bit(bit: u64) -> bool { skip(bit) }
 
 /// Whether the 4-equal-keys shortcut of the counting pays: on 64 aligned
 /// quadruples spread over the array, at least half of them made of one value
@@ -1407,6 +1418,21 @@ pub(crate) fn ab_lsd(keys: &mut [u16]) { lsd16_mode::<3, true>(keys) }
 /// TMP (dev only): the domain count alone, for the measuring example.
 #[cfg(feature = "ab")]
 pub(crate) fn ab_domain(keys: &mut [u16]) { domain_count16(keys) }
+
+/// TMP (dev only): i16 sorted through the u16 chain, the sign bit flipped
+/// before and after (a first look at what the u16 work brings to i16).
+#[cfg(feature = "ab")]
+pub(crate) fn ab_i16_wrap(keys: &mut [i16]) {
+    // SAFETY: i16 and u16 have the same size and alignment.
+    let b = unsafe { std::slice::from_raw_parts_mut(keys.as_mut_ptr() as *mut u16, keys.len()) };
+    for x in b.iter_mut() {
+        *x ^= 0x8000;
+    }
+    sort(b);
+    for x in b.iter_mut() {
+        *x ^= 0x8000;
+    }
+}
 
 /// From this size the domain count.
 #[inline(always)]
