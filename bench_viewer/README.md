@@ -18,10 +18,12 @@ Views:
   the winning sort;
 - **Detail**: one type and one size, every sort on every distribution
   (duration and ratio), sortable columns;
-- **Losses**: every cell where the reference loses by more than the noise band;
+- **Losses**: every cell where the reference loses beyond the noise (band and floor);
 - **Noise band** (every page, ± 3 % by default): a ratio within ± N % of 1 is measurement
   noise: the cell turns light grey, counts neither as won nor as lost, and the
-  share of cases judged equal is shown;
+  share of cases judged equal is shown; so is a gap under a floor in ns per
+  sort (2 ns by default), whatever its ratio: 10 % of 100 ns is not 10 % of a
+  second (sorted or constant arrays sort in a few ns per thousand keys);
 - **Machines** (two files or more): the same type compared across machines;
 - **Machine info**: CPU, caches, compiler, commit, failed checks.
 

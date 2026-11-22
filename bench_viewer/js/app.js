@@ -97,6 +97,7 @@ const state = {
   yLog: false,
   size: null,
   noisePct: 3, // percent: ratios within ± this of 1 are noise (grey, neither won nor lost), every page
+  noiseNs: 2, // ns per sort: a gap below this is noise too, whatever its ratio (tiny sorts), every page
   lossAll: true,
   sortBy: { key: null, dir: 1 },
   lossSort: { key: 'factor', dir: -1 },
@@ -180,16 +181,23 @@ function rivalOf(c, size, gen) {
   return { ratio: v[best] / v[c.refIdx], name: c.t.sorts[best], ns: v[best], refNs: v[c.refIdx] };
 }
 
-// Noise band: a ratio within ±state.noisePct % of 1 is neither a win nor a loss.
-function inNoise(r) {
+// Noise: a ratio within ±state.noisePct % of 1, or a gap `gapNs` (ns per
+// sort, when known) below state.noiseNs, is neither a win nor a loss: 10 %
+// of 100 ns is not 10 % of one second.
+function inNoise(r, gapNs) {
   const n = state.noisePct / 100;
-  return n > 0 && Number.isFinite(r) && r < 1 + n && r > 1 / (1 + n);
+  if (n > 0 && Number.isFinite(r) && r < 1 + n && r > 1 / (1 + n)) return true;
+  return state.noiseNs > 0 && Number.isFinite(gapNs) && gapNs < state.noiseNs;
 }
-function isWin(r) {
-  return Number.isFinite(r) && r > 1 && !inNoise(r);
+function isWin(r, gapNs) {
+  return Number.isFinite(r) && r > 1 && !inNoise(r, gapNs);
 }
-function isLoss(r) {
-  return Number.isFinite(r) && r < 1 && !inNoise(r);
+function isLoss(r, gapNs) {
+  return Number.isFinite(r) && r < 1 && !inNoise(r, gapNs);
+}
+// Gap of one sort, in ns, between two times in ns per key.
+function gapOf(a, b, size) {
+  return Math.abs(a - b) * size;
 }
 
 // Geometric mean of the ratios rival / reference at one size, wins, losses
@@ -202,8 +210,9 @@ function sizeSummary(c, size) {
     const r = rivalOf(c, size, g);
     if (!r || !Number.isFinite(r.ratio)) continue;
     ratios.push(r.ratio);
-    if (isWin(r.ratio)) wins++;
-    else if (isLoss(r.ratio)) lost++;
+    const gap = gapOf(r.ns, r.refNs, size);
+    if (isWin(r.ratio, gap)) wins++;
+    else if (isLoss(r.ratio, gap)) lost++;
   }
   return { geo: geo(ratios), wins, lost, ties: ratios.length - wins - lost, count: ratios.length };
 }
@@ -212,7 +221,7 @@ function sizeSummary(c, size) {
 // the lost cases.
 function winText(sm) {
   const lost = sm.count - sm.wins - sm.ties;
-  return `${sm.wins}/${sm.count}` + (state.noisePct > 0 ? ` · ≈${sm.ties}` : '') + ` · ✗${lost}`;
+  return `${sm.wins}/${sm.count}` + (state.noisePct > 0 || state.noiseNs > 0 ? ` · ≈${sm.ties}` : '') + ` · ✗${lost}`;
 }
 
 // Slider of the noise band (Overview, Heatmap).
@@ -231,8 +240,26 @@ function noiseControl() {
       html('span', { class: 'field-label', text: 'Noise band' }),
       html('span', { class: 'range' }, [range, html('span', { class: 'range-val', text: '± ' + state.noisePct + ' %' })]),
     ]),
-    state.noisePct > 0 ? html('span', { class: 'muted small' }, [html('span', { class: 'noise-swatch' }), `within ± ${state.noisePct} %: noise (“≈” counts them)`]) : null,
+    noiseNsField(),
+    state.noisePct > 0 || state.noiseNs > 0 ? html('span', { class: 'muted small' }, [html('span', { class: 'noise-swatch' }), noiseText() + ': noise (“≈” counts them)']) : null,
   ]);
+}
+
+// Field of the absolute floor of the noise (ns per sort).
+function noiseNsField() {
+  const input = html('input', { type: 'number', min: 0, step: 1, value: state.noiseNs, style: 'width:6em', onchange: (e) => set({ noiseNs: Math.max(0, Number(e.target.value) || 0) }) });
+  return html('label', { class: 'field', title: 'A gap smaller than this, in ns for one sort, is measurement noise whatever its ratio (sorts of a few ns or µs)' }, [
+    html('span', { class: 'field-label', text: 'and gaps under (ns per sort)' }),
+    input,
+  ]);
+}
+
+// The noise rule in words.
+function noiseText() {
+  const parts = [];
+  if (state.noisePct > 0) parts.push(`within ± ${state.noisePct} %`);
+  if (state.noiseNs > 0) parts.push(`under ${state.noiseNs} ns per sort`);
+  return parts.join(' or ');
 }
 
 function compLabel(c) {
@@ -461,15 +488,15 @@ function overview(main, run) {
       stat(labels.length, labels.length > 1 ? 'types measured' : 'type measured'),
       stat(sizes.length, 'sizes, from ' + fmtSize(sizes[0]) + ' to ' + fmtSize(sizes[sizes.length - 1])),
       stat(pct + ' %', `of the cases won by ${c0.refName} (${nf0.format(totalWins)} of ${nf0.format(totalCells)})`),
-      state.noisePct > 0
+      state.noisePct > 0 || state.noiseNs > 0
         ? stat(
             (totalCells ? Math.round((100 * totalTies) / totalCells) : 0) + ' %',
-            `of the cases judged equal, within ± ${state.noisePct} % (${nf0.format(totalTies)} of ${nf0.format(totalCells)})`,
+            `of the cases judged equal, ${noiseText()} (${nf0.format(totalTies)} of ${nf0.format(totalCells)})`,
           )
         : null,
       stat(
         (totalCells ? Math.round((100 * (totalCells - totalWins - totalTies)) / totalCells) : 0) + ' %',
-        `of the cases lost by ${c0.refName}${state.noisePct > 0 ? ` beyond ± ${state.noisePct} %` : ''} (${nf0.format(totalCells - totalWins - totalTies)} of ${nf0.format(totalCells)})`,
+        `of the cases lost by ${c0.refName}${state.noisePct > 0 || state.noiseNs > 0 ? ` beyond the noise (${noiseText()})` : ''} (${nf0.format(totalCells - totalWins - totalTies)} of ${nf0.format(totalCells)})`,
         totalCells - totalWins - totalTies > 0 ? 'bad' : '',
       ),
       stat(run.failures.length, run.failures.length ? 'failures (see Machine info)' : 'failed check', run.failures.length ? 'bad' : ''),
@@ -486,8 +513,8 @@ function stat(value, text, cls) {
   return html('div', { class: 'stat ' + (cls || '') }, [html('div', { class: 'stat-value', text: String(value) }), html('div', { class: 'stat-text', text })]);
 }
 
-function ratioCell(ratio, small, onclick, tip, cls) {
-  const noise = inNoise(ratio);
+function ratioCell(ratio, small, onclick, tip, cls, gapNs) {
+  const noise = inNoise(ratio, gapNs);
   const bg = noise ? cssVar('--cell-noise') : ratioColor(ratio);
   const ink = noise ? cssVar('--cell-noise-ink') : inkOn(bg);
   const td = html('td', { class: 'cell clickable ' + (cls || '') + (noise ? ' noise' : ''), style: `background:${bg};color:${ink}`, onclick, tabindex: 0 }, [
@@ -506,12 +533,12 @@ function tipSummary(c, size, sm) {
   const body = html('div', {}, [html('div', { class: 'tip-title', text: `${c.label} · ${fmtSizeLong(size)}` })]);
   body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: 'mean ratio' }), html('span', { class: 'tip-val', text: fmtRatio(sm.geo) })]));
   body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: 'won by ' + c.refName }), html('span', { class: 'tip-val', text: `${sm.wins} / ${sm.count}` })]));
-  if (state.noisePct > 0) body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: `within ± ${state.noisePct} % (noise)` }), html('span', { class: 'tip-val', text: String(sm.ties) })]));
+  if (state.noisePct > 0 || state.noiseNs > 0) body.append(html('div', { class: 'tip-row' }, [html('span', { class: 'tip-name', text: `${noiseText()} (noise)` }), html('span', { class: 'tip-val', text: String(sm.ties) })]));
   // Who wins the lost cells.
   const who = {};
   for (const g of c.t.gens) {
     const r = rivalOf(c, size, g);
-    if (r && isLoss(r.ratio)) who[r.name] = (who[r.name] || 0) + 1;
+    if (r && isLoss(r.ratio, gapOf(r.ns, r.refNs, size))) who[r.name] = (who[r.name] || 0) + 1;
   }
   const lost = Object.entries(who).sort((a, b) => b[1] - a[1]);
   if (lost.length) {
@@ -614,8 +641,9 @@ function map(main, run) {
     const tr = html('tr', {}, [html('th', { class: 'row-head', text: g })]);
     for (const s of t.sizes) {
       const r = rivalOf(c, s, g);
-      const sub = r && state.comp === 'best' && isLoss(r.ratio) ? r.name : null;
-      tr.append(ratioCell(r ? r.ratio : NaN, sub, () => set({ size: s, tab: 'detail' }), () => tipCell(c, s, g)));
+      const gap = r ? gapOf(r.ns, r.refNs, s) : NaN;
+      const sub = r && state.comp === 'best' && isLoss(r.ratio, gap) ? r.name : null;
+      tr.append(ratioCell(r ? r.ratio : NaN, sub, () => set({ size: s, tab: 'detail' }), () => tipCell(c, s, g), '', gap));
     }
     body.append(tr);
   }
@@ -641,7 +669,7 @@ function map(main, run) {
     class: 'muted small',
     text:
       `Won: ${pctOf(mw)} (${mw} of ${mn})` +
-      (state.noisePct > 0 ? ` · judged equal, within ± ${state.noisePct} %: ${pctOf(mt)} (${mt})` : '') +
+      (state.noisePct > 0 || state.noiseNs > 0 ? ` · judged equal, ${noiseText()}: ${pctOf(mt)} (${mt})` : '') +
       ` · lost: ${pctOf(mn - mw - mt)} (${mn - mw - mt})`,
   });
   main.append(
@@ -732,10 +760,10 @@ function detail(main, run) {
         html('div', { class: 'dur', text: fmtDur(x * size) }),
         html('div', { class: 'sub', text: i === c.refIdx ? fmtNs(x) + ' ns/key' : '× ' + fmtRatio(ratio) }),
       ]);
-      if (i !== c.refIdx && isLoss(ratio)) td.querySelector('.sub').classList.add('lose');
+      if (i !== c.refIdx && isLoss(ratio, gapOf(x, row.v[c.refIdx], size))) td.querySelector('.sub').classList.add('lose');
       tr.append(td);
     }
-    const gapTd = html('td', { class: 'gap-col' }, [ratioBar(row.gap), html('span', { class: 'gap-text', text: fmtRatio(row.gap) + (row.rival && isLoss(row.gap) && state.comp === 'best' ? ' · ' + row.rival.name : '') })]);
+    const gapTd = html('td', { class: 'gap-col' }, [ratioBar(row.gap), html('span', { class: 'gap-text', text: fmtRatio(row.gap) + (row.rival && isLoss(row.gap, gapOf(row.rival.ns, row.rival.refNs, size)) && state.comp === 'best' ? ' · ' + row.rival.name : '') })]);
     tr.append(gapTd);
     body.append(tr);
   }
@@ -749,14 +777,15 @@ function detail(main, run) {
       winRow.append(html('td', { class: 'num muted', text: 'ref.' }));
       continue;
     }
-    const ratios = t.gens.map((gg) => {
+    const pairs = t.gens.map((gg) => {
       const v = ns(c, size, gg) || [];
-      return v[i] / v[c.refIdx];
+      return [v[i] / v[c.refIdx], gapOf(v[i], v[c.refIdx], size)];
     });
+    const ratios = pairs.map((p) => p[0]);
     const gm = geo(ratios);
-    const valid = ratios.filter(Number.isFinite);
+    const valid = pairs.filter((p) => Number.isFinite(p[0]));
     geoRow.append(html('td', { class: 'num' }, [html('div', { class: 'sub' + (isLoss(gm) ? ' lose' : ''), text: '× ' + fmtRatio(gm) })]));
-    winRow.append(html('td', { class: 'num', text: `${valid.filter((r) => isWin(r)).length} / ${valid.length}` }));
+    winRow.append(html('td', { class: 'num', text: `${valid.filter((p) => isWin(p[0], p[1])).length} / ${valid.length}` }));
   }
   const sm = sizeSummary(c, size);
   geoRow.append(html('td', { class: 'gap-col' }, [ratioBar(sm.geo), html('span', { class: 'gap-text', text: fmtRatio(sm.geo) })]));
@@ -786,7 +815,7 @@ function losses(main, run) {
         const r = rivalOf(c, s, g);
         if (!r || !Number.isFinite(r.ratio)) continue;
         const factor = 1 / r.ratio;
-        if (factor >= 1 + min) list.push({ label: l, size: s, gen: g, winner: r.name, refNs: r.refNs, ns: r.ns, factor, refName: c.refName });
+        if (factor >= 1 + min && gapOf(r.ns, r.refNs, s) >= state.noiseNs) list.push({ label: l, size: s, gen: g, winner: r.name, refNs: r.refNs, ns: r.ns, factor, refName: c.refName });
       }
     }
   }
@@ -802,6 +831,7 @@ function losses(main, run) {
   scope.checked = state.lossAll;
   const controls = html('div', { class: 'filter-row tight' }, [
     html('label', { class: 'field' }, [html('span', { class: 'field-label', text: 'Loss of at least (noise band)' }), html('span', { class: 'range' }, [range, html('span', { class: 'range-val', text: state.noisePct + ' %' })])]),
+    noiseNsField(),
     html('label', { class: 'check' }, [scope, html('span', { text: 'all types' })]),
   ]);
   if (!state.lossAll) controls.prepend(select('Type', state.label, [...run.labels.keys()].map((l) => [l, l]), (v) => set({ label: v })));
@@ -834,7 +864,7 @@ function losses(main, run) {
   const refName = typeCtx(run, labels[0]).refName;
   main.append(
     section(
-      `Cases where ${refName} loses by at least ${state.noisePct} %`,
+      `Cases where ${refName} loses by at least ${state.noisePct} %` + (state.noiseNs > 0 ? ` and ${state.noiseNs} ns per sort` : ""),
       `${nf0.format(list.length)} case${list.length === 1 ? '' : 's'}${list.length > MAX ? ` (the first ${MAX} shown)` : ''}. Loss = time of the reference / time of the winner. Click a row for the detail.`,
       [
         controls,

@@ -398,6 +398,38 @@ fn chain2(arr: &mut [u16]) {
             return;
         }
         if n >= domain_min() {
+            // Few values, then one value holding half of the sample, before
+            // the domain count, whose counter of a frequent value waits on
+            // its own previous increment: on ARM (Surface from 131 072
+            // keys: FakeZipf 1.33-1.48 to 0.50-0.62 ns per key, std ~1.0;
+            // Sparse 1.2-1.6 to 0.44-0.54; Clusters 2 times faster; Few 16
+            // 0.40 to 0.51-0.66); x86 keeps the domain count first (Zen 2:
+            // Few 16 0.37 to 0.79, Clusters 0.34 to 0.84 at 1M, only
+            // FakeZipf faster). Bit 2^60 flips it.
+            if cfg!(target_arch = "aarch64") != skip(1 << 60) {
+                if few16(arr, &sample) {
+                    trace!("few");
+                    return;
+                }
+                if may_be_heavy(&sample, |x, y| x == y) {
+                    let mut sorted = sample;
+                    merge_sort(&mut sorted[..], id16, id16);
+                    let top = sorted.chunk_by(|a, b| a == b).map(|r| r.len()).max().unwrap_or(0);
+                    if top >= SAMPLE / 2
+                        && heavy_sorted_by(
+                            arr,
+                            &sorted,
+                            HEAVY_MIN,
+                            &|r: &mut [u16]| sort(r),
+                            |x, y| x == y,
+                            |x, y| x < y,
+                        )
+                    {
+                        trace!("heavy_first");
+                        return;
+                    }
+                }
+            }
             if flat_byte16::<u32, true>(arr) {
                 trace!("flat_byte");
             } else {
@@ -618,6 +650,9 @@ fn tiny_dominant(arr: &mut [u16]) -> bool {
         network_sort(others, id16, id16);
     } else if m <= MERGE_MAX {
         merge_sort(others, id16, id16);
+    } else if !skip(1 << 63) && tiny_probe(others) {
+        // The other keys asked again (FakeZipf: the next value holds half of
+        // them, and so on). Bit 2^63: the LSD at once.
     } else {
         lsd16_mode::<3, true>(others);
     }
@@ -2341,6 +2376,21 @@ fn can_skip_verge16(arr: &[u16]) -> bool {
     !monotone
 }
 
+/// Two sorted runs `[..mid]` and `[mid..]` merged without the keys already
+/// in place: the head of the first run not above the second's first key,
+/// the tail of the second not below the first's last key (Desc Saw at 70k:
+/// a run of 4464 keys and one of 65 536, of which 61 072 stay put; blazing
+/// 2 times faster). Bit 2^61: the whole merge.
+fn merge_two_trimmed(arr: &mut [u16], mid: usize) {
+    let (first, last) = (arr[mid], arr[mid - 1]);
+    if last <= first {
+        return;
+    }
+    let lo = arr[..mid].partition_point(|&x| x <= first);
+    let hi = mid + arr[mid..].partition_point(|&x| x < last);
+    merge_runs(&mut arr[lo..hi], &mut vec![0, mid - lo, hi - lo]);
+}
+
 /// The radix path (copy of `decide::path`); the first matching
 /// rule wins.
 fn path(
@@ -2372,7 +2422,14 @@ fn path(
     if known.probes.is_none() && !skip(1 << 51) {
         known.probes = Some(probe_pairs16(arr));
     }
-    let (sorted, equal_pairs) = if random_runs || skip(128) {
+    // Mostly descending probes: no repair (it reverses the whole array,
+    // inserts, gives up, and Verge redoes the work: Desc Saw at 70-100k
+    // 0.24-0.45 to 0.14-0.39 ns per key on the Surface, = blazing; neutral
+    // on Zen 2). Bit 2^62: repaired.
+    let mostly_descending = known.probes.is_some_and(|p| {
+        p.ascending <= 8 && (p.descending > p.ascending || (p.descending == p.ascending && arr[0] > arr[n - 1]))
+    });
+    let (sorted, equal_pairs) = if random_runs || skip(128) || (mostly_descending && !skip(1 << 62)) {
         (false, known.probes.map_or(0, |p| p.equal()))
     } else {
         repair_nearly_sorted(arr, known)
@@ -2417,7 +2474,11 @@ fn path(
         };
         "verge_merge" => do {
             sort_chunks(arr);
-            merge_runs(arr, &mut separators);
+            if separators.len() == 3 && !skip(1 << 61) {
+                merge_two_trimmed(arr, separators[1]);
+            } else {
+                merge_runs(arr, &mut separators);
+            }
         };
     }
 }
