@@ -2,7 +2,7 @@
 //! MSD pass then writes in few streams), tight clusters (the DLSD's prefix
 //! would be sized for a few pairs).
 
-use crate::v2::sorts::devour::keys::Key;
+use crate::v2::devour::keys::Key;
 
 /// Sampled neighbours (64 pairs spread over the keys) mostly in one order:
 /// sawteeth, runs.

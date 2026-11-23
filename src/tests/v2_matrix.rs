@@ -1,4 +1,4 @@
-//! Every records chain of the v2 (`v2::types::records`: one per key type and
+//! Every records chain of the v2 (`v2::famished::records`: one per key type and
 //! record size) reached and checked, stable and unstable: records of exactly
 //! each size class, and between classes (12, 24, 40 bytes), for every key
 //! type (bool, u8 ... u128, i128, f32, f64, char, usize, isize). Keys of
@@ -13,7 +13,7 @@
 //! order and the same records.
 
 use crate::v2::cache::{budget, Budget};
-use crate::v2::sorts::by_key::{devour_sort_by_key, devour_sort_unstable_by_key, SortKey};
+use crate::v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key, SortKey};
 
 /// Key first, then `N` payload bytes (the original index, little endian,
 /// in the first up to 4); packed: the record takes exactly
@@ -233,7 +233,7 @@ fn check<K: Key, const N: usize>(name: &str) {
             expected.sort_by_key(|e| e.0);
             let what = |mode: &str| format!("{} {} B {} n {} {}", name, bytes, mode, n, shape);
             let mut a = recs.clone();
-            devour_sort_by_key(&mut a, |r| r.key);
+            famished_sort_by_key(&mut a, |r| r.key);
             let got = view(&a);
             if stable_check {
                 assert!(got == expected, "{}", what("stable"));
@@ -245,7 +245,7 @@ fn check<K: Key, const N: usize>(name: &str) {
                 );
             }
             let mut b = recs;
-            devour_sort_unstable_by_key(&mut b, |r| r.key);
+            famished_sort_unstable_by_key(&mut b, |r| r.key);
             let mut got = view(&b);
             assert!(
                 got.iter().map(|e| e.0).eq(expected.iter().map(|e| e.0)),
@@ -311,7 +311,7 @@ fn test_v2_records_matrix_128() {
 /// `total_cmp` order.
 #[test]
 fn test_v2_floats_specials() {
-    use crate::v2::sorts::ravenous::{ravenous_sort, RavenousSort};
+    use crate::v2::ravenous::{ravenous_sort, RavenousSort};
     fn run<K: Key + RavenousSort>(name: &str) {
         let (small, _) = sizes(std::mem::size_of::<K>());
         let specials = K::specials();

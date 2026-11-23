@@ -5,7 +5,7 @@
 //! 2^32 - 1 keys (`u32` counters).
 
 use crate::v2::cache::{budget, Budget};
-use crate::v2::sorts::devour::keys::Key;
+use crate::v2::devour::keys::Key;
 
 /// Narrow-range counting in one pass over the keys, without a min / max
 /// pass: the keys are counted in a window around the sample range (twice

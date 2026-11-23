@@ -127,6 +127,11 @@ fn prof(which: &str) {
 }
 
 fn main() {
+    if std::env::var("CACHE").is_ok() {
+        let (l2, big) = voracious_radix_sort::ab_cache();
+        println!("L2 {} KiB, largest {} KiB", l2 / 1024, big / 1024);
+        return;
+    }
     if let Ok(which) = std::env::var("PROF") {
         prof(&which);
         return;

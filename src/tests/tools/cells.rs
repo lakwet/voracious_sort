@@ -5,9 +5,9 @@
 
 use crate::generators as g;
 use crate::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
-use crate::v2::sorts::by_key;
-use crate::v2::sorts::devour::devour_sort;
-use crate::v2::sorts::ravenous::ravenous_sort;
+use crate::v2::famished;
+use crate::v2::devour::devour_sort;
+use crate::v2::ravenous::ravenous_sort;
 
 /// Sizes of every type; the 32- and 64-bit keys add `BIG`.
 pub(super) const SIZES: [usize; 10] =
@@ -239,17 +239,17 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
                     &pool,
                     $label,
                     wrap($keys, rec_by_key::<$k, $w>),
-                    |a: &mut [ByKey<$k, $w>]| by_key::devour_sort_unstable_by_key(a, |x| x.0.key),
+                    |a: &mut [ByKey<$k, $w>]| famished::famished_sort_unstable_by_key(a, |x| x.0.key),
                     false,
                     max.min($cap),
                 );
             }
         };
     }
-    rec!("r8u32", u32, 1, keys_u32(), by_key::devour_sort_by_key, usize::MAX);
-    rec!("r16u64", u64, 2, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
-    rec!("r32u64", u64, 6, keys_u64(), by_key::devour_sort_by_key, usize::MAX);
-    rec!("r128u32", u32, 31, keys_u32(), by_key::devour_sort_by_key, 1_000_000);
+    rec!("r8u32", u32, 1, keys_u32(), famished::famished_sort_by_key, usize::MAX);
+    rec!("r16u64", u64, 2, keys_u64(), famished::famished_sort_by_key, usize::MAX);
+    rec!("r32u64", u64, 6, keys_u64(), famished::famished_sort_by_key, usize::MAX);
+    rec!("r128u32", u32, 31, keys_u32(), famished::famished_sort_by_key, 1_000_000);
     rec_unstable!("ru8u32", u32, 1, keys_u32(), usize::MAX);
     rec_unstable!("ru16u64", u64, 2, keys_u64(), usize::MAX);
     rec_unstable!("ru128u32", u32, 31, keys_u32(), 1_000_000);

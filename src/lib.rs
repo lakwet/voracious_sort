@@ -84,27 +84,33 @@ mod v1;
 mod v2;
 
 pub use v2::api::{RadixSort, Sortable};
-pub use v2::sorts::by_key::SortKey;
-pub use v2::sorts::devour::{devour_sort, DevourSort};
-pub use v2::sorts::ravenous::{ravenous_sort, RavenousSort};
+pub use v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key, SortKey};
+pub use v2::devour::{devour_sort, DevourSort};
+pub use v2::ravenous::{ravenous_sort, RavenousSort};
 
 /// TMP (dev only, feature `ab`): the A/B switches of the u16 chain, for the
 /// measuring examples (`examples/ab_u16.rs`).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
 pub fn ab_u16_skip(mask: u64) {
-    v2::types::u16::SKIP.store(mask, std::sync::atomic::Ordering::Relaxed);
+    v2::devour::u16::SKIP.store(mask, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// TMP (dev only, feature `ab`): the u16 LSD of the chunks alone (no chain).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_u16_lsd(keys: &mut [u16]) { v2::types::u16::ab_lsd(keys) }
+pub fn ab_u16_lsd(keys: &mut [u16]) { v2::devour::u16::ab_lsd(keys) }
+
+/// TMP (dev only, feature `ab`): the cache sizes read on this machine (L2,
+/// largest level), in bytes.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_cache() -> (usize, usize) { (v2::cache::l2_bytes(), v2::cache::largest_bytes()) }
 
 /// TMP (dev only, feature `ab`): the generic u16 / i16 chain (`narrow16`).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_u16_gen(keys: &mut [u16]) { v2::types::narrow16::nu16::sort(keys) }
+pub fn ab_u16_gen(keys: &mut [u16]) { v2::devour::narrow16::nu16::sort(keys) }
 
 /// TMP (dev only, feature `ab`): the generic chain for i16 (`narrow16`).
 #[cfg(feature = "ab")]
@@ -112,18 +118,18 @@ pub fn ab_u16_gen(keys: &mut [u16]) { v2::types::narrow16::nu16::sort(keys) }
 pub fn ab_i16_gen(keys: &mut [i16]) {
     // SAFETY: i16 and u16 have the same size and alignment.
     let b = unsafe { std::slice::from_raw_parts_mut(keys.as_mut_ptr() as *mut u16, keys.len()) };
-    v2::types::narrow16::ni16::sort(b)
+    v2::devour::narrow16::ni16::sort(b)
 }
 
 /// TMP (dev only, feature `ab`): i16 through the u16 chain (sign bit flipped).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_i16_wrap(keys: &mut [i16]) { v2::types::u16::ab_i16_wrap(keys) }
+pub fn ab_i16_wrap(keys: &mut [i16]) { v2::devour::u16::ab_i16_wrap(keys) }
 
 /// TMP (dev only, feature `ab`): the u16 domain count alone (no chain).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_u16_domain(keys: &mut [u16]) { v2::types::u16::ab_domain(keys) }
+pub fn ab_u16_domain(keys: &mut [u16]) { v2::devour::u16::ab_domain(keys) }
 
 /// TMP (dev only, features `ab` and `v2_trace`): the decision labels noted
 /// since the last call.

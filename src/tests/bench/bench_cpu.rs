@@ -71,9 +71,9 @@ use crate::v2::cache::{
     l2_bytes, page_bytes, reported_l2, reported_levels, Budget, BUDGETS, BUDGET_OVERRIDE,
     L2_OVERRIDE,
 };
-use crate::v2::sorts::by_key;
-use crate::v2::sorts::devour::devour_sort;
-use crate::v2::sorts::ravenous::ravenous_sort;
+use crate::v2::famished;
+use crate::v2::devour::devour_sort;
+use crate::v2::ravenous::ravenous_sort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
@@ -1202,7 +1202,7 @@ fn bench_cpu() {
             ($label:expr, $ty:ty, $gens:expr) => {
                 if cfg.wants("records", $label) {
                     let variants: Vec<Variant<$ty>> = vec![
-                        variant("v2", |a: &mut [$ty]| by_key::devour_sort_by_key(a, |x| x.key)),
+                        variant("v2", |a: &mut [$ty]| famished::famished_sort_by_key(a, |x| x.key)),
                         variant("std", |a: &mut [$ty]| a.sort_by_key(|x| x.key)),
                         variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by_key(|x| x.key)),
                         variant("std cached", |a: &mut [$ty]| a.sort_by_cached_key(|x| x.key)),
@@ -1213,7 +1213,7 @@ fn bench_cpu() {
                         variant("v1", |a: &mut [$ty]| a.voracious_sort()),
                         // Like for like: unstable against unstable, stable against stable.
                         variant("v2 unstable", |a: &mut [$ty]| {
-                            by_key::devour_sort_unstable_by_key(a, |x| x.key)
+                            famished::famished_sort_unstable_by_key(a, |x| x.key)
                         }),
                         variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
                     ];
@@ -1234,14 +1234,14 @@ fn bench_cpu() {
             ($label:expr, $ty:ty) => {
                 if cfg.wants("records", $label) {
                     let variants: Vec<Variant<$ty>> = vec![
-                        variant("v2", |a: &mut [$ty]| by_key::devour_sort_by_key(a, |x| x.key)),
+                        variant("v2", |a: &mut [$ty]| famished::famished_sort_by_key(a, |x| x.key)),
                         variant("std", |a: &mut [$ty]| a.sort_by_key(|x| x.key)),
                         variant("std unstable", |a: &mut [$ty]| a.sort_unstable_by_key(|x| x.key)),
                         variant("glidesort", |a: &mut [$ty]| glidesort::sort_by_key(a, |x| x.key)),
                         variant("radsort", |a: &mut [$ty]| radsort::sort_by_key(a, |x| x.key)),
                         variant("v1", |a: &mut [$ty]| a.voracious_sort()),
                         variant("v2 unstable", |a: &mut [$ty]| {
-                            by_key::devour_sort_unstable_by_key(a, |x| x.key)
+                            famished::famished_sort_unstable_by_key(a, |x| x.key)
                         }),
                         variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
                     ];
@@ -1269,10 +1269,10 @@ fn bench_cpu() {
             ($label:expr, $ty:ty, $gens:expr, $ordered:expr, [$($extra:expr),* $(,)?]) => {
                 if cfg.wants("records", $label) {
                     let mut variants: Vec<Variant<$ty>> = vec![
-                        variant("v2", |a: &mut [$ty]| by_key::devour_sort_by_key(a, |x| x.key)),
+                        variant("v2", |a: &mut [$ty]| famished::famished_sort_by_key(a, |x| x.key)),
                         variant("radsort", |a: &mut [$ty]| radsort::sort_by_key(a, |x| x.key)),
                         variant("v1", |a: &mut [$ty]| a.voracious_sort()),
-                        variant("v2 unstable", |a: &mut [$ty]| by_key::devour_sort_unstable_by_key(a, |x| x.key)),
+                        variant("v2 unstable", |a: &mut [$ty]| famished::famished_sort_unstable_by_key(a, |x| x.key)),
                         variant("v1 stable", |a: &mut [$ty]| a.voracious_stable_sort()),
                     ];
                     variants.extend(vec![$($extra),*]);
@@ -1372,7 +1372,7 @@ fn bench_cpu() {
     // merges go 4-way (one move per two levels) instead of 2-way (cheaper
     // steps): the default 32 was measured on the Snapdragon X.
     if cfg.part("rparams") {
-        use crate::v2::sorts::by_key::FOUR_WAY_MIN;
+        use crate::v2::famished::FOUR_WAY_MIN;
         let with = |b: usize| move || FOUR_WAY_MIN.store(b, Relaxed);
         macro_rules! rparams {
             ($label:expr, $ty:ty, $gens:expr) => {
@@ -1389,21 +1389,21 @@ fn bench_cpu() {
                     let variants: Vec<Variant<$ty>> = vec![
                         variant("4-way from 32B", move |a: &mut [$ty]| {
                             w32();
-                            by_key::devour_sort_by_key(a, |x| x.key);
+                            famished::famished_sort_by_key(a, |x| x.key);
                         }),
                         variant("4-way from 16B", move |a: &mut [$ty]| {
                             w16();
-                            by_key::devour_sort_by_key(a, |x| x.key);
+                            famished::famished_sort_by_key(a, |x| x.key);
                             FOUR_WAY_MIN.store(32, Relaxed);
                         }),
                         variant("4-way from 64B", move |a: &mut [$ty]| {
                             w64();
-                            by_key::devour_sort_by_key(a, |x| x.key);
+                            famished::famished_sort_by_key(a, |x| x.key);
                             FOUR_WAY_MIN.store(32, Relaxed);
                         }),
                         variant("2-way only", move |a: &mut [$ty]| {
                             wnever();
-                            by_key::devour_sort_by_key(a, |x| x.key);
+                            famished::famished_sort_by_key(a, |x| x.key);
                             FOUR_WAY_MIN.store(32, Relaxed);
                         }),
                     ];
@@ -1428,7 +1428,7 @@ fn bench_cpu() {
         // bytes (256 buckets, eight passes). 2048 write streams need more
         // L1 lines and TLB entries than some cores have (Zen 2: 32 KiB L1).
         if cfg.types.as_ref().is_none_or(|t| t.iter().any(|x| x == "records")) {
-            use crate::v2::sorts::by_key::LSD11;
+            use crate::v2::famished::LSD11;
             type R = Rec<u64, 2>;
             let disorder: Gens<R> = wrap(keys_u64(), rec::<u64, 2>)
                 .into_iter()
@@ -1452,11 +1452,11 @@ fn bench_cpu() {
             let variants: Vec<Variant<R>> = vec![
                 variant("LSD 11 bits", |a: &mut [R]| {
                     LSD11.store(true, Relaxed);
-                    by_key::devour_sort_by_key(a, |x| x.key);
+                    famished::famished_sort_by_key(a, |x| x.key);
                 }),
                 variant("LSD 8 bits", |a: &mut [R]| {
                     LSD11.store(false, Relaxed);
-                    by_key::devour_sort_by_key(a, |x| x.key);
+                    famished::famished_sort_by_key(a, |x| x.key);
                     LSD11.store(true, Relaxed);
                 }),
             ];
@@ -1595,7 +1595,7 @@ fn bench_cpu() {
                         type R16 = Rec<u64, 2>;
                         type R32 = Rec<u64, 6>;
                         let v8: Vec<Variant<R8>> = tune_variants(b, |a: &mut [R8]| {
-                            by_key::devour_sort_by_key(a, |x| x.key)
+                            famished::famished_sort_by_key(a, |x| x.key)
                         });
                         bench(
                             r,
@@ -1607,7 +1607,7 @@ fn bench_cpu() {
                             10_000,
                         );
                         let v16: Vec<Variant<R16>> = tune_variants(b, |a: &mut [R16]| {
-                            by_key::devour_sort_by_key(a, |x| x.key)
+                            famished::famished_sort_by_key(a, |x| x.key)
                         });
                         bench(
                             r,
@@ -1619,7 +1619,7 @@ fn bench_cpu() {
                             10_000,
                         );
                         let v32: Vec<Variant<R32>> = tune_variants(b, |a: &mut [R32]| {
-                            by_key::devour_sort_by_key(a, |x| x.key)
+                            famished::famished_sort_by_key(a, |x| x.key)
                         });
                         bench(
                             r,
@@ -1787,25 +1787,25 @@ fn bench_cpu() {
                 (with_l2(l2 / 2), with_l2(l2 * 2), with_l2(l2 * 4), with_l2(ARM_L2));
             type R = Rec<u64, 6>;
             let variants: Vec<Variant<R>> = vec![
-                variant("detected L2", |a: &mut [R]| by_key::devour_sort_by_key(a, |x| x.key)),
+                variant("detected L2", |a: &mut [R]| famished::famished_sort_by_key(a, |x| x.key)),
                 variant("L2 / 2", move |a: &mut [R]| {
                     half();
-                    by_key::devour_sort_by_key(a, |x| x.key);
+                    famished::famished_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
                 variant("L2 x 2", move |a: &mut [R]| {
                     double();
-                    by_key::devour_sort_by_key(a, |x| x.key);
+                    famished::famished_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
                 variant("L2 x 4", move |a: &mut [R]| {
                     quad();
-                    by_key::devour_sort_by_key(a, |x| x.key);
+                    famished::famished_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
                 variant("L2 12 MiB", move |a: &mut [R]| {
                     arm();
-                    by_key::devour_sort_by_key(a, |x| x.key);
+                    famished::famished_sort_by_key(a, |x| x.key);
                     L2_OVERRIDE.store(0, Relaxed);
                 }),
             ];

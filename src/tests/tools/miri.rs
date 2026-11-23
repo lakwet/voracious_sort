@@ -5,9 +5,9 @@
 //! keys. Without Miri these are ordinary (fast) tests.
 
 use crate::v2::cache::L2_OVERRIDE;
-use crate::v2::sorts::by_key::{devour_sort_by_key, devour_sort_unstable_by_key};
-use crate::v2::sorts::devour::devour_sort;
-use crate::v2::sorts::ravenous::ravenous_sort;
+use crate::v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key};
+use crate::v2::devour::devour_sort;
+use crate::v2::ravenous::ravenous_sort;
 
 /// Forced L2 (and largest cache) in bytes: thresholds of a few hundred to a
 /// few thousand keys.
@@ -133,12 +133,12 @@ macro_rules! check_records {
                     .collect();
                 let bytes = std::mem::size_of::<(u64, u32, [u32; $w])>();
                 let mut a = recs.clone();
-                devour_sort_by_key(&mut a, |r| r.0);
+                famished_sort_by_key(&mut a, |r| r.0);
                 let mut e = recs.clone();
                 e.sort_by_key(|r| r.0);
                 assert!(a == e, "stable {}B n {} {}", bytes, n, name);
                 let mut a = recs.clone();
-                devour_sort_unstable_by_key(&mut a, |r| r.0);
+                famished_sort_unstable_by_key(&mut a, |r| r.0);
                 let ka: Vec<u64> = a.iter().map(|r| r.0).collect();
                 let ke: Vec<u64> = e.iter().map(|r| r.0).collect();
                 let mut pa: Vec<u32> = a.iter().map(|r| r.1).collect();
@@ -170,7 +170,7 @@ fn miri_records() {
                     }
                 }
                 let mut a = recs.clone();
-                devour_sort_by_key(&mut a, |r| r.0);
+                famished_sort_by_key(&mut a, |r| r.0);
                 let mut e = recs.clone();
                 e.sort_by(|x, y| x.0.total_cmp(&y.0));
                 let same = a
@@ -186,7 +186,7 @@ fn miri_records() {
                 let recs: Vec<(u32, u32)> =
                     keys.iter().enumerate().map(|(i, &k)| (k as u32, i as u32)).collect();
                 let mut a = recs.clone();
-                devour_sort_by_key(&mut a, |r| r.0);
+                famished_sort_by_key(&mut a, |r| r.0);
                 let mut e = recs.clone();
                 e.sort_by_key(|r| r.0);
                 assert!(a == e, "u32 key n {} {}", n, name);

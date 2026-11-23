@@ -33,7 +33,7 @@ fn record_sizes(record: usize, max: usize) -> Vec<usize> {
     sizes
 }
 
-/// `devour_sort_by_key` checked against the stable `sort_by` on the key
+/// `famished_sort_by_key` checked against the stable `sort_by` on the key
 /// (records carry their original index, so any reordering of equal keys
 /// fails).
 fn check_by_key<T: Clone + PartialEq + std::fmt::Debug + Send, K: voracious_radix_sort::SortKey>(

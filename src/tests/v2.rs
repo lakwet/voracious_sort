@@ -29,8 +29,8 @@ fn test_v2_cache_thresholds() {
     use super::super::generators::unsigned_u128::generators_u128;
     use super::super::generators::unsigned_u16::generators_u16;
     use super::super::generators::unsigned_u64::generators_u64;
-    use super::super::v2::sorts::devour::{devour_sort, DevourSort};
-    use super::super::v2::sorts::ravenous::ravenous_sort;
+    use super::super::v2::devour::{devour_sort, DevourSort};
+    use super::super::v2::ravenous::ravenous_sort;
     const SHAPES: [&str; 5] = ["Unif", "Runs 8", "Asc Saw", "Few 16", "Sqrt"];
     let sizes = super::super::v2::testing::cache_sizes(quick_max().min(16_000_000));
     let wanted = |name: &str| SHAPES.iter().any(|s| name.contains(s));

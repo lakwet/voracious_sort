@@ -6,8 +6,8 @@
 
 use super::super::generators::float_32::*;
 use super::super::generators::unsigned_u32::generators_u32;
-use super::super::v2::sorts::devour::{devour_sort, DevourSort};
-use super::super::v2::sorts::ravenous::ravenous_sort;
+use super::super::v2::devour::{devour_sort, DevourSort};
+use super::super::v2::ravenous::ravenous_sort;
 
 /// Array sizes of the benchmarks: every correctness test covers them too.
 const BENCH_SIZES: [usize; 10] =
