@@ -1,3 +1,38 @@
+# Version **2.1.0** (unreleased)
+
+The 16-bit integers (`u16`, `i16`) reworked, and the code split into three
+sorts. No breaking change: the 2.0 API is unchanged.
+
+### What changes for users
+
+- New free functions `famished_sort_by_key` (stable) and
+  `famished_sort_unstable_by_key`: structs sorted by a key, the same sorts as
+  the trait methods `voracious_sort_by_key` and
+  `voracious_sort_unstable_by_key`.
+- `u16` and `i16` are faster, from a few hundred keys to tens of millions
+  (benchmark results in `resultsbenchs/`).
+
+### Inside
+
+- Three sorts, one folder each: `devour` (integers, `bool`, `char`),
+  `ravenous` (floats), `famished` (structs by key).
+- One chain of decisions for each size of integer, signed and unsigned
+  together (the sign bit flipped wherever the order matters): `u16` and
+  `i16` share one code, so a fix for one is a fix for the other. The other
+  sizes follow in the next releases.
+- 16 bits: a short preparation below a few thousand keys (dominant value,
+  narrow window of 256 values, few distinct values estimated on a sample);
+  the counting of the whole domain reading four keys per load; LSD counters
+  of 16 or 32 bits and the choice between a 256-value window and the domain
+  count following the size of the L2 cache, read at run time; faster run
+  merges (pipe organ, mostly descending sawtooth arrays).
+- The sorts of structs by key: one code for records up to 8 bytes and one
+  for larger records (before: one file per key type and record size).
+- Benchmarks: `make bench-type` now measures cold (each array sorted once,
+  on a fresh copy, the arrays together larger than the caches; median of 11
+  measurements); `make bench-16` runs `u16` and `i16`, generic build then
+  native build.
+
 # Version **2.0.0** (November 21<sup>st</sup> 2026)
 
 **Breaking change.** The single-thread sort is rewritten; the public API is

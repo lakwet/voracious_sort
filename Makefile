@@ -52,8 +52,11 @@ clean: ## remove the build files
 # raw data (.csv, for tools/bench_report.py).
 
 ifeq ($(OS),Windows_NT)
-# Avoid the dlltool dependency of getrandom on the windows-gnu toolchain.
+# Avoid the dlltool dependency of getrandom on the x86 windows-gnu
+# toolchain (not on Windows on ARM's aarch64 msvc one: no rdrand there).
+ifneq ($(findstring x86_64-pc-windows-gnu,$(shell rustc -vV)),)
 BENCH_RUSTFLAGS ?= --cfg getrandom_backend="rdrand" -C target-feature=+rdrand
+endif
 endif
 # NATIVE=1: every sort compiled for this CPU (-C target-cpu=native); by
 # default the generic build a user of the crate gets.

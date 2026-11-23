@@ -17,14 +17,16 @@ a good choice and stays available on crates.io. Both are yours to pick.
 The multithread sort (`voracious_mt_sort`, peeka sort) has **not been
 reworked at all yet**: in 2.0 it is the code of 1.x, unchanged.
 
-**What comes next.** The performance will be worked on one key type at a
-time: each type has its own code path, so improving one cannot slow down
-another. Each improvement will come out in a small release (2.0.1, 2.0.2,
-...), listed in [RELEASES.md](RELEASES.md).
+**What comes next.** The performance is worked on one family of key types
+at a time: each family has its own code path, so improving one cannot slow
+down another. Version 2.1 reworks the 16-bit integers (`u16`, `i16`); the
+other sizes follow, one small release each, listed in
+[RELEASES.md](RELEASES.md).
 
-No benchmark results are published for 2.0 for now (the folder
-`resultsbenchs/` holds those of 1.x). You can run the benchmarks on your own
-machine (see below): they show how long each sort takes there.
+Benchmark results are published family by family as they are reworked:
+`resultsbenchs/` holds those of the 16-bit integers for 2.1 (and those of
+1.x). You can run the benchmarks on your own machine (see below): they show
+how long each sort takes there.
 
 > **How version 2.0 was made.** Version 2.0 was written with the help of
 > Claude Opus 5.5 (Anthropic's AI model), used as a pair programmer:
@@ -37,9 +39,9 @@ machine (see below): they show how long each sort takes there.
 
 ```toml
 [dependencies]
-voracious_radix_sort = "2.0"
+voracious_radix_sort = "2.1"
 # The multithread sort:
-# voracious_radix_sort = { version = "2.0", features = ["voracious_multithread"] }
+# voracious_radix_sort = { version = "2.1", features = ["voracious_multithread"] }
 ```
 
 ```rust
@@ -67,9 +69,11 @@ The `RadixSort` trait works on slices and on `Vec`:
 | `voracious_sort_by_key(key)` | any element, by a key of one of the types above, or of a type implementing `SortKey` |
 | `voracious_sort_unstable_by_key(key)` | the same, equal keys in any order |
 
-Two free functions do the same as `voracious_sort` for one family of types:
-`devour_sort` (`bool`, `char`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `i8`, `i16`, `i32`, `i64`, `i128`, `isize`) and `ravenous_sort` (`f32`,
-`f64`).
+Free functions do the same as the methods, one family of types each:
+`devour_sort` (`bool`, `char`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`,
+`i8`, `i16`, `i32`, `i64`, `i128`, `isize`), `ravenous_sort` (`f32`, `f64`),
+and `famished_sort_by_key` / `famished_sort_unstable_by_key` (any element by
+a key).
 
 Floats are sorted in the order of [`f64::total_cmp`]: negative NaNs first,
 then the negative values, -0.0, +0.0, the positive values, positive NaNs.
@@ -88,7 +92,9 @@ memory. A strictly in-place sort (no buffer at all) will be added later.
 
 ## How it works
 
-Each key type has its own chain of decisions: very small arrays go to
+Each key type has its own chain of decisions (one chain shared by the
+signed and unsigned integers of a size once that size is reworked, as `u16`
+and `i16` in 2.1): very small arrays go to
 sorting networks and merges; already sorted or reversed arrays are found in
 one scan; then the array is read for its shape (nearly sorted, long sorted
 runs, few distinct values, narrow ranges, heavy duplicates, clusters...) and
@@ -136,6 +142,8 @@ Algorithms and ideas from others:
   `u8` / `i8`, each key placed at the start of its cell through a small
   stack buffer.
 - **turbosort**: sorted, reversed and constant arrays found in one scan.
+- **Chao1** (Anne Chao, 1984): estimating the number of distinct values from
+  the values seen once and twice in a sample.
 - **IPS4o** (Axtmann, Witt, Ferizovic & Sanders, 2017): handling heavy
   duplicate keys apart, as its equality buckets do; the Exponential,
   RootDup, TwoDup and EightDup distributions of the benchmarks.
@@ -185,7 +193,8 @@ make test-fuzzy   # random arrays, for a while
 
 ```sh
 make bench                  # every key type, 1 000 to 10 000 000 elements
-make bench-type T=u64       # one key type (u8 ... i128, f32, f64, char), 500 to 30 000 000
+make bench-type T=u64       # one key type (u8 ... i128, f32, f64, char), 500 to 30 000 000, cold
+make bench-16               # u16 and i16, generic then native build (4 runs)
 make bench-records          # structs sorted by key (T=u64: keys of one type)
 make bench-big              # 30 million elements and more, as far as the RAM allows
 make bench-big-type T=u64
@@ -226,7 +235,14 @@ bench_cpu -- --ignored --nocapture --test-threads=1`.
   several per measurement so that it lasts long enough; the order of the
   sorts changes at each measurement; one thread, pinned to a fast core;
   every result is checked to be sorted.
-- **The time of one array**: a measurement times each sort on a batch of
+- **Cold, for one type** (`make bench-type`): an array is rarely sorted
+  again while it still sits in the caches, so each measurement sorts arrays
+  of 12 million keys in all, more than the caches hold, each array once, on a
+  fresh copy made just before; the time of the copies alone is measured the
+  same way and subtracted. The time of one array is that difference divided
+  by the number of arrays; the median of 11 measurements is kept.
+  `BENCH_COLD=0` gives the warm measure below.
+- **The time of one array** (the other benchmarks): a measurement times each sort on a batch of
   new arrays of the same size, many for small sizes (4 000 arrays of 1 000
   keys, for example) and one for the largest. The time of one array in that
   measurement is the time of the whole batch divided by the number of
@@ -262,6 +278,14 @@ Each run writes two files in `resultsbenchs/<machine>/`:
 
 ### Tooling
 
+- **The bench viewer** (`bench_viewer/`): open `bench_viewer/index.html` in
+  a browser and drop one or more `.csv` files on it. No server, no build, no
+  dependency. It draws an overview of every type and size, the curves (time
+  per element, duration or ratio per size), a heatmap of the distributions
+  and sizes, the detail of one size, the losses, and one type across several
+  machines. A ratio within a noise band (± 3 %) or a gap below a floor
+  (2 ns per sort) counts as equal; sizes and distributions can be left out.
+  See [bench_viewer/README.md](bench_viewer/README.md).
 - `python tools/bench_report.py <files or folders>`: summarises any number of
   raw files, from several machines: where voracious loses, by how much,
   against which sort, the geometric mean and median of the ratios per sort,
@@ -273,8 +297,9 @@ Each run writes two files in `resultsbenchs/<machine>/`:
 
 ## How we change the code
 
-Each key type has its own chain of decisions (`src/v2/types/`), so a change
-for one type cannot move another. A change goes through three steps, with
+Each key type or family has its own chain of decisions (`src/v2/devour/`
+for the integers, `src/v2/ravenous/` for the floats, `src/v2/famished/` for
+the structs), so a change for one cannot move another. A change goes through three steps, with
 the tools below, before it is kept.
 
 1. **The decision trace** (`make trace`, `make trace-ab`, `make trace-write`;
