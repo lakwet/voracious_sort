@@ -82,14 +82,16 @@ bench: ## every key type, 1k to 10M keys (several hours)
 	@$(BENCH_RUN)
 
 bench-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
-bench-type: export BENCH_NAME = bench-type-$(T)
+bench-type: export BENCH_NAME = bench-type-$(T)$(if $(filter 1,$(NATIVE)),-native)
 bench-type: export BENCH_PARTS = int,float,wide
 bench-type: export BENCH_TYPES = $(T)
 bench-type: export BENCH_SORTS = best
 bench-type: export BENCH_SIZES = $(BENCH_SIZES_TYPE)
 bench-type: export BENCH_MIN_ARRAYS = 1
 bench-type: export BENCH_MIN_SORTS = $(BENCH_MIN_SORTS_TYPE)
-bench-type: ## one key type, 500 to 30M keys: make bench-type T=u32 (u8 ... i128, f32, f64, char)
+bench-type: export BENCH_COLD = 1
+bench-type: export BENCH_REPS = 11
+bench-type: ## one key type, 500 to 30M keys, cold (median of 11): make bench-type T=u32 (u8 ... i128, f32, f64, char)
 	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
 	@$(BENCH_RUN)
 
@@ -112,12 +114,15 @@ abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 	@mkdir -p bench_work/$(ABENCH_HOST)
 	COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_u16 example, cold)" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-u16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SKIP_MASKS="0:v2,0:std,0:turbosort" DOM_SIZES=$(ABENCH_SIZES) 	  cargo run --release --example ab_u16 --features "bench ab"
 
-# The 16-bit family (u16 and i16), one after the other: the full bench of
-# each type (bench-type, the test binary: its build takes several minutes),
-# each type in its own files (bench-type-u16-..., bench-type-i16-...).
-bench-16: ## u16 then i16: make bench-type for both (long; one file per type)
-	@$(MAKE) --no-print-directory bench-type T=u16
-	@$(MAKE) --no-print-directory bench-type T=i16
+# The 16-bit family (u16 and i16): the full bench of each type (bench-type,
+# cold), generic build then native build (-C target-cpu=native), each in its
+# own files (bench-type-u16-..., bench-type-u16-native-...); two builds of
+# the test binary (several minutes each).
+bench-16: ## u16 and i16, generic then native: 4 bench-type runs (long; one file each)
+	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=0
+	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=0
+	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=1
+	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=1
 
 # Simulated i16 bench (examples/ab_i16.rs, cold, median of 11): the generic
 # chain against std, turbosort and blazing, written to

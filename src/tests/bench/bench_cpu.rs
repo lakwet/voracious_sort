@@ -351,6 +351,9 @@ fn trim_heap() {
 /// Arrays sorted per measurement and repetitions (the median of the
 /// repetitions is kept) at `size`.
 fn iterations<T>(cfg: &Config, size: usize) -> (usize, usize) {
+    if super::cold::enabled() {
+        return (super::cold::arrays::<T>(size), cfg.reps);
+    }
     let bytes = std::mem::size_of::<T>().max(1);
     let count = (BATCH_KEYS / size).min(BATCH_BYTES / (size * bytes)).max(1);
     let at_size =
@@ -371,6 +374,9 @@ fn measure<T: Clone>(
     variants: &[Variant<T>],
     ordered: fn(&T, &T) -> bool,
 ) -> Vec<Row> {
+    if super::cold::enabled() {
+        return measure_cold(report, cfg, label, gens, size, variants, ordered);
+    }
     let (count, reps) = iterations::<T>(cfg, size);
     let nv = variants.len();
     let mut rows = Vec::new();
@@ -424,6 +430,73 @@ fn measure<T: Clone>(
                 let median = if t.len().is_multiple_of(2) { (t[m - 1] + t[m]) / 2.0 } else { t[m] };
                 median / size as f64
             })
+            .collect();
+        rows.push((short_name(name), per_key));
+    }
+    rows
+}
+
+/// `measure` cold (see `cold.rs`): `cfg.reps` repetitions over arrays that
+/// do not fit in the caches, each sorted once on a fresh copy, the copies'
+/// time subtracted; the median per key.
+fn measure_cold<T: Clone>(
+    report: &mut Report,
+    cfg: &Config,
+    label: &str,
+    gens: &Gens<T>,
+    size: usize,
+    variants: &[Variant<T>],
+    ordered: fn(&T, &T) -> bool,
+) -> Vec<Row> {
+    let (count, _) = iterations::<T>(cfg, size);
+    let nv = variants.len();
+    let mut rows = Vec::new();
+    for (gen, name) in gens.iter() {
+        let arrays: Vec<Vec<T>> = (0..count).map(|_| gen(size)).collect();
+        let mut work = super::cold::buffers(&arrays);
+        // A sort that panics or fails the check loses its measurements.
+        let mut failed = vec![false; nv];
+        for (v, variant) in variants.iter().enumerate() {
+            let mut a = arrays[0].clone();
+            let sorted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                (variant.sort)(&mut a);
+            }));
+            let what = if sorted.is_err() {
+                "SORT PANICKED"
+            } else if !a.windows(2).all(|p| ordered(&p[0], &p[1])) {
+                "CHECK FAILED"
+            } else {
+                continue;
+            };
+            report.line(&format!("{},{},{},{},{}", what, label, size, short_name(name), variant.name));
+            failed[v] = true;
+        }
+        // Slot nv: the copies alone.
+        let mut times: Vec<Vec<f64>> = vec![Vec::new(); nv + 1];
+        for rep in 0..cfg.reps {
+            for k in 0..=nv {
+                let v = (k + rep) % (nv + 1);
+                if v < nv && failed[v] {
+                    continue;
+                }
+                trim_heap();
+                let sort = variants.get(v).map(|x| &*x.sort);
+                times[v].push(super::cold::time(&arrays, &mut work, sort));
+            }
+        }
+        let median = |t: &mut Vec<f64>| {
+            if t.is_empty() {
+                return f64::NAN;
+            }
+            t.sort_by(|a, b| a.total_cmp(b));
+            let m = t.len() / 2;
+            if t.len().is_multiple_of(2) { (t[m - 1] + t[m]) / 2.0 } else { t[m] }
+        };
+        let copy = median(&mut times[nv]);
+        let keys = (count * size) as f64;
+        let per_key = times[..nv]
+            .iter_mut()
+            .map(|t| ((median(t) - copy) / keys).max(0.0))
             .collect();
         rows.push((short_name(name), per_key));
     }
@@ -927,12 +1000,13 @@ fn machine(report: &mut Report, cfg: &Config) {
                 .unwrap_or_else(|| "unknown".into())
         ),
         format!(
-            "settings,sizes {} to {} reps {} memory budget {} MiB parts {}",
+            "settings,sizes {} to {} reps {} memory budget {} MiB parts {}{}",
             cfg.min,
             cfg.max,
             cfg.reps,
             cfg.memory >> 20,
-            cfg.parts.join(" ")
+            cfg.parts.join(" "),
+            if super::cold::enabled() { ", cold (fresh copies, inputs beyond the caches)" } else { "" }
         ),
     ];
     report.line("== machine");
