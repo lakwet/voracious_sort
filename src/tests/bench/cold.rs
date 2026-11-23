@@ -15,9 +15,7 @@
 use std::time::Instant;
 
 /// `BENCH_COLD=1`: the cold measure.
-pub(crate) fn enabled() -> bool {
-    std::env::var("BENCH_COLD").is_ok_and(|v| v == "1")
-}
+pub(crate) fn enabled() -> bool { std::env::var("BENCH_COLD").is_ok_and(|v| v == "1") }
 
 /// Keys of all the arrays of one measurement: 12 M, as the work benches.
 const KEYS: usize = 12_000_000;

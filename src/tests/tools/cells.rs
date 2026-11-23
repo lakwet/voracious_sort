@@ -5,8 +5,8 @@
 
 use crate::generators as g;
 use crate::generators::records::{keys_u32, keys_u64, rec, wrap, Gens, Rec};
-use crate::v2::famished;
 use crate::v2::devour::devour_sort;
+use crate::v2::famished;
 use crate::v2::ravenous::ravenous_sort;
 
 /// Sizes of every type; the 32- and 64-bit keys add `BIG`.
@@ -239,7 +239,9 @@ pub(super) fn visit<V: Visit>(v: &mut V, types: Option<&[String]>, max: usize) {
                     &pool,
                     $label,
                     wrap($keys, rec_by_key::<$k, $w>),
-                    |a: &mut [ByKey<$k, $w>]| famished::famished_sort_unstable_by_key(a, |x| x.0.key),
+                    |a: &mut [ByKey<$k, $w>]| {
+                        famished::famished_sort_unstable_by_key(a, |x| x.0.key)
+                    },
                     false,
                     max.min($cap),
                 );

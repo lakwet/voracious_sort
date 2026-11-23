@@ -3527,465 +3527,625 @@ f64   100000000 Magnitudes #2    : no_verge > roller
 f64   100000000 Sensor #2        : no_verge > roller
 f64   100000000 Zeros +- #2      : no_verge > roller > heavy
 u16        1000 Unif             : no_verge > lsd
-u16        1000 Small            : range
+u16        1000 Small            : tiny_range
 u16        1000 Asc Saw          : presorted
 u16        1000 Desc Saw         : presorted
 u16        1000 Equal            : presorted
 u16        1000 Zipf             : no_verge > lsd
-u16        1000 FakeZipf         : few
-u16        1000 Few 4            : few
+u16        1000 FakeZipf         : tiny_dominant
+u16        1000 Binary           : tiny_few
+u16        1000 Few 16           : no_verge > lsd
+u16        1000 Spread 256       : no_verge > lsd
+u16        1000 Spread 4k        : no_verge > lsd
+u16        1000 Normal 8         : no_verge > lsd
+u16        1000 Normal 13        : no_verge > lsd
+u16        1000 RootDup          : tiny_range
+u16        1000 Depth            : no_verge > lsd
+u16        1000 Few 4            : tiny_few
 u16        1000 Heavy 4          : no_verge > lsd
 u16        1000 Clusters         : no_verge > lsd
-u16        1000 Range 16         : range
+u16        1000 Range 16         : tiny_range
 u16        1000 Sorted           : presorted
 u16        1000 Sorted desc      : presorted
 u16        1000 Near sorted      : repaired
 u16        1000 Sort rnd tl      : tail_first > lsd
 u16        1000 Runs 8           : random_runs > no_verge > lsd
-u16        1000 Pipe organ       : tail_first
-u16        1000 Late outl.       : few
-u16        1000 Sparse 90%       : few
-u16        1000 Bimodal          : range
+u16        1000 Pipe organ       : pipe
+u16        1000 Late outl.       : no_verge > lsd
+u16        1000 Sparse 90%       : tiny_dominant
+u16        1000 Bimodal          : tiny_range_rot
 u16        1000 Gaussian         : no_verge > lsd
 u16        1000 Sensor 3/4       : no_verge > lsd
-u16        1000 Aligned          : range
-u16       10000 Unif             : no_verge > lsd
-u16       10000 Small            : range
+u16        1000 Aligned          : tiny_high
+u16       10000 Unif             : random_sample > lsd
+u16       10000 Small            : window256
 u16       10000 Asc Saw          : presorted
 u16       10000 Desc Saw         : presorted
 u16       10000 Equal            : presorted
-u16       10000 Zipf             : no_verge > lsd
+u16       10000 Zipf             : heavy_skipped > no_verge > lsd
 u16       10000 FakeZipf         : few
-u16       10000 Few 4            : few
-u16       10000 Heavy 4          : no_verge > lsd > heavy
+u16       10000 Binary           : few_cmp
+u16       10000 Few 16           : few
+u16       10000 Spread 256       : no_verge > lsd
+u16       10000 Spread 4k        : random_sample > lsd
+u16       10000 Normal 8         : range
+u16       10000 Normal 13        : random_sample > lsd
+u16       10000 RootDup          : window256
+u16       10000 Depth            : no_verge > lsd
+u16       10000 Few 4            : few_cmp
+u16       10000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 u16       10000 Clusters         : few
-u16       10000 Range 16         : range
+u16       10000 Range 16         : window256
 u16       10000 Sorted           : presorted
 u16       10000 Sorted desc      : presorted
 u16       10000 Near sorted      : repaired
 u16       10000 Sort rnd tl      : tail_first > lsd
-u16       10000 Runs 8           : random_runs > no_verge > lsd
-u16       10000 Pipe organ       : tail_first > repaired
+u16       10000 Runs 8           : random_sample > lsd
+u16       10000 Pipe organ       : pipe
 u16       10000 Late outl.       : few
-u16       10000 Sparse 90%       : no_verge > lsd > heavy
-u16       10000 Bimodal          : range
-u16       10000 Gaussian         : no_verge > lsd
+u16       10000 Sparse 90%       : no_verge > lsd > heavy_first
+u16       10000 Bimodal          : window256
+u16       10000 Gaussian         : random_sample > lsd
 u16       10000 Sensor 3/4       : range
-u16       10000 Aligned          : range
-u16       30000 Unif             : no_verge > lsd
-u16       30000 Small            : range
+u16       10000 Aligned          : flat_byte
+u16       30000 Unif             : random_sample > lsd
+u16       30000 Small            : window256
 u16       30000 Asc Saw          : presorted
 u16       30000 Desc Saw         : presorted
 u16       30000 Equal            : presorted
 u16       30000 Zipf             : no_verge > lsd
-u16       30000 FakeZipf         : few
-u16       30000 Few 4            : few
-u16       30000 Heavy 4          : no_verge > lsd > heavy
+u16       30000 FakeZipf         : few > heavy_first
+u16       30000 Binary           : few_cmp
+u16       30000 Few 16           : few
+u16       30000 Spread 256       : no_verge > lsd
+u16       30000 Spread 4k        : random_sample > lsd
+u16       30000 Normal 8         : range
+u16       30000 Normal 13        : random_sample > lsd
+u16       30000 RootDup          : window256
+u16       30000 Depth            : range
+u16       30000 Few 4            : few_cmp
+u16       30000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 u16       30000 Clusters         : few
-u16       30000 Range 16         : range
+u16       30000 Range 16         : window256
 u16       30000 Sorted           : presorted
 u16       30000 Sorted desc      : presorted
 u16       30000 Near sorted      : repaired
 u16       30000 Sort rnd tl      : tail_first > lsd
-u16       30000 Runs 8           : random_runs > no_verge > lsd
-u16       30000 Pipe organ       : verge_whole > lsd
+u16       30000 Runs 8           : random_sample > lsd
+u16       30000 Pipe organ       : pipe
 u16       30000 Late outl.       : few
-u16       30000 Sparse 90%       : no_verge > lsd > heavy
-u16       30000 Bimodal          : range
+u16       30000 Sparse 90%       : random_sample > lsd > heavy_first
+u16       30000 Bimodal          : window256
 u16       30000 Gaussian         : no_verge > lsd
 u16       30000 Sensor 3/4       : range
-u16       30000 Aligned          : range
-u16       50000 Unif             : no_verge > lsd
-u16       50000 Small            : range
+u16       30000 Aligned          : flat_byte
+u16       50000 Unif             : random_sample > lsd
+u16       50000 Small            : window256
 u16       50000 Asc Saw          : presorted
 u16       50000 Desc Saw         : presorted
 u16       50000 Equal            : presorted
-u16       50000 Zipf             : no_verge > lsd
+u16       50000 Zipf             : heavy_skipped > no_verge > lsd
 u16       50000 FakeZipf         : few
-u16       50000 Few 4            : few
-u16       50000 Heavy 4          : no_verge > lsd > heavy
+u16       50000 Binary           : few_cmp
+u16       50000 Few 16           : few
+u16       50000 Spread 256       : no_verge > lsd
+u16       50000 Spread 4k        : random_sample > lsd
+u16       50000 Normal 8         : range
+u16       50000 Normal 13        : no_verge > lsd
+u16       50000 RootDup          : window256
+u16       50000 Depth            : range
+u16       50000 Few 4            : few_cmp
+u16       50000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 u16       50000 Clusters         : few
-u16       50000 Range 16         : range
+u16       50000 Range 16         : window256
 u16       50000 Sorted           : presorted
 u16       50000 Sorted desc      : presorted
 u16       50000 Near sorted      : repaired
 u16       50000 Sort rnd tl      : tail_first > no_verge > lsd
-u16       50000 Runs 8           : random_runs > no_verge > lsd
-u16       50000 Pipe organ       : verge_whole > lsd
+u16       50000 Runs 8           : random_sample > lsd
+u16       50000 Pipe organ       : pipe
 u16       50000 Late outl.       : few
-u16       50000 Sparse 90%       : no_verge > lsd > heavy
-u16       50000 Bimodal          : range
+u16       50000 Sparse 90%       : random_sample > lsd > heavy_first
+u16       50000 Bimodal          : window256
 u16       50000 Gaussian         : range
 u16       50000 Sensor 3/4       : range
-u16       50000 Aligned          : range
-u16      100000 Unif             : no_verge > lsd
-u16      100000 Small            : range
+u16       50000 Aligned          : flat_byte
+u16      100000 Unif             : random_sample > lsd
+u16      100000 Small            : window256
 u16      100000 Asc Saw          : tail_first > repaired
 u16      100000 Desc Saw         : tail_first > repaired
 u16      100000 Equal            : presorted
 u16      100000 Zipf             : no_verge > lsd
 u16      100000 FakeZipf         : few
-u16      100000 Few 4            : range
-u16      100000 Heavy 4          : no_verge > lsd > heavy
+u16      100000 Binary           : few_cmp
+u16      100000 Few 16           : few
+u16      100000 Spread 256       : no_verge > lsd
+u16      100000 Spread 4k        : random_sample > lsd
+u16      100000 Normal 8         : range
+u16      100000 Normal 13        : range
+u16      100000 RootDup          : range
+u16      100000 Depth            : range
+u16      100000 Few 4            : few_cmp
+u16      100000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 u16      100000 Clusters         : few
-u16      100000 Range 16         : range
+u16      100000 Range 16         : window256
 u16      100000 Sorted           : presorted
 u16      100000 Sorted desc      : presorted
 u16      100000 Near sorted      : repaired
 u16      100000 Sort rnd tl      : tail_first > no_verge > lsd
-u16      100000 Runs 8           : random_runs > no_verge > lsd
-u16      100000 Pipe organ       : tail_first > repaired
+u16      100000 Runs 8           : random_sample > lsd
+u16      100000 Pipe organ       : pipe
 u16      100000 Late outl.       : range
-u16      100000 Sparse 90%       : no_verge > lsd > heavy
-u16      100000 Bimodal          : range
+u16      100000 Sparse 90%       : random_sample > lsd > heavy_first
+u16      100000 Bimodal          : window256
 u16      100000 Gaussian         : range
 u16      100000 Sensor 3/4       : range
-u16      100000 Aligned          : range
-u16      200000 Unif             : range
-u16      200000 Small            : range
-u16      200000 Asc Saw          : range
-u16      200000 Desc Saw         : range
+u16      100000 Aligned          : flat_byte
+u16      200000 Unif             : domain16
+u16      200000 Small            : window256
+u16      200000 Asc Saw          : domain16
+u16      200000 Desc Saw         : domain16
 u16      200000 Equal            : presorted
-u16      200000 Zipf             : range
-u16      200000 FakeZipf         : range
-u16      200000 Few 4            : range
-u16      200000 Heavy 4          : range
-u16      200000 Clusters         : range
-u16      200000 Range 16         : range
+u16      200000 Zipf             : domain16
+u16      200000 FakeZipf         : domain16
+u16      200000 Binary           : few_cmp
+u16      200000 Few 16           : domain16
+u16      200000 Spread 256       : domain16
+u16      200000 Spread 4k        : domain16
+u16      200000 Normal 8         : domain16
+u16      200000 Normal 13        : domain16
+u16      200000 RootDup          : domain16
+u16      200000 Depth            : domain16
+u16      200000 Few 4            : few_cmp
+u16      200000 Heavy 4          : domain16
+u16      200000 Clusters         : domain16
+u16      200000 Range 16         : window256
 u16      200000 Sorted           : presorted
 u16      200000 Sorted desc      : presorted
-u16      200000 Near sorted      : repaired
-u16      200000 Sort rnd tl      : tail_first > no_verge > lsd
-u16      200000 Runs 8           : random_runs > range
-u16      200000 Pipe organ       : tail_first > repaired
-u16      200000 Late outl.       : range
-u16      200000 Sparse 90%       : range
-u16      200000 Bimodal          : range
-u16      200000 Gaussian         : range
-u16      200000 Sensor 3/4       : range
-u16      200000 Aligned          : range
-u16      600000 Unif             : range
-u16      600000 Small            : range
-u16      600000 Asc Saw          : range
-u16      600000 Desc Saw         : range
+u16      200000 Near sorted      : domain16
+u16      200000 Sort rnd tl      : domain16
+u16      200000 Runs 8           : domain16
+u16      200000 Pipe organ       : domain16
+u16      200000 Late outl.       : domain16
+u16      200000 Sparse 90%       : domain16
+u16      200000 Bimodal          : window256
+u16      200000 Gaussian         : domain16
+u16      200000 Sensor 3/4       : domain16
+u16      200000 Aligned          : flat_byte
+u16      600000 Unif             : domain16
+u16      600000 Small            : domain16
+u16      600000 Asc Saw          : domain16
+u16      600000 Desc Saw         : domain16
 u16      600000 Equal            : presorted
-u16      600000 Zipf             : range
-u16      600000 FakeZipf         : range
-u16      600000 Few 4            : range
-u16      600000 Heavy 4          : range
-u16      600000 Clusters         : range
-u16      600000 Range 16         : range
+u16      600000 Zipf             : domain16
+u16      600000 FakeZipf         : domain16
+u16      600000 Binary           : few_cmp
+u16      600000 Few 16           : domain16
+u16      600000 Spread 256       : domain16
+u16      600000 Spread 4k        : domain16
+u16      600000 Normal 8         : domain16
+u16      600000 Normal 13        : domain16
+u16      600000 RootDup          : domain16
+u16      600000 Depth            : domain16
+u16      600000 Few 4            : few_cmp
+u16      600000 Heavy 4          : domain16
+u16      600000 Clusters         : domain16
+u16      600000 Range 16         : domain16
 u16      600000 Sorted           : presorted
 u16      600000 Sorted desc      : presorted
-u16      600000 Near sorted      : range
-u16      600000 Sort rnd tl      : tail_first > no_verge > lsd
-u16      600000 Runs 8           : random_runs > range
-u16      600000 Pipe organ       : tail_first > repaired
-u16      600000 Late outl.       : range
-u16      600000 Sparse 90%       : range
-u16      600000 Bimodal          : range
-u16      600000 Gaussian         : range
-u16      600000 Sensor 3/4       : range
-u16      600000 Aligned          : range
-u16     1000000 Unif             : range
-u16     1000000 Small            : range
-u16     1000000 Asc Saw          : range
-u16     1000000 Desc Saw         : range
+u16      600000 Near sorted      : domain16
+u16      600000 Sort rnd tl      : domain16
+u16      600000 Runs 8           : domain16
+u16      600000 Pipe organ       : domain16
+u16      600000 Late outl.       : domain16
+u16      600000 Sparse 90%       : domain16
+u16      600000 Bimodal          : domain16
+u16      600000 Gaussian         : domain16
+u16      600000 Sensor 3/4       : domain16
+u16      600000 Aligned          : flat_byte
+u16     1000000 Unif             : domain16
+u16     1000000 Small            : domain16
+u16     1000000 Asc Saw          : domain16
+u16     1000000 Desc Saw         : domain16
 u16     1000000 Equal            : presorted
-u16     1000000 Zipf             : range
-u16     1000000 FakeZipf         : range
-u16     1000000 Few 4            : range
-u16     1000000 Heavy 4          : range
-u16     1000000 Clusters         : range
-u16     1000000 Range 16         : range
+u16     1000000 Zipf             : domain16
+u16     1000000 FakeZipf         : domain16
+u16     1000000 Binary           : few_cmp
+u16     1000000 Few 16           : domain16
+u16     1000000 Spread 256       : domain16
+u16     1000000 Spread 4k        : domain16
+u16     1000000 Normal 8         : domain16
+u16     1000000 Normal 13        : domain16
+u16     1000000 RootDup          : domain16
+u16     1000000 Depth            : domain16
+u16     1000000 Few 4            : few_cmp
+u16     1000000 Heavy 4          : domain16
+u16     1000000 Clusters         : domain16
+u16     1000000 Range 16         : domain16
 u16     1000000 Sorted           : presorted
 u16     1000000 Sorted desc      : presorted
-u16     1000000 Near sorted      : range
-u16     1000000 Sort rnd tl      : tail_first > no_verge > lsd
-u16     1000000 Runs 8           : random_runs > range
-u16     1000000 Pipe organ       : tail_first > repaired
-u16     1000000 Late outl.       : range
-u16     1000000 Sparse 90%       : range
-u16     1000000 Bimodal          : range
-u16     1000000 Gaussian         : range
-u16     1000000 Sensor 3/4       : range
-u16     1000000 Aligned          : range
-u16     3000000 Unif             : range
-u16     3000000 Small            : range
-u16     3000000 Asc Saw          : range
-u16     3000000 Desc Saw         : range
+u16     1000000 Near sorted      : domain16
+u16     1000000 Sort rnd tl      : domain16
+u16     1000000 Runs 8           : domain16
+u16     1000000 Pipe organ       : domain16
+u16     1000000 Late outl.       : domain16
+u16     1000000 Sparse 90%       : domain16
+u16     1000000 Bimodal          : domain16
+u16     1000000 Gaussian         : domain16
+u16     1000000 Sensor 3/4       : domain16
+u16     1000000 Aligned          : flat_byte
+u16     3000000 Unif             : domain16
+u16     3000000 Small            : domain16
+u16     3000000 Asc Saw          : domain16
+u16     3000000 Desc Saw         : domain16
 u16     3000000 Equal            : presorted
-u16     3000000 Zipf             : range
-u16     3000000 FakeZipf         : range
-u16     3000000 Few 4            : range
-u16     3000000 Heavy 4          : range
-u16     3000000 Clusters         : range
-u16     3000000 Range 16         : range
+u16     3000000 Zipf             : domain16
+u16     3000000 FakeZipf         : domain16
+u16     3000000 Binary           : few_cmp
+u16     3000000 Few 16           : domain16
+u16     3000000 Spread 256       : domain16
+u16     3000000 Spread 4k        : domain16
+u16     3000000 Normal 8         : domain16
+u16     3000000 Normal 13        : domain16
+u16     3000000 RootDup          : domain16
+u16     3000000 Depth            : domain16
+u16     3000000 Few 4            : few_cmp
+u16     3000000 Heavy 4          : domain16
+u16     3000000 Clusters         : domain16
+u16     3000000 Range 16         : domain16
 u16     3000000 Sorted           : presorted
 u16     3000000 Sorted desc      : presorted
-u16     3000000 Near sorted      : range
-u16     3000000 Sort rnd tl      : tail_first > range
-u16     3000000 Runs 8           : range
-u16     3000000 Pipe organ       : tail_first > repaired
-u16     3000000 Late outl.       : range
-u16     3000000 Sparse 90%       : range
-u16     3000000 Bimodal          : range
-u16     3000000 Gaussian         : range
-u16     3000000 Sensor 3/4       : range
-u16     3000000 Aligned          : range
-u16    10000000 Unif             : range
-u16    10000000 Small            : range
-u16    10000000 Asc Saw          : range
-u16    10000000 Desc Saw         : range
+u16     3000000 Near sorted      : domain16
+u16     3000000 Sort rnd tl      : domain16
+u16     3000000 Runs 8           : domain16
+u16     3000000 Pipe organ       : domain16
+u16     3000000 Late outl.       : domain16
+u16     3000000 Sparse 90%       : domain16
+u16     3000000 Bimodal          : domain16
+u16     3000000 Gaussian         : domain16
+u16     3000000 Sensor 3/4       : domain16
+u16     3000000 Aligned          : flat_byte
+u16    10000000 Unif             : domain16
+u16    10000000 Small            : domain16
+u16    10000000 Asc Saw          : domain16
+u16    10000000 Desc Saw         : domain16
 u16    10000000 Equal            : presorted
-u16    10000000 Zipf             : range
-u16    10000000 FakeZipf         : range
-u16    10000000 Few 4            : range
-u16    10000000 Heavy 4          : range
-u16    10000000 Clusters         : range
-u16    10000000 Range 16         : range
+u16    10000000 Zipf             : domain16
+u16    10000000 FakeZipf         : domain16
+u16    10000000 Binary           : few_cmp
+u16    10000000 Few 16           : domain16
+u16    10000000 Spread 256       : domain16
+u16    10000000 Spread 4k        : domain16
+u16    10000000 Normal 8         : domain16
+u16    10000000 Normal 13        : domain16
+u16    10000000 RootDup          : domain16
+u16    10000000 Depth            : domain16
+u16    10000000 Few 4            : few_cmp
+u16    10000000 Heavy 4          : domain16
+u16    10000000 Clusters         : domain16
+u16    10000000 Range 16         : domain16
 u16    10000000 Sorted           : presorted
 u16    10000000 Sorted desc      : presorted
-u16    10000000 Near sorted      : range
-u16    10000000 Sort rnd tl      : tail_first > range
-u16    10000000 Runs 8           : range
-u16    10000000 Pipe organ       : tail_first > repaired
-u16    10000000 Late outl.       : range
-u16    10000000 Sparse 90%       : range
-u16    10000000 Bimodal          : range
-u16    10000000 Gaussian         : range
-u16    10000000 Sensor 3/4       : range
-u16    10000000 Aligned          : range
+u16    10000000 Near sorted      : domain16
+u16    10000000 Sort rnd tl      : domain16
+u16    10000000 Runs 8           : domain16
+u16    10000000 Pipe organ       : domain16
+u16    10000000 Late outl.       : domain16
+u16    10000000 Sparse 90%       : domain16
+u16    10000000 Bimodal          : domain16
+u16    10000000 Gaussian         : domain16
+u16    10000000 Sensor 3/4       : domain16
+u16    10000000 Aligned          : flat_byte
 i16        1000 Unif             : no_verge > lsd
-i16        1000 Small            : range
+i16        1000 Small            : tiny_range
 i16        1000 Asc Saw          : presorted
 i16        1000 Desc Saw         : presorted
 i16        1000 Equal            : presorted
 i16        1000 Zipf             : no_verge > lsd
-i16        1000 FakeZipf         : few
-i16        1000 Few 4            : few
+i16        1000 FakeZipf         : tiny_dominant
+i16        1000 Binary           : tiny_few
+i16        1000 Few 16           : no_verge > lsd
+i16        1000 Spread 256       : no_verge > lsd
+i16        1000 Spread 4k        : no_verge > lsd
+i16        1000 Normal 8         : no_verge > lsd
+i16        1000 Normal 13        : no_verge > lsd
+i16        1000 RootDup          : tiny_range
+i16        1000 Audio            : no_verge > lsd
+i16        1000 Few 4            : tiny_few
 i16        1000 Heavy 4          : no_verge > lsd
 i16        1000 Clusters         : no_verge > lsd
-i16        1000 Range 16         : range
+i16        1000 Range 16         : tiny_range
 i16        1000 Sorted           : presorted
 i16        1000 Sorted desc      : presorted
 i16        1000 Near sorted      : repaired
 i16        1000 Sort rnd tl      : tail_first > lsd
 i16        1000 Runs 8           : random_runs > no_verge > lsd
-i16        1000 Pipe organ       : verge_whole > lsd
-i16        1000 Late outl.       : few
-i16        1000 Sparse 90%       : few
-i16        1000 Bimodal          : range
+i16        1000 Pipe organ       : pipe
+i16        1000 Late outl.       : no_verge > lsd
+i16        1000 Sparse 90%       : tiny_dominant
+i16        1000 Bimodal          : tiny_range_rot
 i16        1000 Gaussian         : no_verge > lsd
 i16        1000 Sensor 3/4       : no_verge > lsd
-i16        1000 Aligned          : range
-i16       10000 Unif             : no_verge > lsd
-i16       10000 Small            : range
+i16        1000 Aligned          : tiny_high
+i16       10000 Unif             : random_sample > lsd
+i16       10000 Small            : window256
 i16       10000 Asc Saw          : presorted
 i16       10000 Desc Saw         : presorted
 i16       10000 Equal            : presorted
 i16       10000 Zipf             : no_verge > lsd
 i16       10000 FakeZipf         : few
-i16       10000 Few 4            : few
-i16       10000 Heavy 4          : no_verge > lsd > heavy
+i16       10000 Binary           : few_cmp
+i16       10000 Few 16           : few
+i16       10000 Spread 256       : no_verge > lsd
+i16       10000 Spread 4k        : random_sample > lsd
+i16       10000 Normal 8         : range
+i16       10000 Normal 13        : random_sample > lsd
+i16       10000 RootDup          : window256
+i16       10000 Audio            : no_verge > lsd
+i16       10000 Few 4            : few_cmp
+i16       10000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 i16       10000 Clusters         : few
-i16       10000 Range 16         : range
+i16       10000 Range 16         : window256
 i16       10000 Sorted           : presorted
 i16       10000 Sorted desc      : presorted
 i16       10000 Near sorted      : repaired
 i16       10000 Sort rnd tl      : tail_first > lsd
-i16       10000 Runs 8           : random_runs > no_verge > lsd
-i16       10000 Pipe organ       : verge_whole > lsd
+i16       10000 Runs 8           : random_sample > lsd
+i16       10000 Pipe organ       : pipe
 i16       10000 Late outl.       : few
-i16       10000 Sparse 90%       : no_verge > lsd > heavy
-i16       10000 Bimodal          : range
+i16       10000 Sparse 90%       : no_verge > lsd > heavy_first
+i16       10000 Bimodal          : window256
 i16       10000 Gaussian         : no_verge > lsd
 i16       10000 Sensor 3/4       : range
-i16       10000 Aligned          : range
-i16       30000 Unif             : no_verge > lsd
-i16       30000 Small            : range
+i16       10000 Aligned          : flat_byte
+i16       30000 Unif             : random_sample > lsd
+i16       30000 Small            : window256
 i16       30000 Asc Saw          : presorted
 i16       30000 Desc Saw         : presorted
 i16       30000 Equal            : presorted
 i16       30000 Zipf             : no_verge > lsd
-i16       30000 FakeZipf         : few
-i16       30000 Few 4            : few
-i16       30000 Heavy 4          : no_verge > lsd > heavy
+i16       30000 FakeZipf         : few > heavy_first
+i16       30000 Binary           : few_cmp
+i16       30000 Few 16           : few
+i16       30000 Spread 256       : no_verge > lsd
+i16       30000 Spread 4k        : random_sample > lsd
+i16       30000 Normal 8         : range
+i16       30000 Normal 13        : random_sample > lsd
+i16       30000 RootDup          : window256
+i16       30000 Audio            : no_verge > lsd
+i16       30000 Few 4            : few_cmp
+i16       30000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 i16       30000 Clusters         : few
-i16       30000 Range 16         : range
+i16       30000 Range 16         : window256
 i16       30000 Sorted           : presorted
 i16       30000 Sorted desc      : presorted
 i16       30000 Near sorted      : repaired
 i16       30000 Sort rnd tl      : tail_first > lsd
-i16       30000 Runs 8           : random_runs > no_verge > lsd
-i16       30000 Pipe organ       : verge_whole > lsd
+i16       30000 Runs 8           : random_sample > lsd
+i16       30000 Pipe organ       : pipe
 i16       30000 Late outl.       : few
-i16       30000 Sparse 90%       : no_verge > lsd > heavy
-i16       30000 Bimodal          : range
+i16       30000 Sparse 90%       : random_sample > lsd > heavy_first
+i16       30000 Bimodal          : window256
 i16       30000 Gaussian         : no_verge > lsd
 i16       30000 Sensor 3/4       : range
-i16       30000 Aligned          : range
-i16       50000 Unif             : no_verge > lsd
-i16       50000 Small            : range
-i16       50000 Asc Saw          : verge_merge
+i16       30000 Aligned          : flat_byte
+i16       50000 Unif             : random_sample > lsd
+i16       50000 Small            : window256
+i16       50000 Asc Saw          : tail_first > repaired
 i16       50000 Desc Saw         : verge_merge
 i16       50000 Equal            : presorted
 i16       50000 Zipf             : no_verge > lsd
-i16       50000 FakeZipf         : few
-i16       50000 Few 4            : few
-i16       50000 Heavy 4          : no_verge > lsd > heavy
+i16       50000 FakeZipf         : few > heavy_first
+i16       50000 Binary           : few_cmp
+i16       50000 Few 16           : few
+i16       50000 Spread 256       : no_verge > lsd
+i16       50000 Spread 4k        : random_sample > lsd
+i16       50000 Normal 8         : range
+i16       50000 Normal 13        : random_sample > lsd
+i16       50000 RootDup          : window256
+i16       50000 Audio            : range
+i16       50000 Few 4            : few_cmp
+i16       50000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 i16       50000 Clusters         : few
-i16       50000 Range 16         : range
+i16       50000 Range 16         : window256
 i16       50000 Sorted           : presorted
 i16       50000 Sorted desc      : presorted
 i16       50000 Near sorted      : repaired
 i16       50000 Sort rnd tl      : tail_first > no_verge > lsd
-i16       50000 Runs 8           : random_runs > no_verge > lsd
-i16       50000 Pipe organ       : verge_whole > lsd
+i16       50000 Runs 8           : random_sample > lsd
+i16       50000 Pipe organ       : pipe
 i16       50000 Late outl.       : range
-i16       50000 Sparse 90%       : no_verge > lsd > heavy
-i16       50000 Bimodal          : range
+i16       50000 Sparse 90%       : random_sample > lsd > heavy_first
+i16       50000 Bimodal          : window256
 i16       50000 Gaussian         : range
 i16       50000 Sensor 3/4       : range
-i16       50000 Aligned          : range
-i16      100000 Unif             : no_verge > lsd
-i16      100000 Small            : range
+i16       50000 Aligned          : flat_byte
+i16      100000 Unif             : random_sample > lsd
+i16      100000 Small            : window256
 i16      100000 Asc Saw          : verge_merge > lsd
 i16      100000 Desc Saw         : verge_merge > lsd
 i16      100000 Equal            : presorted
 i16      100000 Zipf             : no_verge > lsd
 i16      100000 FakeZipf         : few
-i16      100000 Few 4            : few
-i16      100000 Heavy 4          : no_verge > lsd > heavy
+i16      100000 Binary           : few_cmp
+i16      100000 Few 16           : few
+i16      100000 Spread 256       : no_verge > lsd
+i16      100000 Spread 4k        : no_verge > lsd
+i16      100000 Normal 8         : range
+i16      100000 Normal 13        : no_verge > lsd
+i16      100000 RootDup          : range
+i16      100000 Audio            : range
+i16      100000 Few 4            : few_cmp
+i16      100000 Heavy 4          : few_estimate > heavy_skipped > no_verge > lsd
 i16      100000 Clusters         : range
-i16      100000 Range 16         : range
+i16      100000 Range 16         : window256
 i16      100000 Sorted           : presorted
 i16      100000 Sorted desc      : presorted
 i16      100000 Near sorted      : repaired
 i16      100000 Sort rnd tl      : tail_first > no_verge > lsd
-i16      100000 Runs 8           : random_runs > no_verge > lsd
-i16      100000 Pipe organ       : tail_first > repaired
+i16      100000 Runs 8           : random_sample > lsd
+i16      100000 Pipe organ       : pipe
 i16      100000 Late outl.       : range
-i16      100000 Sparse 90%       : no_verge > lsd > heavy
-i16      100000 Bimodal          : range
+i16      100000 Sparse 90%       : random_sample > lsd > heavy_first
+i16      100000 Bimodal          : window256
 i16      100000 Gaussian         : range
 i16      100000 Sensor 3/4       : range
-i16      100000 Aligned          : range
-i16      200000 Unif             : range
-i16      200000 Small            : range
-i16      200000 Asc Saw          : range
-i16      200000 Desc Saw         : range
+i16      100000 Aligned          : flat_byte
+i16      200000 Unif             : domain16
+i16      200000 Small            : window256
+i16      200000 Asc Saw          : domain16
+i16      200000 Desc Saw         : domain16
 i16      200000 Equal            : presorted
-i16      200000 Zipf             : range
-i16      200000 FakeZipf         : range
-i16      200000 Few 4            : range
-i16      200000 Heavy 4          : range
-i16      200000 Clusters         : range
-i16      200000 Range 16         : range
+i16      200000 Zipf             : domain16
+i16      200000 FakeZipf         : domain16
+i16      200000 Binary           : few_cmp
+i16      200000 Few 16           : domain16
+i16      200000 Spread 256       : domain16
+i16      200000 Spread 4k        : domain16
+i16      200000 Normal 8         : domain16
+i16      200000 Normal 13        : domain16
+i16      200000 RootDup          : domain16
+i16      200000 Audio            : domain16
+i16      200000 Few 4            : few_cmp
+i16      200000 Heavy 4          : domain16
+i16      200000 Clusters         : domain16
+i16      200000 Range 16         : window256
 i16      200000 Sorted           : presorted
 i16      200000 Sorted desc      : presorted
-i16      200000 Near sorted      : range
-i16      200000 Sort rnd tl      : tail_first > no_verge > lsd
-i16      200000 Runs 8           : random_runs > range
-i16      200000 Pipe organ       : range
-i16      200000 Late outl.       : range
-i16      200000 Sparse 90%       : range
-i16      200000 Bimodal          : range
-i16      200000 Gaussian         : range
-i16      200000 Sensor 3/4       : range
-i16      200000 Aligned          : range
-i16      600000 Unif             : range
-i16      600000 Small            : range
-i16      600000 Asc Saw          : range
-i16      600000 Desc Saw         : range
+i16      200000 Near sorted      : domain16
+i16      200000 Sort rnd tl      : domain16
+i16      200000 Runs 8           : domain16
+i16      200000 Pipe organ       : domain16
+i16      200000 Late outl.       : domain16
+i16      200000 Sparse 90%       : domain16
+i16      200000 Bimodal          : window256
+i16      200000 Gaussian         : domain16
+i16      200000 Sensor 3/4       : domain16
+i16      200000 Aligned          : flat_byte
+i16      600000 Unif             : domain16
+i16      600000 Small            : domain16
+i16      600000 Asc Saw          : domain16
+i16      600000 Desc Saw         : domain16
 i16      600000 Equal            : presorted
-i16      600000 Zipf             : range
-i16      600000 FakeZipf         : range
-i16      600000 Few 4            : range
-i16      600000 Heavy 4          : range
-i16      600000 Clusters         : range
-i16      600000 Range 16         : range
+i16      600000 Zipf             : domain16
+i16      600000 FakeZipf         : domain16
+i16      600000 Binary           : few_cmp
+i16      600000 Few 16           : domain16
+i16      600000 Spread 256       : domain16
+i16      600000 Spread 4k        : domain16
+i16      600000 Normal 8         : domain16
+i16      600000 Normal 13        : domain16
+i16      600000 RootDup          : domain16
+i16      600000 Audio            : domain16
+i16      600000 Few 4            : few_cmp
+i16      600000 Heavy 4          : domain16
+i16      600000 Clusters         : domain16
+i16      600000 Range 16         : domain16
 i16      600000 Sorted           : presorted
 i16      600000 Sorted desc      : presorted
-i16      600000 Near sorted      : range
-i16      600000 Sort rnd tl      : tail_first > no_verge > lsd
-i16      600000 Runs 8           : random_runs > range
-i16      600000 Pipe organ       : tail_first > repaired
-i16      600000 Late outl.       : range
-i16      600000 Sparse 90%       : range
-i16      600000 Bimodal          : range
-i16      600000 Gaussian         : range
-i16      600000 Sensor 3/4       : range
-i16      600000 Aligned          : range
-i16     1000000 Unif             : range
-i16     1000000 Small            : range
-i16     1000000 Asc Saw          : range
-i16     1000000 Desc Saw         : range
+i16      600000 Near sorted      : domain16
+i16      600000 Sort rnd tl      : domain16
+i16      600000 Runs 8           : domain16
+i16      600000 Pipe organ       : domain16
+i16      600000 Late outl.       : domain16
+i16      600000 Sparse 90%       : domain16
+i16      600000 Bimodal          : domain16
+i16      600000 Gaussian         : domain16
+i16      600000 Sensor 3/4       : domain16
+i16      600000 Aligned          : flat_byte
+i16     1000000 Unif             : domain16
+i16     1000000 Small            : domain16
+i16     1000000 Asc Saw          : domain16
+i16     1000000 Desc Saw         : domain16
 i16     1000000 Equal            : presorted
-i16     1000000 Zipf             : range
-i16     1000000 FakeZipf         : range
-i16     1000000 Few 4            : range
-i16     1000000 Heavy 4          : range
-i16     1000000 Clusters         : range
-i16     1000000 Range 16         : range
+i16     1000000 Zipf             : domain16
+i16     1000000 FakeZipf         : domain16
+i16     1000000 Binary           : few_cmp
+i16     1000000 Few 16           : domain16
+i16     1000000 Spread 256       : domain16
+i16     1000000 Spread 4k        : domain16
+i16     1000000 Normal 8         : domain16
+i16     1000000 Normal 13        : domain16
+i16     1000000 RootDup          : domain16
+i16     1000000 Audio            : domain16
+i16     1000000 Few 4            : few_cmp
+i16     1000000 Heavy 4          : domain16
+i16     1000000 Clusters         : domain16
+i16     1000000 Range 16         : domain16
 i16     1000000 Sorted           : presorted
 i16     1000000 Sorted desc      : presorted
-i16     1000000 Near sorted      : range
-i16     1000000 Sort rnd tl      : tail_first > no_verge > lsd
-i16     1000000 Runs 8           : random_runs > range
-i16     1000000 Pipe organ       : tail_first > repaired
-i16     1000000 Late outl.       : range
-i16     1000000 Sparse 90%       : range
-i16     1000000 Bimodal          : range
-i16     1000000 Gaussian         : range
-i16     1000000 Sensor 3/4       : range
-i16     1000000 Aligned          : range
-i16     3000000 Unif             : range
-i16     3000000 Small            : range
-i16     3000000 Asc Saw          : range
-i16     3000000 Desc Saw         : range
+i16     1000000 Near sorted      : domain16
+i16     1000000 Sort rnd tl      : domain16
+i16     1000000 Runs 8           : domain16
+i16     1000000 Pipe organ       : domain16
+i16     1000000 Late outl.       : domain16
+i16     1000000 Sparse 90%       : domain16
+i16     1000000 Bimodal          : domain16
+i16     1000000 Gaussian         : domain16
+i16     1000000 Sensor 3/4       : domain16
+i16     1000000 Aligned          : flat_byte
+i16     3000000 Unif             : domain16
+i16     3000000 Small            : domain16
+i16     3000000 Asc Saw          : domain16
+i16     3000000 Desc Saw         : domain16
 i16     3000000 Equal            : presorted
-i16     3000000 Zipf             : range
-i16     3000000 FakeZipf         : range
-i16     3000000 Few 4            : range
-i16     3000000 Heavy 4          : range
-i16     3000000 Clusters         : range
-i16     3000000 Range 16         : range
+i16     3000000 Zipf             : domain16
+i16     3000000 FakeZipf         : domain16
+i16     3000000 Binary           : few_cmp
+i16     3000000 Few 16           : domain16
+i16     3000000 Spread 256       : domain16
+i16     3000000 Spread 4k        : domain16
+i16     3000000 Normal 8         : domain16
+i16     3000000 Normal 13        : domain16
+i16     3000000 RootDup          : domain16
+i16     3000000 Audio            : domain16
+i16     3000000 Few 4            : few_cmp
+i16     3000000 Heavy 4          : domain16
+i16     3000000 Clusters         : domain16
+i16     3000000 Range 16         : domain16
 i16     3000000 Sorted           : presorted
 i16     3000000 Sorted desc      : presorted
-i16     3000000 Near sorted      : range
-i16     3000000 Sort rnd tl      : tail_first > range
-i16     3000000 Runs 8           : range
-i16     3000000 Pipe organ       : tail_first > repaired
-i16     3000000 Late outl.       : range
-i16     3000000 Sparse 90%       : range
-i16     3000000 Bimodal          : range
-i16     3000000 Gaussian         : range
-i16     3000000 Sensor 3/4       : range
-i16     3000000 Aligned          : range
-i16    10000000 Unif             : range
-i16    10000000 Small            : range
-i16    10000000 Asc Saw          : range
-i16    10000000 Desc Saw         : range
+i16     3000000 Near sorted      : domain16
+i16     3000000 Sort rnd tl      : domain16
+i16     3000000 Runs 8           : domain16
+i16     3000000 Pipe organ       : domain16
+i16     3000000 Late outl.       : domain16
+i16     3000000 Sparse 90%       : domain16
+i16     3000000 Bimodal          : domain16
+i16     3000000 Gaussian         : domain16
+i16     3000000 Sensor 3/4       : domain16
+i16     3000000 Aligned          : flat_byte
+i16    10000000 Unif             : domain16
+i16    10000000 Small            : domain16
+i16    10000000 Asc Saw          : domain16
+i16    10000000 Desc Saw         : domain16
 i16    10000000 Equal            : presorted
-i16    10000000 Zipf             : range
-i16    10000000 FakeZipf         : range
-i16    10000000 Few 4            : range
-i16    10000000 Heavy 4          : range
-i16    10000000 Clusters         : range
-i16    10000000 Range 16         : range
+i16    10000000 Zipf             : domain16
+i16    10000000 FakeZipf         : domain16
+i16    10000000 Binary           : few_cmp
+i16    10000000 Few 16           : domain16
+i16    10000000 Spread 256       : domain16
+i16    10000000 Spread 4k        : domain16
+i16    10000000 Normal 8         : domain16
+i16    10000000 Normal 13        : domain16
+i16    10000000 RootDup          : domain16
+i16    10000000 Audio            : domain16
+i16    10000000 Few 4            : few_cmp
+i16    10000000 Heavy 4          : domain16
+i16    10000000 Clusters         : domain16
+i16    10000000 Range 16         : domain16
 i16    10000000 Sorted           : presorted
 i16    10000000 Sorted desc      : presorted
-i16    10000000 Near sorted      : range
-i16    10000000 Sort rnd tl      : tail_first > range
-i16    10000000 Runs 8           : range
-i16    10000000 Pipe organ       : tail_first > repaired
-i16    10000000 Late outl.       : range
-i16    10000000 Sparse 90%       : range
-i16    10000000 Bimodal          : range
-i16    10000000 Gaussian         : range
-i16    10000000 Sensor 3/4       : range
-i16    10000000 Aligned          : range
+i16    10000000 Near sorted      : domain16
+i16    10000000 Sort rnd tl      : domain16
+i16    10000000 Runs 8           : domain16
+i16    10000000 Pipe organ       : domain16
+i16    10000000 Late outl.       : domain16
+i16    10000000 Sparse 90%       : domain16
+i16    10000000 Bimodal          : domain16
+i16    10000000 Gaussian         : domain16
+i16    10000000 Sensor 3/4       : domain16
+i16    10000000 Aligned          : flat_byte
 u8         1000 Unif             : count8
 u8         1000 Asc Saw          : count8
 u8         1000 Desc Saw         : count8

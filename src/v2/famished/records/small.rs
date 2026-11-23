@@ -10,9 +10,7 @@ use crate::v2::famished::small::lsd::lsd;
 use crate::v2::famished::small::verge::verge;
 use crate::v2::famished::small::{scan, Scan};
 use crate::v2::famished::verge::verge_if;
-use crate::v2::famished::{
-    self as bk, few::few_keys, packed::sort_in_place, Sample, Unstable,
-};
+use crate::v2::famished::{self as bk, few::few_keys, packed::sort_in_place, Sample, Unstable};
 
 /// Runs at both ends tried from this length.
 const ENDS_MIN_N: usize = 64;

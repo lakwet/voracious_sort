@@ -5,8 +5,8 @@
 //! keys. Without Miri these are ordinary (fast) tests.
 
 use crate::v2::cache::L2_OVERRIDE;
-use crate::v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key};
 use crate::v2::devour::devour_sort;
+use crate::v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key};
 use crate::v2::ravenous::ravenous_sort;
 
 /// Forced L2 (and largest cache) in bytes: thresholds of a few hundred to a

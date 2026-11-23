@@ -72,10 +72,7 @@ pub fn helper_random_array_fakezipf_u16(size: usize) -> Vec<u16> {
 fn spread_u16(size: usize, k: usize) -> Vec<u16> {
     let mut rng = crate::generators::rng();
     let values: Vec<u16> = (0..k).map(|_| rng.random::<u16>()).collect();
-    (0..size)
-        .into_par_iter()
-        .map(|_| values[crate::generators::rng().random_range(0..k)])
-        .collect()
+    (0..size).into_par_iter().map(|_| values[crate::generators::rng().random_range(0..k)]).collect()
 }
 
 // Two random values

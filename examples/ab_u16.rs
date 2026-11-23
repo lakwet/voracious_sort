@@ -1,10 +1,11 @@
-//! TMP (dev only): A/B of the u16 chain against blazing-radix, in a binary
-//! that builds in seconds (the test crate takes minutes).
+//! Dev only: A/B of the u16 chain against blazing-radix, in a binary that
+//! builds in seconds (the test crate takes minutes).
 //!
 //! cargo run --release --example ab_u16 --features "bench ab"
-//! Env: SKIP_MASKS="mask:name,..." (u16 SKIP bits; the name `std` measures
-//! `sort_unstable` instead), DOM_SIZES="200,500,...",
-//! TOTAL (keys per measure, default 2M), CHECK=1 (shape test 65..1100 first).
+//! Env: SORTS="v2,copy,..." (`v2` the library, `copy` the A/B copy of
+//! `src/v2/devour/ab_copy.rs`, `std`, `turbo`, `blz`; SKIP_MASKS="x:name,..."
+//! is read as the names), DOM_SIZES="200,500,...", TOTAL (keys per measure,
+//! default 2M), CHECK=1 (shape test 65..1100 first).
 //! Output: ns per key, copy subtracted, median of 7, random order per rep.
 
 #[allow(dead_code, unused_imports)]
@@ -12,13 +13,32 @@
 mod generators;
 
 use std::time::Instant;
-use voracious_radix_sort::{ab_u16_skip, devour_sort};
+use voracious_radix_sort::{ab_u16_copy, devour_sort};
 
 fn rng(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
     *seed ^= *seed << 17;
     *seed
+}
+
+/// One sort by its name (see the module doc).
+fn run(name: &str, w: &mut [u16]) {
+    match name {
+        "std" => w.sort_unstable(),
+        "blz" => blazing_radix::radix_sort::<u16>(w),
+        "copy" => ab_u16_copy(w),
+        "cnt" => {
+            // Floor: the counting pass alone (no writing).
+            let mut c = vec![0u32; 1 << 16];
+            for &k in w.iter() {
+                c[k as usize] += 1;
+            }
+            std::hint::black_box(&c);
+        },
+        t if t.starts_with("turbo") => turbosort::sort(w),
+        _ => devour_sort(w),
+    }
 }
 
 fn order(rep: usize, j: usize, k: usize) -> usize {
@@ -32,7 +52,7 @@ fn order(rep: usize, j: usize, k: usize) -> usize {
 }
 
 /// Random shapes (few values, straight and wrapped ranges, one byte, random)
-/// against `sort_unstable`, under every mask.
+/// against `sort_unstable`, for every sort.
 fn check(masks: &[(u64, String)]) {
     let mut seed = 0x1234_5678_9abc_def1u64;
     for n in 65..1100 {
@@ -62,11 +82,10 @@ fn check(masks: &[(u64, String)]) {
                 .collect();
             let mut r = a.clone();
             r.sort_unstable();
-            for m in masks {
-                ab_u16_skip(m.0);
+            for m in masks.iter().filter(|m| m.1 != "cnt") {
                 let mut w = a.clone();
-                devour_sort(&mut w);
-                assert!(w == r, "n {} shape {} mask {}", n, shape, m.1);
+                run(&m.1, &mut w);
+                assert!(w == r, "n {} shape {} sort {}", n, shape, m.1);
             }
         }
     }
@@ -79,21 +98,19 @@ fn check(masks: &[(u64, String)]) {
                 let a = gen(n);
                 let mut r = a.clone();
                 r.sort_unstable();
-                for m in masks {
-                    ab_u16_skip(m.0);
+                for m in masks.iter().filter(|m| m.1 != "cnt") {
                     let mut w = a.clone();
-                    devour_sort(&mut w);
-                    assert!(w == r, "n {} {} mask {}", n, title, m.1);
+                    run(&m.1, &mut w);
+                    assert!(w == r, "n {} {} sort {}", n, title, m.1);
                 }
             }
         }
     }
-    ab_u16_skip(0);
     println!("check ok");
 }
 
 /// TRACE build (feature `v2_trace`, debug is enough): the decision labels
-/// of one array per size and distribution, under each mask.
+/// of one array per size and distribution, for each sort.
 #[cfg(feature = "v2_trace")]
 fn trace(masks: &[(u64, String)]) {
     let sizes: Vec<usize> = std::env::var("DOM_SIZES")
@@ -106,16 +123,20 @@ fn trace(masks: &[(u64, String)]) {
         for (gen, title) in gens.iter() {
             let a = gen(n);
             for m in masks {
-                ab_u16_skip(m.0);
                 let mut w = a.clone();
                 let _ = voracious_radix_sort::ab_trace_take();
-                devour_sort(&mut w);
+                run(&m.1, &mut w);
                 let t = voracious_radix_sort::ab_trace_take();
-                println!("{:>7} {:14} {:8} {}", n, title.trim_start_matches("--").trim_end_matches(':').trim(), m.1, t.join(" "));
+                println!(
+                    "{:>7} {:14} {:8} {}",
+                    n,
+                    title.trim_start_matches("--").trim_end_matches(':').trim(),
+                    m.1,
+                    t.join(" ")
+                );
             }
         }
     }
-    ab_u16_skip(0);
 }
 
 /// STATS=1: per distribution, distinct high bytes, low bytes and values,
@@ -128,7 +149,10 @@ fn stats() {
         .unwrap_or(vec![10_000, 100_000, 1_000_000]);
     let mut gens = generators::unsigned_u16::generators_u16();
     gens.extend(generators::narrow_extra::extra_u16::generators());
-    println!("{:>8} {:14} {:>5} {:>5} {:>6} {:>8} {:>7}", "size", "gen", "hi", "lo", "vals", "table", "KiB");
+    println!(
+        "{:>8} {:14} {:>5} {:>5} {:>6} {:>8} {:>7}",
+        "size", "gen", "hi", "lo", "vals", "table", "KiB"
+    );
     for &n in &sizes {
         for (gen, title) in gens.iter() {
             let a = gen(n);
@@ -144,12 +168,21 @@ fn stats() {
             let d = v.iter().filter(|&&x| x).count();
             let table = h.min(l) * 256;
             let name = title.trim_start_matches("--").trim_end_matches(':').trim();
-            println!("{:>8} {:14} {:>5} {:>5} {:>6} {:>8} {:>7}", n, name, h, l, d, table, table * 4 / 1024);
+            println!(
+                "{:>8} {:14} {:>5} {:>5} {:>6} {:>8} {:>7}",
+                n,
+                name,
+                h,
+                l,
+                d,
+                table,
+                table * 4 / 1024
+            );
         }
     }
 }
 
-/// PROF=lsd|blz|new|std|turbo: only that sort, on PROF_GEN (default Unif)
+/// PROF=v2|copy|blz|std|turbo: only that sort, on PROF_GEN (default Unif)
 /// arrays of PROF_N keys (default 1000), repeated for ~PROF_SECS seconds
 /// (default 4), for `perf stat` / `perf record`. Prints ns per key.
 fn prof(which: &str) {
@@ -171,13 +204,7 @@ fn prof(which: &str) {
     while t.elapsed().as_secs_f64() < secs {
         for (w, a) in work.iter_mut().zip(arrays.iter()) {
             w.copy_from_slice(a);
-            match which {
-                "lsd" => voracious_radix_sort::ab_u16_lsd(w),
-                "blz" => blazing_radix::radix_sort::<u16>(w),
-                "std" => w.sort_unstable(),
-                "turbo" => turbosort::sort(w),
-                _ => devour_sort(w),
-            }
+            run(which, w);
         }
         sorts += count;
     }
@@ -186,13 +213,12 @@ fn prof(which: &str) {
 }
 
 fn main() {
-    let masks: Vec<(u64, String)> = std::env::var("SKIP_MASKS")
-        .unwrap_or("2048:old,0:new".into())
+    // The sorts measured: SORTS="v2,copy", or the names of SKIP_MASKS.
+    let masks: Vec<(u64, String)> = std::env::var("SORTS")
+        .or_else(|_| std::env::var("SKIP_MASKS"))
+        .unwrap_or("v2,copy".into())
         .split(',')
-        .map(|m| {
-            let (a, b) = m.split_once(':').unwrap();
-            (a.parse().unwrap(), b.to_string())
-        })
+        .map(|m| (0, m.rsplit(':').next().unwrap().to_string()))
         .collect();
     if std::env::var("CHECK").is_ok() {
         check(&masks);
@@ -233,22 +259,33 @@ fn main() {
     if let Some(f) = csv.as_mut() {
         use std::io::Write;
         let cpu = std::env::var("CPU").unwrap_or("unknown".into());
-        writeln!(f, "== machine
+        writeln!(
+            f,
+            "== machine
 cpu,{}
-settings,ab_u16 example: median of {} interleaved, random order, copy subtracted, {} keys per measure{}", cpu, reps, total, if cold {", cold (fresh copies, inputs beyond the caches)"} else {""}).unwrap();
+settings,ab_u16 example: median of {} interleaved, random order, copy subtracted, {} keys per \
+             measure{}",
+            cpu,
+            reps,
+            total,
+            if cold { ", cold (fresh copies, inputs beyond the caches)" } else { "" }
+        )
+        .unwrap();
         let names: Vec<&str> = masks.iter().map(|m| m.1.as_str()).collect();
-        writeln!(f, "== u16 (ab_u16 example; ns per key)
-cols,u16,size,gen,{},blazing", names.join(",")).unwrap();
+        writeln!(
+            f,
+            "== u16 (ab_u16 example; ns per key)
+cols,u16,size,gen,{},blazing",
+            names.join(",")
+        )
+        .unwrap();
     }
     println!("{:>9} {:12}{} {:>8} {:>8}", "size", "gen", head, "blazing", "copy");
     let started = Instant::now();
     for &n in &sizes {
         for (gen, title) in gens.iter() {
-            let name: String = title
-                .trim_start_matches("--")
-                .trim_end_matches(':')
-                .trim()
-                .replace(' ', "_");
+            let name: String =
+                title.trim_start_matches("--").trim_end_matches(':').trim().replace(' ', "_");
             let count = (total / n).max(1);
             let arrays: Vec<Vec<u16>> = (0..count).map(|_| gen(n)).collect();
             let mut work = arrays.clone();
@@ -257,49 +294,23 @@ cols,u16,size,gen,{},blazing", names.join(",")).unwrap();
             for rep in 0..reps {
                 for j in 0..k {
                     let v = order(rep, j, k);
-                    if v < masks.len() {
-                        ab_u16_skip(masks[v].0);
-                    }
                     let sort_one = |w: &mut [u16]| {
-                        if v < masks.len() && masks[v].1 == "std" {
-                            w.sort_unstable();
-                        } else if v < masks.len() && masks[v].1.starts_with("turbo") {
-                            turbosort::sort(w);
-                        } else if v < masks.len() && masks[v].1 == "blz" {
-                            blazing_radix::radix_sort::<u16>(w);
-                        } else if v < masks.len() && masks[v].1 == "zw" {
-                            // Fixed cost of counting at the leaves of a 6-bit
-                            // split: 64 tables of 1024 counters zeroed, then
-                            // walked (no key counted, nothing written).
-                            let mut acc = 0usize;
-                            for _ in 0..64 {
-                                let t = std::hint::black_box([0u16; 1024]);
-                                for &c in t.iter() {
-                                    if c != 0 {
-                                        acc += c as usize;
-                                    }
-                                }
-                            }
-                            std::hint::black_box(acc);
-                        } else if v < masks.len() && masks[v].1 == "cnt" {
-                            // Floor: the counting pass alone (no writing).
-                            let mut c = vec![0u32; 1 << 16];
-                            for &k in w.iter() {
-                                c[k as usize] += 1;
-                            }
-                            std::hint::black_box(&c);
-                        } else if v < masks.len() && masks[v].1 == "gen" {
-                            voracious_radix_sort::ab_u16_gen(w);
-                        } else if v < masks.len() && masks[v].1 == "dom" {
-                            voracious_radix_sort::ab_u16_domain(w);
-                        } else if v < masks.len() && masks[v].1.starts_with("lsd") {
-                            voracious_radix_sort::ab_u16_lsd(w);
-                        } else if v < masks.len() {
-                            devour_sort(w);
+                        if v < masks.len() {
+                            run(&masks[v].1, w);
                         } else if v == masks.len() {
                             blazing_radix::radix_sort::<u16>(w);
                         }
                     };
+                    // TRIM=1: freed memory given back to the system before each
+                    // measure, as the official bench does (glibc only).
+                    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+                    if std::env::var("TRIM").is_ok() {
+                        extern "C" {
+                            fn malloc_trim(pad: usize) -> i32;
+                        }
+                        // SAFETY: glibc's malloc_trim, no precondition.
+                        unsafe { malloc_trim(0) };
+                    }
                     let t = Instant::now();
                     // Cold below 1M keys only: beyond, the arrays are out of
                     // the caches anyway, and a fresh copy of tens of MiB (its
@@ -317,14 +328,17 @@ cols,u16,size,gen,{},blazing", names.join(",")).unwrap();
                         }
                     }
                     times[v].push(t.elapsed().as_nanos() as f64 / (count * n) as f64);
-                    if !cold && rep == 0 && v <= masks.len() && (v == masks.len() || masks[v].1 != "cnt" && masks[v].1 != "zw") {
+                    if !cold
+                        && rep == 0
+                        && v <= masks.len()
+                        && (v == masks.len() || masks[v].1 != "cnt")
+                    {
                         let mut r = arrays[0].clone();
                         r.sort_unstable();
                         assert!(work[0] == r, "{} {} {}", v, n, name);
                     }
                 }
             }
-            ab_u16_skip(0);
             let med = |x: &Vec<f64>| -> f64 {
                 let mut x = x.clone();
                 x.sort_by(|a, b| a.total_cmp(b));
@@ -336,8 +350,9 @@ cols,u16,size,gen,{},blazing", names.join(",")).unwrap();
             println!("{:>9} {:12}{} {:8.3}", n, name, cells, copy);
             if let Some(f) = csv.as_mut() {
                 use std::io::Write;
-                let vals: Vec<String> =
-                    (0..=masks.len()).map(|v| format!("{:.4}", (med(&times[v]) - copy).max(0.001))).collect();
+                let vals: Vec<String> = (0..=masks.len())
+                    .map(|v| format!("{:.4}", (med(&times[v]) - copy).max(0.001)))
+                    .collect();
                 let gen_name = title.trim_start_matches("--").trim_end_matches(':').trim();
                 writeln!(f, "row,u16,{},{},{}", n, gen_name, vals.join(",")).unwrap();
             }

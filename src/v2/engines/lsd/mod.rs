@@ -61,7 +61,10 @@ fused_lsd!(u64, i64, wi64, 44, signed);
 fused_lsd!(u128, i128, wu128, 88, unsigned);
 fused_lsd!(u128, i128, wi128, 88, signed);
 // 8- and 16-bit integers (devour_sort): byte digits only (never wide).
+// 16 bits: the chain has its own LSD (`narrow16`); kept for the tests.
+#[cfg(test)]
 fused_lsd!(u16, i16, wu16, 17, unsigned);
+#[cfg(test)]
 fused_lsd!(u16, i16, wi16, 17, signed);
 fused_lsd!(u8, i8, wu8, 9, unsigned);
 fused_lsd!(u8, i8, wi8, 9, signed);

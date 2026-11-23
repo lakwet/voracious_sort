@@ -11,14 +11,14 @@
 use std::mem::MaybeUninit;
 
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
+use crate::v2::devour::keys::*;
+use crate::v2::devour::DevourSort;
 use crate::v2::engines::bytes;
 use crate::v2::engines::lsd::wi8;
 use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
 use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
-use crate::v2::devour::keys::*;
-use crate::v2::devour::DevourSort;
 use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use crate::v2::special::plateaus::plateaus;
 use crate::v2::special::{spread, DENSE_MIN, SAMPLE};

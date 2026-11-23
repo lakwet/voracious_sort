@@ -71,8 +71,8 @@ use crate::v2::cache::{
     l2_bytes, page_bytes, reported_l2, reported_levels, Budget, BUDGETS, BUDGET_OVERRIDE,
     L2_OVERRIDE,
 };
-use crate::v2::famished;
 use crate::v2::devour::devour_sort;
+use crate::v2::famished;
 use crate::v2::ravenous::ravenous_sort;
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -468,7 +468,14 @@ fn measure_cold<T: Clone>(
             } else {
                 continue;
             };
-            report.line(&format!("{},{},{},{},{}", what, label, size, short_name(name), variant.name));
+            report.line(&format!(
+                "{},{},{},{},{}",
+                what,
+                label,
+                size,
+                short_name(name),
+                variant.name
+            ));
             failed[v] = true;
         }
         // Slot nv: the copies alone.
@@ -490,14 +497,16 @@ fn measure_cold<T: Clone>(
             }
             t.sort_by(|a, b| a.total_cmp(b));
             let m = t.len() / 2;
-            if t.len().is_multiple_of(2) { (t[m - 1] + t[m]) / 2.0 } else { t[m] }
+            if t.len().is_multiple_of(2) {
+                (t[m - 1] + t[m]) / 2.0
+            } else {
+                t[m]
+            }
         };
         let copy = median(&mut times[nv]);
         let keys = (count * size) as f64;
-        let per_key = times[..nv]
-            .iter_mut()
-            .map(|t| ((median(t) - copy) / keys).max(0.0))
-            .collect();
+        let per_key =
+            times[..nv].iter_mut().map(|t| ((median(t) - copy) / keys).max(0.0)).collect();
         rows.push((short_name(name), per_key));
     }
     rows
@@ -1006,7 +1015,11 @@ fn machine(report: &mut Report, cfg: &Config) {
             cfg.reps,
             cfg.memory >> 20,
             cfg.parts.join(" "),
-            if super::cold::enabled() { ", cold (fresh copies, inputs beyond the caches)" } else { "" }
+            if super::cold::enabled() {
+                ", cold (fresh copies, inputs beyond the caches)"
+            } else {
+                ""
+            }
         ),
     ];
     report.line("== machine");

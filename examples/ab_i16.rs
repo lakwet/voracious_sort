@@ -1,8 +1,8 @@
-//! TMP (dev only): i16 sorts compared in a binary that builds in seconds.
+//! Dev only: i16 sorts compared in a binary that builds in seconds.
 //!
 //! cargo run --release --example ab_i16 --features "bench ab"
-//! Env: SORTS="v2,wrap,std,turbo" (v2: the current i16 chain; wrap: the u16
-//! chain with the sign bit flipped; blazing is always the last column),
+//! Env: SORTS="v2,copy,std,turbo" (v2: the library; copy: the A/B copy of
+//! `src/v2/devour/ab_copy.rs`; blazing is always the last column),
 //! DOM_SIZES, TOTAL, REPS (default 7), COLD=1, CSV=path + CPU=name.
 //! Output: ns per key, copy subtracted, median of the reps, random order.
 
@@ -11,7 +11,7 @@
 mod generators;
 
 use std::time::Instant;
-use voracious_radix_sort::{ab_i16_gen, ab_i16_wrap, devour_sort};
+use voracious_radix_sort::{ab_i16_copy, ab_i16_gen, devour_sort};
 
 fn rng(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
@@ -62,7 +62,10 @@ fn check() {
     }
     let mut gens = generators::signed_i16::generators_i16();
     gens.extend(generators::narrow_extra::extra_i16::generators());
-    for n in [65, 100, 300, 700, 1099, 1100, 1500, 2000, 3001, 5000, 10_007, 40_000, 70_000, 140_000, 300_000] {
+    for n in [
+        65, 100, 300, 700, 1099, 1100, 1500, 2000, 3001, 5000, 10_007, 40_000, 70_000, 140_000,
+        300_000,
+    ] {
         for _ in 0..2 {
             for (gen, title) in gens.iter() {
                 let a = gen(n);
@@ -93,7 +96,12 @@ fn trace() {
             let _ = voracious_radix_sort::ab_trace_take();
             ab_i16_gen(&mut w);
             let t = voracious_radix_sort::ab_trace_take();
-            println!("{:>8} {:14} {}", n, title.trim_start_matches("--").trim_end_matches(':').trim(), t.join(" "));
+            println!(
+                "{:>8} {:14} {}",
+                n,
+                title.trim_start_matches("--").trim_end_matches(':').trim(),
+                t.join(" ")
+            );
         }
     }
 }
@@ -122,8 +130,14 @@ fn prof(which: &str) {
         }
         count += 1;
     }
-    println!("{} {} n={} : {:.3} ns/key (copy included), {} sorts", which, want, n,
-        t.elapsed().as_nanos() as f64 / (count * n) as f64, count);
+    println!(
+        "{} {} n={} : {:.3} ns/key (copy included), {} sorts",
+        which,
+        want,
+        n,
+        t.elapsed().as_nanos() as f64 / (count * n) as f64,
+        count
+    );
 }
 
 fn main() {
@@ -164,19 +178,31 @@ fn main() {
     if let Some(f) = csv.as_mut() {
         use std::io::Write;
         let cpu = std::env::var("CPU").unwrap_or("unknown".into());
-        writeln!(f, "== machine\ncpu,{}\nsettings,ab_i16 example: median of {} interleaved, random order, copy subtracted, {} keys per measure{}", cpu, reps, total, if cold { ", cold (fresh copies, inputs beyond the caches)" } else { "" }).unwrap();
-        // For the bench viewer: the generic chain is "v2" (its reference),
-        // the current i16 chain "v2 old".
+        writeln!(
+            f,
+            "== machine\ncpu,{}\nsettings,ab_i16 example: median of {} interleaved, random order, \
+             copy subtracted, {} keys per measure{}",
+            cpu,
+            reps,
+            total,
+            if cold { ", cold (fresh copies, inputs beyond the caches)" } else { "" }
+        )
+        .unwrap();
+        // For the bench viewer: the library is "v2" (its reference).
         let names: Vec<&str> = sorts
             .iter()
             .map(|s| match s.as_str() {
                 "gen" => "v2",
-                "v2" => "v2 old",
                 "turbo" => "turbosort",
                 x => x,
             })
             .collect();
-        writeln!(f, "== i16 (ab_i16 example; ns per key)\ncols,i16,size,gen,{},blazing", names.join(",")).unwrap();
+        writeln!(
+            f,
+            "== i16 (ab_i16 example; ns per key)\ncols,i16,size,gen,{},blazing",
+            names.join(",")
+        )
+        .unwrap();
     }
     let head: String = sorts.iter().map(|s| format!(" {:>8}", s)).collect();
     println!("{:>9} {:12}{} {:>8} {:>8}", "size", "gen", head, "blazing", "copy");
@@ -197,36 +223,49 @@ fn main() {
                             match sorts[v].as_str() {
                                 "std" => w.sort_unstable(),
                                 "turbo" => turbosort::sort(w),
-                                "wrap" => ab_i16_wrap(w),
+                                "copy" => ab_i16_copy(w),
                                 "gen" => ab_i16_gen(w),
                                 // blazing u16 on the keys xored with the sign bit (the
                                 // i16 order with the u16 code; timing only), and the
                                 // xor alone (to subtract).
                                 "blzx" => {
-                                    let b = unsafe { std::slice::from_raw_parts_mut(w.as_mut_ptr() as *mut u16, w.len()) };
-                                    for x in b.iter_mut() { *x ^= 0x8000; }
+                                    let b = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            w.as_mut_ptr() as *mut u16,
+                                            w.len(),
+                                        )
+                                    };
+                                    for x in b.iter_mut() {
+                                        *x ^= 0x8000;
+                                    }
                                     blazing_radix::radix_sort::<u16>(b);
-                                }
+                                },
                                 "xor" => {
-                                    let b = unsafe { std::slice::from_raw_parts_mut(w.as_mut_ptr() as *mut u16, w.len()) };
-                                    for x in b.iter_mut() { *x ^= 0x8000; }
+                                    let b = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            w.as_mut_ptr() as *mut u16,
+                                            w.len(),
+                                        )
+                                    };
+                                    for x in b.iter_mut() {
+                                        *x ^= 0x8000;
+                                    }
                                     std::hint::black_box(&b);
-                                }
+                                },
                                 // blazing on the same bits read as u16 (timing only).
                                 "blzu" => blazing_radix::radix_sort::<u16>(unsafe {
-                                    std::slice::from_raw_parts_mut(w.as_mut_ptr() as *mut u16, w.len())
+                                    std::slice::from_raw_parts_mut(
+                                        w.as_mut_ptr() as *mut u16,
+                                        w.len(),
+                                    )
                                 }),
-                                // gen with the u16 SKIP bits of SKIP2.
-                                "gen2" => {
-                                    let m = std::env::var("SKIP2").ok().map_or(0, |v| v.parse().unwrap());
-                                    voracious_radix_sort::ab_u16_skip(m);
-                                    ab_i16_gen(w);
-                                    voracious_radix_sort::ab_u16_skip(0);
-                                },
                                 // The same work in the u16 instance (wrong
                                 // order for i16: timing only, COLD=1).
                                 "asu16" => voracious_radix_sort::ab_u16_gen(unsafe {
-                                    std::slice::from_raw_parts_mut(w.as_mut_ptr() as *mut u16, w.len())
+                                    std::slice::from_raw_parts_mut(
+                                        w.as_mut_ptr() as *mut u16,
+                                        w.len(),
+                                    )
                                 }),
                                 _ => devour_sort(w),
                             }
@@ -261,11 +300,14 @@ fn main() {
                 x[x.len() / 2]
             };
             let copy = med(&times[k - 1]);
-            let cells: String = (0..=sorts.len()).map(|v| format!(" {:8.3}", med(&times[v]) - copy)).collect();
+            let cells: String =
+                (0..=sorts.len()).map(|v| format!(" {:8.3}", med(&times[v]) - copy)).collect();
             println!("{:>9} {:12}{} {:8.3}", n, name.replace(' ', "_"), cells, copy);
             if let Some(f) = csv.as_mut() {
                 use std::io::Write;
-                let vals: Vec<String> = (0..=sorts.len()).map(|v| format!("{:.4}", (med(&times[v]) - copy).max(0.001))).collect();
+                let vals: Vec<String> = (0..=sorts.len())
+                    .map(|v| format!("{:.4}", (med(&times[v]) - copy).max(0.001)))
+                    .collect();
                 writeln!(f, "row,i16,{},{},{}", n, name, vals.join(",")).unwrap();
             }
         }

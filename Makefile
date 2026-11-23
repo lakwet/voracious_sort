@@ -84,8 +84,8 @@ bench: export BENCH_SIZES = $(BENCH_SIZES_ALL)
 bench: ## every key type, 1k to 10M keys (several hours)
 	@$(BENCH_RUN)
 
-bench-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
-bench-type: export BENCH_NAME = bench-type-$(T)$(if $(filter 1,$(NATIVE)),-native)
+bench-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS) $(PLACE_FLAGS)
+bench-type: export BENCH_NAME = bench-type-$(T)$(if $(filter 1,$(NATIVE)),-native)$(PLACE_NAME)
 bench-type: export BENCH_PARTS = int,float,wide
 bench-type: export BENCH_TYPES = $(T)
 bench-type: export BENCH_SORTS = best
@@ -97,6 +97,15 @@ bench-type: export BENCH_REPS = 11
 bench-type: ## one key type, 500 to 30M keys, cold (median of 11): make bench-type T=u32 (u8 ... i128, f32, f64, char)
 	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
 	@$(BENCH_RUN)
+
+# The bench of one type over several code placements of the same source
+# (PLACEMENTS="align:units ...", as abench-align): one build and one file
+# per placement (bench-type-<T>[-native]-place-<align>-<units>-...); the
+# placement alone moves some cells by 5-35 %, tools/bench_placements.py
+# gives each cell's range and counts only what holds in every placement.
+bench-type-placed: ## bench-type over PLACEMENTS (6 builds by default): make bench-type-placed T=u16 [NATIVE=1]
+	@test -n "$(T)" || (echo "usage: make bench-type-placed T=u16" && exit 1)
+	@for p in $(PLACEMENTS); do a=$${p%%:*}; u=$${p##*:}; 	  CARGO_TARGET_DIR=target/place-$$a-$$u CARGO_PROFILE_RELEASE_CODEGEN_UNITS=$$u 	  $(MAKE) --no-print-directory bench-type T=$(T) NATIVE=$(NATIVE) 	    PLACE_FLAGS="-C llvm-args=-align-loops=$$a" PLACE_NAME="-place-$$a-$$u" || exit 1; 	done
 
 # Simulated u16 bench (examples/ab_u16.rs, cold, median of 11): a few minutes
 # instead of the test binary's build; v2 against std, turbosort and blazing,
@@ -115,7 +124,7 @@ endif
 abench-u16: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 	@mkdir -p bench_work/$(ABENCH_HOST)
-	COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_u16 example, cold)" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-u16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SKIP_MASKS="0:v2,0:std,0:turbosort" DOM_SIZES=$(ABENCH_SIZES) 	  cargo run --release --example ab_u16 --features "bench ab"
+	COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_u16 example, cold)" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-u16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SORTS="v2,std,turbosort" DOM_SIZES=$(ABENCH_SIZES) 	  cargo run --release --example ab_u16 --features "bench ab"
 
 # The 16-bit family (u16 and i16): the full bench of each type (bench-type,
 # cold), generic build then native build (-C target-cpu=native), each in its
@@ -135,16 +144,19 @@ abench-i16: ## simulated i16 bench, cold, ~15 min (for the bench viewer)
 	@mkdir -p bench_work/$(ABENCH_HOST)
 	CHECK=1 COLD=1 TOTAL=12000000 REPS=11 CPU="$(ABENCH_CPU) (ab_i16 example, cold)" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-i16-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).csv 	  SORTS=gen,std,turbo DOM_SIZES=$(ABENCH_SIZES) cargo run --release --example ab_i16 --features "bench ab"
 
-# The per-architecture choices of the u16 sort flipped one at a time (does a
-# choice follow the instruction set or the cache size?): window before the
-# domain count from 262 144 keys, 16-bit LSD counters, high pass one key at a
-# time, order scan by blocks of 16, direct Pipe organ merge. Cold; the table
-# goes to bench_work/<host>/abench-arch-<host>-<UTC date>.txt.
-ABENCH_ARCH_SIZES = 1000,5000,20000,100000,200000,500000,1000000,2000000,5000000
-abench-arch: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
-abench-arch: ## u16 per-architecture choices flipped one at a time, cold (~15 min)
+# A/B of our own variants over several code placements of the same source
+# (loops aligned on 16, 32 or 64 bytes, 1 or 16 codegen units): the
+# placement alone moves some cells by 5-35 % (Haswell's uop cache, Zen 2),
+# so a variant counts only where it wins in every placement
+# (tools/ab_align.py). EX=ab_u16 or ab_i16; SORTS (`v2,copy`: the library
+# against the A/B copy of src/v2/devour/ab_copy.rs) and DOM_SIZES as for the
+# example; PLACEMENTS="align:units ...". Cold, median of 11 each.
+EX ?= ab_u16
+PLACEMENTS ?= 16:16 32:16 64:16 16:1 32:1 64:1
+abench-align: ## A/B over 6 code placements (EX, SORTS=v2,copy, DOM_SIZES): wins must hold in all
 	@mkdir -p bench_work/$(ABENCH_HOST)
-	COLD=1 TOTAL=12000000 REPS=11 	  SKIP_MASKS="0:new,576460752303423488:win,281474976710656:c16,4194304:hiseq,1073741824:blk16,524288:pipe" 	  DOM_SIZES=$(ABENCH_ARCH_SIZES) cargo run --release --example ab_u16 --features "bench ab" 	  | tee bench_work/$(ABENCH_HOST)/abench-arch-$(ABENCH_HOST)-$$(date -u +%Y-%m-%d-%H%M).txt
+	@for p in $(PLACEMENTS); do a=$${p%%:*}; u=$${p##*:}; 	  CARGO_TARGET_DIR=target/place-$$a-$$u CARGO_PROFILE_RELEASE_CODEGEN_UNITS=$$u 	  RUSTFLAGS="$(BENCH_RUSTFLAGS) -C llvm-args=-align-loops=$$a" 	    cargo build -q --release --example $(EX) --features "bench ab" || exit 1; 	  COLD=1 TOTAL=12000000 REPS=11 ./target/place-$$a-$$u/release/examples/$(EX) 	    > bench_work/$(ABENCH_HOST)/abench-place-$$a-$$u.txt || exit 1; 	done
+	python3 tools/ab_align.py $(foreach p,$(PLACEMENTS),bench_work/$(ABENCH_HOST)/abench-place-$(subst :,-,$(p)).txt)
 
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))

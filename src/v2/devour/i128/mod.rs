@@ -11,10 +11,10 @@
 use crate::v2::cache::{budget, Budget};
 use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
 mod presorted;
+use crate::v2::devour::wide128::{bits_of, few, narrow, Key128};
 use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
 use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
-use crate::v2::devour::wide128::{bits_of, few, narrow, Key128};
 use crate::v2::special::heavy::heavy_from_spread;
 use crate::v2::special::spread;
 
