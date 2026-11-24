@@ -33,9 +33,10 @@ pub(crate) mod special;
 pub(crate) mod cache;
 #[macro_use]
 pub(crate) mod decide;
+pub(crate) mod devour;
 pub(crate) mod engines;
+pub(crate) mod famished;
 pub(crate) mod inspect;
+pub(crate) mod ravenous;
 pub(crate) mod runs;
-pub(crate) mod sorts;
 #[cfg(test)] pub(crate) mod testing;
-pub(crate) mod types;

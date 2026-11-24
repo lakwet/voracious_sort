@@ -1,7 +1,7 @@
 //! The public trait of 2.0: `voracious_sort` and its variants as methods of
 //! slices (and of `Vec` through `Deref`).
 
-use crate::v2::sorts::by_key::{devour_sort_by_key, devour_sort_unstable_by_key, SortKey};
+use crate::v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key, SortKey};
 
 mod sealed {
     pub trait Sealed {}
@@ -37,7 +37,7 @@ macro_rules! sortable {
     )*};
 }
 sortable!(
-    crate::v2::sorts::devour::devour_sort,
+    crate::v2::devour::devour_sort,
     bool,
     char,
     u8,
@@ -53,7 +53,7 @@ sortable!(
     i128,
     isize
 );
-sortable!(crate::v2::sorts::ravenous::ravenous_sort, f32, f64);
+sortable!(crate::v2::ravenous::ravenous_sort, f32, f64);
 
 /// Radix sorts of a slice.
 ///
@@ -127,11 +127,11 @@ impl<T> RadixSort<T> for [T] {
 
     #[inline]
     fn voracious_sort_by_key<K: SortKey, F: Fn(&T) -> K>(&mut self, key: F) {
-        devour_sort_by_key(self, key)
+        famished_sort_by_key(self, key)
     }
 
     #[inline]
     fn voracious_sort_unstable_by_key<K: SortKey, F: Fn(&T) -> K>(&mut self, key: F) {
-        devour_sort_unstable_by_key(self, key)
+        famished_sort_unstable_by_key(self, key)
     }
 }

@@ -45,6 +45,7 @@ pub struct RecPair {
 
 /// rdst sorts records through a trait on the record (`RadixKey`); the one
 /// of voracious 1.x (`Radixable`): `src/tests/v1_records.rs`.
+#[cfg(feature = "bench")]
 impl<K: rdst::RadixKey, const W: usize> rdst::RadixKey for Rec<K, W> {
     const LEVELS: usize = K::LEVELS;
     #[inline]

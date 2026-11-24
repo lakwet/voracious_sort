@@ -1,7 +1,7 @@
 //! Unit tests of `v2/engines/counting.rs` (a child module: sees its private items).
 
 use super::*;
-use crate::v2::sorts::devour::keys::{flip16, flip32, flip64, flip8, id16, id32, id64, id8};
+use crate::v2::devour::keys::{flip16, flip32, flip64, flip8, id16, id32, id64, id8};
 use crate::v2::testing::*;
 
 /// The detectors count from `FEW_MIN` keys on: shorter arrays never

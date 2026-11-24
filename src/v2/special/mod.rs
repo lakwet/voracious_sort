@@ -67,6 +67,23 @@ macro_rules! int_detectors {
             int_few!($t, $uint, $encode, $decode);
         }
     };
+    // `partial`: a chain that calls only some of them (the 16-bit chain:
+    // `range` and `few_count`), the others left unused.
+    ($m:ident, $t:ty, $uint:ty, $encode:expr, $decode:expr, $roller_min:path, partial) => {
+        #[allow(dead_code)]
+        pub(crate) mod $m {
+            use super::*;
+            use crate::v2::cache::{budget, Budget};
+            use crate::v2::engines::counting::{
+                domain_count, exact_count, window_count, window_count_split,
+            };
+            use crate::v2::special::*;
+
+            int_range!($t, $uint, $encode, $decode, $roller_min);
+            int_dense!($t, $uint, $encode, $decode);
+            int_few!($t, $uint, $encode, $decode);
+        }
+    };
 }
 
 #[cfg(test)] mod tests;

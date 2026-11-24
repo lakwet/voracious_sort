@@ -51,3 +51,44 @@ fn signed() {
     check!(wi64, u64, |b| b ^ 1 << 63);
     check!(wi128, u128, |b| b ^ 1 << 127);
 }
+
+/// The short 16-bit LSD: every shape and size up to `SHORT_MAX`, in both
+/// orders (u16 bits, i16 bits with the sign bit flipped), and smooth keys
+/// (the two-table count) every 7 sizes from 16 to `STACK_MAX` (the stack
+/// buffer), then a few sizes up to `SHORT_MAX` (the heap one).
+#[test]
+fn short16() {
+    use super::short16::{lsd_short, SHORT_MAX, STACK_MAX};
+    let check = |a: &[u16], what: &str| {
+        for f in [0u16, 0x8000] {
+            let mut got = a.to_vec();
+            if f == 0 {
+                lsd_short::<0>(&mut got);
+            } else {
+                lsd_short::<0x8000>(&mut got);
+            }
+            let mut want = a.to_vec();
+            want.sort_unstable_by_key(|&k| k ^ f);
+            assert!(got == want, "short16 {} F={:#x} n={}", what, f, a.len());
+        }
+    };
+    for_each_case::<u16>(|shape, a| {
+        if a.len() <= SHORT_MAX {
+            check(&a, shape);
+        }
+    });
+    let mut seed = 0x2545_F491_4F6C_DD1Du64;
+    for n in (16..STACK_MAX).step_by(7).chain([STACK_MAX, STACK_MAX + 1, 20_000, SHORT_MAX]) {
+        let mut x = 0u16;
+        let a: Vec<u16> = (0..n)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                x = x.wrapping_add((seed % 64) as u16);
+                x
+            })
+            .collect();
+        check(&a, "smooth");
+    }
+}

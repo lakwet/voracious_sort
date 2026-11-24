@@ -108,9 +108,9 @@ impl WideNarrow for u128 {
             return false;
         }
         if raw {
-            crate::v2::sorts::devour::wide128::narrow_keys(keys, min, range, enc, dec);
+            crate::v2::devour::wide128::narrow_keys(keys, min, range, enc, dec);
         } else {
-            crate::v2::sorts::devour::wide128::narrow_keys(keys, min, range, |k| k, dec);
+            crate::v2::devour::wide128::narrow_keys(keys, min, range, |k| k, dec);
         }
         true
     }

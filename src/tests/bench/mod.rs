@@ -2,3 +2,4 @@
 //! `make bench-records`, `make bench-big`, `make bench-big-type`).
 
 mod bench_cpu;
+mod cold;

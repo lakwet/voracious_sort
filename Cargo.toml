@@ -1,6 +1,6 @@
 [package]
 name = "voracious_radix_sort"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
 # Minimum Rust: 1.88 (std::hint::select_unpredictable in the v2 merges; 1.87 fails).
@@ -21,14 +21,21 @@ include = [
     "src/v2/**/*.rs",
     "!src/v2/testing.rs",
     "!src/**/tests.rs",
-    "README.md",
-    "LICENSE",
+    "/README.md",
+    "/LICENSE",
 ]
 
 [features]
 voracious_multithread = ["rayon"]
 # Decision trace of the v2 sorts (tests only, see src/v2/trace.rs).
 v2_trace = []
+# The benchmarks against the rival sorts (tests only, `make bench...`):
+# without it `cargo test` / `make test` / the CI do not build the rival crates.
+bench = ["dep:blazing-radix", "dep:radsort", "dep:rdst", "dep:turbosort", "dep:glidesort"]
+# Development only: a second instance of the 16-bit chain (A/B by copy) for
+# the measuring examples examples/ab_u16.rs and ab_i16.rs, which build in
+# seconds instead of the whole test crate.
+ab = []
 
 [lints.rust]
 # The v1 also covers 8- and 128-bit pointer widths (no such target yet).
@@ -36,13 +43,23 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_pointer_width, valu
 
 [dependencies]
 rayon = { version = "1.12.0", optional = true }
+# Rival sorts, used by the benchmarks only (feature `bench`). Optional normal
+# dependencies, since dev-dependencies are always built by `cargo test`.
+blazing-radix = { version = "0.1.0", optional = true }
+radsort = { version = "0.1.1", optional = true }
+rdst = { version = "0.20.14", default-features = false, optional = true }
+turbosort = { version = "0.2.2", optional = true }
+glidesort = { version = "0.1.2", optional = true }
 
 [dev-dependencies]
 rayon = "1.12.0"
-blazing-radix = "0.1.0"
-radsort = "0.1.1"
-rdst = { version = "0.20.14", default-features = false }
-turbosort = "0.2.2"
-glidesort = "0.1.2"
 rand = "0.10.3"
 rand_distr = "0.6.0"
+
+[[example]]
+name = "ab_u16"
+required-features = ["bench", "ab"]
+
+[[example]]
+name = "ab_i16"
+required-features = ["bench", "ab"]

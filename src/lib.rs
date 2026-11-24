@@ -84,6 +84,40 @@ mod v1;
 mod v2;
 
 pub use v2::api::{RadixSort, Sortable};
-pub use v2::sorts::by_key::SortKey;
-pub use v2::sorts::devour::{devour_sort, DevourSort};
-pub use v2::sorts::ravenous::{ravenous_sort, RavenousSort};
+pub use v2::devour::{devour_sort, DevourSort};
+pub use v2::famished::{famished_sort_by_key, famished_sort_unstable_by_key, SortKey};
+pub use v2::ravenous::{ravenous_sort, RavenousSort};
+
+/// Dev only (feature `ab`, the measuring examples): the cache sizes read on
+/// this machine (L2, largest level), in bytes.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_cache() -> (usize, usize) { (v2::cache::l2_bytes(), v2::cache::largest_bytes()) }
+
+/// Dev only (feature `ab`): the u16 chain (`narrow16`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u16_gen(keys: &mut [u16]) { v2::devour::narrow16::nu16::sort(keys) }
+
+/// Dev only (feature `ab`): the i16 chain (`narrow16`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i16_gen(keys: &mut [i16]) { v2::devour::i16::sort(keys) }
+
+/// Dev only (feature `ab`): the u16 chain of the A/B copy (`ab_copy`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u16_copy(keys: &mut [u16]) { v2::devour::ab_copy::cu16::sort(keys) }
+
+/// Dev only (feature `ab`): the i16 chain of the A/B copy (`ab_copy`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i16_copy(keys: &mut [i16]) {
+    v2::devour::ab_copy::ci16::sort(v2::devour::keys::bits_of(keys))
+}
+
+/// Dev only (features `ab` and `v2_trace`): the decision labels noted
+/// since the last call.
+#[cfg(all(feature = "ab", feature = "v2_trace"))]
+#[doc(hidden)]
+pub fn ab_trace_take() -> Vec<&'static str> { v2::dev::trace::take() }

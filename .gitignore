@@ -4,3 +4,9 @@
 /traces/moved.txt
 /traces/sentinel-last.txt
 /algo_doc/
+
+# Per-type development logs (local)
+/dev_logs/
+
+# Work benches (make abench-*), not published
+/bench_work/

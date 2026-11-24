@@ -9,7 +9,7 @@ use crate::v2::testing::*;
 /// exist for (narrow, few) they must answer `true`.
 macro_rules! detectors {
     ($t:ident, $u:ty, $strict:expr) => {{
-        use crate::v2::types::$t::detectors as d;
+        use crate::v2::devour::$t::detectors as d;
         for_each_case::<$u>(|shape, raw| {
             let a: Vec<$t> = raw.iter().map(|&x| x as $t).collect();
             if a.is_empty() {
