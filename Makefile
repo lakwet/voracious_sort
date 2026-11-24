@@ -130,6 +130,14 @@ abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 # cold), generic build then native build (-C target-cpu=native), each in its
 # own files (bench-type-u16-..., bench-type-u16-native-...); two builds of
 # the test binary (several minutes each).
+# One run for a machine we cannot reach (gros intel): its reference trace,
+# the correctness tests, then the official 16-bit bench. Files to bring back:
+# traces/<cpu>.txt and resultsbenchs/<host>/ (and the terminal output).
+night-16: ## trace-write, then the correctness tests, then bench-16 (several hours)
+	@$(MAKE) --no-print-directory trace-write
+	@$(MAKE) --no-print-directory test
+	@$(MAKE) --no-print-directory bench-16
+
 bench-16: ## u16 and i16, generic then native: 4 bench-type runs (long; one file each)
 	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=0
 	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=0
@@ -220,4 +228,4 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 .DEFAULT_GOAL := help
-.PHONY: test test-miri test-fuzzy build check lint fmt doc clean bench bench-type bench-records bench-big bench-big-type trace trace-ab trace-write sentinel help
+.PHONY: test test-miri test-fuzzy build check lint fmt doc clean bench bench-type bench-records bench-big bench-big-type trace trace-ab trace-write sentinel night-16 help
