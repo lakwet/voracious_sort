@@ -1,6 +1,6 @@
 [package]
 name = "voracious_radix_sort"
-version = "2.1.0"
+version = "2.1.1"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
 # Minimum Rust: 1.88 (std::hint::select_unpredictable in the v2 merges; 1.87 fails).
