@@ -82,8 +82,7 @@ mod generators;
 mod tests;
 // The 1.x code: only the multithread sort (peeka) still runs on it, and the
 // tests and benchmarks (built with the same feature) compare against it.
-#[cfg(feature = "voracious_multithread")]
-mod v1;
+#[cfg(feature = "voracious_multithread")] mod v1;
 mod v2;
 
 pub use v2::api::{RadixSort, Sortable};
