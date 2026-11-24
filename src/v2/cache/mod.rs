@@ -132,6 +132,41 @@ pub(crate) fn largest_bytes() -> usize {
     *LARGEST.get_or_init(|| sizes().l2.max(os::levels()[2].unwrap_or(0)))
 }
 
+/// An older Intel core: Intel x86-64 with an L2 under 512 KiB (the client
+/// cores of 2013-2019, Haswell to Comet Lake: 256 KiB). Their front end is
+/// bound by uops (4 per cycle, indexed read-modify-writes split in two), not
+/// by loads as Zen or the ARM cores measured: they get their own counting
+/// paths. AMD and ARM cores with a small L2 keep the common ones. Tests
+/// that force a small L2 (`L2_OVERRIDE`) take these paths on any CPU.
+#[inline]
+pub(crate) fn old_intel() -> bool {
+    #[cfg(test)]
+    {
+        let forced = L2_OVERRIDE.load(std::sync::atomic::Ordering::Relaxed);
+        if forced != 0 {
+            return forced < 512 << 10;
+        }
+    }
+    intel() && l2_bytes() < 512 << 10
+}
+
+/// Whether the CPU is an Intel one (CPUID vendor string), read once.
+fn intel() -> bool {
+    #[cfg(all(target_arch = "x86_64", not(miri)))]
+    {
+        static INTEL: OnceLock<bool> = OnceLock::new();
+        *INTEL.get_or_init(|| {
+            // SAFETY: CPUID leaf 0 exists on every x86-64 CPU.
+            #[allow(unused_unsafe)]
+            let r = unsafe { std::arch::x86_64::__cpuid(0) };
+            // "GenuineIntel" in EBX, EDX, ECX.
+            r.ebx == 0x756e_6547 && r.edx == 0x4965_6e69 && r.ecx == 0x6c65_746e
+        })
+    }
+    #[cfg(not(all(target_arch = "x86_64", not(miri))))]
+    false
+}
+
 /// Benchmarks: L2 size forced (0: the detected one), to check on a machine
 /// that the thresholds derived from it hold.
 #[cfg(test)]

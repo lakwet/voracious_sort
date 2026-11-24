@@ -862,8 +862,9 @@ fn domain_count16(keys: &mut [u16]) {
     debug_assert!(n <= u32::MAX as usize);
     let big = n > crate::v2::cache::largest_bytes();
     let run4 = runs_pay(keys);
-    // 16-bit counters when the 32-bit table exceeds half the L2, unless the
-    // keys span few counters (64 spread keys: Gaussian, Sensor, Clusters):
+    // 16-bit counters on older Intel cores (`old_intel`: the 32-bit table
+    // fills their 256 KiB L2), unless the keys span few counters (64 spread
+    // keys: Gaussian, Sensor, Clusters):
     // their part of the table stays in the cache anyway, and the wrap test
     // costs 3 instructions per key (small intel, Gaussian 1M: 7.4 against
     // blazing's 4.4).
@@ -875,7 +876,7 @@ fn domain_count16(keys: &mut [u16]) {
         });
         (hi - lo) as usize * 4 * 4 <= l2
     };
-    let counts = if l2 < 2 * (1 << 18) && !narrow_span() {
+    let counts = if crate::v2::cache::old_intel() && !narrow_span() {
         let (low, wraps) = count_narrow16(keys, run4);
         if wraps.is_empty() && !big {
             write_buckets(keys, &low);

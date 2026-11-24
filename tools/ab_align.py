@@ -22,7 +22,9 @@ def load(path):
     for line in open(path, encoding="utf-8", errors="replace"):
         cols = line.split()
         if len(cols) >= 4 and cols[0] == "size" and cols[1] == "gen":
-            head = cols[2:]
+            # The last column is the time of the copies alone (named "copy",
+            # as the A/B copy variant may be): renamed apart.
+            head = cols[2:-1] + ["copy time"]
         elif head and len(cols) == len(head) + 2 and cols[0].isdigit():
             rows[(int(cols[0]), cols[1])] = dict(zip(head, map(float, cols[2:])))
     return head, rows
@@ -37,7 +39,7 @@ def main():
     head = loaded[0][0]
     runs = [r for _, r in loaded]
     ref = head[0]
-    variants = [h for h in head[1:] if h != "copy"]
+    variants = [h for h in head[1:] if h not in ("blazing", "copy time")]
     cells = sorted(set.intersection(*(set(r) for r in runs)))
     hi, lo = 1 + args.band, 1 / (1 + args.band)
     print(f"{len(runs)} placements, {len(cells)} cells")
