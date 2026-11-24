@@ -1027,14 +1027,19 @@ fn write_buckets<C: Copy + Into<u32>>(keys: &mut [u16], counts: &[C]) {
     let n = keys.len();
     let at = |d: usize| counts[d].into() as usize;
     let mut start = 0;
-    let long = {
+    let (long, sparse) = {
         let (mut sum, mut used) = (0usize, 0usize);
         for i in 0..256 {
             let c = at(i * 256 + 128);
             sum += c;
             used += (c != 0) as usize;
         }
-        sum >= 12 * used.max(1)
+        // Most blocks of 16 counters empty (a probed counter used with
+        // probability used / 256): the walk tests a block at once (Normal 8,
+        // Clusters, Few 16 at 200k: Zen 2 15-20 %, Haswell 5-8 % faster in
+        // 6 code placements; 1M: 3-5 %). Denser tables keep the plain walk
+        // (Spread 4k: the block test 7-14 % slower there).
+        (sum >= 12 * used.max(1), (1.0 - used as f64 / 256.0).powi(16) > 0.5)
     };
     let flat = flat_pays(counts, long);
     if flat {
@@ -1062,39 +1067,89 @@ fn write_buckets<C: Copy + Into<u32>>(keys: &mut [u16], counts: &[C]) {
         return;
     }
     if long {
-        for d in 0..counts.len() {
-            let c = at(d);
-            if c != 0 {
-                let v = (d as u16) ^ F;
-                let end = start + c;
-                let mut p = start;
-                while p < end && n - p >= 32 {
-                    keys[p..p + 32].copy_from_slice(&[v; 32]);
-                    p += 32;
+        if sparse {
+            for b in (0..counts.len()).step_by(16) {
+                if counts[b..b + 16].iter().fold(0u32, |a, &c| a | c.into()) == 0 {
+                    continue;
                 }
-                if p < end {
-                    keys[p..end].fill(v);
+                for d in b..b + 16 {
+                    let c = at(d);
+                    if c != 0 {
+                        let v = (d as u16) ^ F;
+                        let end = start + c;
+                        let mut p = start;
+                        while p < end && n - p >= 32 {
+                            keys[p..p + 32].copy_from_slice(&[v; 32]);
+                            p += 32;
+                        }
+                        if p < end {
+                            keys[p..end].fill(v);
+                        }
+                        start = end;
+                    }
                 }
-                start = end;
+            }
+        } else {
+            for d in 0..counts.len() {
+                let c = at(d);
+                if c != 0 {
+                    let v = (d as u16) ^ F;
+                    let end = start + c;
+                    let mut p = start;
+                    while p < end && n - p >= 32 {
+                        keys[p..p + 32].copy_from_slice(&[v; 32]);
+                        p += 32;
+                    }
+                    if p < end {
+                        keys[p..end].fill(v);
+                    }
+                    start = end;
+                }
             }
         }
     } else {
-        for d in 0..counts.len() {
-            let c = at(d);
-            if c != 0 {
-                let v = (d as u16) ^ F;
-                let end = start + c;
-                if c <= 64 && end + 16 <= n {
-                    let block = [v; 16];
-                    let mut p = start;
-                    while p < end {
-                        keys[p..p + 16].copy_from_slice(&block);
-                        p += 16;
-                    }
-                } else {
-                    keys[start..end].fill(v);
+        if sparse {
+            for b in (0..counts.len()).step_by(16) {
+                if counts[b..b + 16].iter().fold(0u32, |a, &c| a | c.into()) == 0 {
+                    continue;
                 }
-                start = end;
+                for d in b..b + 16 {
+                    let c = at(d);
+                    if c != 0 {
+                        let v = (d as u16) ^ F;
+                        let end = start + c;
+                        if c <= 64 && end + 16 <= n {
+                            let block = [v; 16];
+                            let mut p = start;
+                            while p < end {
+                                keys[p..p + 16].copy_from_slice(&block);
+                                p += 16;
+                            }
+                        } else {
+                            keys[start..end].fill(v);
+                        }
+                        start = end;
+                    }
+                }
+            }
+        } else {
+            for d in 0..counts.len() {
+                let c = at(d);
+                if c != 0 {
+                    let v = (d as u16) ^ F;
+                    let end = start + c;
+                    if c <= 64 && end + 16 <= n {
+                        let block = [v; 16];
+                        let mut p = start;
+                        while p < end {
+                            keys[p..p + 16].copy_from_slice(&block);
+                            p += 16;
+                        }
+                    } else {
+                        keys[start..end].fill(v);
+                    }
+                    start = end;
+                }
             }
         }
     }
