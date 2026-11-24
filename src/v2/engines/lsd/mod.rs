@@ -16,6 +16,7 @@ mod histogram;
 mod scatter;
 #[macro_use]
 mod passes;
+pub(crate) mod short16;
 
 pub(crate) use super::counter::Counter;
 use std::mem::MaybeUninit;

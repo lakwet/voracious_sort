@@ -1,4 +1,4 @@
-# Version **2.1.0** (unreleased)
+# Version **2.1.0** (November 24<sup>th</sup> 2026)
 
 The 16-bit integers (`u16`, `i16`) reworked, and the code split into three
 sorts. No breaking change: the 2.0 API is unchanged.
@@ -20,6 +20,13 @@ sorts. No breaking change: the 2.0 API is unchanged.
   together (the sign bit flipped wherever the order matters): `u16` and
   `i16` share one code, so a fix for one is a fix for the other. The other
   sizes follow in the next releases.
+- 16 bits, by size: up to 5504 keys a short sort (one order scan, cheap
+  questions on 18 keys or on a sample, then a two-pass LSD on a stack
+  buffer); up to 65 536 keys a light chain (the same questions, then the
+  near-sorted repair, runs and Verge); beyond, the full chain. The
+  questions that mostly fail (few values, one heavy value, random keys)
+  are answered without a branch per key, so they cost almost nothing when
+  they fail;
 - 16 bits: a short preparation below a few thousand keys (dominant value,
   narrow window of 256 values, few distinct values estimated on a sample);
   the counting of the whole domain reading four keys per load; LSD counters

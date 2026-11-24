@@ -5,7 +5,8 @@
 //! Env: SORTS="v2,copy,..." (`v2` the library, `copy` the A/B copy of
 //! `src/v2/devour/ab_copy.rs`, `std`, `turbo`, `blz`; SKIP_MASKS="x:name,..."
 //! is read as the names), DOM_SIZES="200,500,...", TOTAL (keys per measure,
-//! default 2M), CHECK=1 (shape test 65..1100 first).
+//! default 2M), CHECK=1 (shape test first: every size 33..1100, then every
+//! 997 keys up to 70 000).
 //! Output: ns per key, copy subtracted, median of 7, random order per rep.
 
 #[allow(dead_code, unused_imports)]
@@ -55,7 +56,7 @@ fn order(rep: usize, j: usize, k: usize) -> usize {
 /// against `sort_unstable`, for every sort.
 fn check(masks: &[(u64, String)]) {
     let mut seed = 0x1234_5678_9abc_def1u64;
-    for n in 65..1100 {
+    for n in (33..1100).chain((1100..70_000).step_by(997)) {
         for shape in 0..9u64 {
             let base = rng(&mut seed) as u16;
             let a: Vec<u16> = (0..n)

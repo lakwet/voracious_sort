@@ -1,6 +1,6 @@
 [package]
 name = "voracious_radix_sort"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Axelle Piot <axelle.piot@lyart.fr>"]
 edition = "2018"
 # Minimum Rust: 1.88 (std::hint::select_unpredictable in the v2 merges; 1.87 fails).
@@ -32,8 +32,9 @@ v2_trace = []
 # The benchmarks against the rival sorts (tests only, `make bench...`):
 # without it `cargo test` / `make test` / the CI do not build the rival crates.
 bench = ["dep:blazing-radix", "dep:radsort", "dep:rdst", "dep:turbosort", "dep:glidesort"]
-# TMP (dev only): the A/B switches of the u16 chain, for examples/ab_u16.rs
-# (a measuring binary that builds in seconds instead of the whole test crate).
+# Development only: a second instance of the 16-bit chain (A/B by copy) for
+# the measuring examples examples/ab_u16.rs and ab_i16.rs, which build in
+# seconds instead of the whole test crate.
 ab = []
 
 [lints.rust]

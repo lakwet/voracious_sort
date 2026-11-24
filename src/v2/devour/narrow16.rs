@@ -16,7 +16,7 @@ use crate::v2::runs::merge::{self, merge_runs};
 use crate::v2::runs::verge::verge_sort_preprocessing_fast;
 use crate::v2::devour::keys::*;
 use crate::v2::devour::DevourSort;
-use crate::v2::special::heavy::{heavy_sorted_by, may_be_heavy, HEAVY_MIN};
+use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
 use crate::v2::special::{spread, SAMPLE};
 
 /// The key type (the slices sorted are its bits).
@@ -42,7 +42,8 @@ int_detectors!(detectors, $k, u16, $enc, $enc, super::roller_min, partial);
 fn roller_min() -> usize { usize::MAX }
 
 /// Sorts the bits `arr` of keys `K`: a sorting network up to `NETWORK_MAX`
-/// keys, blocks and a merge up to `MERGE_MAX`, else the chain.
+/// keys, blocks and a merge up to `MERGE_MAX`, the short sort up to
+/// `SHORT_SORT_MAX`, the light chain up to `LIGHT_MAX`, else the chain.
 pub(crate) fn sort(arr: &mut [u16]) {
     let n = arr.len();
     if n <= NETWORK_MAX {
@@ -51,9 +52,480 @@ pub(crate) fn sort(arr: &mut [u16]) {
     } else if n <= MERGE_MAX {
         trace!("merge_small");
         merge_sort(arr, $enc, $enc);
+    } else if n <= SHORT_SORT_MAX {
+        short_sort(arr);
+    } else if n <= LIGHT_MAX {
+        light_chain(arr);
     } else {
         chain2(arr);
     }
+}
+
+/// Up to this size the short sort (its LSD's buffer on the stack).
+const SHORT_SORT_MAX: usize = crate::v2::engines::lsd::short16::STACK_MAX;
+
+/// Up to this size the light chain: against blazing-radix from 5000 to
+/// 65 000 keys it loses 20-26 cells of 310 where the chain loses 31-48
+/// (Zen 2, Haswell, Surface); beyond, the domain count of the chain (one
+/// key per counter) wins Clusters by 1.7-2.2 times.
+const LIGHT_MAX: usize = crate::v2::engines::lsd::short16::SHORT_MAX;
+
+/// Short arrays (`MERGE_MAX` to `SHORT_SORT_MAX` keys): the chain's
+/// questions, those that mostly fail made cheap or dropped (ideas:
+/// blazing-radix `prepare`). One order scan (`run_win`); below `TINY_MAX`
+/// probes on 18 keys, beyond them the sample's detectors; then the LSD,
+/// through the path only after a sorted head of half the array (Pipe
+/// organ): no near-sorted repair, no Verge. Against blazing-radix from 300
+/// to 5500 keys: 33 cells lost of 279 where the chain lost 93 (Zen 2),
+/// 62 where it lost 79 (Surface).
+fn short_sort(arr: &mut [u16]) {
+    let n = arr.len();
+    // All keys equal: one OR of differences, read only when the first, the
+    // middle and the last key agree (Zen 2: Equal 2.2 times faster than the
+    // order scan at 5000 keys).
+    let first = arr[0];
+    if first == arr[n - 1] && first == arr[n / 2] && arr.iter().fold(0, |d, &v| d | (v ^ first)) == 0 {
+        trace!("presorted");
+        return;
+    }
+    // One scan: the ascending head (all of it: sorted, or all equal), else
+    // descending all through when the first key is above the last (equal
+    // keys may open a descending array).
+    let p = run_win::<false>(arr);
+    if p == n {
+        trace!("presorted");
+        return;
+    }
+    if ord(arr[0]) > ord(arr[n - 1]) && run_win::<true>(arr) == n {
+        trace!("presorted");
+        arr.reverse();
+        return;
+    }
+    let done = if n >= TINY_MAX {
+        light_detectors(arr)
+    } else if cfg!(target_arch = "aarch64") {
+        short_probe(arr)
+    } else {
+        cheap_probe(arr)
+    };
+    if done {
+        return;
+    }
+    if tail_first(n, p) {
+        let known = Unsorted { ascending_prefix: p, probes: None };
+        path(arr, known, &|_: &mut [u16], _: usize| false, &|c: &mut [u16]| light_lsd(c));
+    } else {
+        light_lsd(arr);
+    }
+}
+
+/// From `SHORT_SORT_MAX` to `LIGHT_MAX` keys: the short sort's detectors
+/// and engine, with the chain's order checks (all keys equal; on x86 the
+/// shared scan, faster there on long sorted runs) and its whole path
+/// (near-sorted repair, runs, Verge).
+fn light_chain(arr: &mut [u16]) {
+    let n = arr.len();
+    let (first, last) = (arr[0], arr[n - 1]);
+    if first == last && first == arr[n / 2] && arr.iter().fold(0, |d, &v| d | (v ^ first)) == 0 {
+        trace!("presorted");
+        return;
+    }
+    let mut known = if cfg!(target_arch = "aarch64") {
+        let p = run_win::<false>(arr);
+        if p == n {
+            trace!("presorted");
+            return;
+        }
+        if ord(first) > ord(last) && run_win::<true>(arr) == n {
+            trace!("presorted");
+            arr.reverse();
+            return;
+        }
+        Unsorted { ascending_prefix: p, probes: None }
+    } else {
+        match presorted(keys_of(arr)) {
+            Ok(()) => {
+                trace!("presorted");
+                return;
+            },
+            Err(known) => known,
+        }
+    };
+    if known.ascending_prefix == 0 {
+        known.ascending_prefix = scan16::<false>(arr);
+    }
+    if light_detectors(arr) {
+        return;
+    }
+    path(arr, known, &|_: &mut [u16], _: usize| false, &|c: &mut [u16]| light_lsd(c));
+}
+
+/// The engine of the short sort and the light chain: on ARM the chunk LSD
+/// (16-bit counters from 600 keys), on x86 the short LSD.
+#[inline(always)]
+fn light_lsd(arr: &mut [u16]) {
+    if cfg!(target_arch = "aarch64") {
+        sort_chunk(arr, &mut Vec::new())
+    } else {
+        trace!("lsd");
+        crate::v2::engines::lsd::short16::lsd_short::<F>(arr)
+    }
+}
+
+/// Length of the ascending run from the start (`DESC`: descending), by
+/// blocks of 16 pairs from two overlapping reads, no branch inside a block
+/// (Zen 2: Sorted, Saws 20-35 % faster than blazing-radix from 1000 keys),
+/// the exact end searched in the failing block.
+#[inline(always)]
+fn run_win<const DESC: bool>(a: &[u16]) -> usize {
+    let n = a.len();
+    let bad = |x: u16, y: u16| if DESC { ord(x) < ord(y) } else { ord(x) > ord(y) };
+    let mut i = 0;
+    while i + 17 <= n {
+        let x = a[i..].first_chunk::<16>().unwrap();
+        let y = a[i + 1..].first_chunk::<16>().unwrap();
+        let mut any = false;
+        for j in 0..16 {
+            any |= bad(x[j], y[j]);
+        }
+        if any {
+            break;
+        }
+        i += 16;
+    }
+    while i + 1 < n && !bad(a[i], a[i + 1]) {
+        i += 1;
+    }
+    i + 1
+}
+
+/// The detectors of the short sort from `TINY_MAX` keys and of the light
+/// chain, on the spread sample: sorts and returns `true` when one fires.
+/// 8 spread picks counted over the sample (one vectorized compare each)
+/// replace the chain's branchy questions: a repeated pick rules out random
+/// keys, three picks seen once rule out few values, and a majority value
+/// is among them (Zen 2 at 1500 keys: Zipf, Clusters, Heavy 4 0.2 ns per
+/// key faster).
+fn light_detectors(arr: &mut [u16]) -> bool {
+    let sample = spread(arr);
+    if few_compare(arr, &sample) {
+        trace!("few_cmp");
+        return true;
+    }
+    if window256(arr, &sample) {
+        trace!("window256");
+        return true;
+    }
+    if sample.iter().all(|&v| v & 255 == sample[0] & 255) && flat_byte16::<u32, true>(arr) {
+        trace!("flat_byte");
+        return true;
+    }
+    let picks: [u16; 8] = std::array::from_fn(|k| sample[k * (SAMPLE / 8)]);
+    let counts = picks.map(|u| sample.iter().map(|&x| (x == u) as u16).sum::<u16>() as usize);
+    let singles = counts.iter().filter(|&&c| c == 1).count();
+    if singles == 8 && looks_random(arr, &sample) {
+        trace!("random_sample");
+        light_lsd(arr);
+        return true;
+    }
+    if detectors::range(keys_of(arr), &sample.map(|v| v as K)) {
+        trace!("range");
+        return true;
+    }
+    // One value holding half of the sample, the others under an eighth.
+    let heavy = match (0..8).find(|&k| counts[k] >= SAMPLE / 2) {
+        Some(k) => (0..8).all(|j| picks[j] == picks[k] || counts[j] < SAMPLE / 8),
+        None => false,
+    };
+    if heavy {
+        let mut sorted = sample;
+        merge_sort(&mut sorted[..], $enc, $enc);
+        if heavy_sorted_by(
+            arr,
+            &sorted,
+            TINY_MAX,
+            &|r: &mut [u16]| sort(r),
+            |x, y| x == y,
+            |x, y| ord(x) < ord(y),
+        ) {
+            trace!("heavy_first");
+            return true;
+        }
+    }
+    if singles < 3 && few_light(arr, &sample) {
+        trace!("few");
+        return true;
+    }
+    false
+}
+
+/// `few16` on the spread sample alone, its estimate without a branch:
+/// three maps of 2048 hashed bits (values seen once, twice, three times)
+/// give seen, f1 and f2 for the Chao1 estimate (the hash table's probes
+/// mispredicted on Heavy 4: 0.45 ns per key at 1500). Few values only when
+/// the sample's keys are mostly repeated (few-valued inputs: at most 5
+/// seen once in 64; Heavy 4, 4 heavy values and random keys: 17-29, where
+/// the estimate alone let some arrays count and fail).
+#[inline(never)]
+fn few_light(values: &mut [u16], sample: &[u16; SAMPLE]) -> bool {
+    use crate::v2::special::{FEW_MAX, FEW_TABLE};
+    let mut m = [[0u64; 32]; 3];
+    for &v in sample.iter() {
+        let h = ((v as u32).wrapping_mul(0x9E37_79B1) >> 21) as usize;
+        let (w, b) = (h >> 6, 1u64 << (h & 63));
+        let (s1, s2) = (m[0][w] & b, m[1][w] & b);
+        m[2][w] |= s2;
+        m[1][w] |= s1;
+        m[0][w] |= b;
+    }
+    let (mut distinct, mut f1, mut f2) = (0usize, 0usize, 0usize);
+    for w in 0..32 {
+        distinct += m[0][w].count_ones() as usize;
+        f1 += (m[0][w] & !m[1][w]).count_ones() as usize;
+        f2 += (m[1][w] & !m[2][w]).count_ones() as usize;
+    }
+    if f1 > SAMPLE / 8
+        || distinct > SAMPLE / 2
+        || distinct + f1 * f1.saturating_sub(1) / (2 * (f2 + 1)) > FEW_MAX
+    {
+        trace!("few_estimate");
+        return false;
+    }
+    detectors::few_count::<FEW_TABLE>(keys_of(values))
+}
+
+/// The 18 probed keys: the first 16, the middle one, the last one.
+#[inline(always)]
+fn probe18(a: &[u16]) -> [u16; 18] {
+    let n = a.len();
+    let mut s = [0u16; 18];
+    s[..16].copy_from_slice(&a[..16]);
+    s[16] = a[n / 2];
+    s[17] = a[n - 1];
+    s
+}
+
+/// The short sort's probes below `TINY_MAX` keys on ARM (`tiny_probe`'s,
+/// read without a branch per key; Surface at 100 keys: 44 to 21 ns): on the
+/// 18 probed keys, the range in order and rotated, the bits that vary; each
+/// key's count among them only when the first five repeat one (random
+/// keys: nearly never); then at most 4 values counted, a range of 256
+/// values, the high byte alone, one value holding 7 of the 18.
+fn short_probe(arr: &mut [u16]) -> bool {
+    let s = probe18(arr);
+    let mut same = false;
+    for i in 0..5 {
+        for j in i + 1..5 {
+            same |= s[i] == s[j];
+        }
+    }
+    let counts = if same { s.map(|u| s.iter().map(|&x| (x == u) as u8).sum::<u8>()) } else { [1; 18] };
+    // Distinct values: each adds 1/c over its c keys.
+    let distinct: f32 = if same { counts.iter().map(|&c| 1.0 / c as f32).sum() } else { 18.0 };
+    if distinct < 4.5 {
+        let mut reps = [s[0]; 4];
+        let mut k = 1;
+        for &v in &s[1..] {
+            if !reps[..k].contains(&v) {
+                reps[k] = v;
+                k += 1;
+            }
+        }
+        reps[..k].sort_unstable_by_key(|&v| ord(v));
+        let done = match k {
+            1 => few_compare_k::<1>(arr, &reps),
+            2 => few_compare_k::<2>(arr, &reps),
+            3 => few_compare_k::<3>(arr, &reps),
+            _ => few_compare_k::<4>(arr, &reps),
+        };
+        if done {
+            trace!("tiny_few");
+            return true;
+        }
+    }
+    const R: u16 = 1 << 15;
+    let (mut lo, mut hi, mut rlo, mut rhi, mut varies) = (u16::MAX, 0u16, u16::MAX, 0u16, 0u16);
+    for &v in &s {
+        lo = lo.min(ord(v));
+        hi = hi.max(ord(v));
+        rlo = rlo.min(ord(v) ^ R);
+        rhi = rhi.max(ord(v) ^ R);
+        varies |= v ^ s[0];
+    }
+    if hi - lo <= 255 && tiny_range::<0, u16>(arr) {
+        trace!("tiny_range");
+        return true;
+    }
+    if rhi - rlo <= 255 && tiny_range::<R, u16>(arr) {
+        trace!("tiny_range_rot");
+        return true;
+    }
+    if varies & 0xFF == 0 && tiny_high(arr) {
+        trace!("tiny_high");
+        return true;
+    }
+    if counts.iter().any(|&c| c >= 7) && tiny_dominant(arr) {
+        trace!("tiny_dominant");
+        return true;
+    }
+    false
+}
+
+/// The short sort's probes below `TINY_MAX` keys on x86 (blazing-radix
+/// `prepare`'s questions, each giving up at once; Zen 2 at 300 keys, Unif
+/// 6 % faster than `tiny_probe`): on the 18 probed keys, at most 4 values,
+/// one byte varying, a range of 256 values (straight or across the middle
+/// of the order); each checked on every key before anything is written.
+fn cheap_probe(a: &mut [u16]) -> bool {
+    let s = probe18(a);
+    cheap_few(a, &s) || cheap_one_byte(a, &s) || cheap_range::<0>(a, &s) || cheap_range::<0x8000>(a, &s)
+}
+
+/// At most 4 values among the probed keys: each key compared with them,
+/// nothing written unless every key is one of them.
+fn cheap_few(a: &mut [u16], s: &[u16; 18]) -> bool {
+    let mut reps = [s[0]; 4];
+    let mut k = 1;
+    for &v in &s[1..] {
+        if !reps[..k].contains(&v) {
+            if k == 4 {
+                return false;
+            }
+            reps[k] = v;
+            k += 1;
+        }
+    }
+    reps[..k].sort_unstable_by_key(|&v| ord(v));
+    let done = match k {
+        1 => cheap_few_k::<1>(a, &reps),
+        2 => cheap_few_k::<2>(a, &reps),
+        3 => cheap_few_k::<3>(a, &reps),
+        _ => cheap_few_k::<4>(a, &reps),
+    };
+    if done {
+        trace!("cheap_few");
+    }
+    done
+}
+
+fn cheap_few_k<const KN: usize>(a: &mut [u16], reps: &[u16; 4]) -> bool {
+    let mut c = [0usize; KN];
+    for &x in a.iter() {
+        for j in 0..KN {
+            c[j] += (x == reps[j]) as usize;
+        }
+    }
+    if c.iter().sum::<usize>() != a.len() {
+        return false;
+    }
+    let mut at = 0;
+    for j in 0..KN {
+        a[at..at + c[j]].fill(reps[j]);
+        at += c[j];
+    }
+    true
+}
+
+/// From this size the counts of the probes on four tables (keys in turn: a
+/// repeated value does not wait on its own counter); below, one.
+const LANES_MIN: usize = 1024;
+
+/// The counts of `digit` over `a`, on `L` tables (keys in turn).
+#[inline(always)]
+fn count_lanes<const L: usize>(a: &[u16], digit: impl Fn(u16) -> usize) -> [u32; 256] {
+    let mut cs = [[0u32; 256]; L];
+    let (blocks, rest) = a.as_chunks::<L>();
+    for q in blocks {
+        for j in 0..L {
+            cs[j][digit(q[j]) & 255] += 1;
+        }
+    }
+    for &x in rest {
+        cs[0][digit(x) & 255] += 1;
+    }
+    let mut c = cs[0];
+    for t in &cs[1..] {
+        for d in 0..256 {
+            c[d] += t[d];
+        }
+    }
+    c
+}
+
+/// One byte varies among the probed keys: counted while every other bit is
+/// checked in the same read; each count is one value.
+fn cheap_one_byte(a: &mut [u16], s: &[u16; 18]) -> bool {
+    let first = a[0];
+    let vary = s.iter().fold(0, |m, &x| m | (x ^ first));
+    if vary == 0 || (vary & 0xFF != 0 && vary >> 8 != 0) {
+        return false;
+    }
+    let done = match (vary >> 8 == 0, a.len() < LANES_MIN) {
+        (true, true) => one_byte_in::<0, 1>(a),
+        (true, false) => one_byte_in::<0, 4>(a),
+        (false, true) => one_byte_in::<8, 1>(a),
+        (false, false) => one_byte_in::<8, 4>(a),
+    };
+    if done {
+        trace!("cheap_one_byte");
+    }
+    done
+}
+
+fn one_byte_in<const S: u32, const L: usize>(a: &mut [u16]) -> bool {
+    let first = a[0];
+    let other = !(255u16 << S);
+    let mut cs = [[0u32; 256]; L];
+    let mut bad = [0u16; L];
+    let (blocks, rest) = a.as_chunks::<L>();
+    for q in blocks {
+        for j in 0..L {
+            bad[j] |= (q[j] ^ first) & other;
+            cs[j][((ord(q[j]) >> S) & 255) as usize] += 1;
+        }
+    }
+    for &x in rest {
+        bad[0] |= (x ^ first) & other;
+        cs[0][((ord(x) >> S) & 255) as usize] += 1;
+    }
+    if bad.iter().fold(0, |m, &b| m | b) != 0 {
+        return false;
+    }
+    let mut c = cs[0];
+    for t in &cs[1..] {
+        for d in 0..256 {
+            c[d] += t[d];
+        }
+    }
+    crate::v2::engines::lsd::short16::put_byte::<F, S>(a, &c);
+    true
+}
+
+/// The keys within 256 values of order (`R`: the order rotated by half the
+/// domain, keys near both ends): checked on all, counted, written.
+fn cheap_range<const R: u16>(a: &mut [u16], s: &[u16; 18]) -> bool {
+    let key = |x: u16| ord(x) ^ R;
+    let (lo, hi) = s.iter().fold((u16::MAX, 0), |(l, h), &v| (l.min(key(v)), h.max(key(v))));
+    if hi - lo > 255 {
+        return false;
+    }
+    let (lo, hi) = a.iter().fold((u16::MAX, 0u16), |(l, h), &v| (l.min(key(v)), h.max(key(v))));
+    if hi - lo > 255 {
+        return false;
+    }
+    let digit = |x: u16| (key(x).wrapping_sub(lo) & 255) as usize;
+    let c = if a.len() < LANES_MIN { count_lanes::<1>(a, digit) } else { count_lanes::<4>(a, digit) };
+    // Rotated keys from R up are the smallest in order: written first.
+    let span = (hi - lo) as usize + 1;
+    let split = if R == 0 { 0 } else { (R.max(lo) - lo).min(span as u16) as usize };
+    let mut at = 0;
+    for d in (split..span).chain(0..split) {
+        let m = c[d] as usize;
+        crate::v2::engines::lsd::short16::put(a, at, m, ord(lo.wrapping_add(d as u16) ^ R));
+        at += m;
+    }
+    trace!("cheap_range");
+    true
 }
 
 /// Up to `LSD_STACK` keys the chain keeps the near-sorted repair,
@@ -329,7 +801,13 @@ fn chain2(arr: &mut [u16]) {
         // `few`, which counts until `FEW_MAX` and fails (Zen 2 at 5k: Sparse
         // 2.13 to 1.18 ns per key, FakeZipf 0.97 to 1.50, blazing 3.3-3.6:
         // both kept well ahead, more evenly).
-        if n >= HEAVY_MIN && may_be_heavy(&sample, |x, y| x == y) {
+        // Below `HEAVY_MIN` only one dominant value (`dominant`: Sparse at
+        // 1100-2047 keys went to `few`, whose counter of that value waits on
+        // its own increment: Surface 3.1-3.3 to 0.9-1.2 ns per key; FakeZipf,
+        // several heavy values, keeps `few`).
+        if may_be_heavy(&sample, |x, y| x == y)
+            && (n >= HEAVY_MIN || dominant(&sample, |x: u16, y: u16| x == y))
+        {
             let mut sorted = sample;
             merge_sort(&mut sorted[..], $enc, $enc);
             let top = sorted.chunk_by(|a, b| a == b).map(|r| r.len()).max().unwrap_or(0);
@@ -337,7 +815,7 @@ fn chain2(arr: &mut [u16]) {
                 && heavy_sorted_by(
                     arr,
                     &sorted,
-                    HEAVY_MIN,
+                    TINY_MAX,
                     &|r: &mut [u16]| sort(r),
                     |x, y| x == y,
                     |x, y| ord(x) < ord(y),
@@ -1722,12 +2200,22 @@ fn sort_chunk(bits: &mut [u16], _: &mut Vec<MaybeUninit<u16>>) {
         network_sort(bits, $enc, $enc);
     } else if bits.len() <= MERGE_MAX {
         merge_sort(bits, $enc, $enc);
+    } else if bits.len() <= short_lsd_max() {
+        crate::v2::engines::lsd::short16::lsd_short::<F>(bits);
     } else if narrow_counters() {
         lsd16_mode::<3, false>(bits);
     } else {
         lsd16_mode::<3, true>(bits);
     }
 }
+
+/// Up to this size the short LSD (`short16`: one counting table unless
+/// neighbours share their high byte, less fixed cost): Zen 2 from 300 to
+/// 1000 keys 5-13 % faster on the random-like distributions, won in all 6
+/// code placements, nothing lost; Surface below 700 keys (beyond, this
+/// LSD's two tables are faster on repeated keys); Haswell neutral.
+#[inline(always)]
+fn short_lsd_max() -> usize { if cfg!(target_arch = "aarch64") { 600 } else { 1024 } }
 
 /// Directions of 32 spread adjacent pairs (copy of `probe_pairs`, without a
 /// branch: random keys mispredicted half of them, ~50 ns at 1100 keys on
