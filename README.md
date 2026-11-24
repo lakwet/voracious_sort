@@ -23,10 +23,10 @@ down another. Version 2.1 reworks the 16-bit integers (`u16`, `i16`); the
 other sizes follow, one small release each, listed in
 [RELEASES.md](RELEASES.md).
 
-Benchmark results are published family by family as they are reworked:
-`resultsbenchs/` holds those of the 16-bit integers for 2.1 (and those of
-1.x). You can run the benchmarks on your own machine (see below): they show
-how long each sort takes there.
+Benchmark results are published family by family as they are reworked,
+in `resultsbenchs/` (those of the 16-bit integers for 2.1 follow shortly
+after the release; those of 1.x are there). You can run the benchmarks on
+your own machine (see below): they show how long each sort takes there.
 
 > **How version 2.0 was made.** Version 2.0 was written with the help of
 > Claude Opus 5.5 (Anthropic's AI model), used as a pair programmer:

@@ -10,7 +10,7 @@ sorts. No breaking change: the 2.0 API is unchanged.
   the trait methods `voracious_sort_by_key` and
   `voracious_sort_unstable_by_key`.
 - `u16` and `i16` are faster, from a few hundred keys to tens of millions
-  (benchmark results in `resultsbenchs/`).
+  (benchmark results to follow in `resultsbenchs/`).
 
 ### Inside
 
