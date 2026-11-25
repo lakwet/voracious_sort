@@ -372,29 +372,45 @@ macro_rules! chain32_ab {
             // 20 % of the sort at 1000 keys on the Ryzen; an OR of the keys
             // themselves missed the narrow ranges across 0x8000_0000, i32
             // keys around 0).
-            let (up, down, desc, e0) = {
+            let (up, down, var, desc, e0) = {
                 let bits: &[u32] = bits_of(arr);
                 let e0 = $c(bits[0]);
-                let (up, down, desc) = bits.iter().zip(&bits[1..]).fold(
-                    (0u32, 0u32, 0u32),
-                    |(u, dn, d), (&a, &b)| {
+                let (up, down, var, desc) = bits.iter().zip(&bits[1..]).fold(
+                    (0u32, 0u32, 0u32, 0u32),
+                    |(u, dn, v, d), (&a, &b)| {
                         let (ea, eb) = ($c(a), $c(b));
                         let x = eb.wrapping_sub(e0);
                         let below = ((x as i32) >> 31) as u32;
-                        (u | (x & !below), dn | (!x & below), d + (ea > eb) as u32)
+                        (u | (x & !below), dn | (!x & below), v | (eb ^ e0), d + (ea > eb) as u32)
                     },
                 );
-                (up, down, desc as usize, e0)
+                (up, down, var, desc as usize, e0)
             };
-            // Every key lies in [e0 - 2^tn, e0 + 2^tp), clamped to the domain.
+            // Two bounds of the keys. By the distances to the first key,
+            // [e0 - 2^tn, e0 + 2^tp), valid only when it stays in the domain
+            // (else a key more than 2^31 above would pass for one below:
+            // Bimodal); i32 keys around 0 need it. Else by the bits that
+            // vary: the first key's bits above them, always valid.
             let tp = 32 - up.leading_zeros();
             let tn = 32 - down.leading_zeros();
-            let (lo, hi) = if tp < 31 && tn < 31 {
-                let below = 1u32 << tn;
-                let above = (1u32 << tp) - 1;
-                (e0.saturating_sub(below), e0.saturating_add(above))
+            let tv = 32 - var.leading_zeros();
+            let by_distance = if tp < 31 && tn < 31 {
+                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
+                    (Some(l), Some(h)) => Some((l, h)),
+                    _ => None,
+                }
             } else {
+                None
+            };
+            let by_bits = if tv == 32 {
                 (0, u32::MAX)
+            } else {
+                let low = (1u32 << tv) - 1;
+                (e0 & !low, e0 | low)
+            };
+            let (lo, hi) = match by_distance {
+                Some((l, h)) if h - l < by_bits.1 - by_bits.0 => (l, h),
+                _ => by_bits,
             };
             let t = if hi - lo == u32::MAX { 32 } else { 0 };
             if desc <= 32 || desc + 33 >= n {
