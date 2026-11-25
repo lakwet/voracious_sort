@@ -35,6 +35,14 @@ thread_local! {
     static EARLY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// `sort_unstable` up to this many keys (env `AB_SMALL`, default 128; the
+/// type's own `SMALL` with `AB_SMALL=0`).
+fn small_max(own: usize) -> usize {
+    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    let m = *M.get_or_init(|| std::env::var("AB_SMALL").ok().and_then(|v| v.parse().ok()).unwrap_or(128));
+    if m == 0 { own } else { m }
+}
+
 /// Whether the question `bit` is asked.
 #[inline(always)]
 fn on(bit: u32) -> bool { SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit == 0 }
@@ -48,7 +56,7 @@ fn dlsd_heap() -> bool {
 macro_rules! chain32_ab {
     ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::{dlsd_heap, dlsd_max, light_max, on, EARLY};
+        use super::{dlsd_heap, dlsd_max, light_max, on, small_max, EARLY};
         use crate::v2::engines::dlsd::$st;
         use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
@@ -100,7 +108,7 @@ macro_rules! chain32_ab {
                 Err(known) => known,
             };
             chain! {
-                "std_small" if n <= SMALL => do { arr.sort_unstable() };
+                "std_small" if n <= small_max(SMALL) => do { arr.sort_unstable() };
             }
             // Trial (mask bit 512): the light chain up to `light_max()` keys:
             // range and few on the spread sample, then the engine (no
@@ -141,7 +149,14 @@ macro_rules! chain32_ab {
                         return;
                     }
                 }
-                if on(8) && detectors::few(arr, &sample) {
+                // `few` only when the first 16 sample keys hold at most 8
+                // values (it rejects the others itself, but after zeroing
+                // its table: 3-4 % at 250-300 keys).
+                let mut distinct = 0;
+                for i in 0..16 {
+                    distinct += !sample[..i].contains(&sample[i]) as usize;
+                }
+                if on(8) && distinct <= 8 && detectors::few(arr, &sample) {
                     trace!("light_few");
                     return;
                 }
