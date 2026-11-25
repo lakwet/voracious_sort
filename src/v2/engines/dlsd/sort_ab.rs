@@ -126,8 +126,21 @@ macro_rules! dlsd_sort_ab {
             // zeroed), else on the heap.
             let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
             let mut heap: Vec<u32> = Vec::new();
-            let tables = zeroed_counters(&mut stack, &mut heap, 2 * layout.digits * layout.buckets);
-            count_digits::<RAW>(keys, min, &layout, tables);
+            let size = layout.digits * layout.buckets;
+            let four = LANES4.load(std::sync::atomic::Ordering::Relaxed)
+                && layout.digits <= 4
+                && 4 * size <= STACK_COUNTERS;
+            let tables = zeroed_counters(&mut stack, &mut heap, if four { 4 } else { 2 } * size);
+            if four {
+                match layout.digits {
+                    1 => hist4::<1, RAW>(keys, min, &layout, tables),
+                    2 => hist4::<2, RAW>(keys, min, &layout, tables),
+                    3 => hist4::<3, RAW>(keys, min, &layout, tables),
+                    _ => hist4::<4, RAW>(keys, min, &layout, tables),
+                }
+            } else {
+                count_digits::<RAW>(keys, min, &layout, tables);
+            }
             let tables = &mut tables[..layout.digits * layout.buckets];
             scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
             if layout.base == 0 {
@@ -138,6 +151,55 @@ macro_rules! dlsd_sort_ab {
             note(n, top, prefix, &layout, by_insertion as u8);
             if !by_insertion {
                 finish_groups(keys, scratch, min, layout.base);
+            }
+        }
+
+        /// Trial (the `dlsd4` sort of the example): histograms in 4 lanes
+        /// when they fit on the stack (a digit with few values makes
+        /// neighbouring keys wait on the same counter).
+        pub(crate) static LANES4: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+
+        /// Histograms of `K` digits in one read, 4 lanes (`tables`: 4 x
+        /// `K * buckets` counters, summed into the first).
+        #[inline(always)]
+        fn hist4<const K: usize, const RAW: bool>(
+            keys: &[$uint],
+            min: $uint,
+            layout: &Layout,
+            tables: &mut [u32],
+        ) {
+            let Layout { width, base, buckets, mask, .. } = *layout;
+            let size = K * buckets;
+            let (t0, rest) = tables.split_at_mut(size);
+            let (t1, rest) = rest.split_at_mut(size);
+            let (t2, t3) = rest.split_at_mut(size);
+            let mut quads = keys.chunks_exact(4);
+            for q in &mut quads {
+                let a = enc::<RAW>(q[0]).wrapping_sub(min) >> base;
+                let b = enc::<RAW>(q[1]).wrapping_sub(min) >> base;
+                let c = enc::<RAW>(q[2]).wrapping_sub(min) >> base;
+                let d = enc::<RAW>(q[3]).wrapping_sub(min) >> base;
+                for t in 0..K {
+                    let s = t as u32 * width;
+                    let o = t * buckets;
+                    // SAFETY: masked digits index a table of `buckets` counters.
+                    unsafe {
+                        *t0.get_unchecked_mut(o + ((a >> s) & mask) as usize) += 1;
+                        *t1.get_unchecked_mut(o + ((b >> s) & mask) as usize) += 1;
+                        *t2.get_unchecked_mut(o + ((c >> s) & mask) as usize) += 1;
+                        *t3.get_unchecked_mut(o + ((d >> s) & mask) as usize) += 1;
+                    }
+                }
+            }
+            for &v in quads.remainder() {
+                let a = enc::<RAW>(v).wrapping_sub(min) >> base;
+                for t in 0..K {
+                    t0[t * buckets + ((a >> (t as u32 * width)) & mask) as usize] += 1;
+                }
+            }
+            for i in 0..size {
+                t0[i] += t1[i] + t2[i] + t3[i];
             }
         }
 
