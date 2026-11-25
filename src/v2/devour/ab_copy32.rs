@@ -341,22 +341,33 @@ macro_rules! chain32_ab {
             }
         }
 
-        /// The tiny path. One inspection pass gives the encoded minimum and
-        /// maximum and the descents: nearly sorted (few descents, or nearly
+        /// The tiny path. One inspection pass gives the bits that vary and
+        /// the descents: nearly sorted (few descents, or nearly
         /// all) tries the near-sorted repair, a narrow range is counted
         /// directly; the other questions on 18 probed keys (the first 16,
         /// the middle one, the last one); else the DLSD, given the minimum
         /// and maximum (no pass of its own for them).
         fn tiny(arr: &mut [$t], known: Unsorted) {
             let n = arr.len();
-            let (lo, hi, desc) = {
+            // One inspection pass: the descents and the bits that vary
+            // (OR of each encoded key with the first); no min / max (u32
+            // min / max have no SSE2 instruction: emulated, they made the
+            // pass 20 % of the sort at 1000 keys on the Ryzen).
+            let (var, desc, e0) = {
                 let bits: &[u32] = bits_of(arr);
                 let e0 = $c(bits[0]);
-                bits.iter().zip(&bits[1..]).fold((e0, e0, 0usize), |(l, h, d), (&a, &b)| {
-                    let (ea, eb) = ($c(a), $c(b));
-                    (l.min(eb), h.max(eb), d + (ea > eb) as usize)
-                })
+                let (var, desc) =
+                    bits.iter().zip(&bits[1..]).fold((0u32, 0u32), |(v, d), (&a, &b)| {
+                        let (ea, eb) = ($c(a), $c(b));
+                        (v | (eb ^ e0), d + (ea > eb) as u32)
+                    });
+                (var, desc as usize, e0)
             };
+            // The varying bits are the low `t`: every key lies in
+            // [lo, lo + 2^t) with lo the first key's bits above them.
+            let t = 32 - var.leading_zeros();
+            let lo = if t == 32 { 0 } else { e0 & !((1u32 << t) - 1) };
+            let hi = if t == 32 { u32::MAX } else { lo | ((1u32 << t) - 1) };
             if desc <= 32 || desc + 33 >= n {
                 let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
                 if (probes.ascending >= 30 || probes.descending >= 30)
@@ -394,7 +405,7 @@ macro_rules! chain32_ab {
             // (Small1 at 300 keys): counted. After few4 (Binary: the
             // comparisons beat the count, 0.30 against 0.62 ns per key).
             let span = (hi - lo) as usize + 1;
-            if span <= (n / 2).max(256) {
+            if t < 32 && span <= (n / 2).max(256) {
                 trace!("tiny_count");
                 exact_count(bits_of(arr), lo, span, $c, $c);
                 return;
@@ -421,7 +432,7 @@ macro_rules! chain32_ab {
                 short_radix(bits_of(arr), lo, hi);
             } else {
                 trace!("tiny_dlsd");
-                $st::dlsd_known(bits_of(arr), lo, hi);
+                $st::dlsd(bits_of(arr));
             }
         }
 
