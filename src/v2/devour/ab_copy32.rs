@@ -16,7 +16,8 @@ fn dlsd_max() -> usize {
 /// 2 plateaus, 4 dominant, 8 few, 16 heavy, 32 dense, 64 every detector
 /// (no sample either), 128 Verge (the engine on the whole array), 256 the
 /// near-sorted repair, 512 the light chain switched ON (inverted bit: on(512)
-/// false means the light chain runs).
+/// false means the light chain runs), 1024 the light chain without its
+/// sorted-head rule and dominant test.
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 2048).
@@ -97,8 +98,16 @@ macro_rules! chain32_ab {
             // Trial (mask bit 512): the light chain up to `light_max()` keys:
             // range and few on the spread sample, then the engine (no
             // plateaus, dominant, heavy, dense, near-sorted repair, Verge).
-            if !on(512) && n <= light_max() {
+            if !on(512) && n <= light_max() && !(on(1024) && known.ascending_prefix >= n / 2) {
                 let sample = spread(arr);
+                // A sorted head of half the array goes to the whole path
+                // below (its tail first, then one merge); one dominant value
+                // on the sample: the std partition (as `detect`).
+                if on(1024) && dominant(&sample, |x, y| x == y) {
+                    trace!("light_dominant");
+                    arr.sort_unstable();
+                    return;
+                }
                 if on(1) && detectors::range(arr, &sample) {
                     trace!("light_range");
                     return;
