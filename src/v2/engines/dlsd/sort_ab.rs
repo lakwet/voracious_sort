@@ -174,7 +174,7 @@ macro_rules! dlsd_sort_ab {
             let size = layout.digits * layout.buckets;
             let old = OLD.load(std::sync::atomic::Ordering::Relaxed);
             let four = (LANES4.load(std::sync::atomic::Ordering::Relaxed)
-                || (!old && n >= LANES4_MIN))
+                || (!old && (LANES4_MIN..LANES4_END).contains(&n)))
                 && layout.digits <= 4
                 && 4 * size <= STACK_COUNTERS;
             let tables = zeroed_counters(&mut stack, &mut heap, if four { 4 } else { 2 } * size);
@@ -325,10 +325,11 @@ macro_rules! dlsd_sort_ab {
 
         /// The copy's rules (A/B against `OLD`, the `dlsdo` sort of the
         /// example: the engine's rules): histograms in 4 lanes from
-        /// `LANES4_MIN` keys; aliasing checked from `ALIAS_KEYS_MIN` keys.
+        /// `LANES4_MIN` to `LANES4_END` keys; aliasing checked from `ALIAS_KEYS_MIN` keys.
         pub(crate) static OLD: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         const LANES4_MIN: usize = 4096;
+        const LANES4_END: usize = 32_768;
         const ALIAS_KEYS_MIN: usize = 32_768;
 
         /// Trial (`dlsde`): an exact prefix from `EXACT_LSD_MIN` keys goes to
