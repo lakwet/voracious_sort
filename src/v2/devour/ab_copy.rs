@@ -506,21 +506,20 @@ fn cheap_one_byte(a: &mut [u16], s: &[u16; 18]) -> bool {
 fn one_byte_in<const S: u32, const L: usize>(a: &mut [u16]) -> bool {
     let first = a[0];
     let other = !(255u16 << S);
+    // The other bits checked first by their own (vectorized) pass, then the
+    // count: the volatile loads of `Lanes` would keep the check scalar.
+    if a.iter().fold(0u16, |m, &x| m | ((x ^ first) & other)) != 0 {
+        return false;
+    }
     let mut cs = Lanes::<L>::new();
-    let mut bad = [0u16; L];
     let (blocks, rest) = a.as_chunks::<L>();
     for q in blocks {
         for j in 0..L {
-            bad[j] |= (q[j] ^ first) & other;
             cs.add(j, ((ord(q[j]) >> S) & 255) as usize);
         }
     }
     for &x in rest {
-        bad[0] |= (x ^ first) & other;
         cs.add(0, ((ord(x) >> S) & 255) as usize);
-    }
-    if bad.iter().fold(0, |m, &b| m | b) != 0 {
-        return false;
     }
     let c = cs.sum();
     crate::v2::engines::lsd::short16::put_byte::<F, S>(a, &c);
@@ -2050,21 +2049,20 @@ fn flat_byte16<C: Count16, const LOW_ONLY: bool>(keys: &mut [u16]) -> bool {
     let other = 0xFFu16 << (8 - shift);
     // 4 lanes of 32-bit counters, written by 32-key stores (as the
     // window).
+    // The constant byte checked first by its own (vectorized) pass, then the
+    // count: the volatile loads of `Lanes` would keep the check scalar.
+    if keys.iter().fold(0u16, |m, &k| m | (k ^ first)) & other != 0 {
+        return false;
+    }
     let mut q = Lanes::<4>::new();
-    let mut x = [0u16; 4];
     let (quads, rest) = keys.as_chunks::<4>();
     for k in quads {
         for l in 0..4 {
             q.add(l, ((k[l] >> shift) & 255) as usize);
-            x[l] |= k[l] ^ first;
         }
     }
     for &k in rest {
         q.add(0, ((k >> shift) & 255) as usize);
-        x[0] |= k ^ first;
-    }
-    if (x[0] | x[1] | x[2] | x[3]) & other != 0 {
-        return false;
     }
     let counts = q.sum();
     if counts[((first >> shift) & 255) as usize] as usize != n {
