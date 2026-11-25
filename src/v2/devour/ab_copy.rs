@@ -1,7 +1,9 @@
 //! A/B by copy (dev only, feature `ab`): a second instance of the 16-bit
 //! chain, called by the measuring examples as `ab_u16_copy` / `ab_i16_copy`.
 //!
-//! Trial: x86 `cheap_probe` with the dominant-value probe of the ARM one.
+//! Trial: the counting loops of 4 lanes on one table whose lane stride the
+//! compiler cannot see (no vector gather of the counters: built for recent
+//! Intel CPUs, `target-cpu=meteorlake`, it gathered them, 2x slower).
 
 macro_rules! narrow16_ab {
     ($m:ident, $k:ty, $f:expr, $enc:ident) => {
@@ -377,31 +379,7 @@ fn short_probe(arr: &mut [u16]) -> bool {
 /// of the order); each checked on every key before anything is written.
 fn cheap_probe(a: &mut [u16]) -> bool {
     let s = probe18(a);
-    cheap_few(a, &s)
-        || cheap_one_byte(a, &s)
-        || cheap_range::<0>(a, &s)
-        || cheap_range::<0x8000>(a, &s)
-        || cheap_dominant(a, &s)
-}
-
-/// One value holding 7 of the 18 probed keys (FakeZipf, Sparse): counted
-/// only when the first five repeat one (random keys: nearly never).
-fn cheap_dominant(a: &mut [u16], s: &[u16; 18]) -> bool {
-    let mut same = false;
-    for i in 0..5 {
-        for j in i + 1..5 {
-            same |= s[i] == s[j];
-        }
-    }
-    // tiny_dominant's own vote and count (18 steps) decide the rest.
-    if !same {
-        return false;
-    }
-    let done = tiny_dominant(a);
-    if done {
-        trace!("tiny_dominant");
-    }
-    done
+    cheap_few(a, &s) || cheap_one_byte(a, &s) || cheap_range::<0>(a, &s) || cheap_range::<0x8000>(a, &s)
 }
 
 /// At most 4 values among the probed keys: each key compared with them,
@@ -453,26 +431,61 @@ fn cheap_few_k<const KN: usize>(a: &mut [u16], reps: &[u16; 4]) -> bool {
 /// repeated value does not wait on its own counter); below, one.
 const LANES_MIN: usize = 1024;
 
+/// Up to 4 counting tables in one, `stride` apart. The stride is opaque to
+/// the compiler (`black_box`), so it cannot prove two lanes apart and keeps
+/// the increments of the lanes in order: without that, built for recent
+/// Intel CPUs (`target-cpu=meteorlake`), it loaded the 4 counters of a
+/// block by one vector gather (Core Ultra, native build: Bimodal, Range 16,
+/// Aligned 2x slower than the generic one).
+struct Lanes<const L: usize> {
+    t: [u32; 1024],
+    stride: usize,
+}
+
+impl<const L: usize> Lanes<L> {
+    #[inline(always)]
+    fn new() -> Self {
+        debug_assert!(L <= 4);
+        Lanes { t: [0; 1024], stride: std::hint::black_box(256) }
+    }
+
+    /// One more key of digit `d` (below 256) in lane `j` (below `L`).
+    #[inline(always)]
+    fn add(&mut self, j: usize, d: usize) {
+        debug_assert!(j < L && d < 256 && self.stride == 256);
+        // SAFETY: `stride` is 256 (`black_box` returns its input), j < L <= 4
+        // and d < 256: below 1024.
+        unsafe { *self.t.get_unchecked_mut(j * self.stride + d) += 1 }
+    }
+
+    /// The lanes summed.
+    #[inline(always)]
+    fn sum(&self) -> [u32; 256] {
+        let mut c = [0u32; 256];
+        for j in 0..L {
+            let lane = &self.t[j * 256..j * 256 + 256];
+            for d in 0..256 {
+                c[d] += lane[d];
+            }
+        }
+        c
+    }
+}
+
 /// The counts of `digit` over `a`, on `L` tables (keys in turn).
 #[inline(always)]
 fn count_lanes<const L: usize>(a: &[u16], digit: impl Fn(u16) -> usize) -> [u32; 256] {
-    let mut cs = [[0u32; 256]; L];
+    let mut cs = Lanes::<L>::new();
     let (blocks, rest) = a.as_chunks::<L>();
     for q in blocks {
         for j in 0..L {
-            cs[j][digit(q[j]) & 255] += 1;
+            cs.add(j, digit(q[j]) & 255);
         }
     }
     for &x in rest {
-        cs[0][digit(x) & 255] += 1;
+        cs.add(0, digit(x) & 255);
     }
-    let mut c = cs[0];
-    for t in &cs[1..] {
-        for d in 0..256 {
-            c[d] += t[d];
-        }
-    }
-    c
+    cs.sum()
 }
 
 /// One byte varies among the probed keys: counted while every other bit is
@@ -498,28 +511,23 @@ fn cheap_one_byte(a: &mut [u16], s: &[u16; 18]) -> bool {
 fn one_byte_in<const S: u32, const L: usize>(a: &mut [u16]) -> bool {
     let first = a[0];
     let other = !(255u16 << S);
-    let mut cs = [[0u32; 256]; L];
+    let mut cs = Lanes::<L>::new();
     let mut bad = [0u16; L];
     let (blocks, rest) = a.as_chunks::<L>();
     for q in blocks {
         for j in 0..L {
             bad[j] |= (q[j] ^ first) & other;
-            cs[j][((ord(q[j]) >> S) & 255) as usize] += 1;
+            cs.add(j, ((ord(q[j]) >> S) & 255) as usize);
         }
     }
     for &x in rest {
         bad[0] |= (x ^ first) & other;
-        cs[0][((ord(x) >> S) & 255) as usize] += 1;
+        cs.add(0, ((ord(x) >> S) & 255) as usize);
     }
     if bad.iter().fold(0, |m, &b| m | b) != 0 {
         return false;
     }
-    let mut c = cs[0];
-    for t in &cs[1..] {
-        for d in 0..256 {
-            c[d] += t[d];
-        }
-    }
+    let c = cs.sum();
     crate::v2::engines::lsd::short16::put_byte::<F, S>(a, &c);
     true
 }
@@ -1076,7 +1084,7 @@ fn window_count256<const ROT: u16>(arr: &mut [u16], base: u16) -> bool {
 #[inline(always)]
 fn window_count256_in<const ROT: u16, const CHECK: bool>(arr: &mut [u16], base: u16) -> bool {
     let n = arr.len();
-    let mut c = [[0u32; 256]; 4];
+    let mut c = Lanes::<4>::new();
     let (quads, rest) = arr.as_chunks::<4>();
     // The window checked first by its own pass (vectorized, nothing
     // counted when a key falls outside), then a counting loop with
@@ -1089,16 +1097,13 @@ fn window_count256_in<const ROT: u16, const CHECK: bool>(arr: &mut [u16], base: 
     }
     for q in quads {
         for l in 0..4 {
-            c[l][((q[l] ^ ROT ^ F).wrapping_sub(base) & 255) as usize] += 1;
+            c.add(l, ((q[l] ^ ROT ^ F).wrapping_sub(base) & 255) as usize);
         }
     }
     for &k in rest {
-        c[0][((k ^ ROT ^ F).wrapping_sub(base) & 255) as usize] += 1;
+        c.add(0, ((k ^ ROT ^ F).wrapping_sub(base) & 255) as usize);
     }
-    let mut counts = [0u32; 256];
-    for d in 0..256 {
-        counts[d] = c[0][d] + c[1][d] + c[2][d] + c[3][d];
-    }
+    let counts = c.sum();
     // Rotated keys from `ROT` on are the smallest original values: written
     // first when the window crosses that point.
     let hi = base as usize + 255;
@@ -1165,18 +1170,19 @@ fn tiny_range<const ROT: u16, C: Count16>(arr: &mut [u16]) -> bool {
     // From 768 keys 4 lanes of 32-bit counters. Idea: blazing-radix
     // `compact_range`.
     if n >= 768 {
-        let mut q = [[0u32; 256]; 4];
+        let mut q = Lanes::<4>::new();
         let (quads, rest) = arr.as_chunks::<4>();
         for k in quads {
             for l in 0..4 {
-                q[l][((k[l] ^ ROT ^ F).wrapping_sub(lo) & 255) as usize] += 1;
+                q.add(l, ((k[l] ^ ROT ^ F).wrapping_sub(lo) & 255) as usize);
             }
         }
         for &v in rest {
-            q[0][((v ^ ROT ^ F).wrapping_sub(lo) & 255) as usize] += 1;
+            q.add(0, ((v ^ ROT ^ F).wrapping_sub(lo) & 255) as usize);
         }
+        let q = q.sum();
         for d in 0..=span {
-            c[0][d].put((q[0][d] + q[1][d] + q[2][d] + q[3][d]) as usize);
+            c[0][d].put(q[d] as usize);
         }
     } else {
         let (pairs, rest) = arr.as_chunks::<2>();
@@ -2049,26 +2055,23 @@ fn flat_byte16<C: Count16, const LOW_ONLY: bool>(keys: &mut [u16]) -> bool {
     let other = 0xFFu16 << (8 - shift);
     // 4 lanes of 32-bit counters, written by 32-key stores (as the
     // window).
-    let mut q = [[0u32; 256]; 4];
+    let mut q = Lanes::<4>::new();
     let mut x = [0u16; 4];
     let (quads, rest) = keys.as_chunks::<4>();
     for k in quads {
         for l in 0..4 {
-            q[l][((k[l] >> shift) & 255) as usize] += 1;
+            q.add(l, ((k[l] >> shift) & 255) as usize);
             x[l] |= k[l] ^ first;
         }
     }
     for &k in rest {
-        q[0][((k >> shift) & 255) as usize] += 1;
+        q.add(0, ((k >> shift) & 255) as usize);
         x[0] |= k ^ first;
     }
     if (x[0] | x[1] | x[2] | x[3]) & other != 0 {
         return false;
     }
-    let mut counts = [0u32; 256];
-    for d in 0..256 {
-        counts[d] = q[0][d] + q[1][d] + q[2][d] + q[3][d];
-    }
+    let counts = q.sum();
     if counts[((first >> shift) & 255) as usize] as usize != n {
         let rest = first & other;
         let rot = if shift == 8 { (F >> 8) as usize } else { 0 };
