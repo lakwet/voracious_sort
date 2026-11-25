@@ -19,7 +19,8 @@ fn dlsd_max() -> usize {
 /// false means the light chain runs), 1024 the light chain without its
 /// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
 /// and few before the near-sorted repair, 8192 no few4 (at most 4 values on
-/// the sample, counted by comparisons), 16384 no tiny path.
+/// the sample, counted by comparisons), 16384 no tiny path, 32768 the DLSD
+/// instead of the short radix sort in the tiny path.
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
@@ -256,6 +257,85 @@ macro_rules! chain32_ab {
         /// probed keys (the 16-bit short sort's probes).
         const TINY_MAX: usize = 1100;
 
+        /// The short radix sort of the tiny path (up to `TINY_MAX` keys),
+        /// on raw bits whose encoded minimum and maximum are known: the top
+        /// log2(n) + 3 bits of `key - min` (at most 14) by 2 LSD passes of
+        /// at most 7 bits, both histograms in one read, buffer and counters
+        /// on the stack; then an insertion sort finishes the keys sharing a
+        /// prefix (`sort_unstable` beyond 2n moves: clustered keys). No
+        /// sample, no allocation (the 16-bit short LSD's approach).
+        fn short_radix(bits: &mut [u32], lo: u32, hi: u32) {
+            let n = bits.len();
+            debug_assert!(n <= TINY_MAX);
+            let range = hi - lo;
+            if range == 0 {
+                return;
+            }
+            let top = 32 - range.leading_zeros();
+            let log_n = usize::BITS - n.leading_zeros();
+            let p = (log_n + 3).min(top);
+            let w0 = p / 2;
+            let base = top - p;
+            let m0 = (1u32 << w0) - 1;
+            let key = |b: u32| $c(b).wrapping_sub(lo) >> base;
+            let (mut c0, mut c1) = ([0u32; 128], [0u32; 128]);
+            for &b in bits.iter() {
+                let k = key(b);
+                // SAFETY: k < 2^p, p <= 14, so both digits are below 128.
+                unsafe {
+                    *c0.get_unchecked_mut((k & m0) as usize) += 1;
+                    *c1.get_unchecked_mut((k >> w0) as usize) += 1;
+                }
+            }
+            let (mut s0, mut s1) = (0u32, 0u32);
+            for d in 0..128 {
+                let (a, b) = (c0[d], c1[d]);
+                c0[d] = s0;
+                c1[d] = s1;
+                s0 += a;
+                s1 += b;
+            }
+            let mut store = [0u32; TINY_MAX];
+            let buf = &mut store[..n];
+            // SAFETY (both passes): the digits are below 128 (above); each
+            // head plus the keys of its bucket already written is below n.
+            unsafe {
+                for &b in bits.iter() {
+                    let d = (key(b) & m0) as usize;
+                    let at = c0.get_unchecked_mut(d);
+                    *buf.get_unchecked_mut(*at as usize) = b;
+                    *at += 1;
+                }
+                for &b in buf.iter() {
+                    let d = (key(b) >> w0) as usize;
+                    let at = c1.get_unchecked_mut(d);
+                    *bits.get_unchecked_mut(*at as usize) = b;
+                    *at += 1;
+                }
+            }
+            if base == 0 {
+                return;
+            }
+            let mut moves = 0;
+            for i in 1..n {
+                let v = bits[i];
+                let kv = $c(v);
+                if $c(bits[i - 1]) > kv {
+                    let mut j = i;
+                    while j > 0 && $c(bits[j - 1]) > kv {
+                        bits[j] = bits[j - 1];
+                        j -= 1;
+                    }
+                    bits[j] = v;
+                    moves += i - j;
+                    if moves > 2 * n {
+                        bits.sort_unstable_by_key(|&b| $c(b));
+                        return;
+                    }
+                }
+            }
+        }
+
         /// The tiny path. One inspection pass gives the encoded minimum and
         /// maximum and the descents: nearly sorted (few descents, or nearly
         /// all) tries the near-sorted repair, a narrow range is counted
@@ -328,8 +408,14 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
-            trace!("tiny_dlsd");
-            $st::dlsd_known(bits_of(arr), lo, hi);
+            // Trial (bit 32768 off): the short radix sort, else the DLSD.
+            if on(32768) {
+                trace!("tiny_short");
+                short_radix(bits_of(arr), lo, hi);
+            } else {
+                trace!("tiny_dlsd");
+                $st::dlsd_known(bits_of(arr), lo, hi);
+            }
         }
 
         /// The detectors, on one spread sample (sorted once, only when the detectors
