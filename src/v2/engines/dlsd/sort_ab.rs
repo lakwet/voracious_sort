@@ -159,7 +159,10 @@ macro_rules! dlsd_sort_ab {
             let layout = Layout::new(prefix, top, n);
             // Trial (env `AB_DLSD_LSD`): more passes than the LSD's 11-bit
             // digits over the varying bits: the LSD instead.
-            if RAW && lsd_fallback() && layout.digits as u32 > top.div_ceil(11) {
+            let exact_lsd = EXACT.load(std::sync::atomic::Ordering::Relaxed)
+                && layout.base == 0
+                && n >= EXACT_LSD_MIN;
+            if RAW && (exact_lsd || (lsd_fallback() && layout.digits as u32 > top.div_ceil(11))) {
                 note(n, top, prefix, &layout, 3);
                 w::lsd(keys);
                 return;
@@ -317,6 +320,20 @@ macro_rules! dlsd_sort_ab {
         pub(crate) static NET: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         use crate::v2::engines::small::{network_sort, NETWORK_MAX};
+
+        /// Trial (`dlsde`): an exact prefix from `EXACT_LSD_MIN` keys goes to
+        /// the LSD (its digit choice: bytes when 11-bit digits leave the cache).
+        pub(crate) static EXACT: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        const EXACT_LSD_MIN: usize = 4096;
+
+        /// Trial (`dlsdu`): no staged pass.
+        pub(crate) static NOSTAGE: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        thread_local! {
+            /// Staged passes run (dev count).
+            pub(crate) static STAGED_SEEN: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        }
 
         /// The trial of `AB_DLSD_LSD`.
         fn lsd_fallback() -> bool {
@@ -498,7 +515,10 @@ macro_rules! dlsd_sort_ab {
                     *c = sum;
                     sum += v;
                 }
-                staged[i] = check_alias && aliased(table, n);
+                staged[i] = check_alias
+                    && !NOSTAGE.load(std::sync::atomic::Ordering::Relaxed)
+                    && aliased(table, n);
+                STAGED_SEEN.with(|c| c.set(c.get() + staged[i] as usize));
             }
             let mut staging: Vec<$uint> = Vec::new();
             let mut starts: Vec<u32> = Vec::new();

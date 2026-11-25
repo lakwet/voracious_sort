@@ -147,6 +147,18 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
         // thread (measure only, never in the library).
         "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::su32::dlsd(keys),
+        "dlsde" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::su32::EXACT.store(true, Relaxed);
+            v2::engines::dlsd::su32::dlsd(keys);
+            v2::engines::dlsd::su32::EXACT.store(false, Relaxed);
+        },
+        "dlsdu" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::su32::NOSTAGE.store(true, Relaxed);
+            v2::engines::dlsd::su32::dlsd(keys);
+            v2::engines::dlsd::su32::NOSTAGE.store(false, Relaxed);
+        },
         "dlsdk" | "dlsdn" | "dlsdkn" => {
             use std::sync::atomic::Ordering::Relaxed;
             use v2::engines::dlsd::su32::{MASK, NET};
@@ -195,6 +207,18 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
         "dlsd" => di32::dlsd(bits),
         "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::si32::dlsd(bits),
+        "dlsde" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::si32::EXACT.store(true, Relaxed);
+            v2::engines::dlsd::si32::dlsd(bits);
+            v2::engines::dlsd::si32::EXACT.store(false, Relaxed);
+        },
+        "dlsdu" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::si32::NOSTAGE.store(true, Relaxed);
+            v2::engines::dlsd::si32::dlsd(bits);
+            v2::engines::dlsd::si32::NOSTAGE.store(false, Relaxed);
+        },
         "dlsdk" | "dlsdn" | "dlsdkn" => {
             use std::sync::atomic::Ordering::Relaxed;
             use v2::engines::dlsd::si32::{MASK, NET};
@@ -245,6 +269,13 @@ pub fn ab_i32_copy(keys: &mut [i32]) { v2::devour::ab_copy32::ci32::sort(keys) }
 
 /// Dev only (feature `ab`): the decisions of the stack DLSD (u32) since the
 /// last call: (n, top bit, prefix bits, digit width, digits, finish).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_dlsd_staged_take() -> usize {
+    v2::engines::dlsd::su32::STAGED_SEEN.with(|c| c.replace(0))
+}
+
+/// Dev only (feature `ab`): see above.
 #[cfg(feature = "ab")]
 #[doc(hidden)]
 pub fn ab_dlsd_stats_take() -> Vec<(usize, u32, u32, u32, usize, u8)> {
