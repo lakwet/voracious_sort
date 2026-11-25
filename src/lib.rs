@@ -129,6 +129,30 @@ pub fn ab_i32_lsd(keys: &mut [i32]) {
     v2::engines::lsd::wi32::lsd(v2::devour::keys::bits_of(keys))
 }
 
+/// Dev only (feature `ab`): u32 engines alone, by name (`dlsd`, `roller`;
+/// i32 through their signed codec).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
+    use v2::engines::{dlsd::du32, roller::ru32};
+    match name {
+        "dlsd" => du32::dlsd(keys),
+        _ => ru32::roller(keys),
+    }
+}
+
+/// Dev only (feature `ab`): i32 engines alone (see `ab_u32_engine`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
+    use v2::engines::{dlsd::di32, roller::ri32};
+    let bits = v2::devour::keys::bits_of(keys);
+    match name {
+        "dlsd" => di32::dlsd(bits),
+        _ => ri32::roller(bits),
+    }
+}
+
 /// Dev only (features `ab` and `v2_trace`): the decision labels noted
 /// since the last call.
 #[cfg(all(feature = "ab", feature = "v2_trace"))]
