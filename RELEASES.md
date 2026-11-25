@@ -1,3 +1,16 @@
+# Version **2.1.2** (November 25<sup>th</sup> 2026)
+
+A fix for `u16` and `i16` sorted in a native build on recent Intel CPUs.
+
+- Built with `-C target-cpu=native` (or for `alderlake`, `meteorlake` and
+  other CPUs with AVX-VNNI or AVX-512), the compiler turned the counting
+  loops of the 16-bit sort into vector gathers, which are slow on these
+  CPUs: narrow ranges, values at both ends of the domain and aligned values
+  were up to 2 times slower than in the generic build. The counters are now
+  read in a way the compiler cannot gather on these CPUs; on a Core Ultra 9
+  185H the affected inputs are up to 2 times faster. The generic build and
+  other CPUs run the same code as before.
+
 # Version **2.1.1** (November 25<sup>th</sup> 2026)
 
 A lighter build, nothing else changes.

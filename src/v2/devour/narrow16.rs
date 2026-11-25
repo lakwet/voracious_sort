@@ -430,26 +430,71 @@ fn cheap_few_k<const KN: usize>(a: &mut [u16], reps: &[u16; 4]) -> bool {
 /// repeated value does not wait on its own counter); below, one.
 const LANES_MIN: usize = 1024;
 
+/// Up to 4 counting tables, one per lane (keys in turn). Built for recent
+/// Intel CPUs (`target-cpu=native` on a Core Ultra: `meteorlake`), the
+/// compiler loaded the 4 counters of a block by one vector gather, slow
+/// there: Bimodal, Range 16, Aligned, Small up to 2x slower than the generic
+/// build. There each counter is read by a volatile load, which it cannot
+/// gather; the lanes stay separate arrays, so their updates still overlap.
+struct Lanes<const L: usize> {
+    t: [[u32; 256]; L],
+}
+
+impl<const L: usize> Lanes<L> {
+    #[inline(always)]
+    fn new() -> Self { Lanes { t: [[0; 256]; L] } }
+
+    /// One more key of digit `d` (below 256) in lane `j` (below `L`).
+    #[inline(always)]
+    fn add(&mut self, j: usize, d: usize) {
+        let c = &mut self.t[j][d & 255];
+        // Built for recent Intel CPUs (AVX-VNNI: Alder Lake, Meteor Lake;
+        // AVX-512: their server parts), whose tuning makes the compiler
+        // gather the counters: the counter read by a volatile load, which
+        // it cannot gather. Elsewhere the plain increment (the volatile
+        // load costs Aligned 30-40 % on the Ryzen, generic build).
+        #[cfg(any(target_feature = "avxvnni", target_feature = "avx512f"))]
+        {
+            // SAFETY: `c` is a valid, aligned, exclusive reference.
+            let v = unsafe { std::ptr::read_volatile(c) };
+            *c = v + 1;
+        }
+        #[cfg(not(any(target_feature = "avxvnni", target_feature = "avx512f")))]
+        {
+            *c += 1;
+        }
+    }
+
+    /// The lanes summed.
+    #[inline(always)]
+    fn sum(&self) -> [u32; 256] {
+        // One pass over the counters, the lanes added at each (as before).
+        let mut c = [0u32; 256];
+        for d in 0..256 {
+            let mut v = 0;
+            for j in 0..L {
+                v += self.t[j][d];
+            }
+            c[d] = v;
+        }
+        c
+    }
+}
+
 /// The counts of `digit` over `a`, on `L` tables (keys in turn).
 #[inline(always)]
 fn count_lanes<const L: usize>(a: &[u16], digit: impl Fn(u16) -> usize) -> [u32; 256] {
-    let mut cs = [[0u32; 256]; L];
+    let mut cs = Lanes::<L>::new();
     let (blocks, rest) = a.as_chunks::<L>();
     for q in blocks {
         for j in 0..L {
-            cs[j][digit(q[j]) & 255] += 1;
+            cs.add(j, digit(q[j]) & 255);
         }
     }
     for &x in rest {
-        cs[0][digit(x) & 255] += 1;
+        cs.add(0, digit(x) & 255);
     }
-    let mut c = cs[0];
-    for t in &cs[1..] {
-        for d in 0..256 {
-            c[d] += t[d];
-        }
-    }
-    c
+    cs.sum()
 }
 
 /// One byte varies among the probed keys: counted while every other bit is
@@ -475,28 +520,23 @@ fn cheap_one_byte(a: &mut [u16], s: &[u16; 18]) -> bool {
 fn one_byte_in<const S: u32, const L: usize>(a: &mut [u16]) -> bool {
     let first = a[0];
     let other = !(255u16 << S);
-    let mut cs = [[0u32; 256]; L];
+    let mut cs = Lanes::<L>::new();
     let mut bad = [0u16; L];
     let (blocks, rest) = a.as_chunks::<L>();
     for q in blocks {
         for j in 0..L {
             bad[j] |= (q[j] ^ first) & other;
-            cs[j][((ord(q[j]) >> S) & 255) as usize] += 1;
+            cs.add(j, ((ord(q[j]) >> S) & 255) as usize);
         }
     }
     for &x in rest {
         bad[0] |= (x ^ first) & other;
-        cs[0][((ord(x) >> S) & 255) as usize] += 1;
+        cs.add(0, ((ord(x) >> S) & 255) as usize);
     }
     if bad.iter().fold(0, |m, &b| m | b) != 0 {
         return false;
     }
-    let mut c = cs[0];
-    for t in &cs[1..] {
-        for d in 0..256 {
-            c[d] += t[d];
-        }
-    }
+    let c = cs.sum();
     crate::v2::engines::lsd::short16::put_byte::<F, S>(a, &c);
     true
 }
@@ -1053,7 +1093,7 @@ fn window_count256<const ROT: u16>(arr: &mut [u16], base: u16) -> bool {
 #[inline(always)]
 fn window_count256_in<const ROT: u16, const CHECK: bool>(arr: &mut [u16], base: u16) -> bool {
     let n = arr.len();
-    let mut c = [[0u32; 256]; 4];
+    let mut c = Lanes::<4>::new();
     let (quads, rest) = arr.as_chunks::<4>();
     // The window checked first by its own pass (vectorized, nothing
     // counted when a key falls outside), then a counting loop with
@@ -1066,16 +1106,13 @@ fn window_count256_in<const ROT: u16, const CHECK: bool>(arr: &mut [u16], base: 
     }
     for q in quads {
         for l in 0..4 {
-            c[l][((q[l] ^ ROT ^ F).wrapping_sub(base) & 255) as usize] += 1;
+            c.add(l, ((q[l] ^ ROT ^ F).wrapping_sub(base) & 255) as usize);
         }
     }
     for &k in rest {
-        c[0][((k ^ ROT ^ F).wrapping_sub(base) & 255) as usize] += 1;
+        c.add(0, ((k ^ ROT ^ F).wrapping_sub(base) & 255) as usize);
     }
-    let mut counts = [0u32; 256];
-    for d in 0..256 {
-        counts[d] = c[0][d] + c[1][d] + c[2][d] + c[3][d];
-    }
+    let counts = c.sum();
     // Rotated keys from `ROT` on are the smallest original values: written
     // first when the window crosses that point.
     let hi = base as usize + 255;
@@ -1142,18 +1179,19 @@ fn tiny_range<const ROT: u16, C: Count16>(arr: &mut [u16]) -> bool {
     // From 768 keys 4 lanes of 32-bit counters. Idea: blazing-radix
     // `compact_range`.
     if n >= 768 {
-        let mut q = [[0u32; 256]; 4];
+        let mut q = Lanes::<4>::new();
         let (quads, rest) = arr.as_chunks::<4>();
         for k in quads {
             for l in 0..4 {
-                q[l][((k[l] ^ ROT ^ F).wrapping_sub(lo) & 255) as usize] += 1;
+                q.add(l, ((k[l] ^ ROT ^ F).wrapping_sub(lo) & 255) as usize);
             }
         }
         for &v in rest {
-            q[0][((v ^ ROT ^ F).wrapping_sub(lo) & 255) as usize] += 1;
+            q.add(0, ((v ^ ROT ^ F).wrapping_sub(lo) & 255) as usize);
         }
+        let q = q.sum();
         for d in 0..=span {
-            c[0][d].put((q[0][d] + q[1][d] + q[2][d] + q[3][d]) as usize);
+            c[0][d].put(q[d] as usize);
         }
     } else {
         let (pairs, rest) = arr.as_chunks::<2>();
@@ -2026,26 +2064,23 @@ fn flat_byte16<C: Count16, const LOW_ONLY: bool>(keys: &mut [u16]) -> bool {
     let other = 0xFFu16 << (8 - shift);
     // 4 lanes of 32-bit counters, written by 32-key stores (as the
     // window).
-    let mut q = [[0u32; 256]; 4];
+    let mut q = Lanes::<4>::new();
     let mut x = [0u16; 4];
     let (quads, rest) = keys.as_chunks::<4>();
     for k in quads {
         for l in 0..4 {
-            q[l][((k[l] >> shift) & 255) as usize] += 1;
+            q.add(l, ((k[l] >> shift) & 255) as usize);
             x[l] |= k[l] ^ first;
         }
     }
     for &k in rest {
-        q[0][((k >> shift) & 255) as usize] += 1;
+        q.add(0, ((k >> shift) & 255) as usize);
         x[0] |= k ^ first;
     }
     if (x[0] | x[1] | x[2] | x[3]) & other != 0 {
         return false;
     }
-    let mut counts = [0u32; 256];
-    for d in 0..256 {
-        counts[d] = q[0][d] + q[1][d] + q[2][d] + q[3][d];
-    }
+    let counts = q.sum();
     if counts[((first >> shift) & 255) as usize] as usize != n {
         let rest = first & other;
         let rot = if shift == 8 { (F >> 8) as usize } else { 0 };
