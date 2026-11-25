@@ -113,6 +113,28 @@ macro_rules! dlsd_sort_ab {
                 return;
             }
             let top = <$uint>::BITS - range.leading_zeros();
+            // Trial (the `dlsdh` sort of the example): no sample; one pass on
+            // a top window wide enough for about 2 keys per bucket, then
+            // every bucket finished by its real size (insertion up to
+            // `GROUP_INSERTION`, the DLSD again on its own range beyond).
+            if RAW && HIST.load(std::sync::atomic::Ordering::Relaxed) && n <= HIST_MAX {
+                let log_n = usize::BITS - n.leading_zeros();
+                let width = (log_n - 1).clamp(8, MAX_DIGIT_BITS).min(top);
+                let buckets = 1usize << width;
+                let layout =
+                    Layout { width, digits: 1, base: top - width, buckets, mask: (buckets - 1) as $uint };
+                let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
+                let mut heap: Vec<u32> = Vec::new();
+                let tables = zeroed_counters(&mut stack, &mut heap, 2 * buckets);
+                count_digits::<RAW>(keys, min, &layout, tables);
+                let tables = &mut tables[..buckets];
+                scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
+                note(n, top, width, &layout, 4);
+                if layout.base > 0 {
+                    finish_groups(keys, scratch, min, layout.base);
+                }
+                return;
+            }
             let prefix = prefix_bits::<RAW>(keys, min, top, pre);
             let layout = Layout::new(prefix, top, n);
             // Trial (env `AB_DLSD_LSD`): more passes than the LSD's 11-bit
@@ -260,6 +282,12 @@ macro_rules! dlsd_sort_ab {
                 }
             }
         }
+
+        /// Trial (the `dlsdh` sort of the example): one top window, then the
+        /// buckets by their real size, up to `HIST_MAX` keys.
+        pub(crate) static HIST: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        const HIST_MAX: usize = 16_384;
 
         /// The trial of `AB_DLSD_LSD`.
         fn lsd_fallback() -> bool {
