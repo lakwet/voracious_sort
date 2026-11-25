@@ -119,14 +119,12 @@ macro_rules! chain32_ab {
                     trace!("light_range");
                     return;
                 }
-                if on(8) && detectors::few(arr, &sample) {
-                    trace!("light_few");
-                    return;
-                }
-                // Then one dominant value on the sample (Sparse; few values
-                // went to `few`): the std partition (as `detect`), asked only
-                // when the first 5 sample keys repeat one (10 comparisons; the
-                // vote over 64 keys costs 3-4 % at 250-500 keys).
+                // One dominant value on the sample with a long tail of
+                // distinct values (at least 4 sample keys seen once: Sparse;
+                // FakeZipf, few values, is left to `few`): the std partition
+                // (as `detect`), asked only when the first 5 sample keys repeat
+                // one (10 comparisons; the vote over 64 keys costs 3-4 % at
+                // 250-500 keys).
                 let mut repeat = false;
                 for i in 0..5 {
                     for j in i + 1..5 {
@@ -134,8 +132,22 @@ macro_rules! chain32_ab {
                     }
                 }
                 if on(2048) && repeat && dominant(&sample, |x, y| x == y) {
-                    trace!("light_dominant");
-                    arr.sort_unstable();
+                    let mut sorted = sample;
+                    sorted.sort_unstable();
+                    let mut f1 = 0;
+                    for i in 0..SAMPLE {
+                        let left = i > 0 && sorted[i - 1] == sorted[i];
+                        let right = i + 1 < SAMPLE && sorted[i + 1] == sorted[i];
+                        f1 += (!left && !right) as usize;
+                    }
+                    if f1 >= 4 {
+                        trace!("light_dominant");
+                        arr.sort_unstable();
+                        return;
+                    }
+                }
+                if on(8) && detectors::few(arr, &sample) {
+                    trace!("light_few");
                     return;
                 }
                 sort_chunk(bits_of(arr), &mut Vec::new());
