@@ -11,6 +11,9 @@
 
 #[macro_use]
 mod kernels;
+#[cfg(feature = "ab")]
+#[macro_use]
+mod sort_ab;
 #[macro_use]
 mod prefix;
 #[macro_use]
@@ -142,3 +145,27 @@ dlsd_width!(u128, wu128, du128, alias_min_bytes_int);
 dlsd_width!(u128, wi128, di128, alias_min_bytes_int);
 
 #[cfg(test)] mod tests;
+
+/// Dev only (feature `ab`): the DLSD with its scratch on the stack
+/// (`sort_ab.rs`), for the A/B copy of the u32 / i32 chains.
+#[cfg(feature = "ab")]
+macro_rules! dlsd_width_ab {
+    ($uint:ty, $w:ident, $m:ident, $alias_min:path) => {
+        pub(crate) mod $m {
+            use super::super::lsd::$w as w;
+            use super::*;
+
+            /// Keys per staging slot (one 64-byte cache line).
+            const WB: usize = 64 / std::mem::size_of::<$uint>();
+
+            dlsd_sort_ab!($uint, $alias_min);
+            dlsd_prefix!($uint);
+            dlsd_kernels!($uint);
+        }
+    };
+}
+
+#[cfg(feature = "ab")]
+dlsd_width_ab!(u32, wu32, su32, alias_min_bytes_int);
+#[cfg(feature = "ab")]
+dlsd_width_ab!(u32, wi32, si32, alias_min_bytes_int);

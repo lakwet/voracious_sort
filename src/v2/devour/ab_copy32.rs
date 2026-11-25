@@ -1,7 +1,8 @@
 //! Dev only (feature `ab`): A/B copy of the u32 / i32 chains (`u32.rs`,
 //! `i32.rs`); edit here, measured against the library by `examples/ab_u32.rs`
 //! (`copy`). Trial: the DLSD as the engine below `dlsd_max()` keys
-//! (`AB_DLSD_MAX`, default 65 536).
+//! (`AB_DLSD_MAX`, default 65 536); its scratch on the stack up to 4096 keys
+//! unless `AB_DLSD_HEAP` is set.
 
 /// Below this many keys a chunk goes to the DLSD (env `AB_DLSD_MAX`).
 fn dlsd_max() -> usize {
@@ -11,10 +12,17 @@ fn dlsd_max() -> usize {
     })
 }
 
+/// The DLSD with its scratch on the heap (env `AB_DLSD_HEAP`).
+fn dlsd_heap() -> bool {
+    static H: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *H.get_or_init(|| std::env::var("AB_DLSD_HEAP").is_ok())
+}
+
 macro_rules! chain32_ab {
-    ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $ro:ident) => {
+    ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::dlsd_max;
+        use super::{dlsd_heap, dlsd_max};
+        use crate::v2::engines::dlsd::$st;
         use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
         use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
@@ -116,7 +124,11 @@ macro_rules! chain32_ab {
             // faster through the LSD from 30M to 1G).
             if bits.len() < dlsd_max() {
                 trace!("dlsd");
-                $dl::dlsd(bits);
+                if dlsd_heap() {
+                    $dl::dlsd(bits);
+                } else {
+                    $st::dlsd(bits);
+                }
             } else if bits.len() >= roller_min() && (locally_ordered(bits) || globally_ordered(bits)) {
                 trace!("roller");
                 $ro::roller(bits);
@@ -207,5 +219,5 @@ macro_rules! chain32_ab {
     };
 }
 
-chain32_ab!(cu32, u32, id32, 200, wu32, du32, ru32);
-chain32_ab!(ci32, i32, flip32, 150, wi32, di32, ri32);
+chain32_ab!(cu32, u32, id32, 200, wu32, du32, su32, ru32);
+chain32_ab!(ci32, i32, flip32, 150, wi32, di32, si32, ri32);

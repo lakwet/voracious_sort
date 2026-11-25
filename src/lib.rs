@@ -146,6 +146,7 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
         // Upper bound of a buffer that costs nothing: one scratch kept per
         // thread (measure only, never in the library).
         "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
+        "dlsds" => v2::engines::dlsd::su32::dlsd(keys),
         _ => ru32::roller(keys),
     }
 }
@@ -159,6 +160,7 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
     match name {
         "dlsd" => di32::dlsd(bits),
         "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
+        "dlsds" => v2::engines::dlsd::si32::dlsd(bits),
         _ => ri32::roller(bits),
     }
 }

@@ -61,7 +61,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "blz" => T::blz(w),
         "lsd" => T::lsd(w),
         "copy" => T::copy(w),
-        "dlsd" | "dlsdr" | "roller" => T::engine(name, w),
+        "dlsd" | "dlsdr" | "dlsds" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
 }
