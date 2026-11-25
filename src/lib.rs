@@ -154,52 +154,6 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
             v2::engines::dlsd::su32::dlsd(keys);
             v2::engines::dlsd::su32::OLD.store(false, Relaxed);
         },
-        "dlsde" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::su32::EXACT.store(true, Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            v2::engines::dlsd::su32::EXACT.store(false, Relaxed);
-        },
-        "dlsdu" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::su32::NOSTAGE.store(true, Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            v2::engines::dlsd::su32::NOSTAGE.store(false, Relaxed);
-        },
-        "dlsdk" | "dlsdn" | "dlsdkn" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            use v2::engines::dlsd::su32::{MASK, NET};
-            MASK.store(name.contains('k'), Relaxed);
-            NET.store(name.ends_with('n'), Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            MASK.store(false, Relaxed);
-            NET.store(false, Relaxed);
-        },
-        "dlsdh" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::su32::HIST.store(true, Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            v2::engines::dlsd::su32::HIST.store(false, Relaxed);
-        },
-        "dlsdm" => v2::engines::dlsd::mu32::dlsd(keys),
-        "dlsdb" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::su32::BF.store(true, Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            v2::engines::dlsd::su32::BF.store(false, Relaxed);
-        },
-        "dlsd4" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::su32::LANES4.store(true, Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            v2::engines::dlsd::su32::LANES4.store(false, Relaxed);
-        },
-        "dlsdl" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::su32::FALLBACK.store(true, Relaxed);
-            v2::engines::dlsd::su32::dlsd(keys);
-            v2::engines::dlsd::su32::FALLBACK.store(false, Relaxed);
-        },
         _ => ru32::roller(keys),
     }
 }
@@ -220,52 +174,6 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
             v2::engines::dlsd::si32::OLD.store(true, Relaxed);
             v2::engines::dlsd::si32::dlsd(bits);
             v2::engines::dlsd::si32::OLD.store(false, Relaxed);
-        },
-        "dlsde" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::si32::EXACT.store(true, Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            v2::engines::dlsd::si32::EXACT.store(false, Relaxed);
-        },
-        "dlsdu" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::si32::NOSTAGE.store(true, Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            v2::engines::dlsd::si32::NOSTAGE.store(false, Relaxed);
-        },
-        "dlsdk" | "dlsdn" | "dlsdkn" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            use v2::engines::dlsd::si32::{MASK, NET};
-            MASK.store(name.contains('k'), Relaxed);
-            NET.store(name.ends_with('n'), Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            MASK.store(false, Relaxed);
-            NET.store(false, Relaxed);
-        },
-        "dlsdh" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::si32::HIST.store(true, Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            v2::engines::dlsd::si32::HIST.store(false, Relaxed);
-        },
-        "dlsdm" => v2::engines::dlsd::mi32::dlsd(bits),
-        "dlsdb" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::si32::BF.store(true, Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            v2::engines::dlsd::si32::BF.store(false, Relaxed);
-        },
-        "dlsd4" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::si32::LANES4.store(true, Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            v2::engines::dlsd::si32::LANES4.store(false, Relaxed);
-        },
-        "dlsdl" => {
-            use std::sync::atomic::Ordering::Relaxed;
-            v2::engines::dlsd::si32::FALLBACK.store(true, Relaxed);
-            v2::engines::dlsd::si32::dlsd(bits);
-            v2::engines::dlsd::si32::FALLBACK.store(false, Relaxed);
         },
         _ => ri32::roller(bits),
     }
@@ -290,13 +198,6 @@ pub fn ab_i32_copy(keys: &mut [i32]) { v2::devour::ab_copy32::ci32::sort(keys) }
 
 /// Dev only (feature `ab`): the decisions of the stack DLSD (u32) since the
 /// last call: (n, top bit, prefix bits, digit width, digits, finish).
-#[cfg(feature = "ab")]
-#[doc(hidden)]
-pub fn ab_dlsd_staged_take() -> usize {
-    v2::engines::dlsd::su32::STAGED_SEEN.with(|c| c.replace(0))
-}
-
-/// Dev only (feature `ab`): see above.
 #[cfg(feature = "ab")]
 #[doc(hidden)]
 pub fn ab_dlsd_stats_take() -> Vec<(usize, u32, u32, u32, usize, u8)> {

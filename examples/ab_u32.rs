@@ -73,7 +73,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
             T::copy(w);
             voracious_radix_sort::ab_copy32_skip(0);
         },
-        "dlsd" | "dlsdr" | "dlsds" | "dlsdl" | "dlsd4" | "dlsdb" | "dlsdm" | "dlsdh" | "dlsdk" | "dlsdn" | "dlsdkn" | "dlsdu" | "dlsde" | "dlsdo" | "rollo" | "roller" => T::engine(name, w),
+        "dlsd" | "dlsdr" | "dlsds" | "dlsdo" | "rollo" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
 }
@@ -286,7 +286,6 @@ fn go<T: Key>()
                 }
                 let mut w = gen(n);
                 let _ = voracious_radix_sort::ab_dlsd_stats_take();
-                let _ = voracious_radix_sort::ab_dlsd_staged_take();
                 u32::engine("dlsds", &mut w);
                 let st = voracious_radix_sort::ab_dlsd_stats_take();
                 let calls: Vec<String> = st
@@ -294,7 +293,7 @@ fn go<T: Key>()
                     .take(4)
                     .map(|c| format!("n{} top{} pre{} w{}x{} f{}", c.0, c.1, c.2, c.3, c.4, c.5))
                     .collect();
-                let staged = voracious_radix_sort::ab_dlsd_staged_take();
+                let staged = 0;
                 println!(
                     "{:>8} {:14} calls {:>4} staged {}  {}",
                     n,

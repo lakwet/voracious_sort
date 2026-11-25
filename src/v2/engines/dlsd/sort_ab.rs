@@ -1,5 +1,7 @@
-//! Dev only (feature `ab`): copy of `sort.rs` whose scratch buffer lives on
-//! the stack up to `STACK_KEYS` keys (`Scratch`). The DLSD steps: small arrays, min / max, narrowing of 128-bit keys,
+//! Dev only (feature `ab`): copy of `sort.rs` for the 32-bit chain copy:
+//! scratch on the stack up to `STACK_KEYS` keys (`Scratch`), histograms in 4
+//! lanes from 4096 to 32k keys, aliasing checked from 32k keys (`OLD`: the
+//! engine's rules, for A/B). The DLSD steps: small arrays, min / max, narrowing of 128-bit keys,
 //! prefix layout, histograms, scatter passes on the prefix digits, finish.
 
 macro_rules! dlsd_sort_ab {
@@ -134,68 +136,14 @@ macro_rules! dlsd_sort_ab {
                 return;
             }
             let top = <$uint>::BITS - range.leading_zeros();
-            // Trial (the `dlsdh` sort of the example): no sample; one pass on
-            // a top window wide enough for about 2 keys per bucket, then
-            // every bucket finished by its real size (insertion up to
-            // `GROUP_INSERTION`, the DLSD again on its own range beyond).
-            if RAW && HIST.load(std::sync::atomic::Ordering::Relaxed) && n <= HIST_MAX {
-                let log_n = usize::BITS - n.leading_zeros();
-                let width = (log_n - 1).clamp(8, MAX_DIGIT_BITS).min(top);
-                let buckets = 1usize << width;
-                let layout =
-                    Layout { width, digits: 1, base: top - width, buckets, mask: (buckets - 1) as $uint };
-                let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
-                let mut heap: Vec<u32> = Vec::new();
-                let tables = zeroed_counters(&mut stack, &mut heap, 2 * buckets);
-                count_digits::<RAW>(keys, min, &layout, tables);
-                let tables = &mut tables[..buckets];
-                scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
-                note(n, top, width, &layout, 4);
-                if layout.base > 0 && !finish_by_insertion(keys) {
-                    finish_groups(keys, scratch, min, layout.base);
-                }
-                return;
-            }
-            let mut prefix = prefix_bits::<RAW>(keys, min, top, pre);
-            // Trial (`dlsdk`): at least log2(n) + 3 varying bits of
-            // `key - min` sorted (the bits equal in every key not counted).
-            let mut raised = false;
-            if RAW && MASK.load(std::sync::atomic::Ordering::Relaxed) {
-                let first = enc::<RAW>(keys[0]).wrapping_sub(min);
-                let variation =
-                    keys.iter().fold(0 as $uint, |v, &k| v | (enc::<RAW>(k).wrapping_sub(min) ^ first));
-                let want = (usize::BITS - n.leading_zeros() + 3).min(variation.count_ones());
-                // Bits from the top needed to cover `want` varying bits.
-                let mut need = 0;
-                let mut covered = 0;
-                while covered < want && need < top {
-                    need += 1;
-                    covered += ((variation >> (top - need)) & 1) as u32;
-                }
-                if need > prefix {
-                    prefix = need;
-                    raised = true;
-                }
-            }
-            let layout = Layout::new(prefix, top, n);
-            // Trial (env `AB_DLSD_LSD`): more passes than the LSD's 11-bit
-            // digits over the varying bits: the LSD instead.
-            let exact_lsd = EXACT.load(std::sync::atomic::Ordering::Relaxed)
-                && layout.base == 0
-                && n >= EXACT_LSD_MIN;
-            if RAW && (exact_lsd || (lsd_fallback() && layout.digits as u32 > top.div_ceil(11))) {
-                note(n, top, prefix, &layout, 3);
-                w::lsd(keys);
-                return;
-            }
+            let layout = Layout::new(prefix_bits::<RAW>(keys, min, top, pre), top, n);
             // Histograms: on the stack when they fit (only the part used is
             // zeroed), else on the heap.
             let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
             let mut heap: Vec<u32> = Vec::new();
             let size = layout.digits * layout.buckets;
-            let old = OLD.load(std::sync::atomic::Ordering::Relaxed);
-            let four = (LANES4.load(std::sync::atomic::Ordering::Relaxed)
-                || (!old && (LANES4_MIN..LANES4_END).contains(&n)))
+            let four = !OLD.load(std::sync::atomic::Ordering::Relaxed)
+                && (LANES4_MIN..LANES4_END).contains(&n)
                 && layout.digits <= 4
                 && 4 * size <= STACK_COUNTERS;
             let tables = zeroed_counters(&mut stack, &mut heap, if four { 4 } else { 2 } * size);
@@ -212,22 +160,44 @@ macro_rules! dlsd_sort_ab {
             let tables = &mut tables[..layout.digits * layout.buckets];
             scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
             if layout.base == 0 {
-                note(n, top, prefix, &layout, 2);
+                note(n, top, &layout, 2);
                 return;
             }
-            let net = NET.load(std::sync::atomic::Ordering::Relaxed);
-            let by_insertion = !(net && raised) && finish_by_insertion(keys);
-            note(n, top, prefix, &layout, by_insertion as u8);
+            let by_insertion = finish_by_insertion(keys);
+            note(n, top, &layout, by_insertion as u8);
             if !by_insertion {
                 finish_groups(keys, scratch, min, layout.base);
             }
         }
 
-        /// Trial (the `dlsd4` sort of the example): histograms in 4 lanes
-        /// when they fit on the stack (a digit with few values makes
-        /// neighbouring keys wait on the same counter).
-        pub(crate) static LANES4: std::sync::atomic::AtomicBool =
+        /// The copy's rules against `OLD` (the engine's, for A/B): 4 lanes
+        /// from `LANES4_MIN` to `LANES4_END` keys, aliasing checked from
+        /// `ALIAS_KEYS_MIN` keys.
+        pub(crate) static OLD: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
+        const LANES4_MIN: usize = 4096;
+        const LANES4_END: usize = 32_768;
+        const ALIAS_KEYS_MIN: usize = 32_768;
+
+        /// Dev only: one call's decisions (n, top, prefix bits, digit
+        /// width, digits, finish: 2 exact, 1 insertion, 0 groups), recorded
+        /// when `STATS_ON` (the example's DSTATS mode).
+        #[inline(always)]
+        fn note(n: usize, top: u32, l: &Layout, finish: u8) {
+            if STATS_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                let prefix = top - l.base;
+                STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
+            }
+        }
+
+        /// Whether `note` records (dev).
+        pub(crate) static STATS_ON: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+
+        thread_local! {
+            pub(crate) static STATS: std::cell::RefCell<Vec<(usize, u32, u32, u32, usize, u8)>> =
+                const { std::cell::RefCell::new(Vec::new()) };
+        }
 
         /// Histograms of `K` digits in one read, 4 lanes (`tables`: 4 x
         /// `K * buckets` counters, summed into the first).
@@ -270,133 +240,6 @@ macro_rules! dlsd_sort_ab {
             for i in 0..size {
                 t0[i] += t1[i] + t2[i] + t3[i];
             }
-        }
-
-        /// Trial (the `dlsdb` sort of the example): every pass resolves the 4
-        /// positions of a block without a store-to-load chain (keys of a
-        /// block sharing a bucket).
-        pub(crate) static BF: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-
-        /// `scatter` with branch-free positions inside each block of 4 keys
-        /// (idea of blazing-radix, as in the fused LSD's top digit).
-        ///
-        /// # Safety
-        /// As `scatter`.
-        #[inline(always)]
-        unsafe fn scatter_bf<const FIRST: bool, const LAST: bool>(
-            src: &[$uint],
-            dst: *mut $uint,
-            heads: &mut [u32],
-            min: $uint,
-            shift: u32,
-            mask: $uint,
-        ) {
-            let key = |v: $uint| if FIRST { w::encode_key(v) } else { v };
-            let out = |k: $uint| if LAST { w::decode_key(k) } else { k };
-            let digit = |k: $uint| ((k.wrapping_sub(min) >> shift) & mask) as usize;
-            let mut blocks = src.chunks_exact(4);
-            // SAFETY (all accesses): as `scatter`; positions inside a block
-            // count the block's earlier keys of the same bucket.
-            unsafe {
-                for q in &mut blocks {
-                    let (a, b, c, d) = (key(q[0]), key(q[1]), key(q[2]), key(q[3]));
-                    let (da, db, dc, dd) = (digit(a), digit(b), digit(c), digit(d));
-                    let pa = *heads.get_unchecked(da) as usize;
-                    let pb = *heads.get_unchecked(db) as usize + usize::from(db == da);
-                    let pc = *heads.get_unchecked(dc) as usize
-                        + usize::from(dc == da)
-                        + usize::from(dc == db);
-                    let pd = *heads.get_unchecked(dd) as usize
-                        + usize::from(dd == da)
-                        + usize::from(dd == db)
-                        + usize::from(dd == dc);
-                    *heads.get_unchecked_mut(da) = pa as u32 + 1;
-                    *heads.get_unchecked_mut(db) = pb as u32 + 1;
-                    *heads.get_unchecked_mut(dc) = pc as u32 + 1;
-                    *heads.get_unchecked_mut(dd) = pd as u32 + 1;
-                    dst.add(pa).write(out(a));
-                    dst.add(pb).write(out(b));
-                    dst.add(pc).write(out(c));
-                    dst.add(pd).write(out(d));
-                }
-                for &v in blocks.remainder() {
-                    let k = key(v);
-                    let dk = digit(k);
-                    let p = *heads.get_unchecked(dk) as usize;
-                    *heads.get_unchecked_mut(dk) += 1;
-                    dst.add(p).write(out(k));
-                }
-            }
-        }
-
-        /// Trial (the `dlsdh` sort of the example): one top window, then the
-        /// buckets by their real size, up to `HIST_MAX` keys.
-        pub(crate) static HIST: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-        const HIST_MAX: usize = 16_384;
-
-        /// Trials: `MASK` (`dlsdk`) the floor of varying bits; `NET`
-        /// (`dlsdn`) groups up to `NETWORK_MAX` keys by a sorting network.
-        pub(crate) static MASK: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-        pub(crate) static NET: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-        use crate::v2::engines::small::{network_sort, NETWORK_MAX};
-
-        /// The copy's rules (A/B against `OLD`, the `dlsdo` sort of the
-        /// example: the engine's rules): histograms in 4 lanes from
-        /// `LANES4_MIN` to `LANES4_END` keys; aliasing checked from `ALIAS_KEYS_MIN` keys.
-        pub(crate) static OLD: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-        const LANES4_MIN: usize = 4096;
-        const LANES4_END: usize = 32_768;
-        const ALIAS_KEYS_MIN: usize = 32_768;
-
-        /// Trial (`dlsde`): an exact prefix from `EXACT_LSD_MIN` keys goes to
-        /// the LSD (its digit choice: bytes when 11-bit digits leave the cache).
-        pub(crate) static EXACT: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-        const EXACT_LSD_MIN: usize = 4096;
-
-        /// Trial (`dlsdu`): no staged pass.
-        pub(crate) static NOSTAGE: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-        thread_local! {
-            /// Staged passes run (dev count).
-            pub(crate) static STAGED_SEEN: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-        }
-
-        /// The trial of `AB_DLSD_LSD`.
-        fn lsd_fallback() -> bool {
-            static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-            FALLBACK.load(std::sync::atomic::Ordering::Relaxed)
-                || *F.get_or_init(|| std::env::var("AB_DLSD_LSD").is_ok())
-        }
-
-        /// The trial switched on at run time (the `dlsdl` sort of the example).
-        pub(crate) static FALLBACK: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-
-        /// Dev only: one call's decisions (n, top, prefix, digit width,
-        /// digits, finish: 2 exact, 1 insertion, 0 groups), in `STATS`.
-        #[inline(always)]
-        fn note(n: usize, top: u32, prefix: u32, l: &Layout, finish: u8) {
-            // Only when asked (`STATS_ON`, the example's DSTATS mode): a push
-            // per call grew the vector without end during the benches (twice
-            // the page faults, 7 % slower).
-            if STATS_ON.load(std::sync::atomic::Ordering::Relaxed) {
-                STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
-            }
-        }
-
-        /// Whether `note` records (dev).
-        pub(crate) static STATS_ON: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-
-        thread_local! {
-            pub(crate) static STATS: std::cell::RefCell<Vec<(usize, u32, u32, u32, usize, u8)>> =
-                const { std::cell::RefCell::new(Vec::new()) };
         }
 
         /// Arrays up to this size go to `sort_small`: larger for 128-bit keys
@@ -557,10 +400,7 @@ macro_rules! dlsd_sort_ab {
                     *c = sum;
                     sum += v;
                 }
-                staged[i] = check_alias
-                    && !NOSTAGE.load(std::sync::atomic::Ordering::Relaxed)
-                    && aliased(table, n);
-                STAGED_SEEN.with(|c| c.set(c.get() + staged[i] as usize));
+                staged[i] = check_alias && aliased(table, n);
             }
             let mut staging: Vec<$uint> = Vec::new();
             let mut starts: Vec<u32> = Vec::new();
@@ -595,8 +435,6 @@ macro_rules! dlsd_sort_ab {
                                     &mut staging,
                                     &mut starts,
                                 )
-                            } else if BF.load(std::sync::atomic::Ordering::Relaxed) {
-                                scatter_bf::<$first, $decode>(src, dst, heads, min, shift, mask)
                             } else {
                                 scatter::<$first, $decode>(src, dst, heads, min, shift, mask)
                             }
@@ -681,8 +519,6 @@ macro_rules! dlsd_sort_ab {
                 }
                 if j == i + 1 {
                     keys[i] = w::decode_key(keys[i]);
-                } else if j - i <= NETWORK_MAX && NET.load(std::sync::atomic::Ordering::Relaxed) {
-                    network_sort(&mut keys[i..j], |k| k, w::decode_key);
                 } else if j - i <= GROUP_INSERTION {
                     let g = &mut keys[i..j];
                     insertion(g);
