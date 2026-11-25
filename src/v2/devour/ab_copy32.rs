@@ -20,7 +20,8 @@ fn dlsd_max() -> usize {
 /// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
 /// and few before the near-sorted repair, 8192 no few4 (at most 4 values on
 /// the sample, counted by comparisons), 16384 no tiny path, 32768 the DLSD
-/// instead of the short radix sort in the tiny path.
+/// instead of the short radix sort in the tiny path, 65536 two passes in the
+/// short radix sort below 512 keys (else one).
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
@@ -278,14 +279,18 @@ macro_rules! chain32_ab {
             }
             let top = 32 - range.leading_zeros();
             let log_n = usize::BITS - n.leading_zeros();
-            let p = (log_n + 3).min(top);
+            // Trial (bit 65536 off): one pass of log2(n) + 1 bits (at most
+            // 10), the insertion finish settling the collisions.
+            let one = !on(65536) && log_n + 1 <= 10;
+            let p = if one { (log_n + 1).min(top) } else { (log_n + 3).min(top) };
             let base = top - p;
             // At most 8 bits: one pass (a counting sort that moves the keys:
             // a range of 256 values at 150 keys, where writing the values
             // back from 256 counters costs 2.5x).
-            if p <= 8 {
+            if p <= 10 && (one || p <= 8) {
                 let key = |b: u32| ($c(b).wrapping_sub(lo) >> base) as usize;
-                let mut c = [0u32; 256];
+                let mut c = [0u32; 1024];
+                let c = &mut c[..1 << p];
                 for &b in bits.iter() {
                     // SAFETY: key < 2^p <= 256.
                     unsafe { *c.get_unchecked_mut(key(b)) += 1 };
@@ -308,7 +313,7 @@ macro_rules! chain32_ab {
                 }
                 bits.copy_from_slice(buf);
                 if base > 0 {
-                    bits.sort_unstable_by_key(|&b| $c(b));
+                    finish_short(bits, n);
                 }
                 return;
             }
@@ -353,9 +358,12 @@ macro_rules! chain32_ab {
             if base == 0 {
                 return;
             }
-            // A block of 16 keys already in order is passed in one
-            // (vectorized) test, as the DLSD's finish; a failed test lets the
-            // scalar loop through the whole block first.
+            finish_short(bits, n);
+        }
+
+        /// The insertion finish of the short radix sort: a block of 16
+        /// keys in order passed in one test; `sort_unstable` beyond 2n moves.
+        fn finish_short(bits: &mut [u32], n: usize) {
             let mut moves = 0;
             let (mut i, mut test_at) = (1, 1);
             while i < n {
