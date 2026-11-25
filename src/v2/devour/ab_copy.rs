@@ -1,7 +1,8 @@
 //! A/B by copy (dev only, feature `ab`): a second instance of the 16-bit
 //! chain, called by the measuring examples as `ab_u16_copy` / `ab_i16_copy`.
 //!
-//! Trial: the counting loops of 4 lanes add to each counter by an inline asm `add`
+//! Trial: the counting loops of 4 lanes read each counter by a volatile load
+//! when built for recent Intel CPUs (AVX-VNNI or AVX-512)
 //! (no vector gather of the counters: built for recent Intel CPUs,
 //! `target-cpu=meteorlake`, it gathered them, 2x slower).
 
@@ -431,9 +432,9 @@ fn cheap_few_k<const KN: usize>(a: &mut [u16], reps: &[u16; 4]) -> bool {
 /// repeated value does not wait on its own counter); below, one.
 const LANES_MIN: usize = 1024;
 
-/// Up to 4 counting tables, one per lane (keys in turn). On x86-64 each
-/// counter is incremented by an inline `add`, which the compiler cannot turn
-/// into a vector gather: built for recent Intel CPUs (`target-cpu=meteorlake`), it loaded
+/// Up to 4 counting tables, one per lane (keys in turn). Built for recent
+/// Intel CPUs, each counter is read by a volatile load, which the compiler
+/// cannot turn into a vector gather: built for recent Intel CPUs (`target-cpu=meteorlake`), it loaded
 /// the 4 counters of a block by one gather (Core Ultra, native build:
 /// Bimodal, Range 16, Aligned 2x slower than the generic one). The lanes
 /// stay separate arrays, so their updates are still free to overlap.
@@ -449,15 +450,18 @@ impl<const L: usize> Lanes<L> {
     #[inline(always)]
     fn add(&mut self, j: usize, d: usize) {
         let c = &mut self.t[j][d & 255];
-        // x86-64: one memory add the compiler cannot vectorize (a volatile
-        // load kept the add apart from its store: Aligned 30-40 % slower).
-        #[cfg(target_arch = "x86_64")]
-        // SAFETY: `c` is a valid, aligned, exclusive `u32`; the add only
-        // writes it (and the flags).
-        unsafe {
-            std::arch::asm!("add dword ptr [{p}], 1", p = in(reg) c as *mut u32, options(nostack));
+        // Built for recent Intel CPUs (AVX-VNNI: Alder Lake, Meteor Lake;
+        // AVX-512: their server parts), whose tuning makes the compiler
+        // gather the counters: the counter read by a volatile load, which
+        // it cannot gather. Elsewhere the plain increment (the volatile
+        // load costs Aligned 30-40 % on the Ryzen, generic build).
+        #[cfg(any(target_feature = "avxvnni", target_feature = "avx512f"))]
+        {
+            // SAFETY: `c` is a valid, aligned, exclusive reference.
+            let v = unsafe { std::ptr::read_volatile(c) };
+            *c = v + 1;
         }
-        #[cfg(not(target_arch = "x86_64"))]
+        #[cfg(not(any(target_feature = "avxvnni", target_feature = "avx512f")))]
         {
             *c += 1;
         }
@@ -516,7 +520,7 @@ fn one_byte_in<const S: u32, const L: usize>(a: &mut [u16]) -> bool {
     let first = a[0];
     let other = !(255u16 << S);
     // The other bits checked first by their own (vectorized) pass, then the
-    // count: the opaque adds of `Lanes` would keep the check scalar.
+    // count: the volatile loads of `Lanes` would keep the check scalar.
     if a.iter().fold(0u16, |m, &x| m | ((x ^ first) & other)) != 0 {
         return false;
     }
@@ -2059,7 +2063,7 @@ fn flat_byte16<C: Count16, const LOW_ONLY: bool>(keys: &mut [u16]) -> bool {
     // 4 lanes of 32-bit counters, written by 32-key stores (as the
     // window).
     // The constant byte checked first by its own (vectorized) pass, then the
-    // count: the opaque adds of `Lanes` would keep the check scalar.
+    // count: the volatile loads of `Lanes` would keep the check scalar.
     if keys.iter().fold(0u16, |m, &k| m | (k ^ first)) & other != 0 {
         return false;
     }
