@@ -17,7 +17,8 @@ fn dlsd_max() -> usize {
 /// (no sample either), 128 Verge (the engine on the whole array), 256 the
 /// near-sorted repair, 512 the light chain switched ON (inverted bit: on(512)
 /// false means the light chain runs), 1024 the light chain without its
-/// sorted-head rule, 2048 without its dominant test.
+/// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
+/// and few before the near-sorted repair.
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 2048).
@@ -26,6 +27,11 @@ fn light_max() -> usize {
     *M.get_or_init(|| {
         std::env::var("AB_LIGHT_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(2048)
     })
+}
+
+thread_local! {
+    /// Range and few already asked on this path (mask bit 4096).
+    static EARLY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// Whether the question `bit` is asked.
@@ -41,7 +47,7 @@ fn dlsd_heap() -> bool {
 macro_rules! chain32_ab {
     ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::{dlsd_heap, dlsd_max, light_max, on};
+        use super::{dlsd_heap, dlsd_max, light_max, on, EARLY};
         use crate::v2::engines::dlsd::$st;
         use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
@@ -145,14 +151,14 @@ macro_rules! chain32_ab {
             let mut sample = spread(arr);
             chain! {
                 return true;
-                "range" if on(1) => try detectors::range(arr, &sample);
+                "range" if on(1) && !EARLY.with(|e| e.get()) => try detectors::range(arr, &sample);
                 "plateaus" if on(2) => try plateaus(arr, equal_pairs);
                 // One dominant value among spread ones, short array: the std
                 // partition settles the keys equal to its pivot in one pass.
                 "dominant" if on(4) && arr.len() < DENSE_MIN
                     && dominant(&sample, |x, y| x == y)
                     => do { arr.sort_unstable() };
-                "few" if on(8) => try detectors::few(arr, &sample);
+                "few" if on(8) && !EARLY.with(|e| e.get()) => try detectors::few(arr, &sample);
             }
             // Heavy keys and dense ranges: the sample in order.
             if arr.len() < HEAVY_MIN || (arr.len() < DENSE_MIN && !may_be_heavy(&sample, |x, y| x == y)) {
@@ -220,6 +226,23 @@ macro_rules! chain32_ab {
                     merge_runs(arr, &mut vec![0, p, n]);
                 };
             }
+            // Trial (mask bit 4096): range and few on the sample before the
+            // near-sorted repair when the spread pairs show no order (Binary:
+            // the repair costs 7-14 %); `detect` then skips them.
+            let early = !on(4096)
+                && !known.probes.is_some_and(|p| p.ascending >= 28 || p.descending >= 28);
+            if early {
+                let sample = spread(arr);
+                if on(1) && detectors::range(arr, &sample) {
+                    trace!("early_range");
+                    return;
+                }
+                if on(8) && detectors::few(arr, &sample) {
+                    trace!("early_few");
+                    return;
+                }
+            }
+            EARLY.with(|e| e.set(early));
             let simd_rule = merge::simd_rule_applies::<$t>(n);
             let random_runs = !simd_rule && starts_with_random_runs(arr, p);
             let (sorted, equal_pairs) = if random_runs || !on(256) {
