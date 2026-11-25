@@ -12,6 +12,16 @@ fn dlsd_max() -> usize {
     })
 }
 
+/// Questions switched off (the `copy:MASK` sorts of the example): 1 range,
+/// 2 plateaus, 4 dominant, 8 few, 16 heavy, 32 dense, 64 every detector
+/// (no sample either), 128 Verge (the engine on the whole array), 256 the
+/// near-sorted repair.
+pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Whether the question `bit` is asked.
+#[inline(always)]
+fn on(bit: u32) -> bool { SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit == 0 }
+
 /// The DLSD with its scratch on the heap (env `AB_DLSD_HEAP`).
 fn dlsd_heap() -> bool {
     static H: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -21,7 +31,7 @@ fn dlsd_heap() -> bool {
 macro_rules! chain32_ab {
     ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::{dlsd_heap, dlsd_max};
+        use super::{dlsd_heap, dlsd_max, on};
         use crate::v2::engines::dlsd::$st;
         use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
@@ -84,17 +94,20 @@ macro_rules! chain32_ab {
         /// that need it in order are reached). `equal_pairs`: equal pairs among the
         /// probes of the near-sorted repair.
         fn detect(arr: &mut [$t], equal_pairs: usize) -> bool {
+            if !on(64) {
+                return false;
+            }
             let mut sample = spread(arr);
             chain! {
                 return true;
-                "range" => try detectors::range(arr, &sample);
-                "plateaus" => try plateaus(arr, equal_pairs);
+                "range" if on(1) => try detectors::range(arr, &sample);
+                "plateaus" if on(2) => try plateaus(arr, equal_pairs);
                 // One dominant value among spread ones, short array: the std
                 // partition settles the keys equal to its pivot in one pass.
-                "dominant" if arr.len() < DENSE_MIN
+                "dominant" if on(4) && arr.len() < DENSE_MIN
                     && dominant(&sample, |x, y| x == y)
                     => do { arr.sort_unstable() };
-                "few" => try detectors::few(arr, &sample);
+                "few" if on(8) => try detectors::few(arr, &sample);
             }
             // Heavy keys and dense ranges: the sample in order.
             if arr.len() < HEAVY_MIN || (arr.len() < DENSE_MIN && !may_be_heavy(&sample, |x, y| x == y)) {
@@ -103,7 +116,7 @@ macro_rules! chain32_ab {
             sample.sort_unstable();
             chain! {
                 return true;
-                "heavy" => try heavy_sorted_by(
+                "heavy" if on(16) => try heavy_sorted_by(
                     arr,
                     &sample,
                     HEAVY_MIN,
@@ -111,7 +124,7 @@ macro_rules! chain32_ab {
                     |x, y| x == y,
                     |x, y| x < y,
                 );
-                "dense" if arr.len() >= DENSE_MIN => try detectors::dense(arr, &sample);
+                "dense" if on(32) && arr.len() >= DENSE_MIN => try detectors::dense(arr, &sample);
             }
             false
         }
@@ -164,7 +177,7 @@ macro_rules! chain32_ab {
             }
             let simd_rule = merge::simd_rule_applies::<$t>(n);
             let random_runs = !simd_rule && starts_with_random_runs(arr, p);
-            let (sorted, equal_pairs) = if random_runs {
+            let (sorted, equal_pairs) = if random_runs || !on(256) {
                 (false, known.probes.map_or(0, |p| p.equal()))
             } else {
                 repair_nearly_sorted(arr, known)
@@ -175,7 +188,7 @@ macro_rules! chain32_ab {
             chain! {
                 "repaired" if sorted => do {};
                 _ => try detect(arr, equal_pairs);
-                "no_verge" if random_runs || can_skip_verge(arr) => do { sort(arr) };
+                "no_verge" if !on(128) || random_runs || can_skip_verge(arr) => do { sort(arr) };
             }
             // Verge: the unsorted chunks are recorded, sorted after the merge rule.
             let base = arr.as_ptr() as usize;

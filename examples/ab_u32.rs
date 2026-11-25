@@ -5,6 +5,8 @@
 //! Env: T=u32|i32 (default u32); SORTS="v2,lsd,std,blz" (`v2` the library,
 //! `lsd` the LSD engine alone, no detector (`dlsd`, `roller`: those engines alone): v2 - lsd on a cell whose path
 //! ends in the LSD is what the chain's failed questions cost);
+//! `copy` the A/B copy of the chain (`ab_copy32.rs`), `copy:MASK` with the
+//! questions of MASK skipped (see `ab_copy32::SKIP`);
 //! DOM_SIZES="300,1000,..."; TOTAL (keys per measure, default 4M);
 //! GEN=text (only the distributions containing text); CHECK=1 (every sort
 //! against `sort_unstable` first).
@@ -61,6 +63,11 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "blz" => T::blz(w),
         "lsd" => T::lsd(w),
         "copy" => T::copy(w),
+        c if c.starts_with("copy:") => {
+            voracious_radix_sort::ab_copy32_skip(c[5..].parse().unwrap());
+            T::copy(w);
+            voracious_radix_sort::ab_copy32_skip(0);
+        },
         "dlsd" | "dlsdr" | "dlsds" | "dlsdl" | "dlsd4" | "dlsdb" | "dlsdm" | "dlsdh" | "dlsdk" | "dlsdn" | "dlsdkn" | "dlsdu" | "dlsde" | "dlsdo" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
