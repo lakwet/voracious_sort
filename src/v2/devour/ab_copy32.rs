@@ -36,11 +36,11 @@ thread_local! {
     static EARLY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// `sort_unstable` up to this many keys (env `AB_SMALL`, default 160; the
+/// `sort_unstable` up to this many keys (env `AB_SMALL`, default 96; the
 /// type's own `SMALL` with `AB_SMALL=0`).
 fn small_max(own: usize) -> usize {
     static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    let m = *M.get_or_init(|| std::env::var("AB_SMALL").ok().and_then(|v| v.parse().ok()).unwrap_or(160));
+    let m = *M.get_or_init(|| std::env::var("AB_SMALL").ok().and_then(|v| v.parse().ok()).unwrap_or(96));
     if m == 0 { own } else { m }
 }
 
