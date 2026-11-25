@@ -135,7 +135,27 @@ macro_rules! dlsd_sort_ab {
                 }
                 return;
             }
-            let prefix = prefix_bits::<RAW>(keys, min, top, pre);
+            let mut prefix = prefix_bits::<RAW>(keys, min, top, pre);
+            // Trial (`dlsdk`): at least log2(n) + 3 varying bits of
+            // `key - min` sorted (the bits equal in every key not counted).
+            let mut raised = false;
+            if RAW && MASK.load(std::sync::atomic::Ordering::Relaxed) {
+                let first = enc::<RAW>(keys[0]).wrapping_sub(min);
+                let variation =
+                    keys.iter().fold(0 as $uint, |v, &k| v | (enc::<RAW>(k).wrapping_sub(min) ^ first));
+                let want = (usize::BITS - n.leading_zeros() + 3).min(variation.count_ones());
+                // Bits from the top needed to cover `want` varying bits.
+                let mut need = 0;
+                let mut covered = 0;
+                while covered < want && need < top {
+                    need += 1;
+                    covered += ((variation >> (top - need)) & 1) as u32;
+                }
+                if need > prefix {
+                    prefix = need;
+                    raised = true;
+                }
+            }
             let layout = Layout::new(prefix, top, n);
             // Trial (env `AB_DLSD_LSD`): more passes than the LSD's 11-bit
             // digits over the varying bits: the LSD instead.
@@ -169,7 +189,8 @@ macro_rules! dlsd_sort_ab {
                 note(n, top, prefix, &layout, 2);
                 return;
             }
-            let by_insertion = finish_by_insertion(keys);
+            let net = NET.load(std::sync::atomic::Ordering::Relaxed);
+            let by_insertion = !(net && raised) && finish_by_insertion(keys);
             note(n, top, prefix, &layout, by_insertion as u8);
             if !by_insertion {
                 finish_groups(keys, scratch, min, layout.base);
@@ -288,6 +309,14 @@ macro_rules! dlsd_sort_ab {
         pub(crate) static HIST: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         const HIST_MAX: usize = 16_384;
+
+        /// Trials: `MASK` (`dlsdk`) the floor of varying bits; `NET`
+        /// (`dlsdn`) groups up to `NETWORK_MAX` keys by a sorting network.
+        pub(crate) static MASK: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        pub(crate) static NET: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        use crate::v2::engines::small::{network_sort, NETWORK_MAX};
 
         /// The trial of `AB_DLSD_LSD`.
         fn lsd_fallback() -> bool {
@@ -590,6 +619,8 @@ macro_rules! dlsd_sort_ab {
                 }
                 if j == i + 1 {
                     keys[i] = w::decode_key(keys[i]);
+                } else if j - i <= NETWORK_MAX && NET.load(std::sync::atomic::Ordering::Relaxed) {
+                    network_sort(&mut keys[i..j], |k| k, w::decode_key);
                 } else if j - i <= GROUP_INSERTION {
                     let g = &mut keys[i..j];
                     insertion(g);
