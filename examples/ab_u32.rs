@@ -55,7 +55,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "std" => w.sort_unstable(),
         "blz" => T::blz(w),
         "lsd" => T::lsd(w),
-        "dlsd" | "roller" => T::engine(name, w),
+        "dlsd" | "dlsdr" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
 }
@@ -162,6 +162,29 @@ fn bench<T: Key>(sorts: &[String], sizes: &[usize])
     }
 }
 
+/// PROF=sort: only that sort, on PROF_GEN (default Unif) arrays of PROF_N
+/// keys (default 1000), for ~PROF_SECS seconds (default 4), for `perf`.
+fn prof<T: Key>(which: &str) {
+    let n: usize = std::env::var("PROF_N").ok().map_or(1000, |v| v.parse().unwrap());
+    let want = std::env::var("PROF_GEN").unwrap_or("Unif".into());
+    let secs: f64 = std::env::var("PROF_SECS").ok().map_or(4.0, |v| v.parse().unwrap());
+    let gen = T::gens().into_iter().find(|(_, t)| name_of(t) == want).expect("PROF_GEN").0;
+    let count = (2_000_000 / n).max(1);
+    let arrays: Vec<Vec<T>> = (0..count).map(|_| gen(n)).collect();
+    let mut work = arrays.clone();
+    let t = Instant::now();
+    let mut sorts = 0usize;
+    while t.elapsed().as_secs_f64() < secs {
+        for (w, a) in work.iter_mut().zip(arrays.iter()) {
+            w.copy_from_slice(a);
+            run(which, w);
+        }
+        sorts += count;
+    }
+    let ns = t.elapsed().as_nanos() as f64 / (sorts * n) as f64;
+    println!("{} {} n={} : {:.3} ns/key (copy included)", which, want, n, ns);
+}
+
 fn go<T: Key>()
 {
     let sorts: Vec<String> = std::env::var("SORTS")
@@ -175,6 +198,10 @@ fn go<T: Key>()
         .unwrap_or(vec![300, 500, 1000, 2000, 5000, 10_000, 50_000, 100_000, 1_000_000]);
     if std::env::var("CHECK").is_ok() {
         check::<T>(&sorts, &sizes);
+    }
+    if let Ok(which) = std::env::var("PROF") {
+        prof::<T>(&which);
+        return;
     }
     #[cfg(feature = "v2_trace")]
     {

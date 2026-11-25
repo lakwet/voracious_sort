@@ -129,6 +129,12 @@ pub fn ab_i32_lsd(keys: &mut [i32]) {
     v2::engines::lsd::wi32::lsd(v2::devour::keys::bits_of(keys))
 }
 
+#[cfg(feature = "ab")]
+thread_local! {
+    static SCRATCH32: std::cell::RefCell<Vec<std::mem::MaybeUninit<u32>>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// Dev only (feature `ab`): u32 engines alone, by name (`dlsd`, `roller`;
 /// i32 through their signed codec).
 #[cfg(feature = "ab")]
@@ -137,6 +143,9 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
     use v2::engines::{dlsd::du32, roller::ru32};
     match name {
         "dlsd" => du32::dlsd(keys),
+        // Upper bound of a buffer that costs nothing: one scratch kept per
+        // thread (measure only, never in the library).
+        "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
         _ => ru32::roller(keys),
     }
 }
@@ -149,6 +158,7 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
     let bits = v2::devour::keys::bits_of(keys);
     match name {
         "dlsd" => di32::dlsd(bits),
+        "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
         _ => ri32::roller(bits),
     }
 }
