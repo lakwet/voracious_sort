@@ -382,8 +382,17 @@ macro_rules! dlsd_sort_ab {
         /// digits, finish: 2 exact, 1 insertion, 0 groups), in `STATS`.
         #[inline(always)]
         fn note(n: usize, top: u32, prefix: u32, l: &Layout, finish: u8) {
-            STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
+            // Only when asked (`STATS_ON`, the example's DSTATS mode): a push
+            // per call grew the vector without end during the benches (twice
+            // the page faults, 7 % slower).
+            if STATS_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
+            }
         }
+
+        /// Whether `note` records (dev).
+        pub(crate) static STATS_ON: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
 
         thread_local! {
             pub(crate) static STATS: std::cell::RefCell<Vec<(usize, u32, u32, u32, usize, u8)>> =

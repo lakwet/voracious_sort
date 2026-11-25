@@ -300,6 +300,7 @@ pub fn ab_dlsd_staged_take() -> usize {
 #[cfg(feature = "ab")]
 #[doc(hidden)]
 pub fn ab_dlsd_stats_take() -> Vec<(usize, u32, u32, u32, usize, u8)> {
+    v2::engines::dlsd::su32::STATS_ON.store(true, std::sync::atomic::Ordering::Relaxed);
     v2::engines::dlsd::su32::STATS.with(|s| std::mem::take(&mut *s.borrow_mut()))
 }
 
