@@ -20,8 +20,8 @@ fn dlsd_max() -> usize {
 /// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
 /// and few before the near-sorted repair, 8192 no few4 (at most 4 values on
 /// the sample, counted by comparisons), 16384 no tiny path, 32768 the DLSD
-/// instead of the short radix sort in the tiny path, 65536 two passes in the
-/// short radix sort below 512 keys (else one).
+/// instead of the short radix sort in the tiny path, 65536 the other pass count
+/// in the short radix sort below 512 keys (ARM one pass, x86 two).
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
@@ -279,9 +279,12 @@ macro_rules! chain32_ab {
             }
             let top = 32 - range.leading_zeros();
             let log_n = usize::BITS - n.leading_zeros();
-            // Trial (bit 65536 off): one pass of log2(n) + 1 bits (at most
-            // 10), the insertion finish settling the collisions.
-            let one = !on(65536) && log_n + 1 <= 10;
+            // ARM: one pass of log2(n) + 1 bits (at most 10), the insertion
+            // finish settling the collisions (Surface: 20-26 cells won at
+            // 150-400 keys); x86: two passes (Ryzen: one pass loses 19-28).
+            // Bit 65536 swaps the choice (A/B).
+            let one_here = cfg!(target_arch = "aarch64");
+            let one = (one_here != !on(65536)) && log_n + 1 <= 10;
             let p = if one { (log_n + 1).min(top) } else { (log_n + 3).min(top) };
             let base = top - p;
             // At most 8 bits: one pass (a counting sort that moves the keys:
