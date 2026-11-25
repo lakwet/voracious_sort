@@ -366,25 +366,41 @@ macro_rules! chain32_ab {
         /// and maximum (no pass of its own for them).
         fn tiny(arr: &mut [$t], known: Unsorted) {
             let n = arr.len();
-            // One inspection pass: the descents and the bits that vary
-            // (OR of each encoded key with the first); no min / max (u32
-            // min / max have no SSE2 instruction: emulated, they made the
-            // pass 20 % of the sort at 1000 keys on the Ryzen).
-            let (var, desc, e0) = {
+            // One inspection pass: the descents, and the distances to the
+            // first key ORed apart above and below it (no min / max: u32
+            // min / max have no SSE2 instruction and, emulated, made the pass
+            // 20 % of the sort at 1000 keys on the Ryzen; an OR of the keys
+            // themselves missed the narrow ranges across 0x8000_0000, i32
+            // keys around 0).
+            let (up, down, desc, e0) = {
                 let bits: &[u32] = bits_of(arr);
                 let e0 = $c(bits[0]);
-                let (var, desc) =
-                    bits.iter().zip(&bits[1..]).fold((0u32, 0u32), |(v, d), (&a, &b)| {
+                let (up, down, desc) = bits.iter().zip(&bits[1..]).fold(
+                    (0u32, 0u32, 0u32),
+                    |(u, dn, d), (&a, &b)| {
                         let (ea, eb) = ($c(a), $c(b));
-                        (v | (eb ^ e0), d + (ea > eb) as u32)
-                    });
-                (var, desc as usize, e0)
+                        let x = eb.wrapping_sub(e0);
+                        let below = ((x as i32) >> 31) as u32;
+                        (u | (x & !below), dn | (!x & below), d + (ea > eb) as u32)
+                    },
+                );
+                (up, down, desc as usize, e0)
             };
-            // The varying bits are the low `t`: every key lies in
-            // [lo, lo + 2^t) with lo the first key's bits above them.
-            let t = 32 - var.leading_zeros();
-            let lo = if t == 32 { 0 } else { e0 & !((1u32 << t) - 1) };
-            let hi = if t == 32 { u32::MAX } else { lo | ((1u32 << t) - 1) };
+            // Every key lies in [e0 - 2^tn, e0 + 2^tp) (the whole domain
+            // when that bound leaves it).
+            let tp = 32 - up.leading_zeros();
+            let tn = 32 - down.leading_zeros();
+            let (lo, hi) = if tp < 31 && tn < 31 {
+                let below = 1u32 << tn;
+                let above = (1u32 << tp) - 1;
+                match (e0.checked_sub(below), e0.checked_add(above)) {
+                    (Some(l), Some(h)) => (l, h),
+                    _ => (0, u32::MAX),
+                }
+            } else {
+                (0, u32::MAX)
+            };
+            let t = if hi - lo == u32::MAX { 32 } else { 0 };
             if desc <= 32 || desc + 33 >= n {
                 let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
                 if (probes.ascending >= 30 || probes.descending >= 30)
