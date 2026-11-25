@@ -321,8 +321,24 @@ macro_rules! chain32_ab {
             if base == 0 {
                 return;
             }
+            // A block of 16 keys already in order is passed in one
+            // (vectorized) test, as the DLSD's finish; a failed test lets the
+            // scalar loop through the whole block first.
             let mut moves = 0;
-            for i in 1..n {
+            let (mut i, mut test_at) = (1, 1);
+            while i < n {
+                if i >= test_at && i + 16 <= n {
+                    let block = &bits[i - 1..i + 16];
+                    let mut in_order = true;
+                    for p in 0..16 {
+                        in_order &= $c(block[p]) <= $c(block[p + 1]);
+                    }
+                    if in_order {
+                        i += 16;
+                        continue;
+                    }
+                    test_at = i + 16;
+                }
                 let v = bits[i];
                 let kv = $c(v);
                 if $c(bits[i - 1]) > kv {
@@ -338,6 +354,7 @@ macro_rules! chain32_ab {
                         return;
                     }
                 }
+                i += 1;
             }
         }
 
