@@ -150,10 +150,13 @@ dlsd_width!(u128, wi128, di128, alias_min_bytes_int);
 /// (`sort_ab.rs`), for the A/B copy of the u32 / i32 chains.
 #[cfg(feature = "ab")]
 macro_rules! dlsd_width_ab {
-    ($uint:ty, $w:ident, $m:ident, $alias_min:path) => {
+    ($uint:ty, $w:ident, $m:ident, $alias_min:path, $smin:expr) => {
         pub(crate) mod $m {
             use super::super::lsd::$w as w;
             use super::*;
+
+            /// Smallest sample for the prefix length (shadows the engine's).
+            const SAMPLE_MIN: usize = $smin;
 
             /// Keys per staging slot (one 64-byte cache line).
             const WB: usize = 64 / std::mem::size_of::<$uint>();
@@ -166,6 +169,10 @@ macro_rules! dlsd_width_ab {
 }
 
 #[cfg(feature = "ab")]
-dlsd_width_ab!(u32, wu32, su32, alias_min_bytes_int);
+dlsd_width_ab!(u32, wu32, su32, alias_min_bytes_int, 16);
 #[cfg(feature = "ab")]
-dlsd_width_ab!(u32, wi32, si32, alias_min_bytes_int);
+dlsd_width_ab!(u32, wi32, si32, alias_min_bytes_int, 16);
+#[cfg(feature = "ab")]
+dlsd_width_ab!(u32, wu32, mu32, alias_min_bytes_int, 64);
+#[cfg(feature = "ab")]
+dlsd_width_ab!(u32, wi32, mi32, alias_min_bytes_int, 64);

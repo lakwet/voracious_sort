@@ -203,6 +203,64 @@ macro_rules! dlsd_sort_ab {
             }
         }
 
+        /// Trial (the `dlsdb` sort of the example): every pass resolves the 4
+        /// positions of a block without a store-to-load chain (keys of a
+        /// block sharing a bucket).
+        pub(crate) static BF: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+
+        /// `scatter` with branch-free positions inside each block of 4 keys
+        /// (idea of blazing-radix, as in the fused LSD's top digit).
+        ///
+        /// # Safety
+        /// As `scatter`.
+        #[inline(always)]
+        unsafe fn scatter_bf<const FIRST: bool, const LAST: bool>(
+            src: &[$uint],
+            dst: *mut $uint,
+            heads: &mut [u32],
+            min: $uint,
+            shift: u32,
+            mask: $uint,
+        ) {
+            let key = |v: $uint| if FIRST { w::encode_key(v) } else { v };
+            let out = |k: $uint| if LAST { w::decode_key(k) } else { k };
+            let digit = |k: $uint| ((k.wrapping_sub(min) >> shift) & mask) as usize;
+            let mut blocks = src.chunks_exact(4);
+            // SAFETY (all accesses): as `scatter`; positions inside a block
+            // count the block's earlier keys of the same bucket.
+            unsafe {
+                for q in &mut blocks {
+                    let (a, b, c, d) = (key(q[0]), key(q[1]), key(q[2]), key(q[3]));
+                    let (da, db, dc, dd) = (digit(a), digit(b), digit(c), digit(d));
+                    let pa = *heads.get_unchecked(da) as usize;
+                    let pb = *heads.get_unchecked(db) as usize + usize::from(db == da);
+                    let pc = *heads.get_unchecked(dc) as usize
+                        + usize::from(dc == da)
+                        + usize::from(dc == db);
+                    let pd = *heads.get_unchecked(dd) as usize
+                        + usize::from(dd == da)
+                        + usize::from(dd == db)
+                        + usize::from(dd == dc);
+                    *heads.get_unchecked_mut(da) = pa as u32 + 1;
+                    *heads.get_unchecked_mut(db) = pb as u32 + 1;
+                    *heads.get_unchecked_mut(dc) = pc as u32 + 1;
+                    *heads.get_unchecked_mut(dd) = pd as u32 + 1;
+                    dst.add(pa).write(out(a));
+                    dst.add(pb).write(out(b));
+                    dst.add(pc).write(out(c));
+                    dst.add(pd).write(out(d));
+                }
+                for &v in blocks.remainder() {
+                    let k = key(v);
+                    let dk = digit(k);
+                    let p = *heads.get_unchecked(dk) as usize;
+                    *heads.get_unchecked_mut(dk) += 1;
+                    dst.add(p).write(out(k));
+                }
+            }
+        }
+
         /// The trial of `AB_DLSD_LSD`.
         fn lsd_fallback() -> bool {
             static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -418,6 +476,8 @@ macro_rules! dlsd_sort_ab {
                                     &mut staging,
                                     &mut starts,
                                 )
+                            } else if BF.load(std::sync::atomic::Ordering::Relaxed) {
+                                scatter_bf::<$first, $decode>(src, dst, heads, min, shift, mask)
                             } else {
                                 scatter::<$first, $decode>(src, dst, heads, min, shift, mask)
                             }
