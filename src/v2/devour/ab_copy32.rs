@@ -18,7 +18,8 @@ fn dlsd_max() -> usize {
 /// near-sorted repair, 512 the light chain switched ON (inverted bit: on(512)
 /// false means the light chain runs), 1024 the light chain without its
 /// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
-/// and few before the near-sorted repair.
+/// and few before the near-sorted repair, 8192 no few4 (at most 4 values on
+/// the sample, counted by comparisons).
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 2048).
@@ -110,6 +111,10 @@ macro_rules! chain32_ab {
                 || known.probes.is_some_and(|p| p.ascending >= 28 || p.descending >= 28);
             if !on(512) && n <= light_max() && !(on(1024) && ordered) {
                 let sample = spread(arr);
+                if on(8192) && few4(arr, &sample) {
+                    trace!("light_few4");
+                    return;
+                }
                 if on(1) && detectors::range(arr, &sample) {
                     trace!("light_range");
                     return;
@@ -141,6 +146,51 @@ macro_rules! chain32_ab {
             path(arr, known, &detect, &sort_chunk);
         }
 
+        /// At most 4 distinct values on the sample (Binary, Few 4): each key
+        /// compared with them in one pass (no branch per key), the keys
+        /// written back from the counts when they are all among them (else
+        /// nothing written). Port of the 16-bit `cheap_few`; idea of
+        /// blazing-radix (a sample proposes at most four keys, verified by a
+        /// full scan before any write).
+        fn few4(arr: &mut [$t], sample: &[$t; SAMPLE]) -> bool {
+            let mut reps = [sample[0]; 4];
+            let mut k = 1;
+            for &v in &sample[1..] {
+                if !reps[..k].contains(&v) {
+                    if k == 4 {
+                        return false;
+                    }
+                    reps[k] = v;
+                    k += 1;
+                }
+            }
+            reps[..k].sort_unstable();
+            match k {
+                1 => few4_k::<1>(arr, &reps),
+                2 => few4_k::<2>(arr, &reps),
+                3 => few4_k::<3>(arr, &reps),
+                _ => few4_k::<4>(arr, &reps),
+            }
+        }
+
+        fn few4_k<const KN: usize>(arr: &mut [$t], reps: &[$t; 4]) -> bool {
+            let mut c = [0usize; KN];
+            for &x in arr.iter() {
+                for j in 0..KN {
+                    c[j] += (x == reps[j]) as usize;
+                }
+            }
+            if c.iter().sum::<usize>() != arr.len() {
+                return false;
+            }
+            let mut at = 0;
+            for j in 0..KN {
+                arr[at..at + c[j]].fill(reps[j]);
+                at += c[j];
+            }
+            true
+        }
+
         /// The detectors, on one spread sample (sorted once, only when the detectors
         /// that need it in order are reached). `equal_pairs`: equal pairs among the
         /// probes of the near-sorted repair.
@@ -151,6 +201,7 @@ macro_rules! chain32_ab {
             let mut sample = spread(arr);
             chain! {
                 return true;
+                "few4" if on(8192) => try few4(arr, &sample);
                 "range" if on(1) && !EARLY.with(|e| e.get()) => try detectors::range(arr, &sample);
                 "plateaus" if on(2) => try plateaus(arr, equal_pairs);
                 // One dominant value among spread ones, short array: the std
