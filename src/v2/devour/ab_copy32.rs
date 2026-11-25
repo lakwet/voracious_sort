@@ -104,10 +104,18 @@ macro_rules! chain32_ab {
                 || known.probes.is_some_and(|p| p.ascending >= 28 || p.descending >= 28);
             if !on(512) && n <= light_max() && !(on(1024) && ordered) {
                 let sample = spread(arr);
-                // One dominant value on the sample: the std partition (as
-                // `detect`), asked only when the first 5 sample keys repeat
-                // one (10 comparisons; the vote over 64 keys costs 3-4 % at
-                // 250-500 keys).
+                if on(1) && detectors::range(arr, &sample) {
+                    trace!("light_range");
+                    return;
+                }
+                if on(8) && detectors::few(arr, &sample) {
+                    trace!("light_few");
+                    return;
+                }
+                // Then one dominant value on the sample (Sparse; few values
+                // went to `few`): the std partition (as `detect`), asked only
+                // when the first 5 sample keys repeat one (10 comparisons; the
+                // vote over 64 keys costs 3-4 % at 250-500 keys).
                 let mut repeat = false;
                 for i in 0..5 {
                     for j in i + 1..5 {
@@ -117,14 +125,6 @@ macro_rules! chain32_ab {
                 if on(2048) && repeat && dominant(&sample, |x, y| x == y) {
                     trace!("light_dominant");
                     arr.sort_unstable();
-                    return;
-                }
-                if on(1) && detectors::range(arr, &sample) {
-                    trace!("light_range");
-                    return;
-                }
-                if on(8) && detectors::few(arr, &sample) {
-                    trace!("light_few");
                     return;
                 }
                 sort_chunk(bits_of(arr), &mut Vec::new());
