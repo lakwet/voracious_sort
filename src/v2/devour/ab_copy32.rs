@@ -113,16 +113,23 @@ macro_rules! chain32_ab {
             // Trial (mask bit 512): the light chain up to `light_max()` keys:
             // range and few on the spread sample, then the engine (no
             // plateaus, dominant, heavy, dense, near-sorted repair, Verge).
-            // A sorted head of half the array, or the 32 spread pairs nearly
-            // all in one direction (nearly sorted, saw teeth): the whole path.
-            // (`presorted` compares the pairs only when the first key is the
-            // larger: else they are compared here, 32 comparisons.)
-            let ordered = known.ascending_prefix >= n / 2 || {
-                let p = known.probes.unwrap_or_else(|| probe_pairs(arr));
-                // (Mostly equal pairs: plateaus, Sqrt.)
-                p.ascending >= 28 || p.descending >= 28 || p.equal() >= 24
-            };
-            if !on(512) && n <= light_max() && !(on(1024) && ordered) {
+            // A sorted head of half the array (its tail first, then one
+            // merge), or mostly equal spread pairs from 2000 keys (plateaus):
+            // the whole path. The pairs are compared here when `presorted`
+            // did not (it does only when the first key is the larger).
+            let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
+            let whole = known.ascending_prefix >= n / 2 || (n >= 2000 && probes.equal() >= 24);
+            if !on(512) && n <= light_max() && !(on(1024) && whole) {
+                // Nearly all pairs in one direction: the near-sorted repair
+                // alone (no Verge: saw teeth and runs cost 1.2-3x on the
+                // whole path, and go on below).
+                if on(1024) && (probes.ascending >= 28 || probes.descending >= 28) {
+                    let known = Unsorted { probes: Some(probes), ..known };
+                    if repair_nearly_sorted(arr, known).0 {
+                        trace!("light_repaired");
+                        return;
+                    }
+                }
                 let sample = spread(arr);
                 if on(8192) && few4(arr, &sample) {
                     trace!("light_few4");
