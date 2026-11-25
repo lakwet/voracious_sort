@@ -15,8 +15,17 @@ fn dlsd_max() -> usize {
 /// Questions switched off (the `copy:MASK` sorts of the example): 1 range,
 /// 2 plateaus, 4 dominant, 8 few, 16 heavy, 32 dense, 64 every detector
 /// (no sample either), 128 Verge (the engine on the whole array), 256 the
-/// near-sorted repair.
+/// near-sorted repair, 512 the light chain switched ON (inverted bit: on(512)
+/// false means the light chain runs).
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 2048).
+fn light_max() -> usize {
+    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *M.get_or_init(|| {
+        std::env::var("AB_LIGHT_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(2048)
+    })
+}
 
 /// Whether the question `bit` is asked.
 #[inline(always)]
@@ -31,7 +40,7 @@ fn dlsd_heap() -> bool {
 macro_rules! chain32_ab {
     ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::{dlsd_heap, dlsd_max, on};
+        use super::{dlsd_heap, dlsd_max, light_max, on};
         use crate::v2::engines::dlsd::$st;
         use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
@@ -84,6 +93,22 @@ macro_rules! chain32_ab {
             };
             chain! {
                 "std_small" if n <= SMALL => do { arr.sort_unstable() };
+            }
+            // Trial (mask bit 512): the light chain up to `light_max()` keys:
+            // range and few on the spread sample, then the engine (no
+            // plateaus, dominant, heavy, dense, near-sorted repair, Verge).
+            if !on(512) && n <= light_max() {
+                let sample = spread(arr);
+                if on(1) && detectors::range(arr, &sample) {
+                    trace!("light_range");
+                    return;
+                }
+                if on(8) && detectors::few(arr, &sample) {
+                    trace!("light_few");
+                    return;
+                }
+                sort_chunk(bits_of(arr), &mut Vec::new());
+                return;
             }
             let buffer = std::cell::RefCell::new(Vec::new());
             let sort_chunk = |chunk: &mut [$t]| sort_chunk(bits_of(chunk), &mut buffer.borrow_mut());
