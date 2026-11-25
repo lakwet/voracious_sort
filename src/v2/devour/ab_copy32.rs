@@ -17,7 +17,7 @@ fn dlsd_max() -> usize {
 /// (no sample either), 128 Verge (the engine on the whole array), 256 the
 /// near-sorted repair, 512 the light chain switched ON (inverted bit: on(512)
 /// false means the light chain runs), 1024 the light chain without its
-/// sorted-head rule and dominant test.
+/// sorted-head rule, 2048 without its dominant test.
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 2048).
@@ -98,12 +98,23 @@ macro_rules! chain32_ab {
             // Trial (mask bit 512): the light chain up to `light_max()` keys:
             // range and few on the spread sample, then the engine (no
             // plateaus, dominant, heavy, dense, near-sorted repair, Verge).
-            if !on(512) && n <= light_max() && !(on(1024) && known.ascending_prefix >= n / 2) {
+            // A sorted head of half the array, or the 32 spread pairs nearly
+            // all in one direction (nearly sorted, saw teeth): the whole path.
+            let ordered = known.ascending_prefix >= n / 2
+                || known.probes.is_some_and(|p| p.ascending >= 28 || p.descending >= 28);
+            if !on(512) && n <= light_max() && !(on(1024) && ordered) {
                 let sample = spread(arr);
-                // A sorted head of half the array goes to the whole path
-                // below (its tail first, then one merge); one dominant value
-                // on the sample: the std partition (as `detect`).
-                if on(1024) && dominant(&sample, |x, y| x == y) {
+                // One dominant value on the sample: the std partition (as
+                // `detect`), asked only when the first 5 sample keys repeat
+                // one (10 comparisons; the vote over 64 keys costs 3-4 % at
+                // 250-500 keys).
+                let mut repeat = false;
+                for i in 0..5 {
+                    for j in i + 1..5 {
+                        repeat |= sample[i] == sample[j];
+                    }
+                }
+                if on(2048) && repeat && dominant(&sample, |x, y| x == y) {
                     trace!("light_dominant");
                     arr.sort_unstable();
                     return;
