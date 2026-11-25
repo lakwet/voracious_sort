@@ -19,7 +19,7 @@ fn dlsd_max() -> usize {
 /// false means the light chain runs), 1024 the light chain without its
 /// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
 /// and few before the near-sorted repair, 8192 no few4 (at most 4 values on
-/// the sample, counted by comparisons).
+/// the sample, counted by comparisons), 16384 no tiny path.
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
@@ -121,6 +121,14 @@ macro_rules! chain32_ab {
             // did not (it does only when the first key is the larger).
             let head = known.ascending_prefix >= n / 2;
             let light = !on(512) && n <= light_max() && !(on(1024) && head);
+            // Trial (bit 16384 off): the tiny path up to `TINY_MAX` keys.
+            if light && on(16384) && n <= TINY_MAX {
+                if !tiny(arr, known) {
+                    trace!("tiny_dlsd");
+                    sort_chunk(bits_of(arr), &mut Vec::new());
+                }
+                return;
+            }
             let probes = if light {
                 known.probes.unwrap_or_else(|| probe_pairs(arr))
             } else {
@@ -169,14 +177,16 @@ macro_rules! chain32_ab {
                     }
                 }
                 // Below 512 keys `few` only when the first 16 sample keys
-                // hold at most 8 values (it rejects the others itself, on
+                // hold at most 6 values (Heavy 4 shows about 10: few sorts
+                // its ~120 values at 300 keys, 1.5x slower than the DLSD; it
+                // rejects many values itself, on
                 // 16 keys there, but after zeroing its table: 3-4 % at
                 // 250-300 keys; from 512 keys it accepts more values).
                 let mut distinct = 0;
                 for i in 0..16 {
                     distinct += !sample[..i].contains(&sample[i]) as usize;
                 }
-                if on(8) && (distinct <= 8 || n >= 512) && detectors::few(arr, &sample) {
+                if on(8) && (distinct <= 6 || n >= 512) && detectors::few(arr, &sample) {
                     trace!("light_few");
                     return;
                 }
@@ -194,7 +204,7 @@ macro_rules! chain32_ab {
         /// nothing written). Port of the 16-bit `cheap_few`; idea of
         /// blazing-radix (a sample proposes at most four keys, verified by a
         /// full scan before any write).
-        fn few4(arr: &mut [$t], sample: &[$t; SAMPLE]) -> bool {
+        fn few4(arr: &mut [$t], sample: &[$t]) -> bool {
             let mut reps = [sample[0]; 4];
             let mut k = 1;
             for &v in &sample[1..] {
@@ -231,6 +241,73 @@ macro_rules! chain32_ab {
                 at += c[j];
             }
             true
+        }
+
+        /// Up to this many keys the light chain asks its questions on 18
+        /// probed keys (the 16-bit short sort's probes).
+        const TINY_MAX: usize = 1100;
+
+        /// The tiny path: the questions on 18 probed keys (the first 16, the
+        /// middle one, the last one; contiguous loads), each verified before
+        /// anything is written. Returns whether the keys are sorted.
+        fn tiny(arr: &mut [$t], known: Unsorted) -> bool {
+            let n = arr.len();
+            let mut s = [arr[0]; 18];
+            s[..16].copy_from_slice(&arr[..16]);
+            s[16] = arr[n / 2];
+            s[17] = arr[n - 1];
+            // Nearly all of the first 15 pairs in one direction: the spread
+            // pairs, then the near-sorted repair from 30 of 32.
+            let mut asc = 0;
+            for i in 0..15 {
+                asc += (s[i] <= s[i + 1]) as usize;
+            }
+            if asc >= 14 || asc <= 1 {
+                let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
+                if (probes.ascending >= 30 || probes.descending >= 30)
+                    && repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0
+                {
+                    trace!("tiny_repaired");
+                    return true;
+                }
+            }
+            if few4(arr, &s) {
+                trace!("tiny_few4");
+                return true;
+            }
+            // The detectors' 64-key sample made of the probes.
+            let mut sample = [s[0]; SAMPLE];
+            for i in 0..SAMPLE {
+                sample[i] = s[i % 18];
+            }
+            if detectors::range(arr, &sample) {
+                trace!("tiny_range");
+                return true;
+            }
+            // One dominant value with a long tail (Sparse): the vote, at
+            // least 7 of 18, no other value 3 times.
+            let (mut v, mut votes) = (s[0], 0usize);
+            for &x in s.iter() {
+                if votes == 0 {
+                    v = x;
+                }
+                votes = if x == v { votes + 1 } else { votes - 1 };
+            }
+            let count = |u: $t| s.iter().filter(|&&x| x == u).count();
+            if count(v) >= 7 && s.iter().all(|&u| u == v || count(u) < 3) {
+                trace!("tiny_dominant");
+                arr.sort_unstable();
+                return true;
+            }
+            let mut distinct = 0;
+            for i in 0..16 {
+                distinct += !s[..i].contains(&s[i]) as usize;
+            }
+            if distinct <= 6 && detectors::few(arr, &sample) {
+                trace!("tiny_few");
+                return true;
+            }
+            false
         }
 
         /// The detectors, on one spread sample (sorted once, only when the detectors
