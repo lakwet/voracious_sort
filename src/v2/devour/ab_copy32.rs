@@ -281,13 +281,6 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
-            // A range of at most one counter per 2 keys: counted.
-            let span = (hi - lo) as usize + 1;
-            if span <= n / 2 {
-                trace!("tiny_count");
-                exact_count(bits_of(arr), lo, span, $c, $c);
-                return;
-            }
             let mut s = [arr[0]; 18];
             s[..16].copy_from_slice(&arr[..16]);
             s[16] = arr[n / 2];
@@ -310,6 +303,15 @@ macro_rules! chain32_ab {
             }
             if few4(arr, &s) {
                 trace!("tiny_few4");
+                return;
+            }
+            // A range of at most one counter per 2 keys, or of 256 values
+            // (Small1 at 300 keys): counted. After few4 (Binary: the
+            // comparisons beat the count, 0.30 against 0.62 ns per key).
+            let span = (hi - lo) as usize + 1;
+            if span <= (n / 2).max(256) {
+                trace!("tiny_count");
+                exact_count(bits_of(arr), lo, span, $c, $c);
                 return;
             }
             let mut distinct = 0;
