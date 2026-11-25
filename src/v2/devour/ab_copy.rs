@@ -470,11 +470,14 @@ impl<const L: usize> Lanes<L> {
     /// The lanes summed.
     #[inline(always)]
     fn sum(&self) -> [u32; 256] {
+        // One pass over the counters, the lanes added at each (as before).
         let mut c = [0u32; 256];
-        for lane in &self.t {
-            for d in 0..256 {
-                c[d] += lane[d];
+        for d in 0..256 {
+            let mut v = 0;
+            for j in 0..L {
+                v += self.t[j][d];
             }
+            c[d] = v;
         }
         c
     }
