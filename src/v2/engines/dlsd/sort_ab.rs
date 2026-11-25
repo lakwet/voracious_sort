@@ -39,7 +39,17 @@ macro_rules! dlsd_sort_ab {
             let mut stack = [MaybeUninit::<$uint>::uninit(); STACK_KEYS];
             let n = bits.len().min(STACK_KEYS);
             let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
-            dlsd_rec::<true>(bits, &mut scratch, None);
+            dlsd_rec::<true>(bits, &mut scratch, None, None);
+        }
+
+        /// Sorts raw bits whose encoded minimum and maximum are known (the
+        /// tiny path's inspection pass): no min / max pass.
+        #[allow(dead_code)]
+        pub(crate) fn dlsd_known(bits: &mut [$uint], min: $uint, max: $uint) {
+            let mut stack = [MaybeUninit::<$uint>::uninit(); STACK_KEYS];
+            let n = bits.len().min(STACK_KEYS);
+            let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
+            dlsd_rec::<true>(bits, &mut scratch, None, Some((min, max)));
         }
 
         /// Sorts encoded keys and writes them back decoded, `scratch` (at
@@ -49,7 +59,7 @@ macro_rules! dlsd_sort_ab {
         pub(crate) fn dlsd_encoded_in(keys: &mut [$uint], scratch: &mut [MaybeUninit<$uint>]) {
             debug_assert!(scratch.len() >= keys.len());
             let mut scratch = Scratch { stack: scratch, heap: Vec::new() };
-            dlsd_rec::<false>(keys, &mut scratch, None);
+            dlsd_rec::<false>(keys, &mut scratch, None, None);
         }
 
         /// The key of a stored value: encoded when `RAW`.
@@ -104,13 +114,14 @@ macro_rules! dlsd_sort_ab {
             keys: &mut [$uint],
             scratch: &mut Scratch,
             pre: Option<&mut [$uint]>,
+            known: Option<($uint, $uint)>,
         ) {
             let n = keys.len();
             if n <= small_limit() {
                 sort_small::<RAW>(keys);
                 return;
             }
-            let (min, max) = min_max::<RAW>(keys);
+            let (min, max) = known.unwrap_or_else(|| min_max::<RAW>(keys));
             let range = max - min;
             if range == 0 {
                 if !RAW {
@@ -668,7 +679,7 @@ macro_rules! dlsd_sort_ab {
                     insertion(g);
                     decode_all(g);
                 } else {
-                    dlsd_rec::<false>(&mut keys[i..j], scratch, None);
+                    dlsd_rec::<false>(&mut keys[i..j], scratch, None, None);
                 }
                 i = j;
             }

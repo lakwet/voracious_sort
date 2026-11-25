@@ -64,6 +64,7 @@ macro_rules! chain32_ab {
         use crate::v2::decide::shape::{globally_ordered, locally_ordered};
         use crate::v2::devour::keys::*;
         use crate::v2::devour::DevourSort;
+        use crate::v2::engines::counting::exact_count;
         use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
         use crate::v2::engines::{dlsd::$dl, lsd::$ls, roller::$ro};
         use crate::v2::inspect::presorted::{
@@ -123,10 +124,7 @@ macro_rules! chain32_ab {
             let light = !on(512) && n <= light_max() && !(on(1024) && head);
             // Trial (bit 16384 off): the tiny path up to `TINY_MAX` keys.
             if light && on(16384) && n <= TINY_MAX {
-                if !tiny(arr, known) {
-                    trace!("tiny_dlsd");
-                    sort_chunk(bits_of(arr), &mut Vec::new());
-                }
+                tiny(arr, known);
                 return;
             }
             let probes = if light {
@@ -258,30 +256,42 @@ macro_rules! chain32_ab {
         /// probed keys (the 16-bit short sort's probes).
         const TINY_MAX: usize = 1100;
 
-        /// The tiny path: the questions on 18 probed keys (the first 16, the
-        /// middle one, the last one; contiguous loads), each verified before
-        /// anything is written. Returns whether the keys are sorted.
-        fn tiny(arr: &mut [$t], known: Unsorted) -> bool {
+        /// The tiny path. One inspection pass gives the encoded minimum and
+        /// maximum and the descents: nearly sorted (few descents, or nearly
+        /// all) tries the near-sorted repair, a narrow range is counted
+        /// directly; the other questions on 18 probed keys (the first 16,
+        /// the middle one, the last one); else the DLSD, given the minimum
+        /// and maximum (no pass of its own for them).
+        fn tiny(arr: &mut [$t], known: Unsorted) {
             let n = arr.len();
-            let mut s = [arr[0]; 18];
-            s[..16].copy_from_slice(&arr[..16]);
-            s[16] = arr[n / 2];
-            s[17] = arr[n - 1];
-            // Nearly all of the first 15 pairs in one direction: the spread
-            // pairs, then the near-sorted repair from 30 of 32.
-            let mut asc = 0;
-            for i in 0..15 {
-                asc += (s[i] <= s[i + 1]) as usize;
-            }
-            if asc >= 14 || asc <= 1 {
+            let (lo, hi, desc) = {
+                let bits: &[u32] = bits_of(arr);
+                let e0 = $c(bits[0]);
+                bits.iter().zip(&bits[1..]).fold((e0, e0, 0usize), |(l, h, d), (&a, &b)| {
+                    let (ea, eb) = ($c(a), $c(b));
+                    (l.min(eb), h.max(eb), d + (ea > eb) as usize)
+                })
+            };
+            if desc <= 32 || desc + 33 >= n {
                 let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
                 if (probes.ascending >= 30 || probes.descending >= 30)
                     && repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0
                 {
                     trace!("tiny_repaired");
-                    return true;
+                    return;
                 }
             }
+            // A range of at most one counter per 2 keys: counted.
+            let span = (hi - lo) as usize + 1;
+            if span <= n / 2 {
+                trace!("tiny_count");
+                exact_count(bits_of(arr), lo, span, $c, $c);
+                return;
+            }
+            let mut s = [arr[0]; 18];
+            s[..16].copy_from_slice(&arr[..16]);
+            s[16] = arr[n / 2];
+            s[17] = arr[n - 1];
             // One dominant value with a long tail (Sparse): the vote, at
             // least 7 of 18, no other value 3 times; before few4, which
             // Sparse's 18 probes pass (its count pass then fails).
@@ -296,30 +306,28 @@ macro_rules! chain32_ab {
             if count(v) >= 7 && s.iter().all(|&u| u == v || count(u) < 3) {
                 trace!("tiny_dominant");
                 arr.sort_unstable();
-                return true;
+                return;
             }
             if few4(arr, &s) {
                 trace!("tiny_few4");
-                return true;
-            }
-            // The detectors' 64-key sample made of the probes.
-            let mut sample = [s[0]; SAMPLE];
-            for i in 0..SAMPLE {
-                sample[i] = s[i % 18];
-            }
-            if detectors::range(arr, &sample) {
-                trace!("tiny_range");
-                return true;
+                return;
             }
             let mut distinct = 0;
             for i in 0..16 {
                 distinct += !s[..i].contains(&s[i]) as usize;
             }
-            if (distinct <= 6 || n >= 512) && detectors::few(arr, &sample) {
-                trace!("tiny_few");
-                return true;
+            if distinct <= 6 || n >= 512 {
+                let mut sample = [s[0]; SAMPLE];
+                for i in 0..SAMPLE {
+                    sample[i] = s[i % 18];
+                }
+                if detectors::few(arr, &sample) {
+                    trace!("tiny_few");
+                    return;
+                }
             }
-            false
+            trace!("tiny_dlsd");
+            $st::dlsd_known(bits_of(arr), lo, hi);
         }
 
         /// The detectors, on one spread sample (sorted once, only when the detectors
