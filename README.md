@@ -220,7 +220,8 @@ bench_cpu -- --ignored --nocapture --test-threads=1`.
   (binary keys; the exponential, RootDup, TwoDup and EightDup of IPS4o), plus
   the worst cases of our own detectors (a late outlier, a late extra value, a
   random tail). Floats add NaNs, infinities and signed zeros; records add
-  sizes from 8 to 128 bytes.
+  sizes from 8 to 128 bytes. Each family and why it is there:
+  [The data we sort](articles/generators.md).
 - **The sizes**: 1 000 to 10 000 000 elements (500 to 10 000 000 by type),
   and from 30 million up to what the memory holds for the large benchmarks
   (the array, its copy and a buffer within half the RAM; a size that does
@@ -307,7 +308,9 @@ How the sort is built, measured and tested, in [`articles/`](articles/):
 - [How to benchmark a sort without fooling yourself](articles/how_to_bench.md):
   the traps of measuring a sort, and the tools we built against them;
 - [Testing for a correct sort](articles/testing_for_a_correct_sort.md): how
-  the library is tested, so that you can trust it with your data.
+  the library is tested, so that you can trust it with your data;
+- [The data we sort: the input generators](articles/generators.md): the
+  arrays the tests and the benchmarks use, and why each family is there.
 
 ## How we change the code
 
