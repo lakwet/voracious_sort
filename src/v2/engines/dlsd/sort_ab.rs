@@ -130,7 +130,7 @@ macro_rules! dlsd_sort_ab {
                 let tables = &mut tables[..buckets];
                 scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
                 note(n, top, width, &layout, 4);
-                if layout.base > 0 {
+                if layout.base > 0 && !finish_by_insertion(keys) {
                     finish_groups(keys, scratch, min, layout.base);
                 }
                 return;
