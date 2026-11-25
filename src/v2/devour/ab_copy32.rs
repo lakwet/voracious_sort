@@ -271,21 +271,9 @@ macro_rules! chain32_ab {
                     return true;
                 }
             }
-            if few4(arr, &s) {
-                trace!("tiny_few4");
-                return true;
-            }
-            // The detectors' 64-key sample made of the probes.
-            let mut sample = [s[0]; SAMPLE];
-            for i in 0..SAMPLE {
-                sample[i] = s[i % 18];
-            }
-            if detectors::range(arr, &sample) {
-                trace!("tiny_range");
-                return true;
-            }
             // One dominant value with a long tail (Sparse): the vote, at
-            // least 7 of 18, no other value 3 times.
+            // least 7 of 18, no other value 3 times; before few4, which
+            // Sparse's 18 probes pass (its count pass then fails).
             let (mut v, mut votes) = (s[0], 0usize);
             for &x in s.iter() {
                 if votes == 0 {
@@ -297,6 +285,19 @@ macro_rules! chain32_ab {
             if count(v) >= 7 && s.iter().all(|&u| u == v || count(u) < 3) {
                 trace!("tiny_dominant");
                 arr.sort_unstable();
+                return true;
+            }
+            if few4(arr, &s) {
+                trace!("tiny_few4");
+                return true;
+            }
+            // The detectors' 64-key sample made of the probes.
+            let mut sample = [s[0]; SAMPLE];
+            for i in 0..SAMPLE {
+                sample[i] = s[i % 18];
+            }
+            if detectors::range(arr, &sample) {
+                trace!("tiny_range");
                 return true;
             }
             let mut distinct = 0;
