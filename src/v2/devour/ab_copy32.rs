@@ -119,28 +119,23 @@ macro_rules! chain32_ab {
                     trace!("light_range");
                     return;
                 }
-                // One dominant value on the sample with a long tail of
-                // distinct values (at least 4 sample keys seen once: Sparse;
-                // FakeZipf, few values, is left to `few`): the std partition
-                // (as `detect`), asked only when the first 5 sample keys repeat
-                // one (10 comparisons; the vote over 64 keys costs 3-4 % at
-                // 250-500 keys).
-                let mut repeat = false;
-                for i in 0..5 {
-                    for j in i + 1..5 {
-                        repeat |= sample[i] == sample[j];
+                // One dominant value with a long tail of distinct values
+                // (Sparse), on the first 16 sample keys: the majority vote,
+                // its count at least 8 and no other value 3 times or more
+                // (FakeZipf repeats a second value: left to `few`). Then
+                // the std partition (as `detect`). The full `dominant` on
+                // the 64 keys cost up to 0.8 ns per key at 250 keys.
+                if on(2048) {
+                    let s16 = &sample[..16];
+                    let (mut v, mut votes) = (s16[0], 0usize);
+                    for &x in s16 {
+                        if votes == 0 {
+                            v = x;
+                        }
+                        votes = if x == v { votes + 1 } else { votes - 1 };
                     }
-                }
-                if on(2048) && repeat && dominant(&sample, |x, y| x == y) {
-                    let mut sorted = sample;
-                    sorted.sort_unstable();
-                    let mut f1 = 0;
-                    for i in 0..SAMPLE {
-                        let left = i > 0 && sorted[i - 1] == sorted[i];
-                        let right = i + 1 < SAMPLE && sorted[i + 1] == sorted[i];
-                        f1 += (!left && !right) as usize;
-                    }
-                    if f1 >= 4 {
+                    let count = |u: $t| s16.iter().filter(|&&x| x == u).count();
+                    if count(v) >= 8 && s16.iter().all(|&u| u == v || count(u) < 3) {
                         trace!("light_dominant");
                         arr.sort_unstable();
                         return;
