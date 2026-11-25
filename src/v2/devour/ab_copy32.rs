@@ -66,7 +66,7 @@ macro_rules! chain32_ab {
         use crate::v2::devour::DevourSort;
         use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
         use crate::v2::engines::{dlsd::$dl, lsd::$ls, roller::$ro};
-        use crate::v2::inspect::presorted::{presorted, repair_nearly_sorted, Unsorted};
+        use crate::v2::inspect::presorted::{presorted, probe_pairs, repair_nearly_sorted, Unsorted};
         use crate::v2::runs::merge::{self, merge_runs};
         use crate::v2::runs::verge::verge_sort_preprocessing_fast;
         use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
@@ -115,8 +115,13 @@ macro_rules! chain32_ab {
             // plateaus, dominant, heavy, dense, near-sorted repair, Verge).
             // A sorted head of half the array, or the 32 spread pairs nearly
             // all in one direction (nearly sorted, saw teeth): the whole path.
-            let ordered = known.ascending_prefix >= n / 2
-                || known.probes.is_some_and(|p| p.ascending >= 28 || p.descending >= 28);
+            // (`presorted` compares the pairs only when the first key is the
+            // larger: else they are compared here, 32 comparisons.)
+            let ordered = known.ascending_prefix >= n / 2 || {
+                let p = known.probes.unwrap_or_else(|| probe_pairs(arr));
+                // (Mostly equal pairs: plateaus, Sqrt.)
+                p.ascending >= 28 || p.descending >= 28 || p.equal() >= 24
+            };
             if !on(512) && n <= light_max() && !(on(1024) && ordered) {
                 let sample = spread(arr);
                 if on(8192) && few4(arr, &sample) {
@@ -149,14 +154,15 @@ macro_rules! chain32_ab {
                         return;
                     }
                 }
-                // `few` only when the first 16 sample keys hold at most 8
-                // values (it rejects the others itself, but after zeroing
-                // its table: 3-4 % at 250-300 keys).
+                // Below 512 keys `few` only when the first 16 sample keys
+                // hold at most 8 values (it rejects the others itself, on
+                // 16 keys there, but after zeroing its table: 3-4 % at
+                // 250-300 keys; from 512 keys it accepts more values).
                 let mut distinct = 0;
                 for i in 0..16 {
                     distinct += !sample[..i].contains(&sample[i]) as usize;
                 }
-                if on(8) && distinct <= 8 && detectors::few(arr, &sample) {
+                if on(8) && (distinct <= 8 || n >= 512) && detectors::few(arr, &sample) {
                     trace!("light_few");
                     return;
                 }

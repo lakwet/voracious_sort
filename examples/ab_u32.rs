@@ -123,7 +123,8 @@ fn trace<T: Key>(sizes: &[usize])
         for (gen, title) in gens_wanted::<T>().iter() {
             let mut w = gen(n);
             let _ = voracious_radix_sort::ab_trace_take();
-            devour_sort(&mut w);
+            // TRACE_SORT: the sort traced (default v2).
+            run::<T>(&std::env::var("TRACE_SORT").unwrap_or("v2".into()), &mut w);
             let t = voracious_radix_sort::ab_trace_take();
             println!("{:>9} {:14} {}", n, name_of(title), t.join(" "));
         }
