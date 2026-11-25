@@ -158,6 +158,13 @@ abench-align: ## A/B over 6 code placements (EX, SORTS=v2,copy, DOM_SIZES): wins
 	@for p in $(PLACEMENTS); do a=$${p%%:*}; u=$${p##*:}; 	  CARGO_TARGET_DIR=target/place-$$a-$$u CARGO_PROFILE_RELEASE_CODEGEN_UNITS=$$u 	  RUSTFLAGS="$(BENCH_RUSTFLAGS) -C llvm-args=-align-loops=$$a" 	    cargo build -q --release --example $(EX) --features "bench ab" || exit 1; 	  COLD=1 TOTAL=12000000 REPS=11 ./target/place-$$a-$$u/release/examples/$(EX) 	    > bench_work/$(ABENCH_HOST)/abench-place-$$a-$$u.txt || exit 1; 	done
 	python3 tools/ab_align.py $(foreach p,$(PLACEMENTS),bench_work/$(ABENCH_HOST)/abench-place-$(subst :,-,$(p)).txt)
 
+gather-check: export RUSTFLAGS = $(BENCH_RUSTFLAGS) -C target-cpu=native
+gather-check: ## native A/B of the 16-bit copy without vector gathers (Core Ultra): two files in bench_work/<host>/
+	@mkdir -p bench_work/$(ABENCH_HOST)
+	CARGO_TARGET_DIR=target/native 	  cargo build -q --release --example ab_u16 --example ab_i16 --features "bench ab"
+	CHECK=1 SORTS=v2,copy DOM_SIZES=1000,10000,100000,1000000 TOTAL=4000000 	  ./target/native/release/examples/ab_u16 > bench_work/$(ABENCH_HOST)/gather-native-u16.txt
+	CHECK=1 SORTS=gen,copy DOM_SIZES=1000,10000,100000,1000000 TOTAL=4000000 	  ./target/native/release/examples/ab_i16 > bench_work/$(ABENCH_HOST)/gather-native-i16.txt
+
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
 bench-records: export BENCH_PARTS = records
