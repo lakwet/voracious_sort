@@ -157,8 +157,6 @@ macro_rules! dlsd_width_ab {
 
             /// Smallest sample for the prefix length (shadows the engine's).
             const SAMPLE_MIN: usize = $smin;
-            /// Counters kept on the stack (32 KiB; shadows the engine's).
-            const STACK_COUNTERS: usize = 8192;
 
             /// Keys per staging slot (one 64-byte cache line).
             const WB: usize = 64 / std::mem::size_of::<$uint>();
