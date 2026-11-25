@@ -279,8 +279,40 @@ macro_rules! chain32_ab {
             let top = 32 - range.leading_zeros();
             let log_n = usize::BITS - n.leading_zeros();
             let p = (log_n + 3).min(top);
-            let w0 = p / 2;
             let base = top - p;
+            // At most 8 bits: one pass (a counting sort that moves the keys:
+            // a range of 256 values at 150 keys, where writing the values
+            // back from 256 counters costs 2.5x).
+            if p <= 8 {
+                let key = |b: u32| ($c(b).wrapping_sub(lo) >> base) as usize;
+                let mut c = [0u32; 256];
+                for &b in bits.iter() {
+                    // SAFETY: key < 2^p <= 256.
+                    unsafe { *c.get_unchecked_mut(key(b)) += 1 };
+                }
+                let mut sum = 0;
+                for x in c.iter_mut() {
+                    let v = *x;
+                    *x = sum;
+                    sum += v;
+                }
+                let mut store = [0u32; TINY_MAX];
+                let buf = &mut store[..n];
+                // SAFETY: as above; each head plus its keys written is below n.
+                unsafe {
+                    for &b in bits.iter() {
+                        let at = c.get_unchecked_mut(key(b));
+                        *buf.get_unchecked_mut(*at as usize) = b;
+                        *at += 1;
+                    }
+                }
+                bits.copy_from_slice(buf);
+                if base > 0 {
+                    bits.sort_unstable_by_key(|&b| $c(b));
+                }
+                return;
+            }
+            let w0 = p / 2;
             let m0 = (1u32 << w0) - 1;
             let key = |b: u32| $c(b).wrapping_sub(lo) >> base;
             let (mut c0, mut c1) = ([0u32; 128], [0u32; 128]);
@@ -459,7 +491,15 @@ macro_rules! chain32_ab {
                 (lo, hi)
             };
             let span = (hi - lo) as usize + 1;
-            if t < 32 && span <= (n / 2).max(256) {
+            // At most 256 values: one pass of the short radix sort (moves the
+            // keys); else up to one counter per 2 keys: counted, the values
+            // written back from the counts.
+            if t < 32 && span <= 256 {
+                trace!("tiny_short1");
+                short_radix(bits_of(arr), lo, hi);
+                return;
+            }
+            if t < 32 && span <= n / 2 {
                 trace!("tiny_count");
                 exact_count(bits_of(arr), lo, span, $c, $c);
                 return;
