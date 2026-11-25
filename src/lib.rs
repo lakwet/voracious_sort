@@ -147,6 +147,12 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
         // thread (measure only, never in the library).
         "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::su32::dlsd(keys),
+        "dlsdo" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::su32::OLD.store(true, Relaxed);
+            v2::engines::dlsd::su32::dlsd(keys);
+            v2::engines::dlsd::su32::OLD.store(false, Relaxed);
+        },
         "dlsde" => {
             use std::sync::atomic::Ordering::Relaxed;
             v2::engines::dlsd::su32::EXACT.store(true, Relaxed);
@@ -207,6 +213,12 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
         "dlsd" => di32::dlsd(bits),
         "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::si32::dlsd(bits),
+        "dlsdo" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::si32::OLD.store(true, Relaxed);
+            v2::engines::dlsd::si32::dlsd(bits);
+            v2::engines::dlsd::si32::OLD.store(false, Relaxed);
+        },
         "dlsde" => {
             use std::sync::atomic::Ordering::Relaxed;
             v2::engines::dlsd::si32::EXACT.store(true, Relaxed);

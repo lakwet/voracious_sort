@@ -172,7 +172,9 @@ macro_rules! dlsd_sort_ab {
             let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
             let mut heap: Vec<u32> = Vec::new();
             let size = layout.digits * layout.buckets;
-            let four = LANES4.load(std::sync::atomic::Ordering::Relaxed)
+            let old = OLD.load(std::sync::atomic::Ordering::Relaxed);
+            let four = (LANES4.load(std::sync::atomic::Ordering::Relaxed)
+                || (!old && n >= LANES4_MIN))
                 && layout.digits <= 4
                 && 4 * size <= STACK_COUNTERS;
             let tables = zeroed_counters(&mut stack, &mut heap, if four { 4 } else { 2 } * size);
@@ -320,6 +322,14 @@ macro_rules! dlsd_sort_ab {
         pub(crate) static NET: std::sync::atomic::AtomicBool =
             std::sync::atomic::AtomicBool::new(false);
         use crate::v2::engines::small::{network_sort, NETWORK_MAX};
+
+        /// The copy's rules (A/B against `OLD`, the `dlsdo` sort of the
+        /// example: the engine's rules): histograms in 4 lanes from
+        /// `LANES4_MIN` keys; aliasing checked from `ALIAS_KEYS_MIN` keys.
+        pub(crate) static OLD: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        const LANES4_MIN: usize = 4096;
+        const ALIAS_KEYS_MIN: usize = 32_768;
 
         /// Trial (`dlsde`): an exact prefix from `EXACT_LSD_MIN` keys goes to
         /// the LSD (its digit choice: bytes when 11-bit digits leave the cache).
@@ -505,7 +515,8 @@ macro_rules! dlsd_sort_ab {
             let varying = &varying[..passes];
             let buf = scratch.slots(n);
             // The tables become their exclusive prefix sums (the bucket heads).
-            let check_alias = n >= $alias_min() / std::mem::size_of::<$uint>();
+            let check_alias = n >= $alias_min() / std::mem::size_of::<$uint>()
+                && (OLD.load(std::sync::atomic::Ordering::Relaxed) || n >= ALIAS_KEYS_MIN);
             let mut staged = [false; 64];
             for (i, &t) in varying.iter().enumerate() {
                 let table = &mut tables[t * buckets..(t + 1) * buckets];

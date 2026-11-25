@@ -1,14 +1,14 @@
 //! Dev only (feature `ab`): A/B copy of the u32 / i32 chains (`u32.rs`,
 //! `i32.rs`); edit here, measured against the library by `examples/ab_u32.rs`
 //! (`copy`). Trial: the DLSD as the engine below `dlsd_max()` keys
-//! (`AB_DLSD_MAX`, default 65 536); its scratch on the stack up to 4096 keys
+//! (`AB_DLSD_MAX`, default 262 144); its scratch on the stack up to 4096 keys
 //! unless `AB_DLSD_HEAP` is set.
 
 /// Below this many keys a chunk goes to the DLSD (env `AB_DLSD_MAX`).
 fn dlsd_max() -> usize {
     static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
     *M.get_or_init(|| {
-        std::env::var("AB_DLSD_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(65_536)
+        std::env::var("AB_DLSD_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(262_144)
     })
 }
 
