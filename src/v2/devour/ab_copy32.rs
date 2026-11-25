@@ -449,6 +449,15 @@ macro_rules! chain32_ab {
             // A range of at most one counter per 2 keys, or of 256 values
             // (Small1 at 300 keys): counted. After few4 (Binary: the
             // comparisons beat the count, 0.30 against 0.62 ns per key).
+            // A bound already narrow: the exact minimum and maximum (one
+            // more pass, only there; the bounds above are ORs, up to twice
+            // the true span: i32 Small1 around 0 showed 512 values for 256).
+            let (lo, hi) = if t < 32 && hi - lo <= 65_535 {
+                let bits: &[u32] = bits_of(arr);
+                bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
+            } else {
+                (lo, hi)
+            };
             let span = (hi - lo) as usize + 1;
             if t < 32 && span <= (n / 2).max(256) {
                 trace!("tiny_count");
