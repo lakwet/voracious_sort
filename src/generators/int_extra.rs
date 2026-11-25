@@ -36,6 +36,14 @@ macro_rules! int_extra {
                 (0..size).map(|_| values[rng.random_range(0..16)]).collect()
             }
 
+            // Few distinct values: 4 random full-range values (counted by
+            // comparison, not by a hash table)
+            pub fn few4(size: usize) -> Vec<$t> {
+                let mut rng = crate::generators::rng();
+                let values: Vec<$t> = (0..4).map(|_| rng.random::<$t>()).collect();
+                (0..size).map(|_| values[rng.random_range(0..4)]).collect()
+            }
+
             // Detector worst case: narrow integers, one wide outlier late (at 95 %)
             pub fn int_late_outlier(size: usize) -> Vec<$t> {
                 let mut array = int_narrow(size);
@@ -251,6 +259,7 @@ macro_rules! int_extra {
                 vec![
                     (&int_narrow, "-- Int 0..100 :"),
                     (&int_wide, "-- Int 0..n   :"),
+                    (&few4, "-- Few 4      :"),
                     (&few16, "-- Few 16     :"),
                     (&int_late_outlier, "-- Int late out:"),
                     (&few16_late, "-- Few16 late :"),

@@ -19,7 +19,23 @@ pub fn helper_random_array_109_i32(size: usize) -> Vec<i32> {
         .collect::<Vec<i32>>()
 }
 
-// Small values
+// Small: within 2^7 of 0
+pub fn helper_random_array_small1_i32(size: usize) -> Vec<i32> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| crate::generators::rng().random_range(-128..128))
+        .collect::<Vec<i32>>()
+}
+
+// Small: within 2^23 of 0
+pub fn helper_random_array_small3_i32(size: usize) -> Vec<i32> {
+    (0..size)
+        .into_par_iter()
+        .map(|_| crate::generators::rng().random_range(-(1 << 23)..(1 << 23)))
+        .collect::<Vec<i32>>()
+}
+
+// Small: within 64 000 of 0
 pub fn helper_random_array_small_i32(size: usize) -> Vec<i32> {
     (0..size)
         .into_par_iter()
@@ -217,12 +233,26 @@ fn helper_normal(size: usize, range: f32) -> Vec<i32> {
         .collect::<Vec<i32>>()
 }
 
+// Normale(0, 2^8)
+pub fn helper_random_array_normale_8_i32(size: usize) -> Vec<i32> { helper_normal(size, 255.0) }
+
 // Normale(0, 2^10)
 pub fn helper_random_array_normale_10_i32(size: usize) -> Vec<i32> { helper_normal(size, 1024.0) }
+
+// Normale(0, 2^13)
+pub fn helper_random_array_normale_13_i32(size: usize) -> Vec<i32> { helper_normal(size, 8191.0) }
+
+// Normale(0, 2^16)
+pub fn helper_random_array_normale_16_i32(size: usize) -> Vec<i32> { helper_normal(size, 65_535.0) }
 
 // Normale(0, 2^20)
 pub fn helper_random_array_normale_20_i32(size: usize) -> Vec<i32> {
     helper_normal(size, 1_000_000.0)
+}
+
+// Normale(0, 2^24)
+pub fn helper_random_array_normale_24_i32(size: usize) -> Vec<i32> {
+    helper_normal(size, 16_777_215.0)
 }
 
 // Normale(0, 2^30)
@@ -234,7 +264,9 @@ pub fn generators_i32() -> Vec<(&'static dyn Fn(usize) -> Vec<i32>, &'static str
     vec![
         (&helper_random_array_uniform_i32, "-- Unif       :"),
         (&helper_random_array_109_i32, "-- +-10^9     :"),
-        (&helper_random_array_small_i32, "-- Small      :"),
+        (&helper_random_array_small1_i32, "-- Small1     :"),
+        (&helper_random_array_small_i32, "-- Small2     :"),
+        (&helper_random_array_small3_i32, "-- Small3     :"),
         (&helper_random_array_ascending_i32, "-- Asc        :"),
         (&helper_random_array_descending_i32, "-- Desc       :"),
         (&helper_random_array_allequals_i32, "-- Equal      :"),
@@ -249,8 +281,12 @@ pub fn generators_i32() -> Vec<(&'static dyn Fn(usize) -> Vec<i32>, &'static str
         (&helper_random_array_pipe_organ_i32, "-- Pipe Organ :"),
         (&helper_random_array_push_front_i32, "-- Front      :"),
         (&helper_random_array_push_middle_i32, "-- Middle     :"),
+        (&helper_random_array_normale_8_i32, "-- Normale  8 :"),
         (&helper_random_array_normale_10_i32, "-- Normale 10 :"),
+        (&helper_random_array_normale_13_i32, "-- Normale 13 :"),
+        (&helper_random_array_normale_16_i32, "-- Normale 16 :"),
         (&helper_random_array_normale_20_i32, "-- Normale 20 :"),
+        (&helper_random_array_normale_24_i32, "-- Normale 24 :"),
         (&helper_random_array_normale_30_i32, "-- Normale 30 :"),
     ]
 }
