@@ -386,17 +386,13 @@ macro_rules! chain32_ab {
                 );
                 (up, down, desc as usize, e0)
             };
-            // Every key lies in [e0 - 2^tn, e0 + 2^tp) (the whole domain
-            // when that bound leaves it).
+            // Every key lies in [e0 - 2^tn, e0 + 2^tp), clamped to the domain.
             let tp = 32 - up.leading_zeros();
             let tn = 32 - down.leading_zeros();
             let (lo, hi) = if tp < 31 && tn < 31 {
                 let below = 1u32 << tn;
                 let above = (1u32 << tp) - 1;
-                match (e0.checked_sub(below), e0.checked_add(above)) {
-                    (Some(l), Some(h)) => (l, h),
-                    _ => (0, u32::MAX),
-                }
+                (e0.saturating_sub(below), e0.saturating_add(above))
             } else {
                 (0, u32::MAX)
             };
