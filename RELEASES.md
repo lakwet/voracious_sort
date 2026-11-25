@@ -1,3 +1,13 @@
+# Version **2.1.1** (November 25<sup>th</sup> 2026)
+
+A lighter build, nothing else changes.
+
+- The code of the 1.x sorts, which only the multithread sort still uses, is
+  now compiled only with the feature `voracious_multithread`. Without it the
+  crate builds about 45 % faster (release build of the library: 44 s to
+  25 s on our machine) and its compiled library is a third smaller. Programs
+  that use the crate run the same code as with 2.1.0.
+
 # Version **2.1.0** (November 24<sup>th</sup> 2026)
 
 The 16-bit integers (`u16`, `i16`) reworked, and the code split into three
