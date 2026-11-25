@@ -190,6 +190,17 @@ macro_rules! chain32_ab {
                     trace!("light_few");
                     return;
                 }
+                // From `DENSE_MIN` keys a dense range with outliers (Int late
+                // out: 2.3x slower without it at 5000 keys), on the sorted
+                // sample as `detect`.
+                if n >= DENSE_MIN {
+                    let mut sorted = sample;
+                    sorted.sort_unstable();
+                    if detectors::dense(arr, &sorted) {
+                        trace!("light_dense");
+                        return;
+                    }
+                }
                 sort_chunk(bits_of(arr), &mut Vec::new());
                 return;
             }
@@ -304,7 +315,7 @@ macro_rules! chain32_ab {
             for i in 0..16 {
                 distinct += !s[..i].contains(&s[i]) as usize;
             }
-            if distinct <= 6 && detectors::few(arr, &sample) {
+            if (distinct <= 6 || n >= 512) && detectors::few(arr, &sample) {
                 trace!("tiny_few");
                 return true;
             }
