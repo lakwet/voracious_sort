@@ -68,7 +68,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
             T::copy(w);
             voracious_radix_sort::ab_copy32_skip(0);
         },
-        "dlsd" | "dlsdr" | "dlsds" | "dlsdl" | "dlsd4" | "dlsdb" | "dlsdm" | "dlsdh" | "dlsdk" | "dlsdn" | "dlsdkn" | "dlsdu" | "dlsde" | "dlsdo" | "roller" => T::engine(name, w),
+        "dlsd" | "dlsdr" | "dlsds" | "dlsdl" | "dlsd4" | "dlsdb" | "dlsdm" | "dlsdh" | "dlsdk" | "dlsdn" | "dlsdkn" | "dlsdu" | "dlsde" | "dlsdo" | "rollo" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
 }

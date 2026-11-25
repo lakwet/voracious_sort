@@ -42,6 +42,16 @@ macro_rules! dlsd_sort_ab {
             dlsd_rec::<true>(bits, &mut scratch, None);
         }
 
+        /// Sorts encoded keys and writes them back decoded, `scratch` (at
+        /// least as long as `keys`) as the buffer: the out-of-place
+        /// rollercoaster's leaves, sorted with the space their bucket left.
+        #[allow(dead_code)]
+        pub(crate) fn dlsd_encoded_in(keys: &mut [$uint], scratch: &mut [MaybeUninit<$uint>]) {
+            debug_assert!(scratch.len() >= keys.len());
+            let mut scratch = Scratch { stack: scratch, heap: Vec::new() };
+            dlsd_rec::<false>(keys, &mut scratch, None);
+        }
+
         /// The key of a stored value: encoded when `RAW`.
         #[inline(always)]
         fn enc<const RAW: bool>(v: $uint) -> $uint {

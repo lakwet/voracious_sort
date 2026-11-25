@@ -147,6 +147,7 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
         // thread (measure only, never in the library).
         "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::su32::dlsd(keys),
+        "rollo" => v2::engines::roller_ab::ou32::roller(keys),
         "dlsdo" => {
             use std::sync::atomic::Ordering::Relaxed;
             v2::engines::dlsd::su32::OLD.store(true, Relaxed);
@@ -213,6 +214,7 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
         "dlsd" => di32::dlsd(bits),
         "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::si32::dlsd(bits),
+        "rollo" => v2::engines::roller_ab::oi32::roller(bits),
         "dlsdo" => {
             use std::sync::atomic::Ordering::Relaxed;
             v2::engines::dlsd::si32::OLD.store(true, Relaxed);
