@@ -257,6 +257,11 @@ macro_rules! chain32_ab {
         /// probed keys (the 16-bit short sort's probes).
         const TINY_MAX: usize = 1100;
 
+        /// Up to this many keys the tiny path ends with the short radix sort
+        /// (Surface: it beats the DLSD on 22-28 cells at 170-300 keys, loses
+        /// 26-30 from 500).
+        const SHORT_MAX: usize = 400;
+
         /// The short radix sort of the tiny path (up to `TINY_MAX` keys),
         /// on raw bits whose encoded minimum and maximum are known: the top
         /// log2(n) + 3 bits of `key - min` (at most 14) by 2 LSD passes of
@@ -408,8 +413,10 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
-            // Trial (bit 32768 off): the short radix sort, else the DLSD.
-            if on(32768) {
+            // The short radix sort up to `SHORT_MAX` keys (bit 32768: never),
+            // else the DLSD (from 500 keys its digits beat 2 passes of
+            // 6-7 bits: 5-9 % on random keys).
+            if on(32768) && n <= SHORT_MAX {
                 trace!("tiny_short");
                 short_radix(bits_of(arr), lo, hi);
             } else {
