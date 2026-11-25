@@ -19,6 +19,7 @@ pub(crate) mod i8;
 #[macro_use]
 pub(crate) mod narrow16;
 #[cfg(feature = "ab")] pub(crate) mod ab_copy;
+#[cfg(feature = "ab")] pub(crate) mod ab_copy32;
 pub(crate) mod u128;
 pub(crate) mod u16;
 pub(crate) mod u32;

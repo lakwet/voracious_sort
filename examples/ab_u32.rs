@@ -16,7 +16,9 @@
 mod generators;
 
 use std::time::Instant;
-use voracious_radix_sort::{ab_i32_engine, ab_i32_lsd, ab_u32_engine, ab_u32_lsd, devour_sort};
+use voracious_radix_sort::{
+    ab_i32_copy, ab_i32_engine, ab_i32_lsd, ab_u32_copy, ab_u32_engine, ab_u32_lsd, devour_sort,
+};
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
 
@@ -25,6 +27,7 @@ trait Key: voracious_radix_sort::DevourSort + Send + Sync + std::fmt::Debug + 's
     fn lsd(w: &mut [Self]);
     fn blz(w: &mut [Self]);
     fn engine(name: &str, w: &mut [Self]);
+    fn copy(w: &mut [Self]);
 }
 
 impl Key for u32 {
@@ -36,6 +39,7 @@ impl Key for u32 {
     fn lsd(w: &mut [u32]) { ab_u32_lsd(w) }
     fn blz(w: &mut [u32]) { blazing_radix::radix_sort::<u32>(w) }
     fn engine(name: &str, w: &mut [u32]) { ab_u32_engine(name, w) }
+    fn copy(w: &mut [u32]) { ab_u32_copy(w) }
 }
 
 impl Key for i32 {
@@ -47,6 +51,7 @@ impl Key for i32 {
     fn lsd(w: &mut [i32]) { ab_i32_lsd(w) }
     fn blz(w: &mut [i32]) { blazing_radix::radix_sort::<i32>(w) }
     fn engine(name: &str, w: &mut [i32]) { ab_i32_engine(name, w) }
+    fn copy(w: &mut [i32]) { ab_i32_copy(w) }
 }
 
 fn run<T: Key>(name: &str, w: &mut [T])
@@ -55,6 +60,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "std" => w.sort_unstable(),
         "blz" => T::blz(w),
         "lsd" => T::lsd(w),
+        "copy" => T::copy(w),
         "dlsd" | "dlsdr" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }

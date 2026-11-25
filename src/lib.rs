@@ -163,6 +163,16 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
     }
 }
 
+/// Dev only (feature `ab`): the u32 chain of the A/B copy (`ab_copy32`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_copy(keys: &mut [u32]) { v2::devour::ab_copy32::cu32::sort(keys) }
+
+/// Dev only (feature `ab`): the i32 chain of the A/B copy (`ab_copy32`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_copy(keys: &mut [i32]) { v2::devour::ab_copy32::ci32::sort(keys) }
+
 /// Dev only (features `ab` and `v2_trace`): the decision labels noted
 /// since the last call.
 #[cfg(all(feature = "ab", feature = "v2_trace"))]
