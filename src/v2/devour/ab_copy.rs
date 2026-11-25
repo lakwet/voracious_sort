@@ -1,9 +1,9 @@
 //! A/B by copy (dev only, feature `ab`): a second instance of the 16-bit
 //! chain, called by the measuring examples as `ab_u16_copy` / `ab_i16_copy`.
 //!
-//! Trial: the counting loops of 4 lanes on one table whose lane stride the
-//! compiler cannot see (no vector gather of the counters: built for recent
-//! Intel CPUs, `target-cpu=meteorlake`, it gathered them, 2x slower).
+//! Trial: the counting loops of 4 lanes read each counter by a volatile load
+//! (no vector gather of the counters: built for recent Intel CPUs,
+//! `target-cpu=meteorlake`, it gathered them, 2x slower).
 
 macro_rules! narrow16_ab {
     ($m:ident, $k:ty, $f:expr, $enc:ident) => {
@@ -431,39 +431,34 @@ fn cheap_few_k<const KN: usize>(a: &mut [u16], reps: &[u16; 4]) -> bool {
 /// repeated value does not wait on its own counter); below, one.
 const LANES_MIN: usize = 1024;
 
-/// Up to 4 counting tables in one, `stride` apart. The stride is opaque to
-/// the compiler (`black_box`), so it cannot prove two lanes apart and keeps
-/// the increments of the lanes in order: without that, built for recent
-/// Intel CPUs (`target-cpu=meteorlake`), it loaded the 4 counters of a
-/// block by one vector gather (Core Ultra, native build: Bimodal, Range 16,
-/// Aligned 2x slower than the generic one).
+/// Up to 4 counting tables, one per lane (keys in turn). Each counter is
+/// read by a volatile load, which the compiler cannot turn into a vector
+/// gather: built for recent Intel CPUs (`target-cpu=meteorlake`), it loaded
+/// the 4 counters of a block by one gather (Core Ultra, native build:
+/// Bimodal, Range 16, Aligned 2x slower than the generic one). The lanes
+/// stay separate arrays, so their updates are still free to overlap.
 struct Lanes<const L: usize> {
-    t: [u32; 1024],
-    stride: usize,
+    t: [[u32; 256]; L],
 }
 
 impl<const L: usize> Lanes<L> {
     #[inline(always)]
-    fn new() -> Self {
-        debug_assert!(L <= 4);
-        Lanes { t: [0; 1024], stride: std::hint::black_box(256) }
-    }
+    fn new() -> Self { Lanes { t: [[0; 256]; L] } }
 
     /// One more key of digit `d` (below 256) in lane `j` (below `L`).
     #[inline(always)]
     fn add(&mut self, j: usize, d: usize) {
-        debug_assert!(j < L && d < 256 && self.stride == 256);
-        // SAFETY: `stride` is 256 (`black_box` returns its input), j < L <= 4
-        // and d < 256: below 1024.
-        unsafe { *self.t.get_unchecked_mut(j * self.stride + d) += 1 }
+        let c = &mut self.t[j][d & 255];
+        // SAFETY: `c` is a valid, aligned, exclusive reference.
+        let v = unsafe { std::ptr::read_volatile(c) };
+        *c = v + 1;
     }
 
     /// The lanes summed.
     #[inline(always)]
     fn sum(&self) -> [u32; 256] {
         let mut c = [0u32; 256];
-        for j in 0..L {
-            let lane = &self.t[j * 256..j * 256 + 256];
+        for lane in &self.t {
             for d in 0..256 {
                 c[d] += lane[d];
             }
