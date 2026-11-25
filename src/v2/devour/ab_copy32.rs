@@ -22,11 +22,11 @@ fn dlsd_max() -> usize {
 /// the sample, counted by comparisons).
 pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
-/// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 2048).
+/// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
     static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
     *M.get_or_init(|| {
-        std::env::var("AB_LIGHT_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(2048)
+        std::env::var("AB_LIGHT_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(8192)
     })
 }
 
