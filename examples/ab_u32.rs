@@ -1,0 +1,189 @@
+//! Dev only: the u32 / i32 chain against its own LSD engine and blazing-radix,
+//! in a binary that builds in seconds (the test crate takes minutes).
+//!
+//! cargo run --release --example ab_u32 --features "bench ab"
+//! Env: T=u32|i32 (default u32); SORTS="v2,lsd,std,blz" (`v2` the library,
+//! `lsd` the LSD engine alone, no detector: v2 - lsd on a cell whose path
+//! ends in the LSD is what the chain's failed questions cost);
+//! DOM_SIZES="300,1000,..."; TOTAL (keys per measure, default 4M);
+//! GEN=text (only the distributions containing text); CHECK=1 (every sort
+//! against `sort_unstable` first).
+//! TRACE build (feature `v2_trace`): the decision labels of v2 per cell.
+//! Output: ns per key, copy subtracted, median of REPS (7), random order.
+
+#[allow(dead_code, unused_imports)]
+#[path = "../src/generators/mod.rs"]
+mod generators;
+
+use std::time::Instant;
+use voracious_radix_sort::{ab_i32_lsd, ab_u32_lsd, devour_sort};
+
+type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
+
+trait Key: voracious_radix_sort::DevourSort + Send + Sync + std::fmt::Debug + 'static {
+    fn gens() -> Gens<Self>;
+    fn lsd(w: &mut [Self]);
+    fn blz(w: &mut [Self]);
+}
+
+impl Key for u32 {
+    fn gens() -> Gens<u32> {
+        let mut g = generators::unsigned_u32::generators_u32();
+        g.extend(generators::int_extra::extra_u32::generators());
+        g
+    }
+    fn lsd(w: &mut [u32]) { ab_u32_lsd(w) }
+    fn blz(w: &mut [u32]) { blazing_radix::radix_sort::<u32>(w) }
+}
+
+impl Key for i32 {
+    fn gens() -> Gens<i32> {
+        let mut g = generators::signed_i32::generators_i32();
+        g.extend(generators::int_extra::extra_i32::generators());
+        g
+    }
+    fn lsd(w: &mut [i32]) { ab_i32_lsd(w) }
+    fn blz(w: &mut [i32]) { blazing_radix::radix_sort::<i32>(w) }
+}
+
+fn run<T: Key>(name: &str, w: &mut [T])
+{
+    match name {
+        "std" => w.sort_unstable(),
+        "blz" => T::blz(w),
+        "lsd" => T::lsd(w),
+        _ => devour_sort(w),
+    }
+}
+
+fn rng(seed: &mut u64) -> u64 {
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 7;
+    *seed ^= *seed << 17;
+    *seed
+}
+
+fn order(rep: usize, j: usize, k: usize) -> usize {
+    let mut p: Vec<usize> = (0..k).collect();
+    let mut seed = 0x9E37_79B9_7F4A_7C15u64 ^ (rep as u64).wrapping_mul(0xD1B5_4A32_D192_ED03);
+    for i in (1..k).rev() {
+        let r = rng(&mut seed) as usize % (i + 1);
+        p.swap(i, r);
+    }
+    p[j]
+}
+
+fn name_of(title: &str) -> String {
+    title.trim_start_matches("--").trim_end_matches(':').trim().replace(' ', "_")
+}
+
+fn gens_wanted<T: Key>() -> Gens<T> {
+    let want = std::env::var("GEN").ok();
+    T::gens().into_iter().filter(|(_, t)| want.as_ref().is_none_or(|w| t.contains(w.as_str()))).collect()
+}
+
+fn check<T: Key>(sorts: &[String], sizes: &[usize])
+{
+    for &n in sizes {
+        for (gen, title) in gens_wanted::<T>().iter() {
+            let a = gen(n);
+            let mut r = a.clone();
+            r.sort_unstable();
+            for s in sorts {
+                let mut w = a.clone();
+                run(s, &mut w);
+                assert!(w == r, "n {} {} sort {}", n, title, s);
+            }
+        }
+    }
+    println!("check ok");
+}
+
+#[cfg(feature = "v2_trace")]
+fn trace<T: Key>(sizes: &[usize])
+{
+    for &n in sizes {
+        for (gen, title) in gens_wanted::<T>().iter() {
+            let mut w = gen(n);
+            let _ = voracious_radix_sort::ab_trace_take();
+            devour_sort(&mut w);
+            let t = voracious_radix_sort::ab_trace_take();
+            println!("{:>9} {:14} {}", n, name_of(title), t.join(" "));
+        }
+    }
+}
+
+fn bench<T: Key>(sorts: &[String], sizes: &[usize])
+{
+    let reps: usize = std::env::var("REPS").ok().map_or(7, |v| v.parse().unwrap());
+    let total: usize = std::env::var("TOTAL").ok().map_or(4_000_000, |v| v.parse().unwrap());
+    let head: String = sorts.iter().map(|s| format!(" {:>8}", s)).collect();
+    println!("{:>9} {:14}{} {:>8}", "size", "gen", head, "copy");
+    for &n in sizes {
+        for (gen, title) in gens_wanted::<T>().iter() {
+            let count = (total / n).max(1);
+            let arrays: Vec<Vec<T>> = (0..count).map(|_| gen(n)).collect();
+            let mut work = arrays.clone();
+            // The sorts, then the copy alone (subtracted).
+            let k = sorts.len() + 1;
+            let mut times = vec![Vec::new(); k];
+            for rep in 0..reps {
+                for j in 0..k {
+                    let v = order(rep, j, k);
+                    let t = Instant::now();
+                    for (w, a) in work.iter_mut().zip(arrays.iter()) {
+                        w.copy_from_slice(a);
+                        if v < sorts.len() {
+                            run(&sorts[v], w);
+                        }
+                    }
+                    times[v].push(t.elapsed().as_nanos() as f64 / (count * n) as f64);
+                    if rep == 0 && v < sorts.len() {
+                        let mut r = arrays[0].clone();
+                        r.sort_unstable();
+                        assert!(work[0] == r, "{} {} {}", sorts[v], n, title);
+                    }
+                }
+            }
+            let med = |x: &Vec<f64>| -> f64 {
+                let mut x = x.clone();
+                x.sort_by(|a, b| a.total_cmp(b));
+                x[x.len() / 2]
+            };
+            let copy = med(&times[k - 1]);
+            let cells: String =
+                (0..sorts.len()).map(|v| format!(" {:8.3}", med(&times[v]) - copy)).collect();
+            println!("{:>9} {:14}{} {:8.3}", n, name_of(title), cells, copy);
+        }
+    }
+}
+
+fn go<T: Key>()
+{
+    let sorts: Vec<String> = std::env::var("SORTS")
+        .unwrap_or("v2,lsd,std,blz".into())
+        .split(',')
+        .map(String::from)
+        .collect();
+    let sizes: Vec<usize> = std::env::var("DOM_SIZES")
+        .ok()
+        .map(|v| v.split(',').map(|x| x.parse().unwrap()).collect())
+        .unwrap_or(vec![300, 500, 1000, 2000, 5000, 10_000, 50_000, 100_000, 1_000_000]);
+    if std::env::var("CHECK").is_ok() {
+        check::<T>(&sorts, &sizes);
+    }
+    #[cfg(feature = "v2_trace")]
+    {
+        trace::<T>(&sizes);
+        return;
+    }
+    #[allow(unreachable_code)]
+    bench::<T>(&sorts, &sizes);
+}
+
+fn main() {
+    match std::env::var("T").as_deref() {
+        Ok("i32") => go::<i32>(),
+        _ => go::<u32>(),
+    }
+}

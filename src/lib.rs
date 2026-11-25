@@ -116,6 +116,19 @@ pub fn ab_i16_copy(keys: &mut [i16]) {
     v2::devour::ab_copy::ci16::sort(v2::devour::keys::bits_of(keys))
 }
 
+/// Dev only (feature `ab`): the u32 LSD engine alone, no detector (the
+/// floor of the chain's radix path).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_lsd(keys: &mut [u32]) { v2::engines::lsd::wu32::lsd(keys) }
+
+/// Dev only (feature `ab`): the i32 LSD engine alone.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_lsd(keys: &mut [i32]) {
+    v2::engines::lsd::wi32::lsd(v2::devour::keys::bits_of(keys))
+}
+
 /// Dev only (features `ab` and `v2_trace`): the decision labels noted
 /// since the last call.
 #[cfg(all(feature = "ab", feature = "v2_trace"))]
