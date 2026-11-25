@@ -393,7 +393,8 @@ fn cheap_dominant(a: &mut [u16], s: &[u16; 18]) -> bool {
             same |= s[i] == s[j];
         }
     }
-    if !same || !s.iter().any(|&u| s.iter().filter(|&&x| x == u).count() >= 7) {
+    // tiny_dominant's own vote and count (18 steps) decide the rest.
+    if !same {
         return false;
     }
     let done = tiny_dominant(a);
