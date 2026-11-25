@@ -66,7 +66,9 @@ macro_rules! chain32_ab {
         use crate::v2::devour::DevourSort;
         use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
         use crate::v2::engines::{dlsd::$dl, lsd::$ls, roller::$ro};
-        use crate::v2::inspect::presorted::{presorted, probe_pairs, repair_nearly_sorted, Unsorted};
+        use crate::v2::inspect::presorted::{
+            presorted, probe_pairs, repair_nearly_sorted, Probes, Unsorted,
+        };
         use crate::v2::runs::merge::{self, merge_runs};
         use crate::v2::runs::verge::verge_sort_preprocessing_fast;
         use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
@@ -117,13 +119,18 @@ macro_rules! chain32_ab {
             // merge), or mostly equal spread pairs from 2000 keys (plateaus):
             // the whole path. The pairs are compared here when `presorted`
             // did not (it does only when the first key is the larger).
-            let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
-            let whole = known.ascending_prefix >= n / 2 || (n >= 2000 && probes.equal() >= 24);
-            if !on(512) && n <= light_max() && !(on(1024) && whole) {
-                // Nearly all pairs in one direction: the near-sorted repair
-                // alone (no Verge: saw teeth and runs cost 1.2-3x on the
-                // whole path, and go on below).
-                if on(1024) && (probes.ascending >= 28 || probes.descending >= 28) {
+            let head = known.ascending_prefix >= n / 2;
+            let light = !on(512) && n <= light_max() && !(on(1024) && head);
+            let probes = if light {
+                known.probes.unwrap_or_else(|| probe_pairs(arr))
+            } else {
+                Probes { ascending: 0, descending: 0 }
+            };
+            if light && !(on(1024) && n >= 2000 && probes.equal() >= 24) {
+                // Nearly all pairs in one direction (30 of 32: saw teeth show
+                // about 28): the near-sorted repair alone (no Verge: saw
+                // teeth and runs cost 1.2-3x on the whole path).
+                if on(1024) && (probes.ascending >= 30 || probes.descending >= 30) {
                     let known = Unsorted { probes: Some(probes), ..known };
                     if repair_nearly_sorted(arr, known).0 {
                         trace!("light_repaired");
