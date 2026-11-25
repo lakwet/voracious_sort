@@ -113,7 +113,15 @@ macro_rules! dlsd_sort_ab {
                 return;
             }
             let top = <$uint>::BITS - range.leading_zeros();
-            let layout = Layout::new(prefix_bits::<RAW>(keys, min, top, pre), top, n);
+            let prefix = prefix_bits::<RAW>(keys, min, top, pre);
+            let layout = Layout::new(prefix, top, n);
+            // Trial (env `AB_DLSD_LSD`): more passes than the LSD's 11-bit
+            // digits over the varying bits: the LSD instead.
+            if RAW && lsd_fallback() && layout.digits as u32 > top.div_ceil(11) {
+                note(n, top, prefix, &layout, 3);
+                w::lsd(keys);
+                return;
+            }
             // Histograms: on the stack when they fit (only the part used is
             // zeroed), else on the heap.
             let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
@@ -123,11 +131,37 @@ macro_rules! dlsd_sort_ab {
             let tables = &mut tables[..layout.digits * layout.buckets];
             scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
             if layout.base == 0 {
+                note(n, top, prefix, &layout, 2);
                 return;
             }
-            if !finish_by_insertion(keys) {
+            let by_insertion = finish_by_insertion(keys);
+            note(n, top, prefix, &layout, by_insertion as u8);
+            if !by_insertion {
                 finish_groups(keys, scratch, min, layout.base);
             }
+        }
+
+        /// The trial of `AB_DLSD_LSD`.
+        fn lsd_fallback() -> bool {
+            static F: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            FALLBACK.load(std::sync::atomic::Ordering::Relaxed)
+                || *F.get_or_init(|| std::env::var("AB_DLSD_LSD").is_ok())
+        }
+
+        /// The trial switched on at run time (the `dlsdl` sort of the example).
+        pub(crate) static FALLBACK: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+
+        /// Dev only: one call's decisions (n, top, prefix, digit width,
+        /// digits, finish: 2 exact, 1 insertion, 0 groups), in `STATS`.
+        #[inline(always)]
+        fn note(n: usize, top: u32, prefix: u32, l: &Layout, finish: u8) {
+            STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
+        }
+
+        thread_local! {
+            pub(crate) static STATS: std::cell::RefCell<Vec<(usize, u32, u32, u32, usize, u8)>> =
+                const { std::cell::RefCell::new(Vec::new()) };
         }
 
         /// Arrays up to this size go to `sort_small`: larger for 128-bit keys

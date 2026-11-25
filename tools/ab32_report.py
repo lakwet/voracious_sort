@@ -24,6 +24,8 @@ for line in open(args[0], encoding="utf-8"):
         continue
     if f[0] == "size":
         cols = f[2:]
+        if cols.count("copy") > 1:
+            cols[len(cols) - 1 - cols[::-1].index("copy")] = "memcpy"
         continue
     if cols and f[0].isdigit() and len(f) == len(cols) + 2:
         rows.append((int(f[0]), f[1], dict(zip(cols, map(float, f[2:])))))

@@ -61,7 +61,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "blz" => T::blz(w),
         "lsd" => T::lsd(w),
         "copy" => T::copy(w),
-        "dlsd" | "dlsdr" | "dlsds" | "roller" => T::engine(name, w),
+        "dlsd" | "dlsdr" | "dlsds" | "dlsdl" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
 }
@@ -128,7 +128,7 @@ fn bench<T: Key>(sorts: &[String], sizes: &[usize])
     let reps: usize = std::env::var("REPS").ok().map_or(7, |v| v.parse().unwrap());
     let total: usize = std::env::var("TOTAL").ok().map_or(4_000_000, |v| v.parse().unwrap());
     let head: String = sorts.iter().map(|s| format!(" {:>8}", s)).collect();
-    println!("{:>9} {:14}{} {:>8}", "size", "gen", head, "copy");
+    println!("{:>9} {:14}{} {:>8}", "size", "gen", head, "memcpy");
     for &n in sizes {
         for (gen, title) in gens_wanted::<T>().iter() {
             let count = (total / n).max(1);
@@ -204,6 +204,27 @@ fn go<T: Key>()
         .unwrap_or(vec![300, 500, 1000, 2000, 5000, 10_000, 50_000, 100_000, 1_000_000]);
     if std::env::var("CHECK").is_ok() {
         check::<T>(&sorts, &sizes);
+    }
+    if std::env::var("DSTATS").is_ok() {
+        // The stack DLSD's decisions per cell (u32 only), one array each.
+        for &n in &sizes {
+            for (gen, title) in u32::gens().iter() {
+                if std::env::var("GEN").ok().is_some_and(|w| !title.contains(w.as_str())) {
+                    continue;
+                }
+                let mut w = gen(n);
+                let _ = voracious_radix_sort::ab_dlsd_stats_take();
+                u32::engine("dlsds", &mut w);
+                let st = voracious_radix_sort::ab_dlsd_stats_take();
+                let calls: Vec<String> = st
+                    .iter()
+                    .take(4)
+                    .map(|c| format!("n{} top{} pre{} w{}x{} f{}", c.0, c.1, c.2, c.3, c.4, c.5))
+                    .collect();
+                println!("{:>8} {:14} calls {:>4}  {}", n, name_of(title), st.len(), calls.join(" | "));
+            }
+        }
+        return;
     }
     if let Ok(which) = std::env::var("PROF") {
         prof::<T>(&which);

@@ -147,6 +147,12 @@ pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
         // thread (measure only, never in the library).
         "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::su32::dlsd(keys),
+        "dlsdl" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::su32::FALLBACK.store(true, Relaxed);
+            v2::engines::dlsd::su32::dlsd(keys);
+            v2::engines::dlsd::su32::FALLBACK.store(false, Relaxed);
+        },
         _ => ru32::roller(keys),
     }
 }
@@ -161,6 +167,12 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
         "dlsd" => di32::dlsd(bits),
         "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
         "dlsds" => v2::engines::dlsd::si32::dlsd(bits),
+        "dlsdl" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::si32::FALLBACK.store(true, Relaxed);
+            v2::engines::dlsd::si32::dlsd(bits);
+            v2::engines::dlsd::si32::FALLBACK.store(false, Relaxed);
+        },
         _ => ri32::roller(bits),
     }
 }
@@ -174,6 +186,14 @@ pub fn ab_u32_copy(keys: &mut [u32]) { v2::devour::ab_copy32::cu32::sort(keys) }
 #[cfg(feature = "ab")]
 #[doc(hidden)]
 pub fn ab_i32_copy(keys: &mut [i32]) { v2::devour::ab_copy32::ci32::sort(keys) }
+
+/// Dev only (feature `ab`): the decisions of the stack DLSD (u32) since the
+/// last call: (n, top bit, prefix bits, digit width, digits, finish).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_dlsd_stats_take() -> Vec<(usize, u32, u32, u32, usize, u8)> {
+    v2::engines::dlsd::su32::STATS.with(|s| std::mem::take(&mut *s.borrow_mut()))
+}
 
 /// Dev only (features `ab` and `v2_trace`): the decision labels noted
 /// since the last call.
