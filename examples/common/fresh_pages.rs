@@ -7,19 +7,30 @@
 //! isolated sort in a fresh program does (glibc's initial threshold, 128 KiB).
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 const BIG: usize = 128 * 1024;
-static ON: AtomicBool = AtomicBool::new(false);
+/// 0: not read yet, 1: off, 2: on. Read at the first big allocation (the
+/// read itself only makes small ones), never changed after.
+static ON: AtomicU8 = AtomicU8::new(0);
 
-/// Call once at the start of `main`, before any big allocation.
-pub fn init() {
-    ON.store(std::env::var("FRESH").is_ok_and(|v| v == "1"), Ordering::Relaxed);
+fn on() -> bool {
+    let mut v = ON.load(Ordering::Relaxed);
+    if v == 0 {
+        v = if std::env::var("FRESH").is_ok_and(|v| v == "1") { 2 } else { 1 };
+        ON.store(v, Ordering::Relaxed);
+    }
+    v == 2
 }
+
+/// Optional: reads `FRESH` now (it is read at the first big allocation
+/// otherwise).
+#[allow(dead_code)]
+pub fn init() { on(); }
 
 pub struct Fresh;
 
-fn big(l: &Layout) -> bool { l.size() >= BIG && l.align() <= 4096 && ON.load(Ordering::Relaxed) }
+fn big(l: &Layout) -> bool { l.size() >= BIG && l.align() <= 4096 && on() }
 
 #[cfg(windows)]
 mod os {
