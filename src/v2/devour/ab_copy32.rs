@@ -125,8 +125,8 @@ macro_rules! chain32_ab {
             let head = known.ascending_prefix >= n / 2;
             let light = !on(512) && n <= light_max() && !(on(1024) && head);
             // Trial (bit 16384 off): the tiny path up to `TINY_MAX` keys.
-            // Bit 8388608: the tiny path only up to 450 keys.
-            if light && on(16384) && n <= if on(8388608) { TINY_MAX } else { 450 } {
+            // Bit 8388608: the tiny path up to 1100 keys.
+            if light && on(16384) && n <= if on(8388608) { TINY_END } else { TINY_MAX } {
                 tiny(arr, known);
                 return;
             }
@@ -258,6 +258,10 @@ macro_rules! chain32_ab {
         /// Up to this many keys the light chain asks its questions on 18
         /// probed keys (the 16-bit short sort's probes).
         const TINY_MAX: usize = 1100;
+
+        /// The tiny path up to this many keys (Surface and Ryzen: it wins
+        /// 150-500 keys, the light chain from 700: 25-35 cells).
+        const TINY_END: usize = 600;
 
         /// Up to this many keys the tiny path ends with the short radix sort
         /// (Surface: it beats the DLSD on 22-28 cells at 170-300 keys, loses
@@ -538,6 +542,14 @@ macro_rules! chain32_ab {
             // A bound already narrow: the exact minimum and maximum (one
             // more pass, only there; the bounds above are ORs, up to twice
             // the true span: i32 Small1 around 0 showed 512 values for 256).
+            // Bounds already within one counter per 2 keys: counted on them,
+            // no exact min / max pass (bit 67108864: that pass first; Int
+            // 0..100, Saw 1.2-1.4x slower than the light chain's range).
+            if on(67108864) && t < 32 && ((hi - lo) as usize) < n / 2 {
+                trace!("tiny_count");
+                exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
+                return;
+            }
             let (lo, hi) = if t < 32 && hi - lo <= 65_535 {
                 let bits: &[u32] = bits_of(arr);
                 bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
