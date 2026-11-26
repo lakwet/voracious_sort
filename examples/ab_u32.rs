@@ -9,13 +9,19 @@
 //! questions of MASK skipped (see `ab_copy32::SKIP`);
 //! DOM_SIZES="300,1000,..."; TOTAL (keys per measure, default 4M);
 //! GEN=text (only the distributions containing text); CHECK=1 (every sort
-//! against `sort_unstable` first).
+//! against `sort_unstable` first); FRESH=1 (new pages for every allocation
+//! of 128 KiB or more: `common/fresh_pages.rs`).
 //! TRACE build (feature `v2_trace`): the decision labels of v2 per cell.
 //! Output: ns per key, copy subtracted, median of REPS (7), random order.
 
 #[allow(dead_code, unused_imports)]
 #[path = "../src/generators/mod.rs"]
 mod generators;
+
+#[path = "common/fresh_pages.rs"]
+mod fresh_pages;
+#[global_allocator]
+static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;
 
 use std::time::Instant;
 use voracious_radix_sort::{
@@ -320,6 +326,7 @@ fn go<T: Key>()
 }
 
 fn main() {
+    fresh_pages::init();
     match std::env::var("T").as_deref() {
         Ok("i32") => go::<i32>(),
         _ => go::<u32>(),

@@ -167,10 +167,10 @@ gather-check: ## native A/B of the 16-bit copy without vector gathers (Core Ultr
 
 ABENCH32_SIZES ?= 500,1000,5000,10000,20000,50000,100000,200000,500000,1000000
 abench-32: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
-abench-32: ## cold A/B of the 32-bit chain copy against 2.1, std, blazing, turbosort, glidesort (u32, i32; viewer CSV in bench_work/<host>/; NATIVE=1)
+abench-32: ## cold A/B (fresh pages for every buffer) of the 32-bit chain copy against 2.1, std, blazing, turbosort, glidesort (u32, i32; viewer CSV in bench_work/<host>/; NATIVE=1)
 	@mkdir -p bench_work/$(ABENCH_HOST)
 	cargo build -q --release --example ab_u32 --features "bench ab"
-	@d=$$(date -u +%Y-%m-%d-%H%M); for t in u32 i32; do 	  COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-$$t$(if $(filter 1,$(NATIVE)),-native)-$(ABENCH_HOST)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=copy:512,v2,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
+	@d=$$(date -u +%Y-%m-%d-%H%M); for t in u32 i32; do 	  FRESH=1 COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-$$t$(if $(filter 1,$(NATIVE)),-native)-$(ABENCH_HOST)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=copy:512,v2,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
 
 gros-intel: ## the Core Ultra's run (~2h15): gather-check (16-bit, native), abench-32 generic, abench-32 native; files in bench_work/<host>/
 	@$(MAKE) --no-print-directory gather-check
