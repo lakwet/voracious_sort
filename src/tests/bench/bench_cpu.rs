@@ -1009,7 +1009,7 @@ fn machine(report: &mut Report, cfg: &Config) {
                 .unwrap_or_else(|| "unknown".into())
         ),
         format!(
-            "settings,sizes {} to {} reps {} memory budget {} MiB parts {}{}",
+            "settings,sizes {} to {} reps {} memory budget {} MiB parts {}{}{}",
             cfg.min,
             cfg.max,
             cfg.reps,
@@ -1017,6 +1017,11 @@ fn machine(report: &mut Report, cfg: &Config) {
             cfg.parts.join(" "),
             if super::cold::enabled() {
                 ", cold (fresh copies, inputs beyond the caches)"
+            } else {
+                ""
+            },
+            if std::env::var("FRESH").is_ok_and(|v| v == "1") {
+                ", fresh pages (every buffer of 128 KiB or more)"
             } else {
                 ""
             }

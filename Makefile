@@ -93,8 +93,9 @@ bench-type: export BENCH_SIZES = $(BENCH_SIZES_TYPE)
 bench-type: export BENCH_MIN_ARRAYS = 1
 bench-type: export BENCH_MIN_SORTS = $(BENCH_MIN_SORTS_TYPE)
 bench-type: export BENCH_COLD = 1
+bench-type: export FRESH = 1
 bench-type: export BENCH_REPS = 11
-bench-type: ## one key type, 500 to 30M keys, cold (median of 11): make bench-type T=u32 (u8 ... i128, f32, f64, char)
+bench-type: ## one key type, 500 to 30M keys, cold, fresh pages (median of 11): make bench-type T=u32 (u8 ... i128, f32, f64, char)
 	@test -n "$(T)" || (echo "usage: make bench-type T=u32" && exit 1)
 	@$(BENCH_RUN)
 

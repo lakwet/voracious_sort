@@ -312,6 +312,34 @@ before it.
 The trim did not make anyone "win more". It made the bench honest across
 operating systems.
 
+The trim was not enough. While tuning the 32-bit sort, its cold times on
+the Ryzen jumped at 300 000 keys and came back down at a million: 200 000
+and a million u32 sorted with no page faults, 300 000 to 900 000 paid them,
+and the line moved with what had run before. Two things were at work:
+
+- glibc serves a large request with a fresh `mmap` and returns it to the
+  system on free, but its threshold for "large" is dynamic: each freed
+  `mmap` raises it to that size. From then on, buffers up to that size come
+  from the heap, and the heap reuses the pages freed by the previous call.
+  A cold measurement sorts many arrays in a row (12 million keys in all),
+  and the trim runs once before it, not between two arrays.
+- Windows has the same kind of line: its heap asks `VirtualAlloc` for a
+  block of its own only above a threshold (about half a megabyte to a
+  megabyte, depending on the heap), and keeps smaller blocks for the next
+  call.
+
+So the bench now replaces the allocator (`FRESH=1`, the default of
+`make bench-type`): every allocation of 128 KiB or more gets new pages from
+the system (`mmap` or `VirtualAlloc`) and gives them back on free, whatever
+ran before. 128 KiB is glibc's starting threshold, so this is what a sort
+called once in a fresh program gets. Every size now pays its page faults,
+and the jump is gone.
+
+This also makes the bench fairer to in-place sorts. A sort that needs no
+buffer never had page faults to pay; one with a buffer paid them at some
+sizes and not at others. Now the buffer's cost is always counted, the same
+way at every size: it is part of what an out-of-place sort costs.
+
 ### Give every rival what it would take itself
 
 One rival, a merge sort, lets the caller pass a `Vec` to use as its work
@@ -467,6 +495,7 @@ floor applied.
 | `make sentinel` | Rule off / on on the moved cells and control cells | Minutes instead of a night |
 | `bench_viewer/` | Static page reading bench CSV files | Look at a whole bench at once, with the noise rules applied |
 | `malloc_trim` before each measurement (Linux) | Every sort pays its own page faults | Isolated calls on every OS |
+| `FRESH=1` (default of `make bench-type`) | New pages from the system for every buffer of 128 KiB or more | The allocator recycles buffers at some sizes only |
 | Thread pinning (Windows) | The fastest class of cores | Hybrid CPUs |
 
 ---
