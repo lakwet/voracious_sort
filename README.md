@@ -156,9 +156,8 @@ Algorithms and ideas from others:
   and Orson Peters): the fallback where they are faster, and the
   `random_binary` distribution of their benchmark suite
   ([sort-research-rs](https://github.com/Voultapher/sort-research-rs)).
-- **Fast radix sort** ([AwardOfSky](https://github.com/AwardOfSky/Fast-Radix-Sort),
-  after Thiel et al., SEA 2015) and **Ska sort**: kept from 1.x as
-  references.
+- **Fast radix sort** ([AwardOfSky](https://github.com/AwardOfSky/Fast-Radix-Sort))
+  and **Ska sort**: kept from 1.x as references.
 
 The other crates in the benchmarks (glidesort, blazing-radix, rdst,
 radsort, turbosort) are compared as they are published, untouched.
