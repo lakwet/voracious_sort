@@ -126,7 +126,21 @@ macro_rules! chain32_ab {
             let light = !on(512) && n <= light_max() && !(on(1024) && head);
             // Trial (bit 16384 off): the tiny path up to `TINY_MAX` keys.
             // Bit 8388608: the tiny path up to 1100 keys.
-            if light && on(16384) && n <= if on(8388608) { TINY_END } else { TINY_MAX } {
+            // From `TINY_END` to `TINY_MAX` keys, only when 18 spread keys show
+            // at most 4 values (its count by comparisons: Binary, Few 4 1.3-1.6x
+            // faster than the light chain; bit 268435456: tried, not kept: slower at 1000).
+            let few_probed = || {
+                let mut v = [arr[0]; 18];
+                for i in 0..18 {
+                    v[i] = arr[i * (n - 1) / 17];
+                }
+                (0..18).filter(|&i| !v[..i].contains(&v[i])).count() <= 4
+            };
+            if light
+                && on(16384)
+                && (n <= if on(8388608) { TINY_END } else { TINY_MAX }
+                    || (n <= TINY_MAX && !on(268435456) && few_probed()))
+            {
                 tiny(arr, known);
                 return;
             }
