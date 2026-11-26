@@ -79,7 +79,12 @@ fn run<T: Key>(name: &str, w: &mut [T])
             T::copy(w);
             voracious_radix_sort::ab_copy32_skip(0);
         },
-        "dlsd" | "dlsdr" | "dlsds" | "dlsdo" | "rollo" | "roller" => T::engine(name, w),
+        "dlsd" | "dlsdr" | "dlsds" | "dlsdo" | "rollo" | "roller" | "lsdc" => T::engine(name, w),
+        c if c.starts_with("lsdc:") => {
+            voracious_radix_sort::ab_copy32_skip(c[5..].parse().unwrap());
+            T::engine("lsdc", w);
+            voracious_radix_sort::ab_copy32_skip(0);
+        },
         _ => devour_sort(w),
     }
 }

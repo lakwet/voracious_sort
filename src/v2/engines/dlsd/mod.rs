@@ -169,7 +169,7 @@ macro_rules! dlsd_width_ab {
 }
 
 #[cfg(feature = "ab")]
-dlsd_width_ab!(u32, wu32, su32, alias_min_bytes_int, 16);
+dlsd_width_ab!(u32, wu32c, su32, alias_min_bytes_int, 16);
 #[cfg(feature = "ab")]
-dlsd_width_ab!(u32, wi32, si32, alias_min_bytes_int, 16);
+dlsd_width_ab!(u32, wi32c, si32, alias_min_bytes_int, 16);
 

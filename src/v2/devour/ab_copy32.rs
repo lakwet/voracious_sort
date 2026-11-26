@@ -565,10 +565,24 @@ macro_rules! chain32_ab {
             };
             if let Some((lo, hi)) = bounds {
                 if ((hi - lo) as usize) < n / 2 {
+                    // Trial (1 << 42): up to 256 values counted on the stack.
+                    if !on(1 << 42) && hi - lo < 256 {
+                        trace!("short32_count_stack");
+                        count_stack(bits_of(arr), lo, (hi - lo) as usize + 1);
+                        return;
+                    }
                     trace!("short32_count");
                     exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
                     return;
                 }
+            }
+            // Trial (1 << 43): 8 spread probes only here (wide keys): at
+            // most 4 values (Few 4) counted by comparisons, a dominant one
+            // (at least 5, the others once: Sparse) to `sort_unstable`.
+            if !on(1 << 43) && probe8(arr) {
+                return;
+            }
+            if let Some((lo, hi)) = bounds {
                 if cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
                     trace!("short32_short");
                     short_radix(bits_of(arr), lo, hi);
@@ -577,6 +591,82 @@ macro_rules! chain32_ab {
             }
             trace!("short32_dlsd");
             $st::dlsd(bits_of(arr));
+        }
+
+        /// Keys within `lo..lo + width` (`width` at most 256), counted in
+        /// two tables on the stack (consecutive keys alternate), written
+        /// back.
+        #[inline(never)]
+        fn count_stack(bits: &mut [u32], lo: u32, width: usize) {
+            let mut a = [0u32; 256];
+            let mut b = [0u32; 256];
+            let off = |k: u32| ($c(k).wrapping_sub(lo) & 255) as usize;
+            let (pairs, tail) = bits.as_chunks::<2>();
+            for p in pairs {
+                a[off(p[0])] += 1;
+                b[off(p[1])] += 1;
+            }
+            for &k in tail {
+                a[off(k)] += 1;
+            }
+            // Short runs by blocks of 16 (the extra copies overwritten by
+            // the next runs), as `exact_count`.
+            let n = bits.len();
+            let mut at = 0;
+            for d in 0..width {
+                let c = (a[d] + b[d]) as usize;
+                if c != 0 {
+                    let v = $c(lo + d as u32);
+                    let end = at + c;
+                    if c <= 64 && end + 16 <= n {
+                        let block = [v; 16];
+                        let mut p = at;
+                        while p < end {
+                            bits[p..p + 16].copy_from_slice(&block);
+                            p += 16;
+                        }
+                    } else {
+                        bits[at..end].fill(v);
+                    }
+                    at = end;
+                }
+            }
+        }
+
+        /// 8 spread probes: at most 4 values, then `few4_early`; one
+        /// value 5 times or more and the others once, `sort_unstable`.
+        #[inline(never)]
+        fn probe8(arr: &mut [$t]) -> bool {
+            let n = arr.len();
+            let mut p = [arr[0]; 8];
+            for i in 0..8 {
+                p[i] = arr[i * (n - 1) / 7];
+            }
+            let mut vals = [p[0]; 4];
+            let mut cnt = [0usize; 4];
+            let mut k = 0;
+            for &x in p.iter() {
+                match vals[..k].iter().position(|&v| v == x) {
+                    Some(j) => cnt[j] += 1,
+                    None if k < 4 => {
+                        vals[k] = x;
+                        cnt[k] = 1;
+                        k += 1;
+                    },
+                    None => return false,
+                }
+            }
+            let top = *cnt[..k].iter().max().unwrap();
+            if top >= 5 && top + (k - 1) == 8 {
+                trace!("short32_dominant");
+                arr.sort_unstable();
+                return true;
+            }
+            if few4_early(arr, &p[..]) {
+                trace!("short32_few4");
+                return true;
+            }
+            false
         }
 
         /// `few4` giving up at the first block of 64 keys holding a key
@@ -1314,5 +1404,5 @@ macro_rules! chain32_ab {
     };
 }
 
-chain32_ab!(cu32, u32, id32, 200, wu32, du32, su32, ru32);
-chain32_ab!(ci32, i32, flip32, 150, wi32, di32, si32, ri32);
+chain32_ab!(cu32, u32, id32, 200, wu32c, du32, su32, ru32);
+chain32_ab!(ci32, i32, flip32, 150, wi32c, di32, si32, ri32);

@@ -17,6 +17,15 @@ mod scatter;
 #[macro_use]
 mod passes;
 pub(crate) mod short16;
+#[cfg(feature = "ab")]
+#[macro_use]
+mod ab_histogram;
+#[cfg(feature = "ab")]
+#[macro_use]
+mod ab_scatter;
+#[cfg(feature = "ab")]
+#[macro_use]
+mod ab_passes;
 
 pub(crate) use super::counter::Counter;
 use std::mem::MaybeUninit;
@@ -69,5 +78,38 @@ fused_lsd!(u16, i16, wu16, 17, unsigned);
 fused_lsd!(u16, i16, wi16, 17, signed);
 fused_lsd!(u8, i8, wu8, 9, unsigned);
 fused_lsd!(u8, i8, wi8, 9, signed);
+
+/// Dev only (feature `ab`): copy of `fused_lsd!` on the `ab_*.rs` parts,
+/// for the A/B copy of the u32 / i32 chains.
+#[cfg(feature = "ab")]
+macro_rules! fused_lsd_ab {
+    ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr, $codec:ident) => {
+        pub(crate) mod $name {
+            use super::{wide_max_32, Counter, MaybeUninit, LSD_MIN, SHORT_MAX, WIDE_MIN};
+
+            const BITS: u32 = <$uint>::BITS;
+            /// Varying bits (on a sample) from which 11-bit digits pay off.
+            const WIDE_BITS: u32 = $wide_bits;
+
+            /// Trials of the copy (mask of the chain copy).
+            #[allow(dead_code)]
+            #[inline(always)]
+            fn trial(bit: u64) -> bool {
+                crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit
+                    != 0
+            }
+
+            key_codec!($codec, $uint, $sint);
+            lsd_histograms_ab!($uint);
+            lsd_scatters_ab!($uint);
+            lsd_passes_ab!($uint);
+        }
+    };
+}
+
+#[cfg(feature = "ab")]
+fused_lsd_ab!(u32, i32, wu32c, 20, unsigned);
+#[cfg(feature = "ab")]
+fused_lsd_ab!(u32, i32, wi32c, 20, signed);
 
 #[cfg(test)] mod tests;
