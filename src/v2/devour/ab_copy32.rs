@@ -141,8 +141,11 @@ macro_rules! chain32_ab {
                 && (n <= if on(8388608) { TINY_END } else { TINY_MAX }
                     || (n <= TINY_MAX && !on(268435456) && few_probed()))
             {
-                // Bit 1 << 32: the separate short sort (fewer questions).
-                if !on(1 << 32) && n <= TINY_END {
+                // The separate short sort, fewer questions (vs blazing, more
+                // cells won than the tiny path at 150-200 keys: Surface u32
+                // 16/26 against 9/34, Ryzen i32 23/21 against 14/28; bit
+                // 1 << 32: the tiny path).
+                if on(1 << 32) && n <= TINY_END {
                     short32(arr);
                     return;
                 }
@@ -510,6 +513,46 @@ macro_rules! chain32_ab {
                 arr.reverse();
                 return;
             }
+            // Trial (bit 1 << 35): 8 spread probes, given up at the 5th
+            // value: a dominant value (at least 5, the others once each:
+            // Sparse) to `sort_unstable`; at most 4 values (Binary, Few 4)
+            // counted by comparisons.
+            if !on(1 << 35) {
+                let mut p = [arr[0]; 8];
+                for i in 0..8 {
+                    p[i] = arr[i * (n - 1) / 7];
+                }
+                let mut vals = [p[0]; 4];
+                let mut cnt = [0usize; 4];
+                let mut k = 0;
+                let mut many = false;
+                for &x in p.iter() {
+                    match vals[..k].iter().position(|&v| v == x) {
+                        Some(j) => cnt[j] += 1,
+                        None if k < 4 => {
+                            vals[k] = x;
+                            cnt[k] = 1;
+                            k += 1;
+                        },
+                        None => {
+                            many = true;
+                            break;
+                        },
+                    }
+                }
+                if !many {
+                    let top = *cnt[..k].iter().max().unwrap();
+                    if top >= 5 && top + (k - 1) == 8 {
+                        trace!("short32_dominant");
+                        arr.sort_unstable();
+                        return;
+                    }
+                    if few4_early(arr, &p[..]) {
+                        trace!("short32_few4");
+                        return;
+                    }
+                }
+            }
             let tp = 32 - up.leading_zeros();
             let tn = 32 - down.leading_zeros();
             let bounds = if tp < 31 && tn < 31 {
@@ -534,6 +577,43 @@ macro_rules! chain32_ab {
             }
             trace!("short32_dlsd");
             $st::dlsd(bits_of(arr));
+        }
+
+        /// `few4` giving up at the first block of 64 keys holding a key
+        /// outside the representatives (`few4` reads every key first).
+        fn few4_early(arr: &mut [$t], sample: &[$t]) -> bool {
+            let mut reps = [sample[0]; 4];
+            let mut k = 1;
+            for &v in &sample[1..] {
+                if !reps[..k].contains(&v) {
+                    if k == 4 {
+                        return false;
+                    }
+                    reps[k] = v;
+                    k += 1;
+                }
+            }
+            reps[..k].sort_unstable();
+            let mut c = [0usize; 4];
+            for chunk in arr.chunks(64) {
+                let mut hit = 0;
+                for &x in chunk {
+                    for j in 0..4 {
+                        let m = (j < k && x == reps[j]) as usize;
+                        c[j] += m;
+                        hit += m;
+                    }
+                }
+                if hit != chunk.len() {
+                    return false;
+                }
+            }
+            let mut at = 0;
+            for j in 0..k {
+                arr[at..at + c[j]].fill(reps[j]);
+                at += c[j];
+            }
+            true
         }
 
         /// Trial (mask bit 1 << 33): `short32` with the questions that paid
