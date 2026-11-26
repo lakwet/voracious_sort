@@ -610,6 +610,45 @@ macro_rules! chain32_ab {
             if early && probe_questions(arr, &s) {
                 return;
             }
+            // Probes spread over more than 4n values (bit 2147483648: the
+            // inspection pass all the same)
+            // and no short radix to feed (ARM, or above `SHORT_MAX` keys):
+            // no inspection pass; the repair on the spread pairs, few, then
+            // the DLSD (its own min / max).
+            if on(2147483648) && early {
+                let sb = {
+                    let mut t = s;
+                    let b: &[u32] = bits_of(&mut t);
+                    b.iter().fold((u32::MAX, 0u32), |(l, h), &x| (l.min($c(x)), h.max($c(x))))
+                };
+                let no_short = cfg!(target_arch = "aarch64") || n > SHORT_MAX;
+                if no_short && (sb.1 - sb.0) as u64 > 4 * n as u64 {
+                    let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
+                    if (probes.ascending >= 30 || probes.descending >= 30)
+                        && repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0
+                    {
+                        trace!("lean_repaired");
+                        return;
+                    }
+                    let mut distinct = 0;
+                    for i in 0..16 {
+                        distinct += !s[..i].contains(&s[i]) as usize;
+                    }
+                    if distinct <= 6 || n >= 512 {
+                        let mut sample = [s[0]; SAMPLE];
+                        for i in 0..SAMPLE {
+                            sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
+                        }
+                        if detectors::few(arr, &sample) {
+                            trace!("lean_few");
+                            return;
+                        }
+                    }
+                    trace!("lean_dlsd");
+                    $st::dlsd(bits_of(arr));
+                    return;
+                }
+            }
             // One inspection pass: the descents, and the distances to the
             // first key ORed apart above and below it (no min / max: u32
             // min / max have no SSE2 instruction and, emulated, made the pass
