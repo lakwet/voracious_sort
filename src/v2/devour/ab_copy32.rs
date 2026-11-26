@@ -282,6 +282,41 @@ macro_rules! chain32_ab {
         /// 26-30 from 500).
         const SHORT_MAX: usize = 400;
 
+        /// Merges the sorted head `bits[..p]` and the sorted tail `bits[p..]`
+        /// (at most half of at most `TINY_MAX` keys) from the end, the tail
+        /// copied to the stack (`merge_runs` allocates its bounds and its
+        /// buffer: Pipe organ at 150 keys 1.9x slower than blazing); stable.
+        /// Nothing to do when the head's last key is not above the tail's
+        /// first. Off (bit 536870912 on): only Pipe organ at 150-300 keys gains,
+        /// `merge_runs` (which trims the runs first) wins on Front, Middle.
+        fn merge_tail_small(bits: &mut [u32], p: usize) {
+            let n = bits.len();
+            let m = n - p;
+            debug_assert!(m <= p && n <= TINY_MAX);
+            if p == 0 || m == 0 || $c(bits[p - 1]) <= $c(bits[p]) {
+                return;
+            }
+            let mut buf = [0u32; TINY_MAX / 2 + 1];
+            buf[..m].copy_from_slice(&bits[p..]);
+            let (mut i, mut j, mut k) = (p, m, n);
+            // SAFETY: i <= p, j <= m, k = i + j <= n: every index below is in
+            // bounds; the head is read at i - 1 < k - 1 before k - 1 is written.
+            unsafe {
+                // Without a branch per key (selects; the indices move by 0 or
+                // 1): interleaved runs mispredicted one branch in two (Front
+                // 4x slower).
+                while j > 0 && i > 0 {
+                    let (a, b) = (*bits.get_unchecked(i - 1), *buf.get_unchecked(j - 1));
+                    k -= 1;
+                    let head = ($c(a) > $c(b)) as usize;
+                    *bits.get_unchecked_mut(k) = if head == 1 { a } else { b };
+                    i -= head;
+                    j -= 1 - head;
+                }
+            }
+            bits[..j].copy_from_slice(&buf[..j]);
+        }
+
         /// Most values `count_small` counts.
         const COUNT_SMALL_MAX: usize = 256;
 
@@ -790,7 +825,11 @@ macro_rules! chain32_ab {
                     } else if presorted(tail).is_err() {
                         sort(tail);
                     }
-                    merge_runs(arr, &mut vec![0, p, n]);
+                    if !on(536870912) && n <= TINY_MAX {
+                        merge_tail_small(bits_of(arr), p);
+                    } else {
+                        merge_runs(arr, &mut vec![0, p, n]);
+                    }
                 };
             }
             // Trial (mask bit 4096): range and few on the sample before the
