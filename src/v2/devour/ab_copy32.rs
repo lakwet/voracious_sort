@@ -263,6 +263,39 @@ macro_rules! chain32_ab {
         /// 26-30 from 500).
         const SHORT_MAX: usize = 400;
 
+        /// The short radix sort's digits for `n` keys spanning `range`:
+        /// (one pass, prefix bits, bits below the prefix). ARM: one pass of
+        /// log2(n) + 1 bits (at most 10), the insertion finish settling the
+        /// collisions (Surface: 20-26 cells won at 150-400 keys); x86: two
+        /// passes of log2(n) + 3 bits (Ryzen: one pass loses 19-28). Bit
+        /// 65536 swaps the choice (A/B).
+        #[inline(always)]
+        fn short_layout(n: usize, range: u32) -> (bool, u32, u32) {
+            let top = 32 - range.leading_zeros();
+            let log_n = usize::BITS - n.leading_zeros();
+            let one_here = cfg!(target_arch = "aarch64");
+            let one = (one_here != !on(65536)) && log_n + 1 <= 10;
+            let p = if one { (log_n + 1).min(top) } else { (log_n + 3).min(top) };
+            (one, p, top - p)
+        }
+
+        /// Whether the 18 probes fall in at most 12 of 64 equal slices of the
+        /// range (spread keys: about 16; the short radix splits the range
+        /// evenly, clustered keys leave most buckets empty and the insertion
+        /// finish long: Bimodal, Exponential, Clusters).
+        #[inline]
+        fn clustered(mut s: [$t; 18], lo: u32, hi: u32, n: usize) -> bool {
+            let range = hi - lo;
+            let shift = (32 - range.leading_zeros()).saturating_sub(6);
+            let b: &[u32] = bits_of(&mut s);
+            let mut seen = 0u64;
+            for &x in b.iter() {
+                seen |= 1u64 << (($c(x).wrapping_sub(lo) >> shift) & 63);
+            }
+            let _ = n;
+            seen.count_ones() <= 12
+        }
+
         /// The short radix sort of the tiny path (up to `TINY_MAX` keys),
         /// on raw bits whose encoded minimum and maximum are known: the top
         /// log2(n) + 3 bits of `key - min` (at most 14) by 2 LSD passes of
@@ -277,16 +310,7 @@ macro_rules! chain32_ab {
             if range == 0 {
                 return;
             }
-            let top = 32 - range.leading_zeros();
-            let log_n = usize::BITS - n.leading_zeros();
-            // ARM: one pass of log2(n) + 1 bits (at most 10), the insertion
-            // finish settling the collisions (Surface: 20-26 cells won at
-            // 150-400 keys); x86: two passes (Ryzen: one pass loses 19-28).
-            // Bit 65536 swaps the choice (A/B).
-            let one_here = cfg!(target_arch = "aarch64");
-            let one = (one_here != !on(65536)) && log_n + 1 <= 10;
-            let p = if one { (log_n + 1).min(top) } else { (log_n + 3).min(top) };
-            let base = top - p;
+            let (one, p, base) = short_layout(n, range);
             // At most 8 bits: one pass (a counting sort that moves the keys:
             // a range of 256 values at 150 keys, where writing the values
             // back from 256 counters costs 2.5x).
@@ -465,10 +489,19 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
+            // 18 probes spread over the array (bit 524288: the first 16, the
+            // middle and last ones; neighbours alike, Sqrt, passed for a
+            // dominant value).
             let mut s = [arr[0]; 18];
-            s[..16].copy_from_slice(&arr[..16]);
-            s[16] = arr[n / 2];
-            s[17] = arr[n - 1];
+            if on(524288) {
+                for i in 0..18 {
+                    s[i] = arr[i * (n - 1) / 17];
+                }
+            } else {
+                s[..16].copy_from_slice(&arr[..16]);
+                s[16] = arr[n / 2];
+                s[17] = arr[n - 1];
+            }
             // One dominant value with a long tail (Sparse): the vote, at
             // least 7 of 18, no other value 3 times; before few4, which
             // Sparse's 18 probes pass (its count pass then fails).
@@ -505,6 +538,14 @@ macro_rules! chain32_ab {
             // At most 256 values: one pass of the short radix sort (moves the
             // keys); else up to one counter per 2 keys: counted, the values
             // written back from the counts.
+            // Bit 131072: the old order (the short radix first up to 256
+            // values: 1.5-2.2x slower at 500-1000 keys, Int 0..100, RootDup,
+            // Alt16, Saw, on the Surface).
+            if on(131072) && t < 32 && span <= n / 2 {
+                trace!("tiny_count");
+                exact_count(bits_of(arr), lo, span, $c, $c);
+                return;
+            }
             if t < 32 && span <= 256 {
                 trace!("tiny_short1");
                 short_radix(bits_of(arr), lo, hi);
@@ -532,7 +573,13 @@ macro_rules! chain32_ab {
             // The short radix sort up to `SHORT_MAX` keys (bit 32768: never),
             // else the DLSD (from 500 keys its digits beat 2 passes of
             // 6-7 bits: 5-9 % on random keys).
-            if on(32768) && n <= SHORT_MAX {
+            // Clustered keys (Bimodal, Exponential, Composite: 5 or more of
+            // the 18 probes in one bucket of the short radix): the DLSD, whose
+            // prefix comes from a sample (bit 262144: no such test).
+            // ARM: never for a wide range (Surface: the DLSD 25-35 % faster
+            // on Unif from 200 keys; bit 1048576 swaps).
+            let wide = cfg!(target_arch = "aarch64") == !on(1048576);
+            if wide && on(32768) && n <= SHORT_MAX && !(on(262144) && clustered(s, lo, hi, n)) {
                 trace!("tiny_short");
                 short_radix(bits_of(arr), lo, hi);
             } else {
