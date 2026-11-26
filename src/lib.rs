@@ -187,7 +187,7 @@ pub fn ab_u32_copy(keys: &mut [u32]) { v2::devour::ab_copy32::cu32::sort(keys) }
 /// Dev only (feature `ab`): the questions the A/B copy skips (`ab_copy32::SKIP`).
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_copy32_skip(mask: u32) {
+pub fn ab_copy32_skip(mask: u64) {
     v2::devour::ab_copy32::SKIP.store(mask, std::sync::atomic::Ordering::Relaxed)
 }
 

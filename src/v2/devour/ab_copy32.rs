@@ -22,7 +22,7 @@ fn dlsd_max() -> usize {
 /// the sample, counted by comparisons), 16384 no tiny path, 32768 the DLSD
 /// instead of the short radix sort in the tiny path, 65536 the other pass count
 /// in the short radix sort below 512 keys (ARM one pass, x86 two).
-pub(crate) static SKIP: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
@@ -47,7 +47,7 @@ fn small_max(own: usize) -> usize {
 
 /// Whether the question `bit` is asked.
 #[inline(always)]
-fn on(bit: u32) -> bool { SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit == 0 }
+fn on(bit: u64) -> bool { SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit == 0 }
 
 /// The DLSD with its scratch on the heap (env `AB_DLSD_HEAP`).
 fn dlsd_heap() -> bool {
@@ -141,6 +141,19 @@ macro_rules! chain32_ab {
                 && (n <= if on(8388608) { TINY_END } else { TINY_MAX }
                     || (n <= TINY_MAX && !on(268435456) && few_probed()))
             {
+                // Bit 1 << 32: the separate short sort (fewer questions).
+                if !on(1 << 32) && n <= TINY_END {
+                    short32(arr);
+                    return;
+                }
+                if !on(1 << 34) && n <= TINY_END {
+                    short32c(arr);
+                    return;
+                }
+                if !on(1 << 33) && n <= TINY_END {
+                    short32b(arr, known);
+                    return;
+                }
                 tiny(arr, known);
                 return;
             }
@@ -464,6 +477,258 @@ macro_rules! chain32_ab {
                 distinct += !b[..i].contains(&b[i]) as usize;
             }
             slices <= 12 && distinct >= slices + 4
+        }
+
+        /// Trial (mask bit 1 << 32): a separate sort up to `TINY_END` keys
+        /// with few questions. One pass: the descents and the bounds (ORs of
+        /// the distances to the first key, as `tiny`); sorted or reversed
+        /// (no descent, or all); a range of at most one counter per 2 keys
+        /// counted; else the short radix sort (x86, up to `SHORT_MAX` keys)
+        /// or the DLSD.
+        fn short32(arr: &mut [$t]) {
+            let n = arr.len();
+            let (up, down, desc, e0) = {
+                let bits: &[u32] = bits_of(arr);
+                let e0 = $c(bits[0]);
+                let (up, down, desc) = bits.iter().zip(&bits[1..]).fold(
+                    (0u32, 0u32, 0u32),
+                    |(u, dn, d), (&a, &b)| {
+                        let (ea, eb) = ($c(a), $c(b));
+                        let x = eb.wrapping_sub(e0);
+                        let below = ((x as i32) >> 31) as u32;
+                        (u | (x & !below), dn | (!x & below), d + (ea > eb) as u32)
+                    },
+                );
+                (up, down, desc as usize, e0)
+            };
+            if desc == 0 {
+                trace!("short32_sorted");
+                return;
+            }
+            if desc == n - 1 {
+                trace!("short32_reversed");
+                arr.reverse();
+                return;
+            }
+            let tp = 32 - up.leading_zeros();
+            let tn = 32 - down.leading_zeros();
+            let bounds = if tp < 31 && tn < 31 {
+                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
+                    (Some(l), Some(h)) => Some((l, h)),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            if let Some((lo, hi)) = bounds {
+                if ((hi - lo) as usize) < n / 2 {
+                    trace!("short32_count");
+                    exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
+                    return;
+                }
+                if cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
+                    trace!("short32_short");
+                    short_radix(bits_of(arr), lo, hi);
+                    return;
+                }
+            }
+            trace!("short32_dlsd");
+            $st::dlsd(bits_of(arr));
+        }
+
+        /// Trial (mask bit 1 << 33): `short32` with the questions that paid
+        /// there, every read shared: the 18 probes once (a dominant value,
+        /// at most 4 values), one inspection pass (descents, bounds); nearly
+        /// sorted from its descents (no probed pairs); a narrow bound made
+        /// exact, then counted; few from 512 keys; else the engine.
+        fn short32b(arr: &mut [$t], known: Unsorted) {
+            let n = arr.len();
+            let s = probes18(arr);
+            if probe_questions(arr, &s) {
+                return;
+            }
+            let (up, down, var, desc, e0) = {
+                let bits: &[u32] = bits_of(arr);
+                let e0 = $c(bits[0]);
+                let (up, down, var, desc) = bits.iter().zip(&bits[1..]).fold(
+                    (0u32, 0u32, 0u32, 0u32),
+                    |(u, dn, v, d), (&a, &b)| {
+                        let (ea, eb) = ($c(a), $c(b));
+                        let x = eb.wrapping_sub(e0);
+                        let below = ((x as i32) >> 31) as u32;
+                        (u | (x & !below), dn | (!x & below), v | (eb ^ e0), d + (ea > eb) as u32)
+                    },
+                );
+                (up, down, var, desc as usize, e0)
+            };
+            if desc == 0 {
+                trace!("short32_sorted");
+                return;
+            }
+            // Nearly sorted, from the descents (the probes of the repair:
+            // all ascending, or all descending).
+            if desc <= 32 || desc + 33 >= n {
+                let probes = if desc <= 32 {
+                    Probes { ascending: 32, descending: 0 }
+                } else {
+                    Probes { ascending: 0, descending: 32 }
+                };
+                if repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0 {
+                    trace!("short32_repaired");
+                    return;
+                }
+            }
+            let tp = 32 - up.leading_zeros();
+            let tn = 32 - down.leading_zeros();
+            let tv = 32 - var.leading_zeros();
+            let by_distance = if tp < 31 && tn < 31 {
+                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
+                    (Some(l), Some(h)) => Some((l, h)),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let by_bits = if tv == 32 {
+                (0, u32::MAX)
+            } else {
+                let low = (1u32 << tv) - 1;
+                (e0 & !low, e0 | low)
+            };
+            let (lo, hi) = match by_distance {
+                Some((l, h)) if h - l < by_bits.1 - by_bits.0 => (l, h),
+                _ => by_bits,
+            };
+            let wide = hi - lo == u32::MAX;
+            if !wide && ((hi - lo) as usize) < n / 2 {
+                trace!("short32_count");
+                exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
+                return;
+            }
+            let (lo, hi) = if !wide && hi - lo <= 65_535 {
+                let bits: &[u32] = bits_of(arr);
+                bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
+            } else {
+                (lo, hi)
+            };
+            let span = (hi - lo) as usize + 1;
+            if !wide && span <= n / 2 {
+                trace!("short32_count");
+                exact_count(bits_of(arr), lo, span, $c, $c);
+                return;
+            }
+            if !wide && span <= 256 {
+                trace!("short32_short1");
+                short_radix(bits_of(arr), lo, hi);
+                return;
+            }
+            if n >= 512 {
+                let mut sample = [s[0]; SAMPLE];
+                for i in 0..SAMPLE {
+                    sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
+                }
+                if detectors::few(arr, &sample) {
+                    trace!("short32_few");
+                    return;
+                }
+            }
+            if !wide && cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
+                trace!("short32_short");
+                short_radix(bits_of(arr), lo, hi);
+                return;
+            }
+            trace!("short32_dlsd");
+            $st::dlsd(bits_of(arr));
+        }
+
+        /// Trial (mask bit 1 << 34): `short32` plus the questions that won
+        /// in `short32b`, no repair (it lost 1.5-2x on saw teeth and nearly
+        /// sorted keys at 150-400 keys): the 18 probes (dominant, at most 4
+        /// values); a bound within 65 536 values (by the distances or by the
+        /// bits) made exact, then counted or one short radix pass; few from
+        /// 512 keys; the short radix only on the bounds by the distances
+        /// (by the bits, i32 Bimodal, RootDup went 1.5-2.4x slower), else
+        /// the DLSD.
+        fn short32c(arr: &mut [$t]) {
+            let n = arr.len();
+            let s = probes18(arr);
+            if probe_questions(arr, &s) {
+                return;
+            }
+            let (up, down, var, desc, e0) = {
+                let bits: &[u32] = bits_of(arr);
+                let e0 = $c(bits[0]);
+                let (up, down, var, desc) = bits.iter().zip(&bits[1..]).fold(
+                    (0u32, 0u32, 0u32, 0u32),
+                    |(u, dn, v, d), (&a, &b)| {
+                        let (ea, eb) = ($c(a), $c(b));
+                        let x = eb.wrapping_sub(e0);
+                        let below = ((x as i32) >> 31) as u32;
+                        (u | (x & !below), dn | (!x & below), v | (eb ^ e0), d + (ea > eb) as u32)
+                    },
+                );
+                (up, down, var, desc as usize, e0)
+            };
+            if desc == 0 {
+                trace!("short32_sorted");
+                return;
+            }
+            if desc == n - 1 {
+                trace!("short32_reversed");
+                arr.reverse();
+                return;
+            }
+            let tp = 32 - up.leading_zeros();
+            let tn = 32 - down.leading_zeros();
+            let tv = 32 - var.leading_zeros();
+            let by_distance = if tp < 31 && tn < 31 {
+                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
+                    (Some(l), Some(h)) => Some((l, h)),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let narrow = match by_distance {
+                Some((l, h)) if h - l <= 65_535 => true,
+                _ => tv <= 16,
+            };
+            if narrow {
+                let (lo, hi) = {
+                    let bits: &[u32] = bits_of(arr);
+                    bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
+                };
+                let span = (hi - lo) as usize + 1;
+                if span <= n / 2 {
+                    trace!("short32_count");
+                    exact_count(bits_of(arr), lo, span, $c, $c);
+                    return;
+                }
+                if span <= 256 {
+                    trace!("short32_short1");
+                    short_radix(bits_of(arr), lo, hi);
+                    return;
+                }
+            }
+            if n >= 512 {
+                let mut sample = [s[0]; SAMPLE];
+                for i in 0..SAMPLE {
+                    sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
+                }
+                if detectors::few(arr, &sample) {
+                    trace!("short32_few");
+                    return;
+                }
+            }
+            if let Some((lo, hi)) = by_distance {
+                if cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
+                    trace!("short32_short");
+                    short_radix(bits_of(arr), lo, hi);
+                    return;
+                }
+            }
+            trace!("short32_dlsd");
+            $st::dlsd(bits_of(arr));
         }
 
         /// The short radix sort of the tiny path (up to `TINY_MAX` keys),
