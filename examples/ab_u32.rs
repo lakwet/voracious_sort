@@ -8,7 +8,7 @@
 //! `copy` the A/B copy of the chain (`ab_copy32.rs`), `copy:MASK` with the
 //! questions of MASK skipped (see `ab_copy32::SKIP`);
 //! DOM_SIZES="300,1000,..."; TOTAL (keys per measure, default 4M);
-//! GEN=text (only the distributions containing text); CHECK=1 (every sort
+//! GEN=text (only the distributions containing text); GENS=a,b (only these, short names as printed); CHECK=1 (every sort
 //! against `sort_unstable` first); FRESH=1 (new pages for every allocation
 //! of 128 KiB or more: `common/fresh_pages.rs`).
 //! TRACE build (feature `v2_trace`): the decision labels of v2 per cell.
@@ -112,7 +112,14 @@ fn name_of(title: &str) -> String {
 
 fn gens_wanted<T: Key>() -> Gens<T> {
     let want = std::env::var("GEN").ok();
-    T::gens().into_iter().filter(|(_, t)| want.as_ref().is_none_or(|w| t.contains(w.as_str()))).collect()
+    // GENS=a,b,c: only the distributions whose short name (as printed,
+    // `_` for spaces) is in the list.
+    let list: Option<Vec<String>> = std::env::var("GENS").ok().map(|v| v.split(',').map(String::from).collect());
+    T::gens()
+        .into_iter()
+        .filter(|(_, t)| want.as_ref().is_none_or(|w| t.contains(w.as_str())))
+        .filter(|(_, t)| list.as_ref().is_none_or(|l| l.iter().any(|x| *x == name_of(t))))
+        .collect()
 }
 
 fn check<T: Key>(sorts: &[String], sizes: &[usize])

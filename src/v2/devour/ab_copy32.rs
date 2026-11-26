@@ -102,6 +102,18 @@ macro_rules! chain32_ab {
         #[inline(never)]
         fn sort_large(arr: &mut [$t]) {
             let n = arr.len();
+            // Trial (1 << 45): from the network size to `MERGE_MAX` keys the
+            // SIMD networks (after the sorted check) instead of the merge
+            // sort.
+            if !on(1 << 45) && n <= MERGE_MAX && crate::v2::devour::ab_simd32::available() {
+                if presorted(arr).is_ok() {
+                    trace!("presorted");
+                    return;
+                }
+                trace!("simd32_small");
+                crate::v2::devour::ab_simd32::sort(bits_of(arr), $c(0));
+                return;
+            }
             chain! {
                 "merge_small" if n <= MERGE_MAX => do { merge_sort(bits_of(arr), $c, $c) };
             }
@@ -112,6 +124,22 @@ macro_rules! chain32_ab {
                 },
                 Err(known) => known,
             };
+            // Trial (1 << 44): comparison networks in SIMD registers (AVX2,
+            // NEON): here up to the `sort_unstable` size unless half the
+            // array is a sorted head (tail first, then one merge); in
+            // `short32` after its one pass (sorted, reversed, counted).
+            {
+                use crate::v2::devour::ab_simd32 as simd;
+                if !on(1 << 44)
+                    && n <= small_max(SMALL)
+                    && known.ascending_prefix < n / 2
+                    && simd::available()
+                {
+                    trace!("simd32");
+                    simd::sort(bits_of(arr), $c(0));
+                    return;
+                }
+            }
             chain! {
                 "std_small" if n <= small_max(SMALL) => do { arr.sort_unstable() };
             }
@@ -573,6 +601,14 @@ macro_rules! chain32_ab {
                     }
                     trace!("short32_count");
                     exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
+                    return;
+                }
+            }
+            {
+                use crate::v2::devour::ab_simd32 as simd;
+                if !on(1 << 44) && n <= simd::SIMD_MAX && simd::available() {
+                    trace!("short32_simd");
+                    simd::sort(bits_of(arr), $c(0));
                     return;
                 }
             }
