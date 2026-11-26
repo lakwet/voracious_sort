@@ -292,6 +292,9 @@ fn go<T: Key>()
                 }
                 let mut w = gen(n);
                 let _ = voracious_radix_sort::ab_dlsd_stats_take();
+                if let Some(m) = std::env::var("DSKIP").ok().and_then(|v| v.parse().ok()) {
+                    voracious_radix_sort::ab_copy32_skip(m);
+                }
                 u32::engine("dlsds", &mut w);
                 let st = voracious_radix_sort::ab_dlsd_stats_take();
                 let calls: Vec<String> = st

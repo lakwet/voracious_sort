@@ -145,15 +145,19 @@ macro_rules! dlsd_sort_ab {
             // 3000-5000 keys, stay: 5-8 % slower there). x86 only (Surface:
             // Clusters 5-10 % slower at 3000-5000 keys, nothing won). Bit
             // 16777216 of the chain copy's mask: the DLSD all the same.
-            if cfg!(not(target_arch = "aarch64"))
+            // Trials: bit 1 << 36 also inexact prefixes (Composite: a high
+            // half among 64 values, a prefix of 27-32 bits), 1 << 37 on ARM.
+            let skip = crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed);
+            if (cfg!(not(target_arch = "aarch64")) || skip & (1 << 37) != 0)
                 && RAW
-                && layout.base == 0
+                && (layout.base == 0 || skip & (1 << 36) != 0)
                 && layout.digits >= 3
                 && top + 4 >= <$uint>::BITS
                 && crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed)
                     & 16777216
                     == 0
             {
+                trace!("dlsd_to_lsd");
                 w::lsd(keys);
                 return;
             }
