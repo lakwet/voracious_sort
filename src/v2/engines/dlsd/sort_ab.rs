@@ -137,6 +137,26 @@ macro_rules! dlsd_sort_ab {
             }
             let top = <$uint>::BITS - range.leading_zeros();
             let layout = Layout::new(prefix_bits::<RAW>(keys, min, top, pre), top, n);
+            // An exact prefix over nearly the whole key (the sample separates
+            // keys only on the whole range: Clusters, Exponential, Composite):
+            // the DLSD is then an LSD of narrower digits, more passes; the
+            // LSD instead (1.05-1.35x faster at 3000-200k keys on the Ryzen
+            // and the Haswell; narrower exact prefixes, Normale 20-24 at
+            // 3000-5000 keys, stay: 5-8 % slower there). x86 only (Surface:
+            // Clusters 5-10 % slower at 3000-5000 keys, nothing won). Bit
+            // 16777216 of the chain copy's mask: the DLSD all the same.
+            if cfg!(not(target_arch = "aarch64"))
+                && RAW
+                && layout.base == 0
+                && layout.digits >= 3
+                && top + 4 >= <$uint>::BITS
+                && crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed)
+                    & 16777216
+                    == 0
+            {
+                w::lsd(keys);
+                return;
+            }
             // Histograms: on the stack when they fit (only the part used is
             // zeroed), else on the heap.
             let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
