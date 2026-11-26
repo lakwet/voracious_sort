@@ -282,6 +282,66 @@ macro_rules! chain32_ab {
         /// 26-30 from 500).
         const SHORT_MAX: usize = 400;
 
+        /// Most values `count_small` counts.
+        const COUNT_SMALL_MAX: usize = 256;
+
+        /// Counting sort of raw bits whose encoded keys lie in
+        /// `lo..lo + span` (`span` at most `COUNT_SMALL_MAX`), counters on
+        /// the stack: 4 tables when keys outnumber values (repeated keys do
+        /// not wait on one counter), the values written back without a
+        /// branch per counter (two writes each, the next value overwriting
+        /// them; a loop only beyond 2 keys): counters of 0, 1 or 2 keys in
+        /// random order mispredicted one branch each.
+        #[inline]
+        fn count_small(bits: &mut [u32], lo: u32, span: usize) {
+            const M: usize = COUNT_SMALL_MAX;
+            debug_assert!(span <= M);
+            let n = bits.len();
+            let mut c = [[0u32; M]; 4];
+            let key = |b: u32| $c(b).wrapping_sub(lo) as usize & (M - 1);
+            if n > span {
+                let (quads, rest) = bits.as_chunks::<4>();
+                for q in quads {
+                    for j in 0..4 {
+                        // SAFETY: masked below M.
+                        unsafe { *c.get_unchecked_mut(j).get_unchecked_mut(key(q[j])) += 1 };
+                    }
+                }
+                for &b in rest {
+                    unsafe { *c[0].get_unchecked_mut(key(b)) += 1 };
+                }
+                for d in 0..span {
+                    c[0][d] += c[1][d] + c[2][d] + c[3][d];
+                }
+            } else {
+                for &b in bits.iter() {
+                    unsafe { *c[0].get_unchecked_mut(key(b)) += 1 };
+                }
+            }
+            let p = bits.as_mut_ptr();
+            let mut at = 0;
+            for d in 0..span {
+                let k = c[0][d] as usize;
+                let v = $c(lo.wrapping_add(d as u32));
+                // SAFETY: the counts add up to n; the two writes stay below n.
+                unsafe {
+                    if at + 2 <= n {
+                        *p.add(at) = v;
+                        *p.add(at + 1) = v;
+                        for j in 2..k {
+                            *p.add(at + j) = v;
+                        }
+                    } else {
+                        for j in 0..k {
+                            *p.add(at + j) = v;
+                        }
+                    }
+                }
+                at += k;
+            }
+            debug_assert_eq!(at, n);
+        }
+
         /// The short radix sort's digits for `n` keys spanning `range`:
         /// (one pass, prefix bits, bits below the prefix). ARM: one pass of
         /// log2(n) + 1 bits (at most 10), the insertion finish settling the
@@ -580,6 +640,13 @@ macro_rules! chain32_ab {
             if on(131072) && t < 32 && span <= n / 2 {
                 trace!("tiny_count");
                 exact_count(bits_of(arr), lo, span, $c, $c);
+                return;
+            }
+            // Bit 134217728: up to 256 values counted (`count_small`)
+            // instead of one pass of the short radix.
+            if !on(134217728) && t < 32 && span <= COUNT_SMALL_MAX {
+                trace!("tiny_count");
+                count_small(bits_of(arr), lo, span);
                 return;
             }
             if t < 32 && span <= 256 {
