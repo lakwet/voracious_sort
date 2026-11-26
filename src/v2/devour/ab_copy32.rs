@@ -317,6 +317,53 @@ macro_rules! chain32_ab {
             bits[..j].copy_from_slice(&buf[..j]);
         }
 
+        /// 18 probes spread over the array (bit 524288: the first 16, the
+        /// middle and last ones; neighbours alike, Sqrt, passed for a
+        /// dominant value).
+        #[inline]
+        fn probes18(arr: &[$t]) -> [$t; 18] {
+            let n = arr.len();
+            let mut s = [arr[0]; 18];
+            if on(524288) {
+                for i in 0..18 {
+                    s[i] = arr[i * (n - 1) / 17];
+                }
+            } else {
+                s[..16].copy_from_slice(&arr[..16]);
+                s[16] = arr[n / 2];
+                s[17] = arr[n - 1];
+            }
+            s
+        }
+
+        /// The tiny path's questions on its probes: one dominant value
+        /// (sorted by `sort_unstable`), at most 4 values (counted by
+        /// comparisons). Whether `arr` is now sorted.
+        #[inline]
+        fn probe_questions(arr: &mut [$t], s: &[$t; 18]) -> bool {
+            // One dominant value with a long tail (Sparse): the vote, at
+            // least 7 of 18, no other value 3 times; before few4, which
+            // Sparse's 18 probes pass (its count pass then fails).
+            let (mut v, mut votes) = (s[0], 0usize);
+            for &x in s.iter() {
+                if votes == 0 {
+                    v = x;
+                }
+                votes = if x == v { votes + 1 } else { votes - 1 };
+            }
+            let count = |u: $t| s.iter().filter(|&&x| x == u).count();
+            if count(v) >= 7 && s.iter().all(|&u| u == v || count(u) < 3) {
+                trace!("tiny_dominant");
+                arr.sort_unstable();
+                return true;
+            }
+            if few4(arr, s) {
+                trace!("tiny_few4");
+                return true;
+            }
+            false
+        }
+
         /// Most values `count_small` counts.
         const COUNT_SMALL_MAX: usize = 256;
 
@@ -556,6 +603,13 @@ macro_rules! chain32_ab {
         /// and maximum (no pass of its own for them).
         fn tiny(arr: &mut [$t], known: Unsorted) {
             let n = arr.len();
+            let s = probes18(arr);
+            // The questions on the probes first (bit 1073741824: after the
+            // inspection pass, which cost Binary, Few 4 1.3-1.5x).
+            let early = on(1073741824);
+            if early && probe_questions(arr, &s) {
+                return;
+            }
             // One inspection pass: the descents, and the distances to the
             // first key ORed apart above and below it (no min / max: u32
             // min / max have no SSE2 instruction and, emulated, made the pass
@@ -612,37 +666,7 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
-            // 18 probes spread over the array (bit 524288: the first 16, the
-            // middle and last ones; neighbours alike, Sqrt, passed for a
-            // dominant value).
-            let mut s = [arr[0]; 18];
-            if on(524288) {
-                for i in 0..18 {
-                    s[i] = arr[i * (n - 1) / 17];
-                }
-            } else {
-                s[..16].copy_from_slice(&arr[..16]);
-                s[16] = arr[n / 2];
-                s[17] = arr[n - 1];
-            }
-            // One dominant value with a long tail (Sparse): the vote, at
-            // least 7 of 18, no other value 3 times; before few4, which
-            // Sparse's 18 probes pass (its count pass then fails).
-            let (mut v, mut votes) = (s[0], 0usize);
-            for &x in s.iter() {
-                if votes == 0 {
-                    v = x;
-                }
-                votes = if x == v { votes + 1 } else { votes - 1 };
-            }
-            let count = |u: $t| s.iter().filter(|&&x| x == u).count();
-            if count(v) >= 7 && s.iter().all(|&u| u == v || count(u) < 3) {
-                trace!("tiny_dominant");
-                arr.sort_unstable();
-                return;
-            }
-            if few4(arr, &s) {
-                trace!("tiny_few4");
+            if !early && probe_questions(arr, &s) {
                 return;
             }
             // A range of at most one counter per 2 keys, or of 256 values
