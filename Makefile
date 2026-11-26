@@ -172,11 +172,10 @@ abench-32: ## cold A/B (fresh pages for every buffer) of the 32-bit chain copy a
 	cargo build -q --release --example ab_u32 --features "bench ab"
 	@d=$$(date -u +%Y-%m-%d-%H%M); for t in u32 i32; do 	  FRESH=1 COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-$$t$(if $(filter 1,$(NATIVE)),-native)-$(ABENCH_HOST)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=copy:512,v2,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
 
-gros-intel: ## the Core Ultra's run (~2h15): gather-check (16-bit, native), abench-32 generic, abench-32 native; files in bench_work/<host>/
-	@$(MAKE) --no-print-directory gather-check
+gros-intel: ## the Core Ultra's run (~1h45): abench-32 generic, then native; files in bench_work/<host>/
 	@$(MAKE) --no-print-directory abench-32
 	@$(MAKE) --no-print-directory abench-32 NATIVE=1
-	@echo "done: send bench_work/$(ABENCH_HOST)/gather-native-*.txt and abench-cold-*.csv"
+	@echo "done: send bench_work/$(ABENCH_HOST)/abench-cold-*.csv"
 
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
