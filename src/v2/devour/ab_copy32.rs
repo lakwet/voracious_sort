@@ -125,7 +125,8 @@ macro_rules! chain32_ab {
             let head = known.ascending_prefix >= n / 2;
             let light = !on(512) && n <= light_max() && !(on(1024) && head);
             // Trial (bit 16384 off): the tiny path up to `TINY_MAX` keys.
-            if light && on(16384) && n <= TINY_MAX {
+            // Bit 8388608: the tiny path only up to 450 keys.
+            if light && on(16384) && n <= if on(8388608) { TINY_MAX } else { 450 } {
                 tiny(arr, known);
                 return;
             }
@@ -280,7 +281,8 @@ macro_rules! chain32_ab {
         }
 
         /// Whether the 18 probes fall in at most 12 of 64 equal slices of the
-        /// range (spread keys: about 16; the short radix splits the range
+        /// range, with more distinct values than that (spread keys fill about
+        /// 16; the short radix splits the range
         /// evenly, clustered keys leave most buckets empty and the insertion
         /// finish long: Bimodal, Exponential, Clusters).
         #[inline]
@@ -293,7 +295,15 @@ macro_rules! chain32_ab {
                 seen |= 1u64 << (($c(x).wrapping_sub(lo) >> shift) & 63);
             }
             let _ = n;
-            seen.count_ones() <= 12
+            // Distinct probes well above the slices they fill: clusters (few
+            // values fill few slices too, but each its own: Few 16, Heavy 4
+            // went to the DLSD, 1.3-1.4x slower at 150 keys on the Ryzen).
+            let slices = seen.count_ones() as usize;
+            let mut distinct = 0;
+            for i in 0..18 {
+                distinct += !b[..i].contains(&b[i]) as usize;
+            }
+            slices <= 12 && distinct >= slices + 4
         }
 
         /// The short radix sort of the tiny path (up to `TINY_MAX` keys),
@@ -561,9 +571,19 @@ macro_rules! chain32_ab {
                 distinct += !s[..i].contains(&s[i]) as usize;
             }
             if distinct <= 6 || n >= 512 {
+                // A real spread sample (bit 33554432: the 18 probes repeated,
+                // which never trip `few`'s early exit on a half-distinct
+                // sample: its full pass then failed late on Heavy 4 and Zipf,
+                // 1.7-2x slower at 1000 keys).
                 let mut sample = [s[0]; SAMPLE];
-                for i in 0..SAMPLE {
-                    sample[i] = s[i % 18];
+                if on(33554432) {
+                    for i in 0..SAMPLE {
+                        sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
+                    }
+                } else {
+                    for i in 0..SAMPLE {
+                        sample[i] = s[i % 18];
+                    }
                 }
                 if detectors::few(arr, &sample) {
                     trace!("tiny_few");
@@ -573,9 +593,8 @@ macro_rules! chain32_ab {
             // The short radix sort up to `SHORT_MAX` keys (bit 32768: never),
             // else the DLSD (from 500 keys its digits beat 2 passes of
             // 6-7 bits: 5-9 % on random keys).
-            // Clustered keys (Bimodal, Exponential, Composite: 5 or more of
-            // the 18 probes in one bucket of the short radix): the DLSD, whose
-            // prefix comes from a sample (bit 262144: no such test).
+            // Clustered keys (Bimodal, Exponential, Clusters): the DLSD,
+            // whose prefix comes from a sample (bit 262144: no such test).
             // ARM: never for a wide range (Surface: the DLSD 25-35 % faster
             // on Unif from 200 keys; bit 1048576 swaps).
             let wide = cfg!(target_arch = "aarch64") == !on(1048576);
@@ -584,7 +603,14 @@ macro_rules! chain32_ab {
                 short_radix(bits_of(arr), lo, hi);
             } else {
                 trace!("tiny_dlsd");
-                $st::dlsd(bits_of(arr));
+                // The inspection's bounds hold every key (sometimes twice
+                // the span: one more prefix bit at most): no min / max pass
+                // of the DLSD (bit 4194304: its own pass).
+                if on(4194304) {
+                    $st::dlsd_known(bits_of(arr), lo, hi);
+                } else {
+                    $st::dlsd(bits_of(arr));
+                }
             }
         }
 
