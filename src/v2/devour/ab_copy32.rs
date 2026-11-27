@@ -123,7 +123,7 @@ macro_rules! chain32_ab {
             chain! {
                 "merge_small" if n <= MERGE_MAX => do { merge_sort(bits_of(arr), $c, $c) };
             }
-            let known = match presorted(arr) {
+            let known = match presorted_ab(arr) {
                 Ok(()) => {
                     trace!("presorted");
                     return;
@@ -840,6 +840,28 @@ macro_rules! chain32_ab {
             seps.push(n);
             merge_runs(arr, &mut seps);
             true
+        }
+
+        /// `presorted`, with trial 1 << 58: an array whose first key is the
+        /// larger and whose spread pairs show no ascent is scanned
+        /// descending first (the scan stops at the first ascent: a saw
+        /// tooth's end), reversed only when wholly descending (`presorted`
+        /// reverses it first: a wasted pass over a descending saw).
+        #[inline]
+        fn presorted_ab(arr: &mut [$t]) -> Result<(), Unsorted> {
+            let n = arr.len();
+            if !on(1 << 58) && n >= 2048 && arr[0] > arr[n - 1] {
+                let probes = probe_pairs(arr);
+                if probes.ascending > 0 {
+                    return Err(Unsorted { ascending_prefix: 0, probes: Some(probes) });
+                }
+                if crate::v2::runs::verge::explore_forward_desc(arr, 0) == n {
+                    arr.reverse();
+                    return Ok(());
+                }
+                return Err(Unsorted { ascending_prefix: 0, probes: Some(probes) });
+            }
+            presorted(arr)
         }
 
         /// `few4` giving up at the first block of 64 keys holding a key
