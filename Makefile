@@ -137,6 +137,20 @@ bench-16: ## u16 and i16, generic then native: 4 bench-type runs (long; one file
 	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=1
 	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=1
 
+# A borrowed machine for one hour at most: u16 and i16 up to 10M keys (no
+# 30M), median of 7, one build (generic, or native with the -native target);
+# ~30-40 min with the build on an Apple M3 Pro.
+BENCH16_SHORT = BENCH_SIZES=$(BENCH_SIZES_RECORDS) BENCH_REPS=7 PLACE_NAME=-short
+bench-16-short: ## u16 and i16 up to 10M, median of 7, generic build (< 1 h; borrowed machines)
+	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=0 $(BENCH16_SHORT)
+	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=0 $(BENCH16_SHORT)
+	@echo "done: send the bench-type-u16-short-* and bench-type-i16-short-* files (.csv and .txt)"
+
+bench-16-short-native: ## bench-16-short with -C target-cpu=native (< 1 h; borrowed machines)
+	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=1 $(BENCH16_SHORT)
+	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=1 $(BENCH16_SHORT)
+	@echo "done: send the bench-type-u16-native-short-* and bench-type-i16-native-short-* files (.csv and .txt)"
+
 # Simulated i16 bench (examples/ab_i16.rs, cold, median of 11): the generic
 # chain against std, turbosort and blazing, written to
 # bench_work/<host>/abench-cold-i16-<host>-<UTC date>.csv for the viewer.
