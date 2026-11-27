@@ -1,7 +1,15 @@
 # Version **2.1.2** (November 25<sup>th</sup> 2026)
 
-A fix for `u16` and `i16` sorted in a native build on recent Intel CPUs.
+Two fixes for `u16` and `i16`.
 
+- From 131 072 keys the 16-bit sort counts the whole domain in a table of
+  256 KiB. That table was allocated at each call, and an allocation of that
+  size gets new pages from the system: a page fault for every 4 KiB of it,
+  a large part of the time from 200 000 to 1 million keys. The table is now
+  on the stack (the sort needs 256 KiB of stack for these arrays). In a
+  program that sorts once, 200 000 to 1 million keys are now up to 2 times
+  faster on our machines (the median input 1.5 times at 200 000 keys,
+  1.15 times at 1 million).
 - Built with `-C target-cpu=native` (or for `alderlake`, `meteorlake` and
   other CPUs with AVX-VNNI or AVX-512), the compiler turned the counting
   loops of the 16-bit sort into vector gathers, which are slow on these

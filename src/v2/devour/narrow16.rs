@@ -1392,7 +1392,7 @@ fn domain_count16(keys: &mut [u16]) {
         });
         (hi - lo) as usize * 4 * 4 <= l2
     };
-    let counts = if crate::v2::cache::old_intel() && !narrow_span() {
+    if crate::v2::cache::old_intel() && !narrow_span() {
         let (low, wraps) = count_narrow16(keys, run4);
         if wraps.is_empty() && !big {
             write_buckets(keys, &low);
@@ -1402,9 +1402,17 @@ fn domain_count16(keys: &mut [u16]) {
         for &k in &wraps {
             wide[k as usize] += 1 << 16;
         }
-        wide
-    } else {
-        let mut counts = vec![0u32; 1 << 16];
+        if big && stream_write(keys, &wide) {
+            return;
+        }
+        write_buckets(keys, &wide);
+        return;
+    }
+    // The table on the stack (256 KiB): on the heap it is new pages at each
+    // call (64 page faults of 4 KiB: Core Ultra 185H 200k-1M up to 1.5x
+    // slower).
+    let mut counts = [0u32; 1 << 16];
+    {
         let (quads, tail) = keys.as_chunks::<4>();
         if !run4 {
             // 4 keys read by one 64-bit load, the indexes taken by shifts:
@@ -1450,8 +1458,7 @@ fn domain_count16(keys: &mut [u16]) {
             counts[ord(k) as usize] += 1;
         }
         }
-        counts
-    };
+    }
     // Arrays beyond twice the largest cache: lines already out of the cache,
     // written without being read first.
     if big && stream_write(keys, &counts) {
