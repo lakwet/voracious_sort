@@ -1060,7 +1060,10 @@ fn bench_cpu() {
     });
     std::fs::create_dir_all(&dir).unwrap();
     let name = std::env::var("BENCH_NAME").unwrap_or_else(|_| "bench-cpu".into());
-    let stem = format!("{}-{}-{}", name, host_name(), utc_stamp());
+    // `BENCH_FILE`: the whole file name without extension (make bench-type:
+    // bench-<cpu>-<type>-<generic|native>-<YYYYMMDDHHMM>).
+    let stem = std::env::var("BENCH_FILE")
+        .unwrap_or_else(|_| format!("{}-{}-{}", name, host_name(), utc_stamp()));
     let path = dir.join(format!("{}.csv", stem));
     let human = dir.join(format!("{}.txt", stem));
     let mut report = Report {

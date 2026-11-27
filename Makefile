@@ -86,6 +86,7 @@ bench: ## every key type, 1k to 10M keys (several hours)
 
 bench-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS) $(PLACE_FLAGS)
 bench-type: export BENCH_NAME = bench-type-$(T)$(if $(filter 1,$(NATIVE)),-native)$(PLACE_NAME)
+bench-type: export BENCH_FILE = bench-$(CPU_SLUG)-$(T)-$(BUILD_KIND)$(PLACE_NAME)-$(BENCH_STAMP)
 bench-type: export BENCH_PARTS = int,float,wide
 bench-type: export BENCH_TYPES = $(T)
 bench-type: export BENCH_SORTS = best
@@ -121,6 +122,13 @@ ABENCH_CPU := $(shell sysctl -n machdep.cpu.brand_string)
 else
 ABENCH_CPU := $(shell grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')
 endif
+
+# Bench file names: bench-<cpu>-<type>-<generic|native>-<YYYYMMDDHHMM>
+# (local time), <cpu> the processor's name in lower case, words joined by
+# dashes (intel-core-ultra-9-185h).
+CPU_SLUG := $(shell echo "$(ABENCH_CPU)" | sed -e 's/[(][A-Za-z]*[)]//g' -e 's/ CPU//; s/ Processor//; s/@.*//' | tr 'A-Z' 'a-z' | sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-//; s/-$$//')
+BUILD_KIND = $(if $(filter 1,$(NATIVE)),native,generic)
+BENCH_STAMP := $(shell date +%Y%m%d%H%M)
 
 abench-u16: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
@@ -180,17 +188,27 @@ gather-check: ## native A/B of the 16-bit copy without vector gathers (Core Ultr
 	CHECK=1 SORTS=v2,copy DOM_SIZES=1000,10000,100000,1000000 TOTAL=4000000 	  ./target/native/release/examples/ab_u16 > bench_work/$(ABENCH_HOST)/gather-native-u16.txt
 	CHECK=1 SORTS=gen,copy DOM_SIZES=1000,10000,100000,1000000 TOTAL=4000000 	  ./target/native/release/examples/ab_i16 > bench_work/$(ABENCH_HOST)/gather-native-i16.txt
 
+# The copy's trials kept (src/v2/devour/ab_copy32.rs): x86 the SIMD networks
+# up to 512 keys with the range test (49, 53), the last run cut (55), short32
+# bounds (54), counted up to n values (46); ARM the networks from 80 to 128
+# keys (49, 57), 54, 46; 512 in both.
+ifeq ($(filter aarch64 arm64 ARM64,$(shell uname -m) $(PROCESSOR_ARCHITECTURE)),)
+ABENCH32_MASK ?= 63683713480786432
+else
+ABENCH32_MASK ?= 162762905282937344
+endif
 ABENCH32_SIZES ?= 500,1000,5000,10000,20000,50000,100000,200000,500000,1000000
 abench-32: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 abench-32: ## cold A/B (fresh pages for every buffer) of the 32-bit chain copy against 2.1, std, blazing, turbosort, glidesort (u32, i32; viewer CSV in bench_work/<host>/; NATIVE=1)
 	@mkdir -p bench_work/$(ABENCH_HOST)
 	cargo build -q --release --example ab_u32 --features "bench ab"
-	@d=$$(date -u +%Y-%m-%d-%H%M); for t in u32 i32; do 	  FRESH=1 COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/abench-cold-$$t$(if $(filter 1,$(NATIVE)),-native)-$(ABENCH_HOST)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=copy:512,v2,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
+	@d=$$(date +%Y%m%d%H%M); for t in u32 i32; do 	  FRESH=1 COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/bench-$(CPU_SLUG)-$$t-$(BUILD_KIND)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=copy:$(ABENCH32_MASK),v2,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
 
-gros-intel: ## the Core Ultra's run (~1h45): abench-32 generic, then native; files in bench_work/<host>/
+gros-intel: ## the Core Ultra's night (~7 h): bench-16 (u16, i16, generic then native), then abench-32 generic and native
+	@$(MAKE) --no-print-directory bench-16
 	@$(MAKE) --no-print-directory abench-32
 	@$(MAKE) --no-print-directory abench-32 NATIVE=1
-	@echo "done: send bench_work/$(ABENCH_HOST)/abench-cold-*.csv"
+	@echo "done: send resultsbenchs/$(ABENCH_HOST)/bench-*.csv and .txt, bench_work/$(ABENCH_HOST)/bench-*.csv"
 
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
