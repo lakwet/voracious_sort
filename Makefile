@@ -190,12 +190,13 @@ gather-check: ## native A/B of the 16-bit copy without vector gathers (Core Ultr
 
 # The copy's trials kept (src/v2/devour/ab_copy32.rs): x86 the SIMD networks
 # up to 512 keys with the range test (49, 53), the last run cut (55), short32
-# bounds (54), counted up to n values (46); ARM the networks from 80 to 128
-# keys (49, 57), 54, 46; 512 in both.
+# bounds (54), counted up to n values (46), networks in short32 (44); ARM the
+# networks from 80 to 128 keys (49, 57), 54, 46; both: 512, stack count (42),
+# probes after the bounds (43), many duplicates -> sort_unstable (47).
 ifeq ($(filter aarch64 arm64 ARM64,$(shell uname -m) $(PROCESSOR_ARCHITECTURE)),)
-ABENCH32_MASK ?= 63683713480786432
+ABENCH32_MASK ?= 63855237294719488
 else
-ABENCH32_MASK ?= 162762905282937344
+ABENCH32_MASK ?= 162916836910825984
 endif
 ABENCH32_SIZES ?= 500,1000,5000,10000,20000,50000,100000,200000,500000,1000000
 abench-32: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
