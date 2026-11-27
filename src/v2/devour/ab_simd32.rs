@@ -16,8 +16,26 @@
 //! Idea of turbosort (MIT, register networks then merges for its small
 //! arrays); the code is ours.
 
-/// Largest array sorted here.
+/// Largest array of the hooks below the sort_unstable size and in
+/// `short32`.
 pub(crate) const SIMD_MAX: usize = 512;
+/// Largest array sorted here (the buffers).
+const BUF: usize = 4096;
+
+/// Trial bound (env `AB_SIMD_MAX`, default 512, at most 4096).
+pub(crate) fn simd_max() -> usize {
+    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *M.get_or_init(|| {
+        std::env::var("AB_SIMD_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(512).min(BUF)
+    })
+}
+
+/// Trials of the chain copy's mask.
+#[inline]
+#[allow(dead_code)]
+fn trial(bit: u64) -> bool {
+    crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit != 0
+}
 
 /// Whether this CPU runs the AVX2 networks.
 #[inline]
@@ -36,10 +54,33 @@ pub(crate) fn available() -> bool {
     }
 }
 
+/// Up to 128 keys: loaded into registers, their range checked there (min /
+/// max of the registers, the max an upper bound); below `narrow` values,
+/// nothing written and `Some((lo, hi))` (encoded keys) returned for a
+/// count; else sorted in place and `None`. Callers check `available()`.
+pub(crate) fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
+    debug_assert!(bits.len() <= SIMD_MAX);
+    #[cfg(target_arch = "x86_64")]
+    {
+        // SAFETY: the caller checked that AVX2 is available.
+        unsafe { avx2::sort_or_range(bits, flip, narrow) }
+    }
+    #[cfg(target_arch = "aarch64")]
+    {
+        // SAFETY: NEON is part of AArch64.
+        unsafe { neon::sort_or_range(bits, flip, narrow) }
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    {
+        let _ = (flip, narrow);
+        unreachable!("no SIMD networks here")
+    }
+}
+
 /// Sorts `bits` (at most `SIMD_MAX` keys) compared as `k ^ flip`.
 /// Callers check `available()` first.
 pub(crate) fn sort(bits: &mut [u32], flip: u32) {
-    debug_assert!(bits.len() <= SIMD_MAX);
+    debug_assert!(bits.len() <= BUF);
     #[cfg(target_arch = "x86_64")]
     {
         // SAFETY: the caller checked that AVX2 is available.
@@ -59,7 +100,7 @@ pub(crate) fn sort(bits: &mut [u32], flip: u32) {
 
 #[cfg(target_arch = "x86_64")]
 mod avx2 {
-    use super::SIMD_MAX;
+    use super::BUF;
     use std::arch::x86_64::*;
 
     type V = __m256i;
@@ -235,6 +276,133 @@ mod avx2 {
         }
     }
 
+    /// `sort_direct` with the range check of `sort_or_range`.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    unsafe fn direct_or_range<const R: usize>(p: *mut u32, n: usize, f: V, narrow: usize) -> Option<(u32, u32)> {
+        let mut r: [V; R] =
+            std::array::from_fn(|i| unsafe { load(p.add(8 * i), n.saturating_sub(8 * i), f) });
+        let mut mn = r[0];
+        let mut mx = _mm256_setzero_si256();
+        for i in 0..R {
+            if 8 * i < n {
+                mn = _mm256_min_epu32(mn, r[i]);
+                // Padding lanes (the maximum) left out of the max: the
+                // lanes of a short last register read as its first key.
+                let v = if n - 8 * i >= 8 {
+                    r[i]
+                } else {
+                    let lanes = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+                    let real = _mm256_cmpgt_epi32(_mm256_set1_epi32((n - 8 * i) as i32), lanes);
+                    _mm256_blendv_epi8(_mm256_permutevar8x32_epi32(r[i], _mm256_setzero_si256()), r[i], real)
+                };
+                mx = _mm256_max_epu32(mx, v);
+            }
+        }
+        let hmin = |v: V| {
+            let v = _mm256_min_epu32(v, _mm256_permute2x128_si256(v, v, 1));
+            let v = _mm256_min_epu32(v, _mm256_shuffle_epi32(v, 0b01_00_11_10));
+            let v = _mm256_min_epu32(v, _mm256_shuffle_epi32(v, 0b10_11_00_01));
+            _mm256_cvtsi256_si32(v) as u32
+        };
+        let hmax = |v: V| {
+            let v = _mm256_max_epu32(v, _mm256_permute2x128_si256(v, v, 1));
+            let v = _mm256_max_epu32(v, _mm256_shuffle_epi32(v, 0b01_00_11_10));
+            let v = _mm256_max_epu32(v, _mm256_shuffle_epi32(v, 0b10_11_00_01));
+            _mm256_cvtsi256_si32(v) as u32
+        };
+        let (lo, hi) = (hmin(mn), hmax(mx));
+        if ((hi - lo) as usize) < narrow {
+            return Some((lo, hi));
+        }
+        sort_regs::<R>(&mut r);
+        for i in 0..R {
+            if 8 * i < n {
+                unsafe { store(p.add(8 * i), n - 8 * i, r[i], f) };
+            }
+        }
+        None
+    }
+
+    /// `merge_runs` without a branch on the run to read (trial 1 << 50):
+    /// while both runs have keys, the next 8 come from the address picked
+    /// by `select_unpredictable`, the indices advanced by the comparison;
+    /// then the rest of the remaining run.
+    #[target_feature(enable = "avx2")]
+    #[inline]
+    unsafe fn merge_runs_bl(a: &[u32], b: &[u32], out: *mut u32) {
+        let (pa, pb) = (a.as_ptr(), b.as_ptr());
+        let (la, lb) = (a.len(), b.len());
+        let (mut i, mut j, mut o) = (8, 8, 0);
+        let mut lo = unsafe { _mm256_loadu_si256(pa as *const V) };
+        let mut hi = unsafe { _mm256_loadu_si256(pb as *const V) };
+        loop {
+            let q = merge::<2>([lo, hi]);
+            hi = q[1];
+            unsafe { _mm256_storeu_si256(out.add(o) as *mut V, q[0]) };
+            o += 8;
+            if i >= la || j >= lb {
+                break;
+            }
+            // SAFETY: i < la and j < lb, multiples of 8.
+            let ta = unsafe { *pa.add(i) <= *pb.add(j) };
+            let src = std::hint::select_unpredictable(ta, unsafe { pa.add(i) }, unsafe { pb.add(j) });
+            lo = unsafe { _mm256_loadu_si256(src as *const V) };
+            i += 8 * ta as usize;
+            j += 8 * !ta as usize;
+        }
+        // One run left (or none): its blocks in order.
+        let (rest, mut k, len) = if i < la { (pa, i, la) } else { (pb, j, lb) };
+        while k < len {
+            lo = unsafe { _mm256_loadu_si256(rest.add(k) as *const V) };
+            k += 8;
+            let q = merge::<2>([lo, hi]);
+            hi = q[1];
+            unsafe { _mm256_storeu_si256(out.add(o) as *mut V, q[0]) };
+            o += 8;
+        }
+        unsafe { _mm256_storeu_si256(out.add(o) as *mut V, hi) };
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub(super) unsafe fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
+        let n = bits.len();
+        let f = _mm256_set1_epi32(flip as i32);
+        let p = bits.as_mut_ptr();
+        if n <= 64 {
+            return unsafe { direct_or_range::<8>(p, n, f, narrow) };
+        }
+        if n <= 128 {
+            return unsafe { direct_or_range::<16>(p, n, f, narrow) };
+        }
+        // Beyond 128 keys: one vector min / max pass first.
+        let (mut mn, mut mx) = (_mm256_set1_epi32(-1), _mm256_setzero_si256());
+        let mut i = 0;
+        while i + 8 <= n {
+            let v = _mm256_xor_si256(unsafe { _mm256_loadu_si256(p.add(i) as *const V) }, f);
+            mn = _mm256_min_epu32(mn, v);
+            mx = _mm256_max_epu32(mx, v);
+            i += 8;
+        }
+        let mut lanes_mn = [0u32; 8];
+        let mut lanes_mx = [0u32; 8];
+        unsafe {
+            _mm256_storeu_si256(lanes_mn.as_mut_ptr() as *mut V, mn);
+            _mm256_storeu_si256(lanes_mx.as_mut_ptr() as *mut V, mx);
+        }
+        let (mut lo, mut hi) = (*lanes_mn.iter().min().unwrap(), *lanes_mx.iter().max().unwrap());
+        for &k in &bits[i..] {
+            let e = k ^ flip;
+            lo = lo.min(e);
+            hi = hi.max(e);
+        }
+        if ((hi - lo) as usize) < narrow {
+            return Some((lo, hi));
+        }
+        unsafe { sort(bits, flip) };
+        None
+    }
+
     /// Merges the runs `a` and `b` (lengths non-zero multiples of 8) into
     /// `out`: `hi` holds the 8 largest keys loaded so far, each step merges
     /// it with the next 8 keys of the run with the smaller head and writes
@@ -284,8 +452,8 @@ mod avx2 {
         }
         // Blocks of 128 keys sorted into a buffer (padded with the
         // maximum), then merged pairwise, ping-pong between two buffers.
-        let mut xb = std::mem::MaybeUninit::<[u32; SIMD_MAX]>::uninit();
-        let mut yb = std::mem::MaybeUninit::<[u32; SIMD_MAX]>::uninit();
+        let mut xb = std::mem::MaybeUninit::<[u32; BUF]>::uninit();
+        let mut yb = std::mem::MaybeUninit::<[u32; BUF]>::uninit();
         let (mut px, mut py) = (xb.as_mut_ptr() as *mut u32, yb.as_mut_ptr() as *mut u32);
         // SAFETY: each block writes its slots of the source (the last one
         // 64 when the rest fits: less padding); each merge level writes all
@@ -324,7 +492,11 @@ mod avx2 {
                     if mid == end {
                         std::ptr::copy_nonoverlapping(px.add(s), py.add(s), end - s);
                     } else {
-                        merge_runs(&src[s..mid], &src[mid..end], py.add(s));
+                        if super::trial(1 << 50) {
+                            merge_runs_bl(&src[s..mid], &src[mid..end], py.add(s));
+                        } else {
+                            merge_runs(&src[s..mid], &src[mid..end], py.add(s));
+                        }
                     }
                     s = end;
                 }
@@ -341,7 +513,7 @@ mod avx2 {
 
 #[cfg(target_arch = "aarch64")]
 mod neon {
-    use super::SIMD_MAX;
+    use super::BUF;
     use std::arch::aarch64::*;
 
     type V = uint32x4_t;
@@ -500,6 +672,94 @@ mod neon {
         }
     }
 
+    /// `sort_direct` with the range check of `sort_or_range`.
+    #[inline(always)]
+    unsafe fn direct_or_range<const R: usize>(p: *mut u32, n: usize, f: V, narrow: usize) -> Option<(u32, u32)> {
+        let mut r: [V; R] =
+            std::array::from_fn(|i| unsafe { load(p.add(4 * i), n.saturating_sub(4 * i), f) });
+        let (mut lo, mut hi) = (u32::MAX, 0u32);
+        unsafe {
+            for i in 0..R {
+                if 4 * i < n {
+                    lo = lo.min(vminvq_u32(r[i]));
+                    if n - 4 * i >= 4 {
+                        hi = hi.max(vmaxvq_u32(r[i]));
+                    } else {
+                        for j in 4 * i..n {
+                            hi = hi.max(p.add(j).read() ^ vgetq_lane_u32(f, 0));
+                        }
+                    }
+                }
+            }
+        }
+        if ((hi - lo) as usize) < narrow {
+            return Some((lo, hi));
+        }
+        sort_regs::<R>(&mut r);
+        for i in 0..R {
+            if 4 * i < n {
+                unsafe { store(p.add(4 * i), n - 4 * i, r[i], f) };
+            }
+        }
+        None
+    }
+
+    /// `merge_runs` without a branch on the run to read (trial 1 << 50).
+    #[inline(always)]
+    unsafe fn merge_runs_bl(a: &[u32], b: &[u32], out: *mut u32) {
+        let (pa, pb) = (a.as_ptr(), b.as_ptr());
+        let (la, lb) = (a.len(), b.len());
+        let ld = |p: *const u32| unsafe { [vld1q_u32(p), vld1q_u32(p.add(4))] };
+        let (mut i, mut j, mut o) = (8, 8, 0);
+        let mut lo = ld(pa);
+        let mut hi = ld(pb);
+        loop {
+            let q = merge::<4>([lo[0], lo[1], hi[0], hi[1]]);
+            hi = [q[2], q[3]];
+            unsafe {
+                vst1q_u32(out.add(o), q[0]);
+                vst1q_u32(out.add(o + 4), q[1]);
+            }
+            o += 8;
+            if i >= la || j >= lb {
+                break;
+            }
+            // SAFETY: i < la and j < lb, multiples of 8.
+            let ta = unsafe { *pa.add(i) <= *pb.add(j) };
+            let src = std::hint::select_unpredictable(ta, unsafe { pa.add(i) }, unsafe { pb.add(j) });
+            lo = ld(src);
+            i += 8 * ta as usize;
+            j += 8 * !ta as usize;
+        }
+        let (rest, mut k, len) = if i < la { (pa, i, la) } else { (pb, j, lb) };
+        while k < len {
+            lo = ld(unsafe { rest.add(k) });
+            k += 8;
+            let q = merge::<4>([lo[0], lo[1], hi[0], hi[1]]);
+            hi = [q[2], q[3]];
+            unsafe {
+                vst1q_u32(out.add(o), q[0]);
+                vst1q_u32(out.add(o + 4), q[1]);
+            }
+            o += 8;
+        }
+        unsafe {
+            vst1q_u32(out.add(o), hi[0]);
+            vst1q_u32(out.add(o + 4), hi[1]);
+        }
+    }
+
+    pub(super) unsafe fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
+        let n = bits.len();
+        let f = unsafe { vdupq_n_u32(flip) };
+        let p = bits.as_mut_ptr();
+        if n <= 64 {
+            unsafe { direct_or_range::<16>(p, n, f, narrow) }
+        } else {
+            unsafe { direct_or_range::<32>(p, n, f, narrow) }
+        }
+    }
+
     /// Merges the runs `a` and `b` (lengths non-zero multiples of 8) into
     /// `out`, 8 keys (two registers) per step.
     #[inline(always)]
@@ -551,8 +811,8 @@ mod neon {
             unsafe { sort_direct::<32>(p, n, f) };
             return;
         }
-        let mut xb = std::mem::MaybeUninit::<[u32; SIMD_MAX]>::uninit();
-        let mut yb = std::mem::MaybeUninit::<[u32; SIMD_MAX]>::uninit();
+        let mut xb = std::mem::MaybeUninit::<[u32; BUF]>::uninit();
+        let mut yb = std::mem::MaybeUninit::<[u32; BUF]>::uninit();
         let (mut px, mut py) = (xb.as_mut_ptr() as *mut u32, yb.as_mut_ptr() as *mut u32);
         // SAFETY: as the AVX2 version.
         unsafe {
@@ -589,7 +849,11 @@ mod neon {
                     if mid == end {
                         std::ptr::copy_nonoverlapping(px.add(s), py.add(s), end - s);
                     } else {
-                        merge_runs(&src[s..mid], &src[mid..end], py.add(s));
+                        if super::trial(1 << 50) {
+                            merge_runs_bl(&src[s..mid], &src[mid..end], py.add(s));
+                        } else {
+                            merge_runs(&src[s..mid], &src[mid..end], py.add(s));
+                        }
                     }
                     s = end;
                 }

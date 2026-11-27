@@ -32,6 +32,12 @@ fn light_max() -> usize {
     })
 }
 
+/// Most runs merged by the trial 1 << 51 (env `AB_RUNS`, default 16).
+fn runs_max() -> usize {
+    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *M.get_or_init(|| std::env::var("AB_RUNS").ok().and_then(|v| v.parse().ok()).unwrap_or(16))
+}
+
 thread_local! {
     /// Range and few already asked on this path (mask bit 4096).
     static EARLY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -58,7 +64,7 @@ fn dlsd_heap() -> bool {
 macro_rules! chain32_ab {
     ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::{dlsd_heap, dlsd_max, light_max, on, small_max, EARLY};
+        use super::{dlsd_heap, dlsd_max, light_max, on, runs_max, small_max, EARLY};
         use crate::v2::engines::dlsd::$st;
         use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
@@ -130,12 +136,52 @@ macro_rules! chain32_ab {
             // `short32` after its one pass (sorted, reversed, counted).
             {
                 use crate::v2::devour::ab_simd32 as simd;
+                // Trial (1 << 49): up to 128 keys the networks first, the
+                // range checked in the registers (a narrow one counted).
+                // Trial (1 << 53): direct up to 512 keys on x86 (ARM 128).
+                let direct_max = if !on(1 << 53) && cfg!(not(target_arch = "aarch64")) {
+                    simd::SIMD_MAX
+                } else {
+                    128
+                };
+                if !on(1 << 49)
+                    && n <= direct_max
+                    && known.ascending_prefix < n / 2
+                    && simd::available()
+                {
+                    let narrow = if !on(1 << 46) { n } else { n / 2 };
+                    match simd::sort_or_range(bits_of(arr), $c(0), narrow) {
+                        None => {
+                            trace!("simd32_direct");
+                        },
+                        Some((lo, hi)) if hi - lo < 256 => {
+                            trace!("simd32_count");
+                            count_stack(bits_of(arr), lo, (hi - lo) as usize + 1);
+                        },
+                        Some((lo, hi)) => {
+                            trace!("simd32_count");
+                            exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
+                        },
+                    }
+                    return;
+                }
                 if !on(1 << 44)
                     && n <= small_max(SMALL)
                     && known.ascending_prefix < n / 2
                     && simd::available()
                 {
                     trace!("simd32");
+                    simd::sort(bits_of(arr), $c(0));
+                    return;
+                }
+                // Trial (1 << 48): every array up to `AB_SIMD_MAX` keys
+                // (crossover with the radix path).
+                if !on(1 << 48)
+                    && n <= simd::simd_max()
+                    && known.ascending_prefix < n / 2
+                    && simd::available()
+                {
+                    trace!("simd32_wide");
                     simd::sort(bits_of(arr), $c(0));
                     return;
                 }
@@ -204,6 +250,16 @@ macro_rules! chain32_ab {
                         return;
                     }
                 }
+                // Trial (1 << 51): most spread pairs in one direction and
+                // the repair gave up: a few long runs (saw teeth)? Counted
+                // exactly (a pass paid by these arrays only), merged.
+                if !on(1 << 51)
+                    && (probes.ascending >= 28 || probes.descending >= 28)
+                    && merge_few_runs(arr)
+                {
+                    trace!("light_runs");
+                    return;
+                }
                 let sample = spread(arr);
                 if on(8192) && few4(arr, &sample) {
                     trace!("light_few4");
@@ -257,6 +313,16 @@ macro_rules! chain32_ab {
                     sorted.sort_unstable();
                     if detectors::dense(arr, &sorted) {
                         trace!("light_dense");
+                        return;
+                    }
+                }
+                // Trial (1 << 52): after every cheap question, the SIMD
+                // networks instead of the radix engine up to `AB_SIMD_MAX`.
+                {
+                    use crate::v2::devour::ab_simd32 as simd;
+                    if !on(1 << 52) && n <= simd::simd_max() && simd::available() {
+                        trace!("light_simd");
+                        simd::sort(bits_of(arr), $c(0));
                         return;
                     }
                 }
@@ -518,19 +584,19 @@ macro_rules! chain32_ab {
         /// or the DLSD.
         fn short32(arr: &mut [$t]) {
             let n = arr.len();
-            let (up, down, desc, e0) = {
+            let (up, down, desc, e0, any_below) = {
                 let bits: &[u32] = bits_of(arr);
                 let e0 = $c(bits[0]);
-                let (up, down, desc) = bits.iter().zip(&bits[1..]).fold(
-                    (0u32, 0u32, 0u32),
-                    |(u, dn, d), (&a, &b)| {
+                let (up, down, desc, any) = bits.iter().zip(&bits[1..]).fold(
+                    (0u32, 0u32, 0u32, 0u32),
+                    |(u, dn, d, a_), (&a, &b)| {
                         let (ea, eb) = ($c(a), $c(b));
                         let x = eb.wrapping_sub(e0);
                         let below = ((x as i32) >> 31) as u32;
-                        (u | (x & !below), dn | (!x & below), d + (ea > eb) as u32)
+                        (u | (x & !below), dn | (!x & below), d + (ea > eb) as u32, a_ | below)
                     },
                 );
-                (up, down, desc as usize, e0)
+                (up, down, desc as usize, e0, any != 0)
             };
             if desc == 0 {
                 trace!("short32_sorted");
@@ -539,6 +605,12 @@ macro_rules! chain32_ab {
             if desc == n - 1 {
                 trace!("short32_reversed");
                 arr.reverse();
+                return;
+            }
+            // Trial (1 << 51): few runs up (few descents) or down (few
+            // ascents): merged.
+            if !on(1 << 51) && (desc < runs_max() || n - desc <= runs_max()) && merge_few_runs(arr) {
+                trace!("short32_runs");
                 return;
             }
             // Trial (bit 1 << 35): 8 spread probes, given up at the 5th
@@ -583,8 +655,12 @@ macro_rules! chain32_ab {
             }
             let tp = 32 - up.leading_zeros();
             let tn = 32 - down.leading_zeros();
+            // Trial (1 << 54): no key below the first one: the
+            // low bound is the first key (`e0 - 1` underflowed at 0 and
+            // dropped the bounds: saws, Int 0..n starting at their minimum).
+            let below = if !on(1 << 54) && !any_below { 0 } else { 1u32 << tn };
             let bounds = if tp < 31 && tn < 31 {
-                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
+                match (e0.checked_sub(below), e0.checked_add((1u32 << tp) - 1)) {
                     (Some(l), Some(h)) => Some((l, h)),
                     _ => None,
                 }
@@ -592,7 +668,10 @@ macro_rules! chain32_ab {
                 None
             };
             if let Some((lo, hi)) = bounds {
-                if ((hi - lo) as usize) < n / 2 {
+                // Trial (1 << 46): counted up to n values (blazing counts
+                // a range up to the size).
+                let wide = if !on(1 << 46) { n } else { n / 2 };
+                if ((hi - lo) as usize) < wide {
                     // Trial (1 << 42): up to 256 values counted on the stack.
                     if !on(1 << 42) && hi - lo < 256 {
                         trace!("short32_count_stack");
@@ -604,19 +683,22 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
-            {
-                use crate::v2::devour::ab_simd32 as simd;
-                if !on(1 << 44) && n <= simd::SIMD_MAX && simd::available() {
-                    trace!("short32_simd");
-                    simd::sort(bits_of(arr), $c(0));
-                    return;
-                }
-            }
             // Trial (1 << 43): 8 spread probes only here (wide keys): at
             // most 4 values (Few 4) counted by comparisons, a dominant one
             // (at least 5, the others once: Sparse) to `sort_unstable`.
             if !on(1 << 43) && probe8(arr) {
                 return;
+            }
+            {
+                use crate::v2::devour::ab_simd32 as simd;
+                // ARM: up to 128 keys only (the NEON merges of blocks lose to
+                // the short radix path from 200 keys on the Surface).
+                let max = if cfg!(target_arch = "aarch64") { 128 } else { simd::SIMD_MAX };
+                if !on(1 << 44) && n <= max && simd::available() {
+                    trace!("short32_simd");
+                    simd::sort(bits_of(arr), $c(0));
+                    return;
+                }
             }
             if let Some((lo, hi)) = bounds {
                 if cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
@@ -702,7 +784,53 @@ macro_rules! chain32_ab {
                 trace!("short32_few4");
                 return true;
             }
+            // Trial (1 << 47): at most 4 values on the probes but more in
+            // the array: many duplicates (FakeZipf), `sort_unstable` (its
+            // partitions set the keys equal to the pivot aside at once).
+            if !on(1 << 47) {
+                trace!("short32_dups");
+                arr.sort_unstable();
+                return true;
+            }
             false
+        }
+
+        /// Trial (1 << 51): at most `runs_max()` ascending runs, or as many
+        /// descending ones (each reversed first), at least 16 keys per run
+        /// on average: merged (`merge_runs`); else nothing changed.
+        #[inline(never)]
+        fn merge_few_runs(arr: &mut [$t]) -> bool {
+            let n = arr.len();
+            let max = runs_max();
+            let (mut up, mut down) = (1usize, 1usize);
+            for w in arr.windows(2) {
+                up += (w[0] > w[1]) as usize;
+                down += (w[0] < w[1]) as usize;
+            }
+            let ascending = up <= down;
+            let runs = up.min(down);
+            if runs > max || n / runs < 16 {
+                return false;
+            }
+            let mut seps = Vec::with_capacity(runs + 1);
+            seps.push(0);
+            let mut start = 0;
+            for i in 1..n {
+                let cut = if ascending { arr[i - 1] > arr[i] } else { arr[i - 1] < arr[i] };
+                if cut {
+                    if !ascending {
+                        arr[start..i].reverse();
+                    }
+                    seps.push(i);
+                    start = i;
+                }
+            }
+            if !ascending {
+                arr[start..n].reverse();
+            }
+            seps.push(n);
+            merge_runs(arr, &mut seps);
+            true
         }
 
         /// `few4` giving up at the first block of 64 keys holding a key

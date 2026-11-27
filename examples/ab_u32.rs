@@ -114,7 +114,7 @@ fn gens_wanted<T: Key>() -> Gens<T> {
     let want = std::env::var("GEN").ok();
     // GENS=a,b,c: only the distributions whose short name (as printed,
     // `_` for spaces) is in the list.
-    let list: Option<Vec<String>> = std::env::var("GENS").ok().map(|v| v.split(',').map(String::from).collect());
+    let list: Option<Vec<String>> = std::env::var("GENS").ok().filter(|v| !v.is_empty()).map(|v| v.split(',').map(String::from).collect());
     T::gens()
         .into_iter()
         .filter(|(_, t)| want.as_ref().is_none_or(|w| t.contains(w.as_str())))
