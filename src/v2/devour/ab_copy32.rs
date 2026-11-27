@@ -144,11 +144,20 @@ macro_rules! chain32_ab {
                 } else {
                     128
                 };
+                // Trial (1 << 57): ARM from 80 keys only (below, the
+                // half-empty 128-key network loses to sort_unstable).
+                let direct_min = if !on(1 << 57) && cfg!(target_arch = "aarch64") { 80 } else { 0 };
                 if !on(1 << 49)
                     && n <= direct_max
+                    && n >= direct_min
                     && known.ascending_prefix < n / 2
                     && simd::available()
                 {
+                    // Trial (1 << 56): the 8 probes first (few values,
+                    // a dominant one, many duplicates).
+                    if !on(1 << 56) && probe8(arr) {
+                        return;
+                    }
                     let narrow = if !on(1 << 46) { n } else { n / 2 };
                     match simd::sort_or_range(bits_of(arr), $c(0), narrow) {
                         None => {

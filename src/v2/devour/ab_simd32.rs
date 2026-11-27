@@ -481,7 +481,9 @@ mod avx2 {
                     b += 128;
                 }
             }
-            let padded = b;
+            // The last run merged only up to the multiple of 8 above its
+            // keys: its padding (the maximum) sorted to its end.
+            let padded = if super::trial(1 << 55) { n.next_multiple_of(8) } else { b };
             let mut w = 128;
             while w < padded {
                 let src = std::slice::from_raw_parts(px, padded);
@@ -838,7 +840,9 @@ mod neon {
                     b += 128;
                 }
             }
-            let padded = b;
+            // The last run merged only up to the multiple of 8 above its
+            // keys: its padding (the maximum) sorted to its end.
+            let padded = if super::trial(1 << 55) { n.next_multiple_of(8) } else { b };
             let mut w = 128;
             while w < padded {
                 let src = std::slice::from_raw_parts(px, padded);
