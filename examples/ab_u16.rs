@@ -13,6 +13,11 @@
 #[path = "../src/generators/mod.rs"]
 mod generators;
 
+#[path = "common/fresh_pages.rs"]
+mod fresh_pages;
+#[global_allocator]
+static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;
+
 use std::time::Instant;
 use voracious_radix_sort::{ab_u16_copy, devour_sort};
 

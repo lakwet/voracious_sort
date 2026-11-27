@@ -200,6 +200,9 @@ make bench-big-type T=u64
 NATIVE=1 make bench         # any of them, compiled for this CPU (see below)
 ```
 
+**Your results are welcome.** If you run a benchmark on your machine, please
+send us the files it writes: see [Contributing](#contributing).
+
 The rival sorts are optional dependencies behind the `bench` feature, which
 the `make bench...` targets turn on: `make test` and the CI do not build them.
 By hand: `cargo test --release --lib --features "voracious_multithread bench"
@@ -216,7 +219,8 @@ bench_cpu -- --ignored --nocapture --test-threads=1`.
   (binary keys; the exponential, RootDup, TwoDup and EightDup of IPS4o), plus
   the worst cases of our own detectors (a late outlier, a late extra value, a
   random tail). Floats add NaNs, infinities and signed zeros; records add
-  sizes from 8 to 128 bytes.
+  sizes from 8 to 128 bytes. Each family and why it is there:
+  [The data we sort](articles/generators.md).
 - **The sizes**: 1 000 to 10 000 000 elements (500 to 10 000 000 by type),
   and from 30 million up to what the memory holds for the large benchmarks
   (the array, its copy and a buffer within half the RAM; a size that does
@@ -294,6 +298,19 @@ Each run writes two files in `resultsbenchs/<machine>/`:
 - `python tools/gen_networks.py`: generates the sorting networks of the small
   arrays (`src/v2/engines/small/networks.rs`).
 
+## Articles
+
+How the sort is built, measured and tested, in [`articles/`](articles/):
+
+- [Engineering voracious radix sort for 16-bit keys](articles/engineering_16_bits.md):
+  how the u16 / i16 sort was rebuilt for 2.1, what paid and what did not;
+- [How to benchmark a sort without fooling yourself](articles/how_to_bench.md):
+  the traps of measuring a sort, and the tools we built against them;
+- [Testing for a correct sort](articles/testing_for_a_correct_sort.md): how
+  the library is tested, so that you can trust it with your data;
+- [The data we sort: the input generators](articles/generators.md): the
+  arrays the tests and the benchmarks use, and why each family is there.
+
 ## How we change the code
 
 Each key type or family has its own chain of decisions (`src/v2/devour/`
@@ -328,7 +345,7 @@ and macOS.
 
 **You can also help without writing code: run a benchmark on your machine.**
 One key type is enough, for example `make bench-type T=u64` (or `T=u32`,
-`T=f64`...), and send the two files it writes in `resultsbenchs/<machine>/`
+`T=f64`..., or `make bench-16` for the 16-bit integers), and send the two files it writes in `resultsbenchs/<machine>/`
 (`.txt` and `.csv`) to the email address in `Cargo.toml`. Each file records
 the characteristics of the machine (CPU, cores, caches, memory, operating
 system, compiler, commit), so results from many machines can be compared:
