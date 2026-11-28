@@ -16,9 +16,7 @@ A new sort for `u32` and `i32`, and two fixes for `u16` and `i16`.
   - the diverting LSD keeps its buffer on the stack below 4096 keys, and
     sends to the plain LSD the keys whose order shows only from afar
     (timestamps with jitter) and composite keys (a few groups of uniform
-    values) from 65 536 keys;
-  - the counting tables of 128 to 256 KiB are on the stack (new pages on
-    the heap fault at each call; see the README, Memory).
+    values) from 65 536 keys.
   On our machines the new sort wins more inputs than 2.1 at every size,
   most of all below 20 000 keys; the benchmark of `u32` / `i32` comes with
   a later release.
