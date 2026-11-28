@@ -11,7 +11,6 @@
 
 #[macro_use]
 mod kernels;
-#[cfg(feature = "ab")]
 #[macro_use]
 mod sort_ab;
 #[macro_use]
@@ -148,7 +147,6 @@ dlsd_width!(u128, wi128, di128, alias_min_bytes_int);
 
 /// Dev only (feature `ab`): the DLSD with its scratch on the stack
 /// (`sort_ab.rs`), for the A/B copy of the u32 / i32 chains.
-#[cfg(feature = "ab")]
 macro_rules! dlsd_width_ab {
     ($uint:ty, $w:ident, $m:ident, $alias_min:path, $smin:expr) => {
         pub(crate) mod $m {
@@ -168,8 +166,6 @@ macro_rules! dlsd_width_ab {
     };
 }
 
-#[cfg(feature = "ab")]
 dlsd_width_ab!(u32, wu32c, su32, alias_min_bytes_int, 16);
-#[cfg(feature = "ab")]
 dlsd_width_ab!(u32, wi32c, si32, alias_min_bytes_int, 16);
 

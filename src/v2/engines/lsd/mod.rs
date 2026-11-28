@@ -17,13 +17,10 @@ mod scatter;
 #[macro_use]
 mod passes;
 pub(crate) mod short16;
-#[cfg(feature = "ab")]
 #[macro_use]
 mod ab_histogram;
-#[cfg(feature = "ab")]
 #[macro_use]
 mod ab_scatter;
-#[cfg(feature = "ab")]
 #[macro_use]
 mod ab_passes;
 
@@ -81,7 +78,6 @@ fused_lsd!(u8, i8, wi8, 9, signed);
 
 /// Dev only (feature `ab`): copy of `fused_lsd!` on the `ab_*.rs` parts,
 /// for the A/B copy of the u32 / i32 chains.
-#[cfg(feature = "ab")]
 macro_rules! fused_lsd_ab {
     ($uint:ty, $sint:ty, $name:ident, $wide_bits:expr, $codec:ident) => {
         pub(crate) mod $name {
@@ -107,9 +103,7 @@ macro_rules! fused_lsd_ab {
     };
 }
 
-#[cfg(feature = "ab")]
 fused_lsd_ab!(u32, i32, wu32c, 20, unsigned);
-#[cfg(feature = "ab")]
 fused_lsd_ab!(u32, i32, wi32c, 20, signed);
 
 #[cfg(test)] mod tests;

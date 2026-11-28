@@ -25,7 +25,8 @@ static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;
 
 use std::time::Instant;
 use voracious_radix_sort::{
-    ab_i32_copy, ab_i32_engine, ab_i32_lsd, ab_u32_copy, ab_u32_engine, ab_u32_lsd, devour_sort,
+    ab_i32_copy, ab_i32_engine, ab_i32_lsd, ab_i32_old, ab_u32_copy, ab_u32_engine, ab_u32_lsd,
+    ab_u32_old, devour_sort,
 };
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -37,6 +38,7 @@ trait Key: voracious_radix_sort::DevourSort + Send + Sync + std::fmt::Debug + 's
     fn turbo(w: &mut [Self]);
     fn engine(name: &str, w: &mut [Self]);
     fn copy(w: &mut [Self]);
+    fn old(w: &mut [Self]);
 }
 
 impl Key for u32 {
@@ -50,6 +52,7 @@ impl Key for u32 {
     fn turbo(w: &mut [u32]) { turbosort::sort(w) }
     fn engine(name: &str, w: &mut [u32]) { ab_u32_engine(name, w) }
     fn copy(w: &mut [u32]) { ab_u32_copy(w) }
+    fn old(w: &mut [u32]) { ab_u32_old(w) }
 }
 
 impl Key for i32 {
@@ -63,6 +66,7 @@ impl Key for i32 {
     fn turbo(w: &mut [i32]) { turbosort::sort(w) }
     fn engine(name: &str, w: &mut [i32]) { ab_i32_engine(name, w) }
     fn copy(w: &mut [i32]) { ab_i32_copy(w) }
+    fn old(w: &mut [i32]) { ab_i32_old(w) }
 }
 
 fn run<T: Key>(name: &str, w: &mut [T])
@@ -74,16 +78,17 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "glide" => glidesort::sort(w),
         "lsd" => T::lsd(w),
         "copy" => T::copy(w),
+        "old" => T::old(w),
         c if c.starts_with("copy:") => {
             voracious_radix_sort::ab_copy32_skip(c[5..].parse().unwrap());
             T::copy(w);
-            voracious_radix_sort::ab_copy32_skip(0);
+            voracious_radix_sort::ab_copy32_skip(voracious_radix_sort::ab_copy32_kept());
         },
         "dlsd" | "dlsdr" | "dlsds" | "dlsdo" | "rollo" | "roller" | "lsdc" => T::engine(name, w),
         c if c.starts_with("lsdc:") => {
             voracious_radix_sort::ab_copy32_skip(c[5..].parse().unwrap());
             T::engine("lsdc", w);
-            voracious_radix_sort::ab_copy32_skip(0);
+            voracious_radix_sort::ab_copy32_skip(voracious_radix_sort::ab_copy32_kept());
         },
         _ => devour_sort(w),
     }
@@ -188,7 +193,8 @@ settings,ab_u32 example: median of {} interleaved, random order, copy subtracted
         let names: Vec<&str> = sorts
             .iter()
             .map(|s| match s.as_str() {
-                "v2" => "voracious 2.1",
+                "v2" => "voracious",
+                "old" => "voracious 2.1",
                 "std" => "std",
                 "blz" => "blazing",
                 "turbo" => "turbosort",
@@ -341,6 +347,16 @@ fn go<T: Key>()
 }
 
 fn main() {
+    // STACK_KB: everything in a thread with this stack (the stack the sorts
+    // need; default: the main thread's).
+    if let Some(kb) = std::env::var("STACK_KB").ok().and_then(|v| v.parse::<usize>().ok()) {
+        std::thread::Builder::new().stack_size(kb * 1024).spawn(main2).unwrap().join().unwrap();
+    } else {
+        main2();
+    }
+}
+
+fn main2() {
     fresh_pages::init();
     match std::env::var("T").as_deref() {
         Ok("i32") => go::<i32>(),

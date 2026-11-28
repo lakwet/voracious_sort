@@ -22,7 +22,14 @@ fn dlsd_max() -> usize {
 /// the sample, counted by comparisons), 16384 no tiny path, 32768 the DLSD
 /// instead of the short radix sort in the tiny path, 65536 the other pass count
 /// in the short radix sort below 512 keys (ARM one pass, x86 two).
-pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(KEPT);
+
+/// The trials kept, the library's chain (provisional: to be written into the
+/// code, the rejected ones removed, at the refactor before the release). x86:
+/// 512, 42, 43, 44, 46, 47, SIMD networks up to 512 keys (49, 53), last run
+/// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
+/// to 128 keys (49, 57), 54.
+pub(crate) const KEPT: u64 = if cfg!(target_arch = "aarch64") { 162916836910825984 } else { 63855237294719488 };
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {

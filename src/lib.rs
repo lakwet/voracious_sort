@@ -188,7 +188,22 @@ pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
 #[doc(hidden)]
 pub fn ab_u32_copy(keys: &mut [u32]) { v2::devour::ab_copy32::cu32::sort(keys) }
 
-/// Dev only (feature `ab`): the questions the A/B copy skips (`ab_copy32::SKIP`).
+/// Dev only (feature `ab`): the trials of the library chain (`ab_copy32::KEPT`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_copy32_kept() -> u64 { v2::devour::ab_copy32::KEPT }
+
+/// Dev only (feature `ab`): the 2.1 u32 chain.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_old(keys: &mut [u32]) { v2::devour::u32::sort_old(keys) }
+
+/// Dev only (feature `ab`): the 2.1 i32 chain.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_old(keys: &mut [i32]) { v2::devour::i32::sort_old(keys) }
+
+/// Dev only (feature `ab`): sets the trials of the chain copy.
 #[cfg(feature = "ab")]
 #[doc(hidden)]
 pub fn ab_copy32_skip(mask: u64) {
