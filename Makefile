@@ -102,7 +102,7 @@ bench-type: ## one key type, 500 to 30M keys, cold, fresh pages (median of 11): 
 
 # The bench of one type over several code placements of the same source
 # (PLACEMENTS="align:units ...", as abench-align): one build and one file
-# per placement (bench-type-<T>[-native]-place-<align>-<units>-...); the
+# per placement (bench-<cpu>-<T>-<generic|native>-place-<align>-<units>-...); the
 # placement alone moves some cells by 5-35 %, tools/bench_placements.py
 # gives each cell's range and counts only what holds in every placement.
 bench-type-placed: ## bench-type over PLACEMENTS (6 builds by default): make bench-type-placed T=u16 [NATIVE=1]
@@ -137,7 +137,7 @@ abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 
 # The 16-bit family (u16 and i16): the full bench of each type (bench-type,
 # cold), generic build then native build (-C target-cpu=native), each in its
-# own files (bench-type-u16-..., bench-type-u16-native-...); two builds of
+# own files (bench-<cpu>-u16-generic-..., bench-<cpu>-u16-native-...); two builds of
 # the test binary (several minutes each).
 bench-16: ## u16 and i16, generic then native: 4 bench-type runs (long; one file each)
 	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=0
