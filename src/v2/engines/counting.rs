@@ -22,6 +22,51 @@ fn trial(bit: u64) -> bool {
     }
 }
 
+/// The 4 keys of a quad, 32-bit keys read by two 64-bit loads (trial
+/// 1 << 61: the loop is bound by its loads, 4 key loads + 4 counter loads
+/// per quad, 6 this way).
+#[inline(always)]
+fn quad<U: Key>(q: &[U; 4]) -> [U; 4] {
+    if std::mem::size_of::<U>() == 4 && trial(1 << 61) {
+        // SAFETY: [U; 4] of 4-byte keys is 16 bytes, read unaligned.
+        let w: [u64; 2] = unsafe { std::ptr::read_unaligned(q.as_ptr() as *const [u64; 2]) };
+        [
+            U::from_u64(w[0] & 0xFFFF_FFFF),
+            U::from_u64(w[0] >> 32),
+            U::from_u64(w[1] & 0xFFFF_FFFF),
+            U::from_u64(w[1] >> 32),
+        ]
+    } else {
+        *q
+    }
+}
+
+/// Whether the 4-equal-keys shortcut pays (trial 1 << 62, as the 16-bit
+/// domain count): at least half of 64 spread quads made of one value.
+#[inline]
+fn runs_pay<U: Key>(keys: &[U]) -> bool {
+    if !trial(1 << 62) {
+        return false;
+    }
+    let (quads, _) = keys.as_chunks::<4>();
+    if quads.len() < 64 {
+        return false;
+    }
+    let step = quads.len() / 64;
+    (0..64).filter(|&i| {
+        eq4(&quads[i * step])
+    })
+    .count()
+        >= 32
+}
+
+/// The 4 keys of a quad equal.
+#[inline(always)]
+fn eq4<U: Key>(q: &[U; 4]) -> bool {
+    let a = q[0].to_u64();
+    a == q[1].to_u64() && a == q[2].to_u64() && a == q[3].to_u64()
+}
+
 /// Counters held on the stack (trial 1 << 59): tables of 32 768 to 65 536
 /// (128 to 256 KiB), new pages at each call on the heap (smaller ones come
 /// from the allocator's reused memory).
@@ -395,12 +440,18 @@ fn count_masked<U: Key, E: Fn(U) -> U + Copy>(
     let mask = size - 1;
     let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize & mask;
     let (quads, tail) = keys.as_chunks::<4>();
+    let run4 = runs_pay(keys);
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(size);
         let (c1, rest) = rest.split_at_mut(size);
         let (c2, c3) = rest.split_at_mut(size);
         let (c0, c1, c2, c3) = (&mut c0[..size], &mut c1[..size], &mut c2[..size], &mut c3[..size]);
         for q in quads {
+            let q = quad(q);
+            if run4 && eq4(&q) {
+                c0[off(q[0])] += 4;
+                continue;
+            }
             // SAFETY: a masked offset is below `size`, the length of each table.
             unsafe {
                 *c0.get_unchecked_mut(off(q[0])) += 1;
@@ -415,6 +466,11 @@ fn count_masked<U: Key, E: Fn(U) -> U + Copy>(
     } else {
         let c = &mut counts[..size];
         for q in quads {
+            let q = quad(q);
+            if run4 && eq4(&q) {
+                c[off(q[0])] += 4;
+                continue;
+            }
             // SAFETY: as above.
             unsafe {
                 *c.get_unchecked_mut(off(q[0])) += 1;
@@ -442,6 +498,7 @@ fn count_window<U: Key, E: Fn(U) -> U + Copy>(
     counts: &mut [u32],
 ) -> Option<usize> {
     let off = |k: U| encode(k).to_u64().wrapping_sub(base) as usize;
+    let run4 = runs_pay(keys);
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(width);
         let (c1, rest) = rest.split_at_mut(width);
@@ -449,9 +506,15 @@ fn count_window<U: Key, E: Fn(U) -> U + Copy>(
         let (quads, tail) = keys.as_chunks::<4>();
         let mut i = 0;
         for q in quads {
+            let q = quad(q);
             let (d0, d1, d2, d3) = (off(q[0]), off(q[1]), off(q[2]), off(q[3]));
             if d0.max(d1).max(d2.max(d3)) >= width {
                 return Some(i);
+            }
+            if run4 && d0 == d1 && d1 == d2 && d2 == d3 {
+                c0[d0] += 4;
+                i += 4;
+                continue;
             }
             // SAFETY: each offset is below width.
             unsafe {
