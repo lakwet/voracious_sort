@@ -145,6 +145,20 @@ bench-16: ## u16 and i16, generic then native: 4 bench-type runs (long; one file
 	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=1
 	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=1
 
+# A borrowed machine for one hour at most: u16 and i16 up to 10M keys (no
+# 30M), median of 7, one build (generic, or native with the -native target);
+# ~30-40 min with the build on an Apple M3 Pro.
+BENCH16_SHORT = BENCH_SIZES=$(BENCH_SIZES_RECORDS) BENCH_REPS=7 PLACE_NAME=-short
+bench-16-short: ## u16 and i16 up to 10M, median of 7, generic build (< 1 h; borrowed machines)
+	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=0 $(BENCH16_SHORT)
+	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=0 $(BENCH16_SHORT)
+	@echo "done: send the bench-type-u16-short-* and bench-type-i16-short-* files (.csv and .txt)"
+
+bench-16-short-native: ## bench-16-short with -C target-cpu=native (< 1 h; borrowed machines)
+	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=1 $(BENCH16_SHORT)
+	@$(MAKE) --no-print-directory bench-type T=i16 NATIVE=1 $(BENCH16_SHORT)
+	@echo "done: send the bench-type-u16-native-short-* and bench-type-i16-native-short-* files (.csv and .txt)"
+
 # Simulated i16 bench (examples/ab_i16.rs, cold, median of 11): the generic
 # chain against std, turbosort and blazing, written to
 # bench_work/<host>/abench-cold-i16-<host>-<UTC date>.csv for the viewer.
@@ -166,6 +180,36 @@ abench-align: ## A/B over 6 code placements (EX, SORTS=v2,copy, DOM_SIZES): wins
 	@mkdir -p bench_work/$(ABENCH_HOST)
 	@for p in $(PLACEMENTS); do a=$${p%%:*}; u=$${p##*:}; 	  CARGO_TARGET_DIR=target/place-$$a-$$u CARGO_PROFILE_RELEASE_CODEGEN_UNITS=$$u 	  RUSTFLAGS="$(BENCH_RUSTFLAGS) -C llvm-args=-align-loops=$$a" 	    cargo build -q --release --example $(EX) --features "bench ab" || exit 1; 	  COLD=1 TOTAL=12000000 REPS=11 ./target/place-$$a-$$u/release/examples/$(EX) 	    > bench_work/$(ABENCH_HOST)/abench-place-$$a-$$u.txt || exit 1; 	done
 	python3 tools/ab_align.py $(foreach p,$(PLACEMENTS),bench_work/$(ABENCH_HOST)/abench-place-$(subst :,-,$(p)).txt)
+
+gather-check: export RUSTFLAGS = $(BENCH_RUSTFLAGS) -C target-cpu=native
+gather-check: ## native A/B of the 16-bit copy without vector gathers (Core Ultra): two files in bench_work/<host>/
+	@mkdir -p bench_work/$(ABENCH_HOST)
+	CARGO_TARGET_DIR=target/native 	  cargo build -q --release --example ab_u16 --example ab_i16 --features "bench ab"
+	CHECK=1 SORTS=v2,copy DOM_SIZES=1000,10000,100000,1000000 TOTAL=4000000 	  ./target/native/release/examples/ab_u16 > bench_work/$(ABENCH_HOST)/gather-native-u16.txt
+	CHECK=1 SORTS=gen,copy DOM_SIZES=1000,10000,100000,1000000 TOTAL=4000000 	  ./target/native/release/examples/ab_i16 > bench_work/$(ABENCH_HOST)/gather-native-i16.txt
+
+# The copy's trials kept (src/v2/devour/ab_copy32.rs): x86 the SIMD networks
+# up to 512 keys with the range test (49, 53), the last run cut (55), short32
+# bounds (54), counted up to n values (46), networks in short32 (44); ARM the
+# networks from 80 to 128 keys (49, 57), 54, 46; both: 512, stack count (42),
+# probes after the bounds (43), many duplicates -> sort_unstable (47).
+ifeq ($(filter aarch64 arm64 ARM64,$(shell uname -m) $(PROCESSOR_ARCHITECTURE)),)
+ABENCH32_MASK ?= 63855237294719488
+else
+ABENCH32_MASK ?= 162916836910825984
+endif
+ABENCH32_SIZES ?= 500,1000,5000,10000,20000,50000,100000,200000,500000,1000000
+abench-32: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+abench-32: ## cold A/B (fresh pages for every buffer) of the 32-bit chain copy against 2.1, std, blazing, turbosort, glidesort (u32, i32; viewer CSV in bench_work/<host>/; NATIVE=1)
+	@mkdir -p bench_work/$(ABENCH_HOST)
+	cargo build -q --release --example ab_u32 --features "bench ab"
+	@d=$$(date +%Y%m%d%H%M); for t in u32 i32; do 	  FRESH=1 COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/bench-$(CPU_SLUG)-$$t-$(BUILD_KIND)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=copy:$(ABENCH32_MASK),v2,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
+
+gros-intel: ## the Core Ultra's night (~7 h): bench-16 (u16, i16, generic then native), then abench-32 generic and native
+	@$(MAKE) --no-print-directory bench-16
+	@$(MAKE) --no-print-directory abench-32
+	@$(MAKE) --no-print-directory abench-32 NATIVE=1
+	@echo "done: send resultsbenchs/$(CPU_SLUG)/bench-*.csv and .txt, bench_work/$(ABENCH_HOST)/bench-*.csv"
 
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))

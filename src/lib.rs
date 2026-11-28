@@ -118,6 +118,112 @@ pub fn ab_i16_copy(keys: &mut [i16]) {
     v2::devour::ab_copy::ci16::sort(v2::devour::keys::bits_of(keys))
 }
 
+/// Dev only (feature `ab`): the u32 LSD engine alone, no detector (the
+/// floor of the chain's radix path).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_lsd(keys: &mut [u32]) { v2::engines::lsd::wu32::lsd(keys) }
+
+/// Dev only (feature `ab`): the i32 LSD engine alone.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_lsd(keys: &mut [i32]) {
+    v2::engines::lsd::wi32::lsd(v2::devour::keys::bits_of(keys))
+}
+
+#[cfg(feature = "ab")]
+thread_local! {
+    static SCRATCH32: std::cell::RefCell<Vec<std::mem::MaybeUninit<u32>>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Dev only (feature `ab`): u32 engines alone, by name (`dlsd`, `roller`;
+/// i32 through their signed codec).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_engine(name: &str, keys: &mut [u32]) {
+    use v2::engines::{dlsd::du32, roller::ru32};
+    match name {
+        "dlsd" => du32::dlsd(keys),
+        // Upper bound of a buffer that costs nothing: one scratch kept per
+        // thread (measure only, never in the library).
+        "dlsdr" => SCRATCH32.with(|s| du32::dlsd_with(keys, &mut s.borrow_mut())),
+        "dlsds" => v2::engines::dlsd::su32::dlsd(keys),
+        "lsdc" => v2::engines::lsd::wu32c::lsd(keys),
+        "rollo" => v2::engines::roller_ab::ou32::roller(keys),
+        "dlsdo" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::su32::OLD.store(true, Relaxed);
+            v2::engines::dlsd::su32::dlsd(keys);
+            v2::engines::dlsd::su32::OLD.store(false, Relaxed);
+        },
+        _ => ru32::roller(keys),
+    }
+}
+
+/// Dev only (feature `ab`): i32 engines alone (see `ab_u32_engine`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_engine(name: &str, keys: &mut [i32]) {
+    use v2::engines::{dlsd::di32, roller::ri32};
+    let bits = v2::devour::keys::bits_of(keys);
+    match name {
+        "dlsd" => di32::dlsd(bits),
+        "dlsdr" => SCRATCH32.with(|s| di32::dlsd_with(bits, &mut s.borrow_mut())),
+        "dlsds" => v2::engines::dlsd::si32::dlsd(bits),
+        "lsdc" => v2::engines::lsd::wi32c::lsd(bits),
+        "rollo" => v2::engines::roller_ab::oi32::roller(bits),
+        "dlsdo" => {
+            use std::sync::atomic::Ordering::Relaxed;
+            v2::engines::dlsd::si32::OLD.store(true, Relaxed);
+            v2::engines::dlsd::si32::dlsd(bits);
+            v2::engines::dlsd::si32::OLD.store(false, Relaxed);
+        },
+        _ => ri32::roller(bits),
+    }
+}
+
+/// Dev only (feature `ab`): the u32 chain of the A/B copy (`ab_copy32`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_copy(keys: &mut [u32]) { v2::devour::ab_copy32::cu32::sort(keys) }
+
+/// Dev only (feature `ab`): the trials of the library chain (`ab_copy32::KEPT`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_copy32_kept() -> u64 { v2::devour::ab_copy32::KEPT }
+
+/// Dev only (feature `ab`): the 2.1 u32 chain.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_u32_old(keys: &mut [u32]) { v2::devour::u32::sort_old(keys) }
+
+/// Dev only (feature `ab`): the 2.1 i32 chain.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_old(keys: &mut [i32]) { v2::devour::i32::sort_old(keys) }
+
+/// Dev only (feature `ab`): sets the trials of the chain copy.
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_copy32_skip(mask: u64) {
+    v2::devour::ab_copy32::SKIP.store(mask, std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Dev only (feature `ab`): the i32 chain of the A/B copy (`ab_copy32`).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_i32_copy(keys: &mut [i32]) { v2::devour::ab_copy32::ci32::sort(keys) }
+
+/// Dev only (feature `ab`): the decisions of the stack DLSD (u32) since the
+/// last call: (n, top bit, prefix bits, digit width, digits, finish).
+#[cfg(feature = "ab")]
+#[doc(hidden)]
+pub fn ab_dlsd_stats_take() -> Vec<(usize, u32, u32, u32, usize, u8)> {
+    v2::engines::dlsd::su32::STATS_ON.store(true, std::sync::atomic::Ordering::Relaxed);
+    v2::engines::dlsd::su32::STATS.with(|s| std::mem::take(&mut *s.borrow_mut()))
+}
+
 /// Dev only (features `ab` and `v2_trace`): the decision labels noted
 /// since the last call.
 #[cfg(all(feature = "ab", feature = "v2_trace"))]

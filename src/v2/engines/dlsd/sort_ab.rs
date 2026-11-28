@@ -1,0 +1,557 @@
+//! Dev only (feature `ab`): copy of `sort.rs` for the 32-bit chain copy:
+//! scratch on the stack up to `STACK_KEYS` keys (`Scratch`), histograms in 4
+//! lanes from 4096 to 32k keys, aliasing checked from 32k keys (`OLD`: the
+//! engine's rules, for A/B). The DLSD steps: small arrays, min / max, narrowing of 128-bit keys,
+//! prefix layout, histograms, scatter passes on the prefix digits, finish.
+
+macro_rules! dlsd_sort_ab {
+    ($uint:ty, $alias_min:path) => {
+        /// Keys of the scratch buffer kept on the stack.
+        const STACK_KEYS: usize = 4096;
+
+        /// The scratch buffer: on the stack up to `STACK_KEYS` keys, else on
+        /// the heap.
+        struct Scratch<'a> {
+            stack: &'a mut [MaybeUninit<$uint>],
+            heap: Vec<MaybeUninit<$uint>>,
+        }
+
+        impl Scratch<'_> {
+            /// `n` slots.
+            #[inline(always)]
+            fn slots(&mut self, n: usize) -> *mut $uint {
+                if n <= self.stack.len() {
+                    return self.stack.as_mut_ptr() as *mut $uint;
+                }
+                if self.heap.len() < n {
+                    self.heap.reserve(n - self.heap.len());
+                    // SAFETY: `MaybeUninit` needs no initialization.
+                    unsafe { self.heap.set_len(n) };
+                }
+                self.heap.as_mut_ptr() as *mut $uint
+            }
+        }
+
+        /// Sorts raw bits.
+        pub(crate) fn dlsd(bits: &mut [$uint]) {
+            if bits.len() > u32::MAX as usize {
+                w::lsd(bits);
+                return;
+            }
+            let mut stack = [MaybeUninit::<$uint>::uninit(); STACK_KEYS];
+            let n = bits.len().min(STACK_KEYS);
+            let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
+            dlsd_rec::<true>(bits, &mut scratch, None, None);
+        }
+
+        /// Sorts raw bits whose encoded minimum and maximum are known (the
+        /// tiny path's inspection pass): no min / max pass.
+        #[allow(dead_code)]
+        pub(crate) fn dlsd_known(bits: &mut [$uint], min: $uint, max: $uint) {
+            let mut stack = [MaybeUninit::<$uint>::uninit(); STACK_KEYS];
+            let n = bits.len().min(STACK_KEYS);
+            let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
+            dlsd_rec::<true>(bits, &mut scratch, None, Some((min, max)));
+        }
+
+        /// Sorts encoded keys and writes them back decoded, `scratch` (at
+        /// least as long as `keys`) as the buffer: the out-of-place
+        /// rollercoaster's leaves, sorted with the space their bucket left.
+        #[allow(dead_code)]
+        pub(crate) fn dlsd_encoded_in(keys: &mut [$uint], scratch: &mut [MaybeUninit<$uint>]) {
+            debug_assert!(scratch.len() >= keys.len());
+            let mut scratch = Scratch { stack: scratch, heap: Vec::new() };
+            dlsd_rec::<false>(keys, &mut scratch, None, None);
+        }
+
+        /// The key of a stored value: encoded when `RAW`.
+        #[inline(always)]
+        fn enc<const RAW: bool>(v: $uint) -> $uint {
+            if RAW {
+                w::encode_key(v)
+            } else {
+                v
+            }
+        }
+
+        #[inline(always)]
+        /// Decodes every key in place.
+        fn decode_all(keys: &mut [$uint]) { keys.iter_mut().for_each(|k| *k = w::decode_key(*k)); }
+
+        /// The digits of the prefix: `digits` digits of `width` bits, the
+        /// prefix being bits `base..top` of `key - min` (exact when `base` is 0).
+        #[derive(Clone, Copy)]
+        struct Layout {
+            width: u32,
+            digits: usize,
+            base: u32,
+            buckets: usize,
+            mask: $uint,
+        }
+
+        impl Layout {
+            /// Digits for a prefix of `prefix` bits under `top`: as few passes
+            /// of at most `MAX_DIGIT_BITS` as possible, the prefix split evenly,
+            /// at most about n / 16 digit values. 128-bit keys fill the passes
+            /// paid for (smaller groups left to the finish).
+            fn new(prefix: u32, top: u32, n: usize) -> Self {
+                let log_n = usize::BITS - n.leading_zeros();
+                let widest = MAX_DIGIT_BITS.min(log_n.saturating_sub(4).max(8));
+                let mut bits = prefix;
+                if <$uint>::BITS == 128 {
+                    bits = (bits.div_ceil(widest) * widest).min(top);
+                }
+                let passes = bits.div_ceil(MAX_DIGIT_BITS);
+                let width = bits.div_ceil(passes).min(log_n.saturating_sub(4).max(8)).max(1);
+                let digits = bits.div_ceil(width) as usize;
+                let base = top.saturating_sub(digits as u32 * width);
+                let buckets = 1usize << width;
+                Layout { width, digits, base, buckets, mask: (buckets - 1) as $uint }
+            }
+        }
+
+        /// `RAW`: `keys` hold raw bits, else encoded keys; output: raw bits.
+        /// `pre`: the sorted spread sample of the encoded keys, when taken.
+        fn dlsd_rec<const RAW: bool>(
+            keys: &mut [$uint],
+            scratch: &mut Scratch,
+            pre: Option<&mut [$uint]>,
+            known: Option<($uint, $uint)>,
+        ) {
+            let n = keys.len();
+            if n <= small_limit() {
+                sort_small::<RAW>(keys);
+                return;
+            }
+            let (min, max) = known.unwrap_or_else(|| min_max::<RAW>(keys));
+            let range = max - min;
+            if range == 0 {
+                if !RAW {
+                    decode_all(keys);
+                }
+                return;
+            }
+            // 128-bit keys within a 64-bit range: sorted as 64- or 32-bit keys.
+            if <$uint as WideNarrow>::narrow(keys, min, range, RAW, w::encode_key, w::decode_key) {
+                return;
+            }
+            let top = <$uint>::BITS - range.leading_zeros();
+            let layout = Layout::new(prefix_bits::<RAW>(keys, min, top, pre), top, n);
+            // An exact prefix over nearly the whole key (the sample separates
+            // keys only on the whole range: Clusters, Exponential, Composite):
+            // the DLSD is then an LSD of narrower digits, more passes; the
+            // LSD instead (1.05-1.35x faster at 3000-200k keys on the Ryzen
+            // and the Haswell; narrower exact prefixes, Normale 20-24 at
+            // 3000-5000 keys, stay: 5-8 % slower there). x86 only (Surface:
+            // Clusters 5-10 % slower at 3000-5000 keys, nothing won). Bit
+            // 16777216 of the chain copy's mask: the DLSD all the same.
+            // Trials: bit 1 << 36 also inexact prefixes (Composite: a high
+            // half among 64 values, a prefix of 27-32 bits), 1 << 37 on ARM.
+            let skip = crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed);
+            if (cfg!(not(target_arch = "aarch64")) || skip & (1 << 37) != 0)
+                && RAW
+                && (layout.base == 0 || skip & (1 << 36) != 0)
+                && layout.digits >= 3
+                && top + 4 >= <$uint>::BITS
+                && crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed)
+                    & 16777216
+                    == 0
+            {
+                trace!("dlsd_to_lsd");
+                w::lsd(keys);
+                return;
+            }
+            // Histograms: on the stack when they fit (only the part used is
+            // zeroed), else on the heap.
+            let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
+            let mut heap: Vec<u32> = Vec::new();
+            let size = layout.digits * layout.buckets;
+            let four = !OLD.load(std::sync::atomic::Ordering::Relaxed)
+                && (LANES4_MIN..LANES4_END).contains(&n)
+                && layout.digits <= 4
+                && 4 * size <= STACK_COUNTERS;
+            let tables = zeroed_counters(&mut stack, &mut heap, if four { 4 } else { 2 } * size);
+            if four {
+                match layout.digits {
+                    1 => hist4::<1, RAW>(keys, min, &layout, tables),
+                    2 => hist4::<2, RAW>(keys, min, &layout, tables),
+                    3 => hist4::<3, RAW>(keys, min, &layout, tables),
+                    _ => hist4::<4, RAW>(keys, min, &layout, tables),
+                }
+            } else {
+                count_digits::<RAW>(keys, min, &layout, tables);
+            }
+            let tables = &mut tables[..layout.digits * layout.buckets];
+            scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
+            if layout.base == 0 {
+                note(n, top, &layout, 2);
+                return;
+            }
+            let by_insertion = finish_by_insertion(keys);
+            note(n, top, &layout, by_insertion as u8);
+            if !by_insertion {
+                finish_groups(keys, scratch, min, layout.base);
+            }
+        }
+
+        /// The copy's rules against `OLD` (the engine's, for A/B): 4 lanes
+        /// from `LANES4_MIN` to `LANES4_END` keys, aliasing checked from
+        /// `ALIAS_KEYS_MIN` keys.
+        pub(crate) static OLD: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        const LANES4_MIN: usize = 4096;
+        const LANES4_END: usize = 32_768;
+        const ALIAS_KEYS_MIN: usize = 32_768;
+
+        /// Dev only: one call's decisions (n, top, prefix bits, digit
+        /// width, digits, finish: 2 exact, 1 insertion, 0 groups), recorded
+        /// when `STATS_ON` (the example's DSTATS mode).
+        #[inline(always)]
+        fn note(n: usize, top: u32, l: &Layout, finish: u8) {
+            if STATS_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                let prefix = top - l.base;
+                STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
+            }
+        }
+
+        /// Whether `note` records (dev).
+        pub(crate) static STATS_ON: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+
+        thread_local! {
+            pub(crate) static STATS: std::cell::RefCell<Vec<(usize, u32, u32, u32, usize, u8)>> =
+                const { std::cell::RefCell::new(Vec::new()) };
+        }
+
+        /// Histograms of `K` digits in one read, 4 lanes (`tables`: 4 x
+        /// `K * buckets` counters, summed into the first).
+        #[inline(always)]
+        fn hist4<const K: usize, const RAW: bool>(
+            keys: &[$uint],
+            min: $uint,
+            layout: &Layout,
+            tables: &mut [u32],
+        ) {
+            let Layout { width, base, buckets, mask, .. } = *layout;
+            let size = K * buckets;
+            let (t0, rest) = tables.split_at_mut(size);
+            let (t1, rest) = rest.split_at_mut(size);
+            let (t2, t3) = rest.split_at_mut(size);
+            let mut quads = keys.chunks_exact(4);
+            for q in &mut quads {
+                let a = enc::<RAW>(q[0]).wrapping_sub(min) >> base;
+                let b = enc::<RAW>(q[1]).wrapping_sub(min) >> base;
+                let c = enc::<RAW>(q[2]).wrapping_sub(min) >> base;
+                let d = enc::<RAW>(q[3]).wrapping_sub(min) >> base;
+                for t in 0..K {
+                    let s = t as u32 * width;
+                    let o = t * buckets;
+                    // SAFETY: masked digits index a table of `buckets` counters.
+                    unsafe {
+                        *t0.get_unchecked_mut(o + ((a >> s) & mask) as usize) += 1;
+                        *t1.get_unchecked_mut(o + ((b >> s) & mask) as usize) += 1;
+                        *t2.get_unchecked_mut(o + ((c >> s) & mask) as usize) += 1;
+                        *t3.get_unchecked_mut(o + ((d >> s) & mask) as usize) += 1;
+                    }
+                }
+            }
+            for &v in quads.remainder() {
+                let a = enc::<RAW>(v).wrapping_sub(min) >> base;
+                for t in 0..K {
+                    t0[t * buckets + ((a >> (t as u32 * width)) & mask) as usize] += 1;
+                }
+            }
+            for i in 0..size {
+                t0[i] += t1[i] + t2[i] + t3[i];
+            }
+        }
+
+        /// Arrays up to this size go to `sort_small`: larger for 128-bit keys
+        /// (the fixed costs of a DLSD call outweigh `sort_unstable` there).
+        #[inline(always)]
+        fn small_limit() -> usize {
+            if <$uint>::BITS == 128 {
+                SMALL_128
+            } else {
+                SMALL
+            }
+        }
+
+        /// Small arrays: insertion sort or `sort_unstable` on the encoded keys;
+        /// 128-bit keys within a 64-bit range first narrowed.
+        fn sort_small<const RAW: bool>(keys: &mut [$uint]) {
+            let n = keys.len();
+            if <$uint>::BITS == 128 && n > GROUP_INSERTION {
+                let (min, max) = min_max::<RAW>(keys);
+                if <$uint as WideNarrow>::narrow(
+                    keys,
+                    min,
+                    max - min,
+                    RAW,
+                    w::encode_key,
+                    w::decode_key,
+                ) {
+                    return;
+                }
+            }
+            if RAW {
+                keys.iter_mut().for_each(|k| *k = w::encode_key(*k));
+            }
+            if n <= GROUP_INSERTION {
+                insertion(keys);
+            } else {
+                keys.sort_unstable();
+            }
+            decode_all(keys);
+        }
+
+        #[inline(always)]
+        /// Smallest and largest key (encoded when `RAW`).
+        fn min_max<const RAW: bool>(keys: &[$uint]) -> ($uint, $uint) {
+            let (mut min, mut max) = (<$uint>::MAX, 0 as $uint);
+            for &v in keys.iter() {
+                let k = enc::<RAW>(v);
+                min = min.min(k);
+                max = max.max(k);
+            }
+            (min, max)
+        }
+
+        /// `len` zeroed counters, on the stack when they fit.
+        #[inline(always)]
+        fn zeroed_counters<'a>(
+            stack: &'a mut std::mem::MaybeUninit<[u32; STACK_COUNTERS]>,
+            heap: &'a mut Vec<u32>,
+            len: usize,
+        ) -> &'a mut [u32] {
+            if len <= STACK_COUNTERS {
+                // SAFETY: the first `len` counters are zeroed before the slice
+                // over them is formed.
+                unsafe {
+                    let ptr = stack.as_mut_ptr() as *mut u32;
+                    std::ptr::write_bytes(ptr, 0, len);
+                    std::slice::from_raw_parts_mut(ptr, len)
+                }
+            } else {
+                heap.resize(len, 0);
+                heap
+            }
+        }
+
+        /// Histograms of the prefix digits in one read, two lanes (`tables`
+        /// holds both: `digits * buckets` counters each; summed into the first).
+        /// Up to 4 digits the digit loop is unrolled (`hist_k`).
+        #[inline(always)]
+        fn count_digits<const RAW: bool>(
+            keys: &[$uint],
+            min: $uint,
+            layout: &Layout,
+            tables: &mut [u32],
+        ) {
+            let Layout { width, digits, base, buckets, mask } = *layout;
+            let (t0, t1) = tables.split_at_mut(digits * buckets);
+            match digits {
+                1 => hist_k::<1, RAW>(keys, min, base, width, mask, buckets, t0, t1),
+                2 => hist_k::<2, RAW>(keys, min, base, width, mask, buckets, t0, t1),
+                3 => hist_k::<3, RAW>(keys, min, base, width, mask, buckets, t0, t1),
+                4 => hist_k::<4, RAW>(keys, min, base, width, mask, buckets, t0, t1),
+                _ => {
+                    let mut pairs = keys.chunks_exact(2);
+                    for pair in &mut pairs {
+                        let a = enc::<RAW>(pair[0]).wrapping_sub(min) >> base;
+                        let b = enc::<RAW>(pair[1]).wrapping_sub(min) >> base;
+                        for t in 0..digits {
+                            let s = t as u32 * width;
+                            // SAFETY: masked digits index a table of `buckets` counters.
+                            unsafe {
+                                *t0.get_unchecked_mut(t * buckets + ((a >> s) & mask) as usize) +=
+                                    1;
+                                *t1.get_unchecked_mut(t * buckets + ((b >> s) & mask) as usize) +=
+                                    1;
+                            }
+                        }
+                    }
+                    for &v in pairs.remainder() {
+                        let a = enc::<RAW>(v).wrapping_sub(min) >> base;
+                        for t in 0..digits {
+                            t0[t * buckets + ((a >> (t as u32 * width)) & mask) as usize] += 1;
+                        }
+                    }
+                    for i in 0..digits * buckets {
+                        t0[i] += t1[i];
+                    }
+                },
+            }
+        }
+
+        /// The scatter passes on the prefix digits that vary (a digit equal in
+        /// every key has all of them in the bucket of the first key), keys and
+        /// buffer alternating; a pass whose bucket starts alias in the cache is
+        /// staged. Decodes in the last pass when the prefix is exact.
+        fn scatter_passes<const RAW: bool>(
+            keys: &mut [$uint],
+            scratch: &mut Scratch,
+            tables: &mut [u32],
+            min: $uint,
+            layout: &Layout,
+        ) {
+            let n = keys.len();
+            let Layout { width, digits, base, buckets, mask } = *layout;
+            let exact = base == 0;
+            let first_prefix = enc::<RAW>(keys[0]).wrapping_sub(min) >> base;
+            let mut varying = [0usize; 64];
+            let mut passes = 0;
+            for t in 0..digits {
+                if tables[t * buckets + ((first_prefix >> (t as u32 * width)) & mask) as usize]
+                    as usize
+                    != n
+                {
+                    varying[passes] = t;
+                    passes += 1;
+                }
+            }
+            let varying = &varying[..passes];
+            let buf = scratch.slots(n);
+            // The tables become their exclusive prefix sums (the bucket heads).
+            let check_alias = n >= $alias_min() / std::mem::size_of::<$uint>()
+                && (OLD.load(std::sync::atomic::Ordering::Relaxed) || n >= ALIAS_KEYS_MIN);
+            let mut staged = [false; 64];
+            for (i, &t) in varying.iter().enumerate() {
+                let table = &mut tables[t * buckets..(t + 1) * buckets];
+                let mut sum = 0u32;
+                for c in table.iter_mut() {
+                    let v = *c;
+                    *c = sum;
+                    sum += v;
+                }
+                staged[i] = check_alias && aliased(table, n);
+            }
+            let mut staging: Vec<$uint> = Vec::new();
+            let mut starts: Vec<u32> = Vec::new();
+            let last = passes - 1;
+            for (i, &t) in varying.iter().enumerate() {
+                let shift = base + t as u32 * width;
+                let heads = &mut tables[t * buckets..(t + 1) * buckets];
+                if staged[i] && staging.len() < heads.len() * WB {
+                    staging = vec![0; heads.len() * WB];
+                    starts = vec![0; heads.len()];
+                }
+                // SAFETY: pass `i` reads `keys` (even) or the buffer (odd, fully
+                // written by pass `i - 1`) and writes each of the `n` slots of the
+                // other once (heads are the prefix sums of this digit over the same
+                // keys); they do not overlap.
+                unsafe {
+                    let (src, dst): (&[$uint], *mut $uint) = if i % 2 == 0 {
+                        (&*keys, buf)
+                    } else {
+                        (std::slice::from_raw_parts(buf, n), keys.as_mut_ptr())
+                    };
+                    macro_rules! pass {
+                        ($first:expr, $decode:expr) => {
+                            if staged[i] {
+                                scatter_staged::<$first, $decode>(
+                                    src,
+                                    dst,
+                                    heads,
+                                    min,
+                                    shift,
+                                    mask,
+                                    &mut staging,
+                                    &mut starts,
+                                )
+                            } else {
+                                scatter::<$first, $decode>(src, dst, heads, min, shift, mask)
+                            }
+                        };
+                    }
+                    match (RAW && i == 0, exact && i == last) {
+                        (true, true) => pass!(true, true),
+                        (true, false) => pass!(true, false),
+                        (false, true) => pass!(false, true),
+                        (false, false) => pass!(false, false),
+                    }
+                }
+            }
+            if passes % 2 == 1 {
+                // SAFETY: the buffer was fully written by the last pass.
+                keys.copy_from_slice(unsafe { std::slice::from_raw_parts(buf, n) });
+            }
+        }
+
+        /// Finish of an inexact prefix: the keys are sorted up to groups of equal
+        /// prefix, mostly single keys or small groups. An insertion sort over the
+        /// whole array then mostly takes the well predicted "in place" branch; a
+        /// block of 16 keys already in order is passed in one vectorized test.
+        /// Gives up (returns false) beyond `INSERTION_BUDGET` moves per key;
+        /// returns true once every key is in place, decoded.
+        fn finish_by_insertion(keys: &mut [$uint]) -> bool {
+            let n = keys.len();
+            let budget = INSERTION_BUDGET * n;
+            let mut moves = 0;
+            let mut i = 1;
+            // Blocks are tested from this index on (a failed test lets the
+            // scalar loop through the whole block first).
+            let mut test_at = 1;
+            while i < n {
+                if i >= test_at && i + 16 <= n {
+                    let block = &keys[i - 1..i + 16];
+                    let mut in_order = true;
+                    for p in 0..16 {
+                        in_order &= block[p] <= block[p + 1];
+                    }
+                    if in_order {
+                        i += 16;
+                        continue;
+                    }
+                    test_at = i + 16;
+                }
+                let v = keys[i];
+                if keys[i - 1] > v {
+                    let mut j = i;
+                    while j > 0 && keys[j - 1] > v {
+                        keys[j] = keys[j - 1];
+                        j -= 1;
+                    }
+                    keys[j] = v;
+                    moves += i - j;
+                    if moves > budget {
+                        return false;
+                    }
+                }
+                i += 1;
+            }
+            decode_all(keys);
+            true
+        }
+
+        /// Groups of equal prefix finished one by one: insertion sort, or the
+        /// DLSD again at the scale of the group (its own min and max).
+        fn finish_groups(
+            keys: &mut [$uint],
+            scratch: &mut Scratch,
+            min: $uint,
+            low: u32,
+        ) {
+            let n = keys.len();
+            let prefix = |k: $uint| k.wrapping_sub(min) >> low;
+            let mut i = 0;
+            while i < n {
+                let group = prefix(keys[i]);
+                let mut j = i + 1;
+                while j < n && prefix(keys[j]) == group {
+                    j += 1;
+                }
+                if j == i + 1 {
+                    keys[i] = w::decode_key(keys[i]);
+                } else if j - i <= GROUP_INSERTION {
+                    let g = &mut keys[i..j];
+                    insertion(g);
+                    decode_all(g);
+                } else {
+                    dlsd_rec::<false>(&mut keys[i..j], scratch, None, None);
+                }
+                i = j;
+            }
+        }
+    };
+}

@@ -63,3 +63,7 @@ required-features = ["bench", "ab"]
 [[example]]
 name = "ab_i16"
 required-features = ["bench", "ab"]
+
+[[example]]
+name = "ab_u32"
+required-features = ["bench", "ab"]
