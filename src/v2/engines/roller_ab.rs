@@ -2,7 +2,7 @@
 //! (copy of `roller.rs`). One buffer of the array's size for the whole
 //! sort: an MSD pass scatters the keys into it by bucket; each bucket is
 //! copied back to its place in the array (it fits in the cache) and sorted
-//! there by the DLSD (the copy of `dlsd/sort_ab.rs`), whose own buffer is
+//! there by the DLSD (`dlsd/sort_stack.rs`), whose own buffer is
 //! the part of the big one the bucket has just left; a bucket still too
 //! large goes through one more MSD pass, array and buffer swapped. No other
 //! allocation, nothing zeroed.

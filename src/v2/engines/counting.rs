@@ -7,22 +7,7 @@
 use crate::v2::cache::{budget, Budget};
 use crate::v2::devour::keys::Key;
 
-/// Trials of the 32-bit chain copy (its mask; never set for the library).
-#[allow(dead_code)]
-#[inline(always)]
-fn trial(bit: u64) -> bool {
-    #[cfg(feature = "ab")]
-    {
-        crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit != 0
-    }
-    #[cfg(not(feature = "ab"))]
-    {
-        let _ = bit;
-        false
-    }
-}
-
-/// Counters held on the stack (trial 1 << 59): tables of 32 768 to 65 536
+/// Counters held on the stack: tables of 32 768 to 65 536
 /// (128 to 256 KiB), new pages at each call on the heap (smaller ones come
 /// from the allocator's reused memory).
 const STACK_COUNTERS: usize = 1 << 16;
@@ -70,7 +55,7 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
     let mut lanes = lanes_for(width, n);
     let mut stack;
     let mut heap: Vec<u32>;
-    let mut counts: &mut [u32] = if trial(1 << 59) && (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(width * lanes)) {
+    let mut counts: &mut [u32] = if (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(width * lanes)) {
         stack = [0u32; STACK_COUNTERS];
         &mut stack[..width * lanes]
     } else {
@@ -354,7 +339,7 @@ pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
     let size = width.next_power_of_two();
     let mut stack;
     let mut heap: Vec<u32>;
-    let counts: &mut [u32] = if trial(1 << 59) && (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(size * lanes)) {
+    let counts: &mut [u32] = if (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(size * lanes)) {
         stack = [0u32; STACK_COUNTERS];
         &mut stack[..size * lanes]
     } else {

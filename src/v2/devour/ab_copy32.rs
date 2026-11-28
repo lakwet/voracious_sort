@@ -1,103 +1,55 @@
-//! Dev only (feature `ab`): A/B copy of the u32 / i32 chains (`u32.rs`,
-//! `i32.rs`); edit here, measured against the library by `examples/ab_u32.rs`
-//! (`copy`). Trial: the DLSD as the engine below `dlsd_max()` keys
-//! (`AB_DLSD_MAX`, default 262 144); its scratch on the stack up to 4096 keys
-//! unless `AB_DLSD_HEAP` is set.
-
-/// Below this many keys a chunk goes to the DLSD (env `AB_DLSD_MAX`).
-fn dlsd_max() -> usize {
-    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    *M.get_or_init(|| {
-        std::env::var("AB_DLSD_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(262_144)
-    })
-}
-
-/// Questions switched off (the `copy:MASK` sorts of the example): 1 range,
-/// 2 plateaus, 4 dominant, 8 few, 16 heavy, 32 dense, 64 every detector
-/// (no sample either), 128 Verge (the engine on the whole array), 256 the
-/// near-sorted repair, 512 the light chain switched ON (inverted bit: on(512)
-/// false means the light chain runs), 1024 the light chain without its
-/// sorted-head rule, 2048 without its dominant test, 4096 (inverted) range
-/// and few before the near-sorted repair, 8192 no few4 (at most 4 values on
-/// the sample, counted by comparisons), 16384 no tiny path, 32768 the DLSD
-/// instead of the short radix sort in the tiny path, 65536 the other pass count
-/// in the short radix sort below 512 keys (ARM one pass, x86 two).
-pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(KEPT);
-
-/// The trials kept, the library's chain (provisional: to be written into the
-/// code, the rejected ones removed, at the refactor before the release). x86:
-/// 512, 42, 43, 44, 46, 47, SIMD networks up to 512 keys (49, 53), last run
-/// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
-/// to 256 keys (49, 57, 56), 54; both: count tables of 128-256 KiB on the
-/// stack (59), a global trend under local noise to the LSD (60), at most 4
-/// values counted by comparisons in short32 (62), few4_early vectorized (61),
-/// composite keys to the LSD from 65 536 keys (63).
-pub(crate) const KEPT: u64 =
-    if cfg!(target_arch = "aarch64") { 18105257752354882048 } else { 17934138558700847616 };
-
-/// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
-fn light_max() -> usize {
-    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    *M.get_or_init(|| {
-        std::env::var("AB_LIGHT_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(8192)
-    })
-}
-
-/// Most runs merged by the trial 1 << 51 (env `AB_RUNS`, default 16).
-fn runs_max() -> usize {
-    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    *M.get_or_init(|| std::env::var("AB_RUNS").ok().and_then(|v| v.parse().ok()).unwrap_or(16))
-}
-
-thread_local! {
-    /// Range and few already asked on this path (mask bit 4096).
-    static EARLY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-/// `sort_unstable` up to this many keys (env `AB_SMALL`, default 96; the
-/// type's own `SMALL` with `AB_SMALL=0`).
-fn small_max(own: usize) -> usize {
-    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    let m = *M.get_or_init(|| std::env::var("AB_SMALL").ok().and_then(|v| v.parse().ok()).unwrap_or(96));
-    if m == 0 { own } else { m }
-}
-
-/// Whether the question `bit` is asked.
-#[inline(always)]
-fn on(bit: u64) -> bool { SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit == 0 }
-
-/// The DLSD with its scratch on the heap (env `AB_DLSD_HEAP`).
-fn dlsd_heap() -> bool {
-    static H: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *H.get_or_init(|| std::env::var("AB_DLSD_HEAP").is_ok())
-}
+//! Dev only (feature `ab`): A/B copy of the u32 / i32 chain (`chain32.rs`,
+//! regenerated from it at the 2.1.2 refactor); edit here, measured against
+//! the library by `examples/ab_u32.rs` (`copy`).
 
 macro_rules! chain32_ab {
-    ($name:ident, $t:ty, $c:ident, $small:expr, $ls:ident, $dl:ident, $st:ident, $ro:ident) => {
+    ($name:ident, $t:ty, $c:ident, $ls:ident, $st:ident, $ro:ident) => {
         pub(crate) mod $name {
-        use super::{dlsd_heap, dlsd_max, light_max, on, runs_max, small_max, EARLY};
-        use crate::v2::engines::dlsd::$st;
-        use std::mem::MaybeUninit;
         use crate::v2::cache::{budget, Budget};
         use crate::v2::decide::path::{can_skip_verge, merges_unpredictable, starts_with_random_runs};
         use crate::v2::decide::shape::{globally_ordered, locally_ordered};
         use crate::v2::devour::keys::*;
+        use crate::v2::devour::simd32 as simd;
         use crate::v2::devour::DevourSort;
         use crate::v2::engines::counting::exact_count;
+        use crate::v2::engines::dlsd::$st;
         use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
-        use crate::v2::engines::{dlsd::$dl, lsd::$ls, roller::$ro};
-        use crate::v2::inspect::presorted::{
-            presorted, probe_pairs, repair_nearly_sorted, Probes, Unsorted,
-        };
+        use crate::v2::engines::{lsd::$ls, roller::$ro};
+        use crate::v2::inspect::presorted::{presorted, probe_pairs, repair_nearly_sorted, Unsorted};
         use crate::v2::runs::merge::{self, merge_runs};
         use crate::v2::runs::verge::verge_sort_preprocessing_fast;
         use crate::v2::special::heavy::{dominant, heavy_sorted_by, may_be_heavy, HEAVY_MIN};
         use crate::v2::special::plateaus::plateaus;
-        use crate::v2::special::{spread, DENSE_MIN, SAMPLE};
+        use crate::v2::special::{spread, DENSE_MIN};
 
-        /// Up to this size: `sort_unstable` (measured where it crosses the radix
-        /// path).
-        const SMALL: usize = $small;
+        /// Up to this size, when the direct networks do not apply:
+        /// `sort_unstable`.
+        const SMALL: usize = 96;
+
+        /// The direct SIMD networks up to this many keys: x86 512 (the
+        /// networks' limit); ARM 256 (Surface, 129-256 keys: 27-34 cells won
+        /// against the best rival, 4-22 through `short32`; from 300 the
+        /// radix path wins).
+        const DIRECT_MAX: usize = if cfg!(target_arch = "aarch64") { 256 } else { simd::SIMD_MAX };
+
+        /// ARM: the direct networks from this many keys only (below, the
+        /// half-empty 128-key network loses to `sort_unstable`).
+        const DIRECT_MIN: usize = if cfg!(target_arch = "aarch64") { 80 } else { 0 };
+
+        /// `short32` up to this many keys (Surface and Ryzen: it wins
+        /// 150-500 keys, the light chain from 700: 25-35 cells).
+        const SHORT32_MAX: usize = 600;
+
+        /// The light chain up to this many keys.
+        const LIGHT_MAX: usize = 8192;
+
+        /// Up to this many keys `short32` ends with the short radix sort on
+        /// x86 (it beats the DLSD on 22-28 cells at 170-300 keys, loses
+        /// 26-30 from 500).
+        const SHORT_MAX: usize = 400;
+
+        /// Below this many keys a chunk goes to the DLSD.
+        const DLSD_MAX: usize = 262_144;
 
         /// The rollercoaster from this size (the L2 bytes; for its memory, n instead of 2n).
         fn roller_min() -> usize { budget(Budget::Roller32) }
@@ -119,257 +71,146 @@ macro_rules! chain32_ab {
         #[inline(never)]
         fn sort_large(arr: &mut [$t]) {
             let n = arr.len();
-            // Trial (1 << 45): from the network size to `MERGE_MAX` keys the
-            // SIMD networks (after the sorted check) instead of the merge
-            // sort.
-            if !on(1 << 45) && n <= MERGE_MAX && crate::v2::devour::ab_simd32::available() {
-                if presorted(arr).is_ok() {
-                    trace!("presorted");
-                    return;
-                }
-                trace!("simd32_small");
-                crate::v2::devour::ab_simd32::sort(bits_of(arr), $c(0));
-                return;
-            }
             chain! {
                 "merge_small" if n <= MERGE_MAX => do { merge_sort(bits_of(arr), $c, $c) };
             }
-            let known = match presorted_ab(arr) {
+            let known = match presorted(arr) {
                 Ok(()) => {
                     trace!("presorted");
                     return;
                 },
                 Err(known) => known,
             };
-            // Trial (1 << 44): comparison networks in SIMD registers (AVX2,
-            // NEON): here up to the `sort_unstable` size unless half the
-            // array is a sorted head (tail first, then one merge); in
-            // `short32` after its one pass (sorted, reversed, counted).
-            {
-                use crate::v2::devour::ab_simd32 as simd;
-                // Trial (1 << 49): up to 128 keys the networks first, the
-                // range checked in the registers (a narrow one counted).
-                // Trial (1 << 53): direct up to 512 keys on x86 (ARM 128);
-                // trial (1 << 56, reused: the rejected 8 probes first): ARM up
-                // to 256.
-                let direct_max = if !on(1 << 53) && cfg!(not(target_arch = "aarch64")) {
-                    simd::SIMD_MAX
-                } else if !on(1 << 56) && cfg!(target_arch = "aarch64") {
-                    // Surface: 129-256 keys 26-34 cells won against the best
-                    // rival (4-22 through short32); from 300 the radix path
-                    // wins (Sparse 90 %, Few 4: 2x slower without its
-                    // duplicate questions).
-                    256
-                } else {
-                    128
-                };
-                // Trial (1 << 57): ARM from 80 keys only (below, the
-                // half-empty 128-key network loses to sort_unstable).
-                let direct_min = if !on(1 << 57) && cfg!(target_arch = "aarch64") { 80 } else { 0 };
-                if !on(1 << 49)
-                    && n <= direct_max
-                    && n >= direct_min
-                    && known.ascending_prefix < n / 2
-                    && simd::available()
-                {
-                    let narrow = if !on(1 << 46) { n } else { n / 2 };
-                    let r = if cfg!(target_arch = "aarch64") && n > 128 {
-                        // NEON checks the range in its registers up to 128
-                        // keys only: a min / max pass first.
-                        let (lo, hi) = bits_of(arr)
-                            .iter()
-                            .fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))));
-                        if ((hi - lo) as usize) < narrow {
-                            Some((lo, hi))
-                        } else {
-                            simd::sort(bits_of(arr), $c(0));
-                            None
-                        }
-                    } else {
-                        simd::sort_or_range(bits_of(arr), $c(0), narrow)
-                    };
-                    match r {
-                        None => {
-                            trace!("simd32_direct");
-                        },
-                        Some((lo, hi)) if hi - lo < 256 => {
-                            trace!("simd32_count");
-                            count_stack(bits_of(arr), lo, (hi - lo) as usize + 1);
-                        },
-                        Some((lo, hi)) => {
-                            trace!("simd32_count");
-                            exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
-                        },
-                    }
-                    return;
-                }
-                if !on(1 << 44)
-                    && n <= small_max(SMALL)
-                    && known.ascending_prefix < n / 2
-                    && simd::available()
-                {
-                    trace!("simd32");
-                    simd::sort(bits_of(arr), $c(0));
-                    return;
-                }
-                // Trial (1 << 48): every array up to `AB_SIMD_MAX` keys
-                // (crossover with the radix path).
-                if !on(1 << 48)
-                    && n <= simd::simd_max()
-                    && known.ascending_prefix < n / 2
-                    && simd::available()
-                {
-                    trace!("simd32_wide");
-                    simd::sort(bits_of(arr), $c(0));
-                    return;
-                }
+            // A sorted head of half the array: its tail first, then one
+            // merge (the whole path).
+            let head = known.ascending_prefix >= n / 2;
+            if (DIRECT_MIN..=DIRECT_MAX).contains(&n) && !head && simd::available() {
+                direct(arr);
+                return;
             }
             chain! {
-                "std_small" if n <= small_max(SMALL) => do { arr.sort_unstable() };
+                "std_small" if n <= SMALL => do { arr.sort_unstable() };
             }
-            // Trial (mask bit 512): the light chain up to `light_max()` keys:
-            // range and few on the spread sample, then the engine (no
-            // plateaus, dominant, heavy, dense, near-sorted repair, Verge).
-            // A sorted head of half the array (its tail first, then one
-            // merge), or mostly equal spread pairs from 2000 keys (plateaus):
-            // the whole path. The pairs are compared here when `presorted`
-            // did not (it does only when the first key is the larger).
-            let head = known.ascending_prefix >= n / 2;
-            let light = !on(512) && n <= light_max() && !(on(1024) && head);
-            // Trial (bit 16384 off): the tiny path up to `TINY_MAX` keys.
-            // Bit 8388608: the tiny path up to 1100 keys.
-            // From `TINY_END` to `TINY_MAX` keys, only when 18 spread keys show
-            // at most 4 values (its count by comparisons: Binary, Few 4 1.3-1.6x
-            // faster than the light chain; bit 268435456: tried, not kept: slower at 1000).
-            let few_probed = || {
-                let mut v = [arr[0]; 18];
-                for i in 0..18 {
-                    v[i] = arr[i * (n - 1) / 17];
-                }
-                (0..18).filter(|&i| !v[..i].contains(&v[i])).count() <= 4
-            };
-            if light
-                && on(16384)
-                && (n <= if on(8388608) { TINY_END } else { TINY_MAX }
-                    || (n <= TINY_MAX && !on(268435456) && few_probed()))
-            {
-                // The separate short sort, fewer questions (vs blazing, more
-                // cells won than the tiny path at 150-200 keys: Surface u32
-                // 16/26 against 9/34, Ryzen i32 23/21 against 14/28; bit
-                // 1 << 32: the tiny path).
-                if on(1 << 32) && n <= TINY_END {
+            if n <= LIGHT_MAX && !head {
+                if n <= SHORT32_MAX {
                     short32(arr);
                     return;
                 }
-                if !on(1 << 34) && n <= TINY_END {
-                    short32c(arr);
+                // Mostly equal spread pairs from 2000 keys (plateaus): the
+                // whole path. The pairs are compared here when `presorted`
+                // did not (it does only when the first key is the larger).
+                let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
+                if !(n >= 2000 && probes.equal() >= 24) {
+                    light(arr, Unsorted { probes: Some(probes), ..known });
                     return;
                 }
-                if !on(1 << 33) && n <= TINY_END {
-                    short32b(arr, known);
-                    return;
-                }
-                tiny(arr, known);
-                return;
-            }
-            let probes = if light {
-                known.probes.unwrap_or_else(|| probe_pairs(arr))
-            } else {
-                Probes { ascending: 0, descending: 0 }
-            };
-            if light && !(on(1024) && n >= 2000 && probes.equal() >= 24) {
-                // Nearly all pairs in one direction (30 of 32: saw teeth show
-                // about 28): the near-sorted repair alone (no Verge: saw
-                // teeth and runs cost 1.2-3x on the whole path).
-                if on(1024) && (probes.ascending >= 30 || probes.descending >= 30) {
-                    let known = Unsorted { probes: Some(probes), ..known };
-                    if repair_nearly_sorted(arr, known).0 {
-                        trace!("light_repaired");
-                        return;
-                    }
-                }
-                // Trial (1 << 51): most spread pairs in one direction and
-                // the repair gave up: a few long runs (saw teeth)? Counted
-                // exactly (a pass paid by these arrays only), merged.
-                if !on(1 << 51)
-                    && (probes.ascending >= 28 || probes.descending >= 28)
-                    && merge_few_runs(arr)
-                {
-                    trace!("light_runs");
-                    return;
-                }
-                let sample = spread(arr);
-                if on(8192) && few4(arr, &sample) {
-                    trace!("light_few4");
-                    return;
-                }
-                if on(1) && detectors::range(arr, &sample) {
-                    trace!("light_range");
-                    return;
-                }
-                // One dominant value with a long tail of distinct values
-                // (Sparse), on the first 16 sample keys: the majority vote,
-                // its count at least 8 and no other value 3 times or more
-                // (FakeZipf repeats a second value: left to `few`). Then
-                // the std partition (as `detect`). The full `dominant` on
-                // the 64 keys cost up to 0.8 ns per key at 250 keys.
-                if on(2048) {
-                    let s16 = &sample[..16];
-                    let (mut v, mut votes) = (s16[0], 0usize);
-                    for &x in s16 {
-                        if votes == 0 {
-                            v = x;
-                        }
-                        votes = if x == v { votes + 1 } else { votes - 1 };
-                    }
-                    let count = |u: $t| s16.iter().filter(|&&x| x == u).count();
-                    if count(v) >= 8 && s16.iter().all(|&u| u == v || count(u) < 3) {
-                        trace!("light_dominant");
-                        arr.sort_unstable();
-                        return;
-                    }
-                }
-                // Below 512 keys `few` only when the first 16 sample keys
-                // hold at most 6 values (Heavy 4 shows about 10: few sorts
-                // its ~120 values at 300 keys, 1.5x slower than the DLSD; it
-                // rejects many values itself, on
-                // 16 keys there, but after zeroing its table: 3-4 % at
-                // 250-300 keys; from 512 keys it accepts more values).
-                let mut distinct = 0;
-                for i in 0..16 {
-                    distinct += !sample[..i].contains(&sample[i]) as usize;
-                }
-                if on(8) && (distinct <= 6 || n >= 512) && detectors::few(arr, &sample) {
-                    trace!("light_few");
-                    return;
-                }
-                // From `DENSE_MIN` keys a dense range with outliers (Int late
-                // out: 2.3x slower without it at 5000 keys), on the sorted
-                // sample as `detect`.
-                if n >= DENSE_MIN {
-                    let mut sorted = sample;
-                    sorted.sort_unstable();
-                    if detectors::dense(arr, &sorted) {
-                        trace!("light_dense");
-                        return;
-                    }
-                }
-                // Trial (1 << 52): after every cheap question, the SIMD
-                // networks instead of the radix engine up to `AB_SIMD_MAX`.
-                {
-                    use crate::v2::devour::ab_simd32 as simd;
-                    if !on(1 << 52) && n <= simd::simd_max() && simd::available() {
-                        trace!("light_simd");
-                        simd::sort(bits_of(arr), $c(0));
-                        return;
-                    }
-                }
-                sort_chunk(bits_of(arr), &mut Vec::new());
-                return;
             }
             let buffer = std::cell::RefCell::new(Vec::new());
             let sort_chunk = |chunk: &mut [$t]| sort_chunk(bits_of(chunk), &mut buffer.borrow_mut());
             path(arr, known, &detect, &sort_chunk);
+        }
+
+        /// The direct SIMD networks: up to 128 keys the range is checked in
+        /// the registers (ARM beyond 128: a min / max pass first); within n
+        /// values, counted instead.
+        fn direct(arr: &mut [$t]) {
+            let n = arr.len();
+            let r = if cfg!(target_arch = "aarch64") && n > 128 {
+                let (lo, hi) = bits_of(arr)
+                    .iter()
+                    .fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))));
+                if ((hi - lo) as usize) < n {
+                    Some((lo, hi))
+                } else {
+                    simd::sort(bits_of(arr), $c(0));
+                    None
+                }
+            } else {
+                simd::sort_or_range(bits_of(arr), $c(0), n)
+            };
+            match r {
+                None => {
+                    trace!("simd32_direct");
+                },
+                Some((lo, hi)) if hi - lo < 256 => {
+                    trace!("simd32_count");
+                    count_stack(bits_of(arr), lo, (hi - lo) as usize + 1);
+                },
+                Some((lo, hi)) => {
+                    trace!("simd32_count");
+                    exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
+                },
+            }
+        }
+
+        /// The light chain (`SHORT32_MAX` to `LIGHT_MAX` keys): the
+        /// near-sorted repair when nearly all spread pairs go one way, then
+        /// few4, range, a dominant value, few, dense on the spread sample;
+        /// then the engine (no plateaus, heavy, Verge).
+        fn light(arr: &mut [$t], known: Unsorted) {
+            let n = arr.len();
+            let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
+            // Nearly all pairs in one direction (30 of 32: saw teeth show
+            // about 28): the near-sorted repair alone (no Verge: saw teeth
+            // and runs cost 1.2-3x on the whole path).
+            if (probes.ascending >= 30 || probes.descending >= 30)
+                && repair_nearly_sorted(arr, known).0
+            {
+                trace!("light_repaired");
+                return;
+            }
+            let sample = spread(arr);
+            if few4(arr, &sample) {
+                trace!("light_few4");
+                return;
+            }
+            if detectors::range(arr, &sample) {
+                trace!("light_range");
+                return;
+            }
+            // One dominant value with a long tail of distinct values
+            // (Sparse), on the first 16 sample keys: the majority vote, its
+            // count at least 8 and no other value 3 times or more (FakeZipf
+            // repeats a second value: left to `few`). Then the std partition
+            // (as `detect`). The full `dominant` on the 64 keys cost up to
+            // 0.8 ns per key at 250 keys.
+            let s16 = &sample[..16];
+            let (mut v, mut votes) = (s16[0], 0usize);
+            for &x in s16 {
+                if votes == 0 {
+                    v = x;
+                }
+                votes = if x == v { votes + 1 } else { votes - 1 };
+            }
+            let count = |u: $t| s16.iter().filter(|&&x| x == u).count();
+            if count(v) >= 8 && s16.iter().all(|&u| u == v || count(u) < 3) {
+                trace!("light_dominant");
+                arr.sort_unstable();
+                return;
+            }
+            // Below 512 keys `few` only when the first 16 sample keys hold
+            // at most 6 values (Heavy 4 shows about 10: few sorts its ~120
+            // values at 300 keys, 1.5x slower than the DLSD).
+            let mut distinct = 0;
+            for i in 0..16 {
+                distinct += !sample[..i].contains(&sample[i]) as usize;
+            }
+            if (distinct <= 6 || n >= 512) && detectors::few(arr, &sample) {
+                trace!("light_few");
+                return;
+            }
+            // From `DENSE_MIN` keys a dense range with outliers (Int late
+            // out: 2.3x slower without it at 5000 keys), on the sorted
+            // sample as `detect`.
+            if n >= DENSE_MIN {
+                let mut sorted = sample;
+                sorted.sort_unstable();
+                if detectors::dense(arr, &sorted) {
+                    trace!("light_dense");
+                    return;
+                }
+            }
+            sort_chunk(bits_of(arr), &mut Vec::new());
         }
 
         /// At most 4 distinct values on the sample (Binary, Few 4): each key
@@ -417,209 +258,12 @@ macro_rules! chain32_ab {
             true
         }
 
-        /// Up to this many keys the light chain asks its questions on 18
-        /// probed keys (the 16-bit short sort's probes).
-        const TINY_MAX: usize = 1100;
-
-        /// The tiny path up to this many keys (Surface and Ryzen: it wins
-        /// 150-500 keys, the light chain from 700: 25-35 cells).
-        const TINY_END: usize = 600;
-
-        /// Up to this many keys the tiny path ends with the short radix sort
-        /// (Surface: it beats the DLSD on 22-28 cells at 170-300 keys, loses
-        /// 26-30 from 500).
-        const SHORT_MAX: usize = 400;
-
-        /// Merges the sorted head `bits[..p]` and the sorted tail `bits[p..]`
-        /// (at most half of at most `TINY_MAX` keys) from the end, the tail
-        /// copied to the stack (`merge_runs` allocates its bounds and its
-        /// buffer: Pipe organ at 150 keys 1.9x slower than blazing); stable.
-        /// Nothing to do when the head's last key is not above the tail's
-        /// first. Off (bit 536870912 on): only Pipe organ at 150-300 keys gains,
-        /// `merge_runs` (which trims the runs first) wins on Front, Middle.
-        fn merge_tail_small(bits: &mut [u32], p: usize) {
-            let n = bits.len();
-            let m = n - p;
-            debug_assert!(m <= p && n <= TINY_MAX);
-            if p == 0 || m == 0 || $c(bits[p - 1]) <= $c(bits[p]) {
-                return;
-            }
-            let mut buf = [0u32; TINY_MAX / 2 + 1];
-            buf[..m].copy_from_slice(&bits[p..]);
-            let (mut i, mut j, mut k) = (p, m, n);
-            // SAFETY: i <= p, j <= m, k = i + j <= n: every index below is in
-            // bounds; the head is read at i - 1 < k - 1 before k - 1 is written.
-            unsafe {
-                // Without a branch per key (selects; the indices move by 0 or
-                // 1): interleaved runs mispredicted one branch in two (Front
-                // 4x slower).
-                while j > 0 && i > 0 {
-                    let (a, b) = (*bits.get_unchecked(i - 1), *buf.get_unchecked(j - 1));
-                    k -= 1;
-                    let head = ($c(a) > $c(b)) as usize;
-                    *bits.get_unchecked_mut(k) = if head == 1 { a } else { b };
-                    i -= head;
-                    j -= 1 - head;
-                }
-            }
-            bits[..j].copy_from_slice(&buf[..j]);
-        }
-
-        /// 18 probes spread over the array (bit 524288: the first 16, the
-        /// middle and last ones; neighbours alike, Sqrt, passed for a
-        /// dominant value).
-        #[inline]
-        fn probes18(arr: &[$t]) -> [$t; 18] {
-            let n = arr.len();
-            let mut s = [arr[0]; 18];
-            if on(524288) {
-                for i in 0..18 {
-                    s[i] = arr[i * (n - 1) / 17];
-                }
-            } else {
-                s[..16].copy_from_slice(&arr[..16]);
-                s[16] = arr[n / 2];
-                s[17] = arr[n - 1];
-            }
-            s
-        }
-
-        /// The tiny path's questions on its probes: one dominant value
-        /// (sorted by `sort_unstable`), at most 4 values (counted by
-        /// comparisons). Whether `arr` is now sorted.
-        #[inline]
-        fn probe_questions(arr: &mut [$t], s: &[$t; 18]) -> bool {
-            // One dominant value with a long tail (Sparse): the vote, at
-            // least 7 of 18, no other value 3 times; before few4, which
-            // Sparse's 18 probes pass (its count pass then fails).
-            let (mut v, mut votes) = (s[0], 0usize);
-            for &x in s.iter() {
-                if votes == 0 {
-                    v = x;
-                }
-                votes = if x == v { votes + 1 } else { votes - 1 };
-            }
-            let count = |u: $t| s.iter().filter(|&&x| x == u).count();
-            if count(v) >= 7 && s.iter().all(|&u| u == v || count(u) < 3) {
-                trace!("tiny_dominant");
-                arr.sort_unstable();
-                return true;
-            }
-            if few4(arr, s) {
-                trace!("tiny_few4");
-                return true;
-            }
-            false
-        }
-
-        /// Most values `count_small` counts.
-        const COUNT_SMALL_MAX: usize = 256;
-
-        /// Counting sort of raw bits whose encoded keys lie in
-        /// `lo..lo + span` (`span` at most `COUNT_SMALL_MAX`), counters on
-        /// the stack: 4 tables when keys outnumber values (repeated keys do
-        /// not wait on one counter), the values written back without a
-        /// branch per counter (two writes each, the next value overwriting
-        /// them; a loop only beyond 2 keys): counters of 0, 1 or 2 keys in
-        /// random order mispredicted one branch each.
-        #[inline]
-        fn count_small(bits: &mut [u32], lo: u32, span: usize) {
-            const M: usize = COUNT_SMALL_MAX;
-            debug_assert!(span <= M);
-            let n = bits.len();
-            let mut c = [[0u32; M]; 4];
-            let key = |b: u32| $c(b).wrapping_sub(lo) as usize & (M - 1);
-            if n > span {
-                let (quads, rest) = bits.as_chunks::<4>();
-                for q in quads {
-                    for j in 0..4 {
-                        // SAFETY: masked below M.
-                        unsafe { *c.get_unchecked_mut(j).get_unchecked_mut(key(q[j])) += 1 };
-                    }
-                }
-                for &b in rest {
-                    unsafe { *c[0].get_unchecked_mut(key(b)) += 1 };
-                }
-                for d in 0..span {
-                    c[0][d] += c[1][d] + c[2][d] + c[3][d];
-                }
-            } else {
-                for &b in bits.iter() {
-                    unsafe { *c[0].get_unchecked_mut(key(b)) += 1 };
-                }
-            }
-            let p = bits.as_mut_ptr();
-            let mut at = 0;
-            for d in 0..span {
-                let k = c[0][d] as usize;
-                let v = $c(lo.wrapping_add(d as u32));
-                // SAFETY: the counts add up to n; the two writes stay below n.
-                unsafe {
-                    if at + 2 <= n {
-                        *p.add(at) = v;
-                        *p.add(at + 1) = v;
-                        for j in 2..k {
-                            *p.add(at + j) = v;
-                        }
-                    } else {
-                        for j in 0..k {
-                            *p.add(at + j) = v;
-                        }
-                    }
-                }
-                at += k;
-            }
-            debug_assert_eq!(at, n);
-        }
-
-        /// The short radix sort's digits for `n` keys spanning `range`:
-        /// (one pass, prefix bits, bits below the prefix). ARM: one pass of
-        /// log2(n) + 1 bits (at most 10), the insertion finish settling the
-        /// collisions (Surface: 20-26 cells won at 150-400 keys); x86: two
-        /// passes of log2(n) + 3 bits (Ryzen: one pass loses 19-28). Bit
-        /// 65536 swaps the choice (A/B).
-        #[inline(always)]
-        fn short_layout(n: usize, range: u32) -> (bool, u32, u32) {
-            let top = 32 - range.leading_zeros();
-            let log_n = usize::BITS - n.leading_zeros();
-            let one_here = cfg!(target_arch = "aarch64");
-            let one = (one_here != !on(65536)) && log_n + 1 <= 10;
-            let p = if one { (log_n + 1).min(top) } else { (log_n + 3).min(top) };
-            (one, p, top - p)
-        }
-
-        /// Whether the 18 probes fall in at most 12 of 64 equal slices of the
-        /// range, with more distinct values than that (spread keys fill about
-        /// 16; the short radix splits the range
-        /// evenly, clustered keys leave most buckets empty and the insertion
-        /// finish long: Bimodal, Exponential, Clusters).
-        #[inline]
-        fn clustered(mut s: [$t; 18], lo: u32, hi: u32, n: usize) -> bool {
-            let range = hi - lo;
-            let shift = (32 - range.leading_zeros()).saturating_sub(6);
-            let b: &[u32] = bits_of(&mut s);
-            let mut seen = 0u64;
-            for &x in b.iter() {
-                seen |= 1u64 << (($c(x).wrapping_sub(lo) >> shift) & 63);
-            }
-            let _ = n;
-            // Distinct probes well above the slices they fill: clusters (few
-            // values fill few slices too, but each its own: Few 16, Heavy 4
-            // went to the DLSD, 1.3-1.4x slower at 150 keys on the Ryzen).
-            let slices = seen.count_ones() as usize;
-            let mut distinct = 0;
-            for i in 0..18 {
-                distinct += !b[..i].contains(&b[i]) as usize;
-            }
-            slices <= 12 && distinct >= slices + 4
-        }
-
-        /// Trial (mask bit 1 << 32): a separate sort up to `TINY_END` keys
-        /// with few questions. One pass: the descents and the bounds (ORs of
-        /// the distances to the first key, as `tiny`); sorted or reversed
-        /// (no descent, or all); a range of at most one counter per 2 keys
-        /// counted; else the short radix sort (x86, up to `SHORT_MAX` keys)
-        /// or the DLSD.
+        /// The short sort (up to `SHORT32_MAX` keys), few questions. One
+        /// pass: the descents and the bounds (ORs of the distances to the
+        /// first key); sorted or reversed (no descent, or all); a range of
+        /// at most n values counted; 8 spread probes (at most 4 values, a
+        /// dominant one, many duplicates); x86: the SIMD networks, then the
+        /// short radix sort up to `SHORT_MAX` keys; else the DLSD.
         fn short32(arr: &mut [$t]) {
             let n = arr.len();
             let (up, down, desc, e0, any_below) = {
@@ -645,58 +289,12 @@ macro_rules! chain32_ab {
                 arr.reverse();
                 return;
             }
-            // Trial (1 << 51): few runs up (few descents) or down (few
-            // ascents): merged.
-            if !on(1 << 51) && (desc < runs_max() || n - desc <= runs_max()) && merge_few_runs(arr) {
-                trace!("short32_runs");
-                return;
-            }
-            // Trial (bit 1 << 35): 8 spread probes, given up at the 5th
-            // value: a dominant value (at least 5, the others once each:
-            // Sparse) to `sort_unstable`; at most 4 values (Binary, Few 4)
-            // counted by comparisons.
-            if !on(1 << 35) {
-                let mut p = [arr[0]; 8];
-                for i in 0..8 {
-                    p[i] = arr[i * (n - 1) / 7];
-                }
-                let mut vals = [p[0]; 4];
-                let mut cnt = [0usize; 4];
-                let mut k = 0;
-                let mut many = false;
-                for &x in p.iter() {
-                    match vals[..k].iter().position(|&v| v == x) {
-                        Some(j) => cnt[j] += 1,
-                        None if k < 4 => {
-                            vals[k] = x;
-                            cnt[k] = 1;
-                            k += 1;
-                        },
-                        None => {
-                            many = true;
-                            break;
-                        },
-                    }
-                }
-                if !many {
-                    let top = *cnt[..k].iter().max().unwrap();
-                    if top >= 5 && top + (k - 1) == 8 {
-                        trace!("short32_dominant");
-                        arr.sort_unstable();
-                        return;
-                    }
-                    if few4_early(arr, &p[..]) {
-                        trace!("short32_few4");
-                        return;
-                    }
-                }
-            }
             let tp = 32 - up.leading_zeros();
             let tn = 32 - down.leading_zeros();
-            // Trial (1 << 54): no key below the first one: the
-            // low bound is the first key (`e0 - 1` underflowed at 0 and
-            // dropped the bounds: saws, Int 0..n starting at their minimum).
-            let below = if !on(1 << 54) && !any_below { 0 } else { 1u32 << tn };
+            // No key below the first one: the low bound is the first key
+            // (`e0 - 1` underflowed at 0 and dropped the bounds: saws, Int
+            // 0..n starting at their minimum).
+            let below = if !any_below { 0 } else { 1u32 << tn };
             let bounds = if tp < 31 && tn < 31 {
                 match (e0.checked_sub(below), e0.checked_add((1u32 << tp) - 1)) {
                     (Some(l), Some(h)) => Some((l, h)),
@@ -706,12 +304,10 @@ macro_rules! chain32_ab {
                 None
             };
             if let Some((lo, hi)) = bounds {
-                // Trial (1 << 46): counted up to n values (blazing counts
-                // a range up to the size).
-                let wide = if !on(1 << 46) { n } else { n / 2 };
-                if ((hi - lo) as usize) < wide {
-                    // Trial (1 << 42): up to 256 values counted on the stack.
-                    if !on(1 << 42) && hi - lo < 256 {
+                // Counted up to n values (as blazing-radix); up to 256 on the
+                // stack.
+                if ((hi - lo) as usize) < n {
+                    if hi - lo < 256 {
                         trace!("short32_count_stack");
                         count_stack(bits_of(arr), lo, (hi - lo) as usize + 1);
                         return;
@@ -721,22 +317,17 @@ macro_rules! chain32_ab {
                     return;
                 }
             }
-            // Trial (1 << 43): 8 spread probes only here (wide keys): at
-            // most 4 values (Few 4) counted by comparisons, a dominant one
-            // (at least 5, the others once: Sparse) to `sort_unstable`.
-            if !on(1 << 43) && probe8(arr) {
+            // 8 spread probes only here (wide keys): Binary, Sparse, Few 4
+            // 1.4-2.1x faster at 300-500 keys.
+            if probe8(arr) {
                 return;
             }
-            {
-                use crate::v2::devour::ab_simd32 as simd;
-                // ARM: up to 128 keys only (the NEON merges of blocks lose to
-                // the short radix path from 200 keys on the Surface).
-                let max = if cfg!(target_arch = "aarch64") { 128 } else { simd::SIMD_MAX };
-                if !on(1 << 44) && n <= max && simd::available() {
-                    trace!("short32_simd");
-                    simd::sort(bits_of(arr), $c(0));
-                    return;
-                }
+            // ARM: no networks here (the NEON merges of blocks lose to the
+            // DLSD from 200 keys on the Surface).
+            if cfg!(not(target_arch = "aarch64")) && n <= simd::SIMD_MAX && simd::available() {
+                trace!("short32_simd");
+                simd::sort(bits_of(arr), $c(0));
+                return;
             }
             if let Some((lo, hi)) = bounds {
                 if cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
@@ -757,9 +348,8 @@ macro_rules! chain32_ab {
             let mut a = [0u32; 256];
             let mut b = [0u32; 256];
             let off = |k: u32| ($c(k).wrapping_sub(lo) & 255) as usize;
-            if !on(1 << 62) && width <= 4 {
-                // Trial (1 << 62, reused: the rejected 4-equal-keys shortcut):
-                // at most 4 values counted by comparisons (vectorized; two
+            if width <= 4 {
+                // At most 4 values: counted by comparisons (vectorized; two
                 // counters in memory would wait on their previous increment:
                 // Binary at 300-600 keys 2x slower than blazing on the
                 // Surface).
@@ -805,8 +395,11 @@ macro_rules! chain32_ab {
             }
         }
 
-        /// 8 spread probes: at most 4 values, then `few4_early`; one
-        /// value 5 times or more and the others once, `sort_unstable`.
+        /// 8 spread probes, given up at the 5th value. One value 5 times or
+        /// more and the others once (Sparse): `sort_unstable`. At most 4
+        /// values: `few4_early`, else many duplicates (FakeZipf):
+        /// `sort_unstable` (its partitions set the keys equal to the pivot
+        /// aside at once).
         #[inline(never)]
         fn probe8(arr: &mut [$t]) -> bool {
             let n = arr.len();
@@ -838,79 +431,17 @@ macro_rules! chain32_ab {
                 trace!("short32_few4");
                 return true;
             }
-            // Trial (1 << 47): at most 4 values on the probes but more in
-            // the array: many duplicates (FakeZipf), `sort_unstable` (its
-            // partitions set the keys equal to the pivot aside at once).
-            if !on(1 << 47) {
-                trace!("short32_dups");
-                arr.sort_unstable();
-                return true;
-            }
-            false
-        }
-
-        /// Trial (1 << 51): at most `runs_max()` ascending runs, or as many
-        /// descending ones (each reversed first), at least 16 keys per run
-        /// on average: merged (`merge_runs`); else nothing changed.
-        #[inline(never)]
-        fn merge_few_runs(arr: &mut [$t]) -> bool {
-            let n = arr.len();
-            let max = runs_max();
-            let (mut up, mut down) = (1usize, 1usize);
-            for w in arr.windows(2) {
-                up += (w[0] > w[1]) as usize;
-                down += (w[0] < w[1]) as usize;
-            }
-            let ascending = up <= down;
-            let runs = up.min(down);
-            if runs > max || n / runs < 16 {
-                return false;
-            }
-            let mut seps = Vec::with_capacity(runs + 1);
-            seps.push(0);
-            let mut start = 0;
-            for i in 1..n {
-                let cut = if ascending { arr[i - 1] > arr[i] } else { arr[i - 1] < arr[i] };
-                if cut {
-                    if !ascending {
-                        arr[start..i].reverse();
-                    }
-                    seps.push(i);
-                    start = i;
-                }
-            }
-            if !ascending {
-                arr[start..n].reverse();
-            }
-            seps.push(n);
-            merge_runs(arr, &mut seps);
+            trace!("short32_dups");
+            arr.sort_unstable();
             true
         }
 
-        /// `presorted`, with trial 1 << 58: an array whose first key is the
-        /// larger and whose spread pairs show no ascent is scanned
-        /// descending first (the scan stops at the first ascent: a saw
-        /// tooth's end), reversed only when wholly descending (`presorted`
-        /// reverses it first: a wasted pass over a descending saw).
-        #[inline]
-        fn presorted_ab(arr: &mut [$t]) -> Result<(), Unsorted> {
-            let n = arr.len();
-            if !on(1 << 58) && n >= 2048 && arr[0] > arr[n - 1] {
-                let probes = probe_pairs(arr);
-                if probes.ascending > 0 {
-                    return Err(Unsorted { ascending_prefix: 0, probes: Some(probes) });
-                }
-                if crate::v2::runs::verge::explore_forward_desc(arr, 0) == n {
-                    arr.reverse();
-                    return Ok(());
-                }
-                return Err(Unsorted { ascending_prefix: 0, probes: Some(probes) });
-            }
-            presorted(arr)
-        }
-
         /// `few4` giving up at the first block of 64 keys holding a key
-        /// outside the representatives (`few4` reads every key first).
+        /// outside the representatives (`few4` reads every key first). The 4
+        /// comparisons of a key without a `j < k` test (missing values padded
+        /// with copies, their counts ignored), u32 counters per block:
+        /// vectorized (Few 4 at 300-600 keys was 1.6-1.8x slower than
+        /// blazing on the Surface).
         fn few4_early(arr: &mut [$t], sample: &[$t]) -> bool {
             let mut reps = [sample[0]; 4];
             let mut k = 1;
@@ -925,44 +456,23 @@ macro_rules! chain32_ab {
             }
             reps[..k].sort_unstable();
             let mut c = [0usize; 4];
-            if !on(1 << 61) {
-                // Trial (1 << 61, reused: the rejected 64-bit loads): the 4
-                // comparisons of a key without the `j < k` test (missing
-                // values padded with copies, their counts ignored), u32
-                // counters per block: vectorized (Few 4 at 300-600 keys 1.6-1.8x
-                // slower than blazing on the Surface).
-                let pad = reps[0];
-                for r in reps[k..].iter_mut() {
-                    *r = pad;
-                }
-                for chunk in arr.chunks(64) {
-                    let mut cc = [0u32; 4];
-                    for &x in chunk {
-                        for j in 0..4 {
-                            cc[j] += (x == reps[j]) as u32;
-                        }
-                    }
-                    let hit: u32 = cc[..k].iter().sum();
-                    if hit as usize != chunk.len() {
-                        return false;
-                    }
-                    for j in 0..k {
-                        c[j] += cc[j] as usize;
+            let pad = reps[0];
+            for r in reps[k..].iter_mut() {
+                *r = pad;
+            }
+            for chunk in arr.chunks(64) {
+                let mut cc = [0u32; 4];
+                for &x in chunk {
+                    for j in 0..4 {
+                        cc[j] += (x == reps[j]) as u32;
                     }
                 }
-            } else {
-                for chunk in arr.chunks(64) {
-                    let mut hit = 0;
-                    for &x in chunk {
-                        for j in 0..4 {
-                            let m = (j < k && x == reps[j]) as usize;
-                            c[j] += m;
-                            hit += m;
-                        }
-                    }
-                    if hit != chunk.len() {
-                        return false;
-                    }
+                let hit: u32 = cc[..k].iter().sum();
+                if hit as usize != chunk.len() {
+                    return false;
+                }
+                for j in 0..k {
+                    c[j] += cc[j] as usize;
                 }
             }
             let mut at = 0;
@@ -973,222 +483,30 @@ macro_rules! chain32_ab {
             true
         }
 
-        /// Trial (mask bit 1 << 33): `short32` with the questions that paid
-        /// there, every read shared: the 18 probes once (a dominant value,
-        /// at most 4 values), one inspection pass (descents, bounds); nearly
-        /// sorted from its descents (no probed pairs); a narrow bound made
-        /// exact, then counted; few from 512 keys; else the engine.
-        fn short32b(arr: &mut [$t], known: Unsorted) {
-            let n = arr.len();
-            let s = probes18(arr);
-            if probe_questions(arr, &s) {
-                return;
-            }
-            let (up, down, var, desc, e0) = {
-                let bits: &[u32] = bits_of(arr);
-                let e0 = $c(bits[0]);
-                let (up, down, var, desc) = bits.iter().zip(&bits[1..]).fold(
-                    (0u32, 0u32, 0u32, 0u32),
-                    |(u, dn, v, d), (&a, &b)| {
-                        let (ea, eb) = ($c(a), $c(b));
-                        let x = eb.wrapping_sub(e0);
-                        let below = ((x as i32) >> 31) as u32;
-                        (u | (x & !below), dn | (!x & below), v | (eb ^ e0), d + (ea > eb) as u32)
-                    },
-                );
-                (up, down, var, desc as usize, e0)
-            };
-            if desc == 0 {
-                trace!("short32_sorted");
-                return;
-            }
-            // Nearly sorted, from the descents (the probes of the repair:
-            // all ascending, or all descending).
-            if desc <= 32 || desc + 33 >= n {
-                let probes = if desc <= 32 {
-                    Probes { ascending: 32, descending: 0 }
-                } else {
-                    Probes { ascending: 0, descending: 32 }
-                };
-                if repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0 {
-                    trace!("short32_repaired");
-                    return;
-                }
-            }
-            let tp = 32 - up.leading_zeros();
-            let tn = 32 - down.leading_zeros();
-            let tv = 32 - var.leading_zeros();
-            let by_distance = if tp < 31 && tn < 31 {
-                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
-                    (Some(l), Some(h)) => Some((l, h)),
-                    _ => None,
-                }
-            } else {
-                None
-            };
-            let by_bits = if tv == 32 {
-                (0, u32::MAX)
-            } else {
-                let low = (1u32 << tv) - 1;
-                (e0 & !low, e0 | low)
-            };
-            let (lo, hi) = match by_distance {
-                Some((l, h)) if h - l < by_bits.1 - by_bits.0 => (l, h),
-                _ => by_bits,
-            };
-            let wide = hi - lo == u32::MAX;
-            if !wide && ((hi - lo) as usize) < n / 2 {
-                trace!("short32_count");
-                exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
-                return;
-            }
-            let (lo, hi) = if !wide && hi - lo <= 65_535 {
-                let bits: &[u32] = bits_of(arr);
-                bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
-            } else {
-                (lo, hi)
-            };
-            let span = (hi - lo) as usize + 1;
-            if !wide && span <= n / 2 {
-                trace!("short32_count");
-                exact_count(bits_of(arr), lo, span, $c, $c);
-                return;
-            }
-            if !wide && span <= 256 {
-                trace!("short32_short1");
-                short_radix(bits_of(arr), lo, hi);
-                return;
-            }
-            if n >= 512 {
-                let mut sample = [s[0]; SAMPLE];
-                for i in 0..SAMPLE {
-                    sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
-                }
-                if detectors::few(arr, &sample) {
-                    trace!("short32_few");
-                    return;
-                }
-            }
-            if !wide && cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
-                trace!("short32_short");
-                short_radix(bits_of(arr), lo, hi);
-                return;
-            }
-            trace!("short32_dlsd");
-            $st::dlsd(bits_of(arr));
-        }
-
-        /// Trial (mask bit 1 << 34): `short32` plus the questions that won
-        /// in `short32b`, no repair (it lost 1.5-2x on saw teeth and nearly
-        /// sorted keys at 150-400 keys): the 18 probes (dominant, at most 4
-        /// values); a bound within 65 536 values (by the distances or by the
-        /// bits) made exact, then counted or one short radix pass; few from
-        /// 512 keys; the short radix only on the bounds by the distances
-        /// (by the bits, i32 Bimodal, RootDup went 1.5-2.4x slower), else
-        /// the DLSD.
-        fn short32c(arr: &mut [$t]) {
-            let n = arr.len();
-            let s = probes18(arr);
-            if probe_questions(arr, &s) {
-                return;
-            }
-            let (up, down, var, desc, e0) = {
-                let bits: &[u32] = bits_of(arr);
-                let e0 = $c(bits[0]);
-                let (up, down, var, desc) = bits.iter().zip(&bits[1..]).fold(
-                    (0u32, 0u32, 0u32, 0u32),
-                    |(u, dn, v, d), (&a, &b)| {
-                        let (ea, eb) = ($c(a), $c(b));
-                        let x = eb.wrapping_sub(e0);
-                        let below = ((x as i32) >> 31) as u32;
-                        (u | (x & !below), dn | (!x & below), v | (eb ^ e0), d + (ea > eb) as u32)
-                    },
-                );
-                (up, down, var, desc as usize, e0)
-            };
-            if desc == 0 {
-                trace!("short32_sorted");
-                return;
-            }
-            if desc == n - 1 {
-                trace!("short32_reversed");
-                arr.reverse();
-                return;
-            }
-            let tp = 32 - up.leading_zeros();
-            let tn = 32 - down.leading_zeros();
-            let tv = 32 - var.leading_zeros();
-            let by_distance = if tp < 31 && tn < 31 {
-                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
-                    (Some(l), Some(h)) => Some((l, h)),
-                    _ => None,
-                }
-            } else {
-                None
-            };
-            let narrow = match by_distance {
-                Some((l, h)) if h - l <= 65_535 => true,
-                _ => tv <= 16,
-            };
-            if narrow {
-                let (lo, hi) = {
-                    let bits: &[u32] = bits_of(arr);
-                    bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
-                };
-                let span = (hi - lo) as usize + 1;
-                if span <= n / 2 {
-                    trace!("short32_count");
-                    exact_count(bits_of(arr), lo, span, $c, $c);
-                    return;
-                }
-                if span <= 256 {
-                    trace!("short32_short1");
-                    short_radix(bits_of(arr), lo, hi);
-                    return;
-                }
-            }
-            if n >= 512 {
-                let mut sample = [s[0]; SAMPLE];
-                for i in 0..SAMPLE {
-                    sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
-                }
-                if detectors::few(arr, &sample) {
-                    trace!("short32_few");
-                    return;
-                }
-            }
-            if let Some((lo, hi)) = by_distance {
-                if cfg!(not(target_arch = "aarch64")) && n <= SHORT_MAX {
-                    trace!("short32_short");
-                    short_radix(bits_of(arr), lo, hi);
-                    return;
-                }
-            }
-            trace!("short32_dlsd");
-            $st::dlsd(bits_of(arr));
-        }
-
-        /// The short radix sort of the tiny path (up to `TINY_MAX` keys),
-        /// on raw bits whose encoded minimum and maximum are known: the top
-        /// log2(n) + 3 bits of `key - min` (at most 14) by 2 LSD passes of
-        /// at most 7 bits, both histograms in one read, buffer and counters
-        /// on the stack; then an insertion sort finishes the keys sharing a
-        /// prefix (`sort_unstable` beyond 2n moves: clustered keys). No
-        /// sample, no allocation (the 16-bit short LSD's approach).
+        /// The short radix sort of `short32` (x86, up to `SHORT_MAX` keys),
+        /// on raw bits whose encoded keys lie in `lo..=hi`: the top
+        /// log2(n) + 3 bits of `key - lo` (at most 12), one pass up to 8
+        /// bits, else 2 LSD passes, both histograms in one read, buffer and
+        /// counters on the stack; then an insertion sort finishes the keys
+        /// sharing a prefix (`sort_unstable` beyond 2n moves: clustered
+        /// keys). No sample, no allocation (the 16-bit short LSD's approach).
         fn short_radix(bits: &mut [u32], lo: u32, hi: u32) {
             let n = bits.len();
-            debug_assert!(n <= TINY_MAX);
+            debug_assert!(n <= SHORT_MAX);
             let range = hi - lo;
             if range == 0 {
                 return;
             }
-            let (one, p, base) = short_layout(n, range);
+            let top = 32 - range.leading_zeros();
+            let log_n = usize::BITS - n.leading_zeros();
+            let p = (log_n + 3).min(top);
+            let base = top - p;
             // At most 8 bits: one pass (a counting sort that moves the keys:
             // a range of 256 values at 150 keys, where writing the values
             // back from 256 counters costs 2.5x).
-            if p <= 10 && (one || p <= 8) {
+            if p <= 8 {
                 let key = |b: u32| ($c(b).wrapping_sub(lo) >> base) as usize;
-                let mut c = [0u32; 1024];
+                let mut c = [0u32; 256];
                 let c = &mut c[..1 << p];
                 for &b in bits.iter() {
                     // SAFETY: key < 2^p <= 256.
@@ -1200,7 +518,7 @@ macro_rules! chain32_ab {
                     *x = sum;
                     sum += v;
                 }
-                let mut store = [0u32; TINY_MAX];
+                let mut store = [0u32; SHORT_MAX];
                 let buf = &mut store[..n];
                 // SAFETY: as above; each head plus its keys written is below n.
                 unsafe {
@@ -1222,7 +540,7 @@ macro_rules! chain32_ab {
             let (mut c0, mut c1) = ([0u32; 128], [0u32; 128]);
             for &b in bits.iter() {
                 let k = key(b);
-                // SAFETY: k < 2^p, p <= 14, so both digits are below 128.
+                // SAFETY: k < 2^p, p <= 12, so both digits are below 128.
                 unsafe {
                     *c0.get_unchecked_mut((k & m0) as usize) += 1;
                     *c1.get_unchecked_mut((k >> w0) as usize) += 1;
@@ -1236,7 +554,7 @@ macro_rules! chain32_ab {
                 s0 += a;
                 s1 += b;
             }
-            let mut store = [0u32; TINY_MAX];
+            let mut store = [0u32; SHORT_MAX];
             let buf = &mut store[..n];
             // SAFETY (both passes): the digits are below 128 (above); each
             // head plus the keys of its bucket already written is below n.
@@ -1297,235 +615,22 @@ macro_rules! chain32_ab {
             }
         }
 
-        /// The tiny path. One inspection pass gives the bits that vary and
-        /// the descents: nearly sorted (few descents, or nearly
-        /// all) tries the near-sorted repair, a narrow range is counted
-        /// directly; the other questions on 18 probed keys (the first 16,
-        /// the middle one, the last one); else the DLSD, given the minimum
-        /// and maximum (no pass of its own for them).
-        fn tiny(arr: &mut [$t], known: Unsorted) {
-            let n = arr.len();
-            let s = probes18(arr);
-            // The questions on the probes first (bit 1073741824: after the
-            // inspection pass, which cost Binary, Few 4 1.3-1.5x).
-            let early = on(1073741824);
-            if early && probe_questions(arr, &s) {
-                return;
-            }
-            // Probes spread over more than 4n values (bit 2147483648: the
-            // inspection pass all the same)
-            // and no short radix to feed (ARM, or above `SHORT_MAX` keys):
-            // no inspection pass; the repair on the spread pairs, few, then
-            // the DLSD (its own min / max).
-            if on(2147483648) && early {
-                let sb = {
-                    let mut t = s;
-                    let b: &[u32] = bits_of(&mut t);
-                    b.iter().fold((u32::MAX, 0u32), |(l, h), &x| (l.min($c(x)), h.max($c(x))))
-                };
-                let no_short = cfg!(target_arch = "aarch64") || n > SHORT_MAX;
-                if no_short && (sb.1 - sb.0) as u64 > 4 * n as u64 {
-                    let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
-                    if (probes.ascending >= 30 || probes.descending >= 30)
-                        && repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0
-                    {
-                        trace!("lean_repaired");
-                        return;
-                    }
-                    let mut distinct = 0;
-                    for i in 0..16 {
-                        distinct += !s[..i].contains(&s[i]) as usize;
-                    }
-                    if distinct <= 6 || n >= 512 {
-                        let mut sample = [s[0]; SAMPLE];
-                        for i in 0..SAMPLE {
-                            sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
-                        }
-                        if detectors::few(arr, &sample) {
-                            trace!("lean_few");
-                            return;
-                        }
-                    }
-                    trace!("lean_dlsd");
-                    $st::dlsd(bits_of(arr));
-                    return;
-                }
-            }
-            // One inspection pass: the descents, and the distances to the
-            // first key ORed apart above and below it (no min / max: u32
-            // min / max have no SSE2 instruction and, emulated, made the pass
-            // 20 % of the sort at 1000 keys on the Ryzen; an OR of the keys
-            // themselves missed the narrow ranges across 0x8000_0000, i32
-            // keys around 0).
-            let (up, down, var, desc, e0) = {
-                let bits: &[u32] = bits_of(arr);
-                let e0 = $c(bits[0]);
-                let (up, down, var, desc) = bits.iter().zip(&bits[1..]).fold(
-                    (0u32, 0u32, 0u32, 0u32),
-                    |(u, dn, v, d), (&a, &b)| {
-                        let (ea, eb) = ($c(a), $c(b));
-                        let x = eb.wrapping_sub(e0);
-                        let below = ((x as i32) >> 31) as u32;
-                        (u | (x & !below), dn | (!x & below), v | (eb ^ e0), d + (ea > eb) as u32)
-                    },
-                );
-                (up, down, var, desc as usize, e0)
-            };
-            // Two bounds of the keys. By the distances to the first key,
-            // [e0 - 2^tn, e0 + 2^tp), valid only when it stays in the domain
-            // (else a key more than 2^31 above would pass for one below:
-            // Bimodal); i32 keys around 0 need it. Else by the bits that
-            // vary: the first key's bits above them, always valid.
-            let tp = 32 - up.leading_zeros();
-            let tn = 32 - down.leading_zeros();
-            let tv = 32 - var.leading_zeros();
-            let by_distance = if tp < 31 && tn < 31 {
-                match (e0.checked_sub(1u32 << tn), e0.checked_add((1u32 << tp) - 1)) {
-                    (Some(l), Some(h)) => Some((l, h)),
-                    _ => None,
-                }
-            } else {
-                None
-            };
-            let by_bits = if tv == 32 {
-                (0, u32::MAX)
-            } else {
-                let low = (1u32 << tv) - 1;
-                (e0 & !low, e0 | low)
-            };
-            let (lo, hi) = match by_distance {
-                Some((l, h)) if h - l < by_bits.1 - by_bits.0 => (l, h),
-                _ => by_bits,
-            };
-            let t = if hi - lo == u32::MAX { 32 } else { 0 };
-            if desc <= 32 || desc + 33 >= n {
-                let probes = known.probes.unwrap_or_else(|| probe_pairs(arr));
-                if (probes.ascending >= 30 || probes.descending >= 30)
-                    && repair_nearly_sorted(arr, Unsorted { probes: Some(probes), ..known }).0
-                {
-                    trace!("tiny_repaired");
-                    return;
-                }
-            }
-            if !early && probe_questions(arr, &s) {
-                return;
-            }
-            // A range of at most one counter per 2 keys, or of 256 values
-            // (Small1 at 300 keys): counted. After few4 (Binary: the
-            // comparisons beat the count, 0.30 against 0.62 ns per key).
-            // A bound already narrow: the exact minimum and maximum (one
-            // more pass, only there; the bounds above are ORs, up to twice
-            // the true span: i32 Small1 around 0 showed 512 values for 256).
-            // Bounds already within one counter per 2 keys: counted on them,
-            // no exact min / max pass (bit 67108864: that pass first; Int
-            // 0..100, Saw 1.2-1.4x slower than the light chain's range).
-            if on(67108864) && t < 32 && ((hi - lo) as usize) < n / 2 {
-                trace!("tiny_count");
-                exact_count(bits_of(arr), lo, (hi - lo) as usize + 1, $c, $c);
-                return;
-            }
-            let (lo, hi) = if t < 32 && hi - lo <= 65_535 {
-                let bits: &[u32] = bits_of(arr);
-                bits.iter().fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))))
-            } else {
-                (lo, hi)
-            };
-            let span = (hi - lo) as usize + 1;
-            // At most 256 values: one pass of the short radix sort (moves the
-            // keys); else up to one counter per 2 keys: counted, the values
-            // written back from the counts.
-            // Bit 131072: the old order (the short radix first up to 256
-            // values: 1.5-2.2x slower at 500-1000 keys, Int 0..100, RootDup,
-            // Alt16, Saw, on the Surface).
-            if on(131072) && t < 32 && span <= n / 2 {
-                trace!("tiny_count");
-                exact_count(bits_of(arr), lo, span, $c, $c);
-                return;
-            }
-            // Bit 134217728: up to 256 values counted (`count_small`)
-            // instead of one pass of the short radix.
-            if !on(134217728) && t < 32 && span <= COUNT_SMALL_MAX {
-                trace!("tiny_count");
-                count_small(bits_of(arr), lo, span);
-                return;
-            }
-            if t < 32 && span <= 256 {
-                trace!("tiny_short1");
-                short_radix(bits_of(arr), lo, hi);
-                return;
-            }
-            if t < 32 && span <= n / 2 {
-                trace!("tiny_count");
-                exact_count(bits_of(arr), lo, span, $c, $c);
-                return;
-            }
-            let mut distinct = 0;
-            for i in 0..16 {
-                distinct += !s[..i].contains(&s[i]) as usize;
-            }
-            if distinct <= 6 || n >= 512 {
-                // A real spread sample (bit 33554432: the 18 probes repeated,
-                // which never trip `few`'s early exit on a half-distinct
-                // sample: its full pass then failed late on Heavy 4 and Zipf,
-                // 1.7-2x slower at 1000 keys).
-                let mut sample = [s[0]; SAMPLE];
-                if on(33554432) {
-                    for i in 0..SAMPLE {
-                        sample[i] = arr[i * (n - 1) / (SAMPLE - 1)];
-                    }
-                } else {
-                    for i in 0..SAMPLE {
-                        sample[i] = s[i % 18];
-                    }
-                }
-                if detectors::few(arr, &sample) {
-                    trace!("tiny_few");
-                    return;
-                }
-            }
-            // The short radix sort up to `SHORT_MAX` keys (bit 32768: never),
-            // else the DLSD (from 500 keys its digits beat 2 passes of
-            // 6-7 bits: 5-9 % on random keys).
-            // Clustered keys (Bimodal, Exponential, Clusters): the DLSD,
-            // whose prefix comes from a sample (bit 262144: no such test).
-            // ARM: never for a wide range (Surface: the DLSD 25-35 % faster
-            // on Unif from 200 keys; bit 1048576 swaps).
-            let wide = cfg!(target_arch = "aarch64") == !on(1048576);
-            if wide && on(32768) && n <= SHORT_MAX && !(on(262144) && clustered(s, lo, hi, n)) {
-                trace!("tiny_short");
-                short_radix(bits_of(arr), lo, hi);
-            } else {
-                trace!("tiny_dlsd");
-                // The inspection's bounds hold every key (sometimes twice
-                // the span: one more prefix bit at most): no min / max pass
-                // of the DLSD (bit 4194304: its own pass).
-                if on(4194304) {
-                    $st::dlsd_known(bits_of(arr), lo, hi);
-                } else {
-                    $st::dlsd(bits_of(arr));
-                }
-            }
-        }
-
         /// The detectors, on one spread sample (sorted once, only when the detectors
         /// that need it in order are reached). `equal_pairs`: equal pairs among the
         /// probes of the near-sorted repair.
         fn detect(arr: &mut [$t], equal_pairs: usize) -> bool {
-            if !on(64) {
-                return false;
-            }
             let mut sample = spread(arr);
             chain! {
                 return true;
-                "few4" if on(8192) => try few4(arr, &sample);
-                "range" if on(1) && !EARLY.with(|e| e.get()) => try detectors::range(arr, &sample);
-                "plateaus" if on(2) => try plateaus(arr, equal_pairs);
+                "few4" => try few4(arr, &sample);
+                "range" => try detectors::range(arr, &sample);
+                "plateaus" => try plateaus(arr, equal_pairs);
                 // One dominant value among spread ones, short array: the std
                 // partition settles the keys equal to its pivot in one pass.
-                "dominant" if on(4) && arr.len() < DENSE_MIN
+                "dominant" if arr.len() < DENSE_MIN
                     && dominant(&sample, |x, y| x == y)
                     => do { arr.sort_unstable() };
-                "few" if on(8) && !EARLY.with(|e| e.get()) => try detectors::few(arr, &sample);
+                "few" => try detectors::few(arr, &sample);
             }
             // Heavy keys and dense ranges: the sample in order.
             if arr.len() < HEAVY_MIN || (arr.len() < DENSE_MIN && !may_be_heavy(&sample, |x, y| x == y)) {
@@ -1534,7 +639,7 @@ macro_rules! chain32_ab {
             sample.sort_unstable();
             chain! {
                 return true;
-                "heavy" if on(16) => try heavy_sorted_by(
+                "heavy" => try heavy_sorted_by(
                     arr,
                     &sample,
                     HEAVY_MIN,
@@ -1542,43 +647,32 @@ macro_rules! chain32_ab {
                     |x, y| x == y,
                     |x, y| x < y,
                 );
-                "dense" if on(32) && arr.len() >= DENSE_MIN => try detectors::dense(arr, &sample);
+                "dense" if arr.len() >= DENSE_MIN => try detectors::dense(arr, &sample);
             }
             false
         }
 
         /// The engine of one chunk (the whole array, or a gap between Verge's runs).
         #[inline(always)]
-        fn sort_chunk(bits: &mut [u32], _: &mut Vec<MaybeUninit<u32>>) {
-            // The rollercoaster beyond the cache only on ordered keys (the MSD pass
-            // then writes in few sequential streams; random keys go 15 to 45 %
-            // faster through the LSD from 30M to 1G).
-            // Trial (1 << 60): a global trend under local noise (timestamps
-            // with jitter: spread keys in order, neighbours not) goes to the
-            // LSD (the DLSD 1.3-1.9x slower there, Surface 20k-200k).
-            if bits.len() < dlsd_max()
-                && !on(1 << 60)
-                && bits.len() >= 4096
-                && globally_ordered(bits)
-                && !locally_ordered(bits)
-            {
+        fn sort_chunk(bits: &mut [u32], _: &mut Vec<std::mem::MaybeUninit<u32>>) {
+            let n = bits.len();
+            // Below `DLSD_MAX` keys the DLSD, except: a global trend under
+            // local noise (timestamps with jitter: spread keys in order,
+            // neighbours not), the DLSD 1.3-1.9x slower there (Surface
+            // 20k-200k); composite keys from 65 536 keys. Both to the LSD.
+            // Beyond the cache, the rollercoaster only on ordered keys (the
+            // MSD pass then writes in few sequential streams; random keys go
+            // 15 to 45 % faster through the LSD from 30M to 1G).
+            if n < DLSD_MAX && n >= 4096 && globally_ordered(bits) && !locally_ordered(bits) {
                 trace!("lsd_trend");
                 $ls::lsd(bits);
-            } else if bits.len() < dlsd_max()
-                && !on(1 << 63)
-                && bits.len() >= 65536
-                && composite_like(bits)
-            {
+            } else if n < DLSD_MAX && n >= 65536 && composite_like(bits) {
                 trace!("lsd_composite");
                 $ls::lsd(bits);
-            } else if bits.len() < dlsd_max() {
+            } else if n < DLSD_MAX {
                 trace!("dlsd");
-                if dlsd_heap() {
-                    $dl::dlsd(bits);
-                } else {
-                    $st::dlsd(bits);
-                }
-            } else if bits.len() >= roller_min() && (locally_ordered(bits) || globally_ordered(bits)) {
+                $st::dlsd(bits);
+            } else if n >= roller_min() && (locally_ordered(bits) || globally_ordered(bits)) {
                 trace!("roller");
                 $ro::roller(bits);
             } else {
@@ -1587,12 +681,11 @@ macro_rules! chain32_ab {
             }
         }
 
-        /// Trial (1 << 63): composite keys (few high halves spread over
-        /// the domain, uniform low halves: a tenant and a value), on 256
-        /// spread keys: 8 to 64 distinct high halves spanning at least 16
-        /// times their count. The DLSD sizes its prefix for the tenants and
-        /// leaves whole tenants to its finish (Surface 5k-200k: LSD 1.1-1.25x
-        /// faster).
+        /// Composite keys (few high halves spread over the domain, uniform
+        /// low halves: a tenant and a value), on 256 spread keys: 8 to 64
+        /// distinct high halves spanning at least 16 times their count. The
+        /// DLSD sizes its prefix for the tenants and leaves whole tenants to
+        /// its finish (Surface 5k-200k: LSD 1.1-1.25x faster).
         fn composite_like(bits: &[u32]) -> bool {
             let step = bits.len() / 256;
             let mut k = [0u32; 256];
@@ -1619,8 +712,7 @@ macro_rules! chain32_ab {
             (8..=64).contains(&distinct) && span >= 16 * distinct && groups >= 4 && wide * 4 >= groups * 3
         }
 
-        /// The radix path (copy of `decide::path`); the first matching
-        /// rule wins.
+        /// The radix path (as `decide::path`); the first matching rule wins.
         fn path(
             arr: &mut [$t],
             known: Unsorted,
@@ -1640,33 +732,12 @@ macro_rules! chain32_ab {
                     } else if presorted(tail).is_err() {
                         sort(tail);
                     }
-                    if !on(536870912) && n <= TINY_MAX {
-                        merge_tail_small(bits_of(arr), p);
-                    } else {
-                        merge_runs(arr, &mut vec![0, p, n]);
-                    }
+                    merge_runs(arr, &mut vec![0, p, n]);
                 };
             }
-            // Trial (mask bit 4096): range and few on the sample before the
-            // near-sorted repair when the spread pairs show no order (Binary:
-            // the repair costs 7-14 %); `detect` then skips them.
-            let early = !on(4096)
-                && !known.probes.is_some_and(|p| p.ascending >= 28 || p.descending >= 28);
-            if early {
-                let sample = spread(arr);
-                if on(1) && detectors::range(arr, &sample) {
-                    trace!("early_range");
-                    return;
-                }
-                if on(8) && detectors::few(arr, &sample) {
-                    trace!("early_few");
-                    return;
-                }
-            }
-            EARLY.with(|e| e.set(early));
             let simd_rule = merge::simd_rule_applies::<$t>(n);
             let random_runs = !simd_rule && starts_with_random_runs(arr, p);
-            let (sorted, equal_pairs) = if random_runs || !on(256) {
+            let (sorted, equal_pairs) = if random_runs {
                 (false, known.probes.map_or(0, |p| p.equal()))
             } else {
                 repair_nearly_sorted(arr, known)
@@ -1677,7 +748,7 @@ macro_rules! chain32_ab {
             chain! {
                 "repaired" if sorted => do {};
                 _ => try detect(arr, equal_pairs);
-                "no_verge" if !on(128) || random_runs || can_skip_verge(arr) => do { sort(arr) };
+                "no_verge" if random_runs || can_skip_verge(arr) => do { sort(arr) };
             }
             // Verge: the unsorted chunks are recorded, sorted after the merge rule.
             let base = arr.as_ptr() as usize;
@@ -1721,5 +792,5 @@ macro_rules! chain32_ab {
     };
 }
 
-chain32_ab!(cu32, u32, id32, 200, wu32c, du32, su32, ru32);
-chain32_ab!(ci32, i32, flip32, 150, wi32c, di32, si32, ri32);
+chain32_ab!(cu32, u32, id32, wu32, su32, ru32);
+chain32_ab!(ci32, i32, flip32, wi32, si32, ri32);

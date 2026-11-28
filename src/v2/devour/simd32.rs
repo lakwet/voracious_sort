@@ -1,4 +1,4 @@
-//! Dev only (feature `ab`): 32-bit keys sorted by comparison networks in
+//! 32-bit keys sorted by comparison networks in
 //! SIMD registers, up to `SIMD_MAX` keys: AVX2 on x86-64 (detected at run
 //! time, 8 lanes), NEON on AArch64 (always there, 4 lanes: 16 registers per
 //! block, 4-input column networks, 4 x 4 transposes; blocks merged 8 keys
@@ -21,21 +21,6 @@
 pub(crate) const SIMD_MAX: usize = 512;
 /// Largest array sorted here (the buffers).
 const BUF: usize = 4096;
-
-/// Trial bound (env `AB_SIMD_MAX`, default 512, at most 4096).
-pub(crate) fn simd_max() -> usize {
-    static M: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
-    *M.get_or_init(|| {
-        std::env::var("AB_SIMD_MAX").ok().and_then(|v| v.parse().ok()).unwrap_or(512).min(BUF)
-    })
-}
-
-/// Trials of the chain copy's mask.
-#[inline]
-#[allow(dead_code)]
-fn trial(bit: u64) -> bool {
-    crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed) & bit != 0
-}
 
 /// Whether this CPU runs the AVX2 networks.
 #[inline]
@@ -324,46 +309,6 @@ mod avx2 {
         None
     }
 
-    /// `merge_runs` without a branch on the run to read (trial 1 << 50):
-    /// while both runs have keys, the next 8 come from the address picked
-    /// by `select_unpredictable`, the indices advanced by the comparison;
-    /// then the rest of the remaining run.
-    #[target_feature(enable = "avx2")]
-    #[inline]
-    unsafe fn merge_runs_bl(a: &[u32], b: &[u32], out: *mut u32) {
-        let (pa, pb) = (a.as_ptr(), b.as_ptr());
-        let (la, lb) = (a.len(), b.len());
-        let (mut i, mut j, mut o) = (8, 8, 0);
-        let mut lo = unsafe { _mm256_loadu_si256(pa as *const V) };
-        let mut hi = unsafe { _mm256_loadu_si256(pb as *const V) };
-        loop {
-            let q = merge::<2>([lo, hi]);
-            hi = q[1];
-            unsafe { _mm256_storeu_si256(out.add(o) as *mut V, q[0]) };
-            o += 8;
-            if i >= la || j >= lb {
-                break;
-            }
-            // SAFETY: i < la and j < lb, multiples of 8.
-            let ta = unsafe { *pa.add(i) <= *pb.add(j) };
-            let src = std::hint::select_unpredictable(ta, unsafe { pa.add(i) }, unsafe { pb.add(j) });
-            lo = unsafe { _mm256_loadu_si256(src as *const V) };
-            i += 8 * ta as usize;
-            j += 8 * !ta as usize;
-        }
-        // One run left (or none): its blocks in order.
-        let (rest, mut k, len) = if i < la { (pa, i, la) } else { (pb, j, lb) };
-        while k < len {
-            lo = unsafe { _mm256_loadu_si256(rest.add(k) as *const V) };
-            k += 8;
-            let q = merge::<2>([lo, hi]);
-            hi = q[1];
-            unsafe { _mm256_storeu_si256(out.add(o) as *mut V, q[0]) };
-            o += 8;
-        }
-        unsafe { _mm256_storeu_si256(out.add(o) as *mut V, hi) };
-    }
-
     #[target_feature(enable = "avx2")]
     pub(super) unsafe fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
         let n = bits.len();
@@ -482,8 +427,9 @@ mod avx2 {
                 }
             }
             // The last run merged only up to the multiple of 8 above its
-            // keys: its padding (the maximum) sorted to its end.
-            let padded = if super::trial(1 << 55) { n.next_multiple_of(8) } else { b };
+            // keys, its padding (the maximum) sorted to its end (cold Ryzen
+            // against the best rival, 150-450 keys: 6-27 more cells won).
+            let padded = n.next_multiple_of(8);
             let mut w = 128;
             while w < padded {
                 let src = std::slice::from_raw_parts(px, padded);
@@ -494,11 +440,7 @@ mod avx2 {
                     if mid == end {
                         std::ptr::copy_nonoverlapping(px.add(s), py.add(s), end - s);
                     } else {
-                        if super::trial(1 << 50) {
-                            merge_runs_bl(&src[s..mid], &src[mid..end], py.add(s));
-                        } else {
-                            merge_runs(&src[s..mid], &src[mid..end], py.add(s));
-                        }
+                        merge_runs(&src[s..mid], &src[mid..end], py.add(s));
                     }
                     s = end;
                 }
@@ -706,51 +648,6 @@ mod neon {
         None
     }
 
-    /// `merge_runs` without a branch on the run to read (trial 1 << 50).
-    #[inline(always)]
-    unsafe fn merge_runs_bl(a: &[u32], b: &[u32], out: *mut u32) {
-        let (pa, pb) = (a.as_ptr(), b.as_ptr());
-        let (la, lb) = (a.len(), b.len());
-        let ld = |p: *const u32| unsafe { [vld1q_u32(p), vld1q_u32(p.add(4))] };
-        let (mut i, mut j, mut o) = (8, 8, 0);
-        let mut lo = ld(pa);
-        let mut hi = ld(pb);
-        loop {
-            let q = merge::<4>([lo[0], lo[1], hi[0], hi[1]]);
-            hi = [q[2], q[3]];
-            unsafe {
-                vst1q_u32(out.add(o), q[0]);
-                vst1q_u32(out.add(o + 4), q[1]);
-            }
-            o += 8;
-            if i >= la || j >= lb {
-                break;
-            }
-            // SAFETY: i < la and j < lb, multiples of 8.
-            let ta = unsafe { *pa.add(i) <= *pb.add(j) };
-            let src = std::hint::select_unpredictable(ta, unsafe { pa.add(i) }, unsafe { pb.add(j) });
-            lo = ld(src);
-            i += 8 * ta as usize;
-            j += 8 * !ta as usize;
-        }
-        let (rest, mut k, len) = if i < la { (pa, i, la) } else { (pb, j, lb) };
-        while k < len {
-            lo = ld(unsafe { rest.add(k) });
-            k += 8;
-            let q = merge::<4>([lo[0], lo[1], hi[0], hi[1]]);
-            hi = [q[2], q[3]];
-            unsafe {
-                vst1q_u32(out.add(o), q[0]);
-                vst1q_u32(out.add(o + 4), q[1]);
-            }
-            o += 8;
-        }
-        unsafe {
-            vst1q_u32(out.add(o), hi[0]);
-            vst1q_u32(out.add(o + 4), hi[1]);
-        }
-    }
-
     pub(super) unsafe fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
         let n = bits.len();
         let f = unsafe { vdupq_n_u32(flip) };
@@ -840,9 +737,7 @@ mod neon {
                     b += 128;
                 }
             }
-            // The last run merged only up to the multiple of 8 above its
-            // keys: its padding (the maximum) sorted to its end.
-            let padded = if super::trial(1 << 55) { n.next_multiple_of(8) } else { b };
+            let padded = b;
             let mut w = 128;
             while w < padded {
                 let src = std::slice::from_raw_parts(px, padded);
@@ -853,11 +748,7 @@ mod neon {
                     if mid == end {
                         std::ptr::copy_nonoverlapping(px.add(s), py.add(s), end - s);
                     } else {
-                        if super::trial(1 << 50) {
-                            merge_runs_bl(&src[s..mid], &src[mid..end], py.add(s));
-                        } else {
-                            merge_runs(&src[s..mid], &src[mid..end], py.add(s));
-                        }
+                        merge_runs(&src[s..mid], &src[mid..end], py.add(s));
                     }
                     s = end;
                 }

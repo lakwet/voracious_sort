@@ -1,10 +1,11 @@
-//! Dev only (feature `ab`): copy of `sort.rs` for the 32-bit chain copy:
-//! scratch on the stack up to `STACK_KEYS` keys (`Scratch`), histograms in 4
-//! lanes from 4096 to 32k keys, aliasing checked from 32k keys (`OLD`: the
-//! engine's rules, for A/B). The DLSD steps: small arrays, min / max, narrowing of 128-bit keys,
-//! prefix layout, histograms, scatter passes on the prefix digits, finish.
+//! The DLSD of the u32 / i32 chain (`sort.rs` with other rules): scratch
+//! on the stack up to `STACK_KEYS` keys (`Scratch`), histograms in 4 lanes
+//! from 4096 to 32k keys, aliasing checked from 32k keys; x86: an exact
+//! prefix over nearly the whole key goes to the LSD. The DLSD steps: small
+//! arrays, min / max, prefix layout, histograms, scatter passes on the
+//! prefix digits, finish.
 
-macro_rules! dlsd_sort_ab {
+macro_rules! dlsd_sort_stack {
     ($uint:ty, $alias_min:path) => {
         /// Keys of the scratch buffer kept on the stack.
         const STACK_KEYS: usize = 4096;
@@ -42,16 +43,6 @@ macro_rules! dlsd_sort_ab {
             let n = bits.len().min(STACK_KEYS);
             let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
             dlsd_rec::<true>(bits, &mut scratch, None, None);
-        }
-
-        /// Sorts raw bits whose encoded minimum and maximum are known (the
-        /// tiny path's inspection pass): no min / max pass.
-        #[allow(dead_code)]
-        pub(crate) fn dlsd_known(bits: &mut [$uint], min: $uint, max: $uint) {
-            let mut stack = [MaybeUninit::<$uint>::uninit(); STACK_KEYS];
-            let n = bits.len().min(STACK_KEYS);
-            let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
-            dlsd_rec::<true>(bits, &mut scratch, None, Some((min, max)));
         }
 
         /// Sorts encoded keys and writes them back decoded, `scratch` (at
@@ -143,19 +134,12 @@ macro_rules! dlsd_sort_ab {
             // LSD instead (1.05-1.35x faster at 3000-200k keys on the Ryzen
             // and the Haswell; narrower exact prefixes, Normale 20-24 at
             // 3000-5000 keys, stay: 5-8 % slower there). x86 only (Surface:
-            // Clusters 5-10 % slower at 3000-5000 keys, nothing won). Bit
-            // 16777216 of the chain copy's mask: the DLSD all the same.
-            // Trials: bit 1 << 36 also inexact prefixes (Composite: a high
-            // half among 64 values, a prefix of 27-32 bits), 1 << 37 on ARM.
-            let skip = crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed);
-            if (cfg!(not(target_arch = "aarch64")) || skip & (1 << 37) != 0)
+            // Clusters 5-10 % slower at 3000-5000 keys, nothing won).
+            if cfg!(not(target_arch = "aarch64"))
                 && RAW
-                && (layout.base == 0 || skip & (1 << 36) != 0)
+                && layout.base == 0
                 && layout.digits >= 3
                 && top + 4 >= <$uint>::BITS
-                && crate::v2::devour::ab_copy32::SKIP.load(std::sync::atomic::Ordering::Relaxed)
-                    & 16777216
-                    == 0
             {
                 trace!("dlsd_to_lsd");
                 w::lsd(keys);
@@ -166,8 +150,7 @@ macro_rules! dlsd_sort_ab {
             let mut stack = std::mem::MaybeUninit::<[u32; STACK_COUNTERS]>::uninit();
             let mut heap: Vec<u32> = Vec::new();
             let size = layout.digits * layout.buckets;
-            let four = !OLD.load(std::sync::atomic::Ordering::Relaxed)
-                && (LANES4_MIN..LANES4_END).contains(&n)
+            let four = (LANES4_MIN..LANES4_END).contains(&n)
                 && layout.digits <= 4
                 && 4 * size <= STACK_COUNTERS;
             let tables = zeroed_counters(&mut stack, &mut heap, if four { 4 } else { 2 } * size);
@@ -184,44 +167,18 @@ macro_rules! dlsd_sort_ab {
             let tables = &mut tables[..layout.digits * layout.buckets];
             scatter_passes::<RAW>(keys, scratch, tables, min, &layout);
             if layout.base == 0 {
-                note(n, top, &layout, 2);
                 return;
             }
-            let by_insertion = finish_by_insertion(keys);
-            note(n, top, &layout, by_insertion as u8);
-            if !by_insertion {
+            if !finish_by_insertion(keys) {
                 finish_groups(keys, scratch, min, layout.base);
             }
         }
 
-        /// The copy's rules against `OLD` (the engine's, for A/B): 4 lanes
-        /// from `LANES4_MIN` to `LANES4_END` keys, aliasing checked from
-        /// `ALIAS_KEYS_MIN` keys.
-        pub(crate) static OLD: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
+        /// 4 histogram lanes from `LANES4_MIN` to `LANES4_END` keys;
+        /// aliasing checked from `ALIAS_KEYS_MIN` keys.
         const LANES4_MIN: usize = 4096;
         const LANES4_END: usize = 32_768;
         const ALIAS_KEYS_MIN: usize = 32_768;
-
-        /// Dev only: one call's decisions (n, top, prefix bits, digit
-        /// width, digits, finish: 2 exact, 1 insertion, 0 groups), recorded
-        /// when `STATS_ON` (the example's DSTATS mode).
-        #[inline(always)]
-        fn note(n: usize, top: u32, l: &Layout, finish: u8) {
-            if STATS_ON.load(std::sync::atomic::Ordering::Relaxed) {
-                let prefix = top - l.base;
-                STATS.with(|s| s.borrow_mut().push((n, top, prefix, l.width, l.digits, finish)));
-            }
-        }
-
-        /// Whether `note` records (dev).
-        pub(crate) static STATS_ON: std::sync::atomic::AtomicBool =
-            std::sync::atomic::AtomicBool::new(false);
-
-        thread_local! {
-            pub(crate) static STATS: std::cell::RefCell<Vec<(usize, u32, u32, u32, usize, u8)>> =
-                const { std::cell::RefCell::new(Vec::new()) };
-        }
 
         /// Histograms of `K` digits in one read, 4 lanes (`tables`: 4 x
         /// `K * buckets` counters, summed into the first).
@@ -414,7 +371,7 @@ macro_rules! dlsd_sort_ab {
             let buf = scratch.slots(n);
             // The tables become their exclusive prefix sums (the bucket heads).
             let check_alias = n >= $alias_min() / std::mem::size_of::<$uint>()
-                && (OLD.load(std::sync::atomic::Ordering::Relaxed) || n >= ALIAS_KEYS_MIN);
+                && n >= ALIAS_KEYS_MIN;
             let mut staged = [false; 64];
             for (i, &t) in varying.iter().enumerate() {
                 let table = &mut tables[t * buckets..(t + 1) * buckets];

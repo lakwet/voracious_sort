@@ -5,8 +5,7 @@
 //! Env: T=u32|i32 (default u32); SORTS="v2,lsd,std,blz" (`v2` the library,
 //! `lsd` the LSD engine alone, no detector (`dlsd`, `roller`: those engines alone): v2 - lsd on a cell whose path
 //! ends in the LSD is what the chain's failed questions cost);
-//! `copy` the A/B copy of the chain (`ab_copy32.rs`), `copy:MASK` with the
-//! questions of MASK skipped (see `ab_copy32::SKIP`);
+//! `copy` the A/B copy of the chain (`ab_copy32.rs`);
 //! DOM_SIZES="300,1000,..."; TOTAL (keys per measure, default 4M);
 //! GEN=text (only the distributions containing text); GENS=a,b (only these, short names as printed); CHECK=1 (every sort
 //! against `sort_unstable` first); FRESH=1 (new pages for every allocation
@@ -25,8 +24,7 @@ static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;
 
 use std::time::Instant;
 use voracious_radix_sort::{
-    ab_i32_copy, ab_i32_engine, ab_i32_lsd, ab_i32_old, ab_u32_copy, ab_u32_engine, ab_u32_lsd,
-    ab_u32_old, devour_sort,
+    ab_i32_copy, ab_i32_engine, ab_i32_lsd, ab_u32_copy, ab_u32_engine, ab_u32_lsd, devour_sort,
 };
 
 type Gens<T> = Vec<(&'static dyn Fn(usize) -> Vec<T>, &'static str)>;
@@ -38,7 +36,6 @@ trait Key: voracious_radix_sort::DevourSort + Send + Sync + std::fmt::Debug + 's
     fn turbo(w: &mut [Self]);
     fn engine(name: &str, w: &mut [Self]);
     fn copy(w: &mut [Self]);
-    fn old(w: &mut [Self]);
 }
 
 impl Key for u32 {
@@ -52,7 +49,6 @@ impl Key for u32 {
     fn turbo(w: &mut [u32]) { turbosort::sort(w) }
     fn engine(name: &str, w: &mut [u32]) { ab_u32_engine(name, w) }
     fn copy(w: &mut [u32]) { ab_u32_copy(w) }
-    fn old(w: &mut [u32]) { ab_u32_old(w) }
 }
 
 impl Key for i32 {
@@ -66,7 +62,6 @@ impl Key for i32 {
     fn turbo(w: &mut [i32]) { turbosort::sort(w) }
     fn engine(name: &str, w: &mut [i32]) { ab_i32_engine(name, w) }
     fn copy(w: &mut [i32]) { ab_i32_copy(w) }
-    fn old(w: &mut [i32]) { ab_i32_old(w) }
 }
 
 fn run<T: Key>(name: &str, w: &mut [T])
@@ -78,18 +73,7 @@ fn run<T: Key>(name: &str, w: &mut [T])
         "glide" => glidesort::sort(w),
         "lsd" => T::lsd(w),
         "copy" => T::copy(w),
-        "old" => T::old(w),
-        c if c.starts_with("copy:") => {
-            voracious_radix_sort::ab_copy32_skip(c[5..].parse().unwrap());
-            T::copy(w);
-            voracious_radix_sort::ab_copy32_skip(voracious_radix_sort::ab_copy32_kept());
-        },
-        "dlsd" | "dlsdr" | "dlsds" | "dlsdo" | "rollo" | "roller" | "lsdc" => T::engine(name, w),
-        c if c.starts_with("lsdc:") => {
-            voracious_radix_sort::ab_copy32_skip(c[5..].parse().unwrap());
-            T::engine("lsdc", w);
-            voracious_radix_sort::ab_copy32_skip(voracious_radix_sort::ab_copy32_kept());
-        },
+        "dlsd" | "dlsdr" | "dlsds" | "rollo" | "roller" => T::engine(name, w),
         _ => devour_sort(w),
     }
 }
@@ -194,12 +178,11 @@ settings,ab_u32 example: median of {} interleaved, random order, copy subtracted
             .iter()
             .map(|s| match s.as_str() {
                 "v2" => "voracious",
-                "old" => "voracious 2.1",
                 "std" => "std",
                 "blz" => "blazing",
                 "turbo" => "turbosort",
                 "glide" => "glidesort",
-                c if c.starts_with("copy") => "voracious new",
+                "copy" => "voracious copy",
                 o => o,
             })
             .collect();
@@ -300,38 +283,6 @@ fn go<T: Key>()
         .unwrap_or(vec![300, 500, 1000, 2000, 5000, 10_000, 50_000, 100_000, 1_000_000]);
     if std::env::var("CHECK").is_ok() {
         check::<T>(&sorts, &sizes);
-    }
-    if std::env::var("DSTATS").is_ok() {
-        // The stack DLSD's decisions per cell (u32 only), one array each.
-        for &n in &sizes {
-            for (gen, title) in u32::gens().iter() {
-                if std::env::var("GEN").ok().is_some_and(|w| !title.contains(w.as_str())) {
-                    continue;
-                }
-                let mut w = gen(n);
-                let _ = voracious_radix_sort::ab_dlsd_stats_take();
-                if let Some(m) = std::env::var("DSKIP").ok().and_then(|v| v.parse().ok()) {
-                    voracious_radix_sort::ab_copy32_skip(m);
-                }
-                u32::engine("dlsds", &mut w);
-                let st = voracious_radix_sort::ab_dlsd_stats_take();
-                let calls: Vec<String> = st
-                    .iter()
-                    .take(4)
-                    .map(|c| format!("n{} top{} pre{} w{}x{} f{}", c.0, c.1, c.2, c.3, c.4, c.5))
-                    .collect();
-                let staged = 0;
-                println!(
-                    "{:>8} {:14} calls {:>4} staged {}  {}",
-                    n,
-                    name_of(title),
-                    st.len(),
-                    staged,
-                    calls.join(" | ")
-                );
-            }
-        }
-        return;
     }
     if let Ok(which) = std::env::var("PROF") {
         prof::<T>(&which);

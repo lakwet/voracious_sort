@@ -1,7 +1,8 @@
 //! # Devour sort: radix sort for integers (and `char`; `bool`: count and fills)
 //!
 //! The public entry and its trait, and the decision chain of each type (one
-//! file per type; u16 and i16 share the generic `narrow16`). Shared here:
+//! file per type; u16 and i16 share the generic `narrow16`, u32 and i32
+//! `chain32`). Shared here:
 //! the key encodings (`keys`) and the 128-bit helpers (`wide128`). The
 //! engines, detectors, inspections and merges are shared by the three sorts
 //! (`engines`, `special`, `inspect`, `decide`, `runs`).
@@ -19,8 +20,10 @@ pub(crate) mod i8;
 #[macro_use]
 pub(crate) mod narrow16;
 #[cfg(feature = "ab")] pub(crate) mod ab_copy;
-pub(crate) mod ab_copy32;
-pub(crate) mod ab_simd32;
+#[cfg(feature = "ab")] pub(crate) mod ab_copy32;
+#[macro_use]
+pub(crate) mod chain32;
+pub(crate) mod simd32;
 pub(crate) mod u128;
 pub(crate) mod u16;
 pub(crate) mod u32;
