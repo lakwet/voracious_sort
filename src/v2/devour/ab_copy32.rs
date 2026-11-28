@@ -28,10 +28,10 @@ pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::Atomic
 /// code, the rejected ones removed, at the refactor before the release). x86:
 /// 512, 42, 43, 44, 46, 47, SIMD networks up to 512 keys (49, 53), last run
 /// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
-/// to 128 keys (49, 57), 54; both: count tables of 128-256 KiB on the
+/// to 256 keys (49, 57, 56), 54; both: count tables of 128-256 KiB on the
 /// stack (59), a global trend under local noise to the LSD (60).
 pub(crate) const KEPT: u64 =
-    if cfg!(target_arch = "aarch64") { 1892299093821096448 } else { 1793237494204989952 };
+    if cfg!(target_arch = "aarch64") { 1964356687859024384 } else { 1793237494204989952 };
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
@@ -147,9 +147,17 @@ macro_rules! chain32_ab {
                 use crate::v2::devour::ab_simd32 as simd;
                 // Trial (1 << 49): up to 128 keys the networks first, the
                 // range checked in the registers (a narrow one counted).
-                // Trial (1 << 53): direct up to 512 keys on x86 (ARM 128).
+                // Trial (1 << 53): direct up to 512 keys on x86 (ARM 128);
+                // trial (1 << 56, reused: the rejected 8 probes first): ARM up
+                // to 256.
                 let direct_max = if !on(1 << 53) && cfg!(not(target_arch = "aarch64")) {
                     simd::SIMD_MAX
+                } else if !on(1 << 56) && cfg!(target_arch = "aarch64") {
+                    // Surface: 129-256 keys 26-34 cells won against the best
+                    // rival (4-22 through short32); from 300 the radix path
+                    // wins (Sparse 90 %, Few 4: 2x slower without its
+                    // duplicate questions).
+                    256
                 } else {
                     128
                 };
@@ -162,13 +170,23 @@ macro_rules! chain32_ab {
                     && known.ascending_prefix < n / 2
                     && simd::available()
                 {
-                    // Trial (1 << 56): the 8 probes first (few values,
-                    // a dominant one, many duplicates).
-                    if !on(1 << 56) && probe8(arr) {
-                        return;
-                    }
                     let narrow = if !on(1 << 46) { n } else { n / 2 };
-                    match simd::sort_or_range(bits_of(arr), $c(0), narrow) {
+                    let r = if cfg!(target_arch = "aarch64") && n > 128 {
+                        // NEON checks the range in its registers up to 128
+                        // keys only: a min / max pass first.
+                        let (lo, hi) = bits_of(arr)
+                            .iter()
+                            .fold((u32::MAX, 0u32), |(l, h), &b| (l.min($c(b)), h.max($c(b))));
+                        if ((hi - lo) as usize) < narrow {
+                            Some((lo, hi))
+                        } else {
+                            simd::sort(bits_of(arr), $c(0));
+                            None
+                        }
+                    } else {
+                        simd::sort_or_range(bits_of(arr), $c(0), narrow)
+                    };
+                    match r {
                         None => {
                             trace!("simd32_direct");
                         },
