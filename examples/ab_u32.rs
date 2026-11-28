@@ -17,8 +17,7 @@
 #[path = "../src/generators/mod.rs"]
 mod generators;
 
-#[path = "common/fresh_pages.rs"]
-mod fresh_pages;
+#[path = "common/fresh_pages.rs"] mod fresh_pages;
 #[global_allocator]
 static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;
 
@@ -64,8 +63,7 @@ impl Key for i32 {
     fn copy(w: &mut [i32]) { ab_i32_copy(w) }
 }
 
-fn run<T: Key>(name: &str, w: &mut [T])
-{
+fn run<T: Key>(name: &str, w: &mut [T]) {
     match name {
         "std" => w.sort_unstable(),
         "blz" => T::blz(w),
@@ -103,7 +101,10 @@ fn gens_wanted<T: Key>() -> Gens<T> {
     let want = std::env::var("GEN").ok();
     // GENS=a,b,c: only the distributions whose short name (as printed,
     // `_` for spaces) is in the list.
-    let list: Option<Vec<String>> = std::env::var("GENS").ok().filter(|v| !v.is_empty()).map(|v| v.split(',').map(String::from).collect());
+    let list: Option<Vec<String>> = std::env::var("GENS")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .map(|v| v.split(',').map(String::from).collect());
     T::gens()
         .into_iter()
         .filter(|(_, t)| want.as_ref().is_none_or(|w| t.contains(w.as_str())))
@@ -111,8 +112,7 @@ fn gens_wanted<T: Key>() -> Gens<T> {
         .collect()
 }
 
-fn check<T: Key>(sorts: &[String], sizes: &[usize])
-{
+fn check<T: Key>(sorts: &[String], sizes: &[usize]) {
     for &n in sizes {
         for (gen, title) in gens_wanted::<T>().iter() {
             let a = gen(n);
@@ -129,8 +129,7 @@ fn check<T: Key>(sorts: &[String], sizes: &[usize])
 }
 
 #[cfg(feature = "v2_trace")]
-fn trace<T: Key>(sizes: &[usize])
-{
+fn trace<T: Key>(sizes: &[usize]) {
     for &n in sizes {
         for (gen, title) in gens_wanted::<T>().iter() {
             let mut w = gen(n);
@@ -143,8 +142,7 @@ fn trace<T: Key>(sizes: &[usize])
     }
 }
 
-fn bench<T: Key>(sorts: &[String], sizes: &[usize])
-{
+fn bench<T: Key>(sorts: &[String], sizes: &[usize]) {
     // COLD=1: below 1M keys every sort on a fresh copy (allocated, page
     // faults paid, the copy subtracted), 32M keys per measure by default
     // (inputs far beyond the last cache); from 1M keys the work arrays are
@@ -166,7 +164,8 @@ fn bench<T: Key>(sorts: &[String], sizes: &[usize])
             f,
             "== machine
 cpu,{}
-settings,ab_u32 example: median of {} interleaved, random order, copy subtracted, {} keys per measure{}",
+settings,ab_u32 example: median of {} interleaved, random order, copy subtracted, {} keys per \
+             measure{}",
             cpu,
             reps,
             total,
@@ -186,9 +185,15 @@ settings,ab_u32 example: median of {} interleaved, random order, copy subtracted
                 o => o,
             })
             .collect();
-        writeln!(f, "== {} (ab_u32 example; ns per key)
-cols,{},size,gen,{}", label, label, names.join(","))
-            .unwrap();
+        writeln!(
+            f,
+            "== {} (ab_u32 example; ns per key)
+cols,{},size,gen,{}",
+            label,
+            label,
+            names.join(",")
+        )
+        .unwrap();
     }
     for &n in sizes {
         for (gen, title) in gens_wanted::<T>().iter() {
@@ -270,8 +275,7 @@ fn prof<T: Key>(which: &str) {
     println!("{} {} n={} : {:.3} ns/key (copy included)", which, want, n, ns);
 }
 
-fn go<T: Key>()
-{
+fn go<T: Key>() {
     let sorts: Vec<String> = std::env::var("SORTS")
         .unwrap_or("v2,lsd,std,blz".into())
         .split(',')

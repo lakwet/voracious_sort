@@ -168,4 +168,3 @@ macro_rules! dlsd_width_stack {
 
 dlsd_width_stack!(u32, wu32, su32, alias_min_bytes_int, 16);
 dlsd_width_stack!(u32, wi32, si32, alias_min_bytes_int, 16);
-

@@ -55,7 +55,8 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
     let mut lanes = lanes_for(width, n);
     let mut stack;
     let mut heap: Vec<u32>;
-    let mut counts: &mut [u32] = if (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(width * lanes)) {
+    let mut counts: &mut [u32] = if (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(width * lanes))
+    {
         stack = [0u32; STACK_COUNTERS];
         &mut stack[..width * lanes]
     } else {
@@ -64,7 +65,7 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
     };
     let mut pos = 0;
     loop {
-        let missed = count_window(&keys[pos..], encode, base, width, lanes, &mut counts);
+        let missed = count_window(&keys[pos..], encode, base, width, lanes, counts);
         // Lane 0 receives the sums of the lanes.
         if lanes == 4 {
             let (c0, rest) = counts.split_at_mut(width);

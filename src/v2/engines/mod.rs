@@ -12,6 +12,5 @@ pub(crate) mod dlsd;
 pub(crate) mod lsd;
 pub(crate) mod msd;
 pub(crate) mod roller;
-#[cfg(feature = "ab")]
-pub(crate) mod roller_ab;
+#[cfg(feature = "ab")] pub(crate) mod roller_ab;
 pub(crate) mod small;

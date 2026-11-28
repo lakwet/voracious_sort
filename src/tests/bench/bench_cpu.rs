@@ -907,9 +907,11 @@ fn cpu_slug() -> String {
     let mut from = 0;
     while let Some(open) = name[from..].find('(').map(|i| i + from) {
         match name[open + 1..].find(')') {
-            Some(len) if name[open + 1..open + 1 + len].chars().all(|c| c.is_ascii_alphabetic()) => {
+            Some(len)
+                if name[open + 1..open + 1 + len].chars().all(|c| c.is_ascii_alphabetic()) =>
+            {
                 name.replace_range(open..open + len + 2, "")
-            }
+            },
             _ => from = open + 1,
         }
     }
@@ -924,7 +926,11 @@ fn cpu_slug() -> String {
         }
     }
     let slug = slug.trim_end_matches('-').to_string();
-    if slug.is_empty() { "unknown-cpu".into() } else { slug }
+    if slug.is_empty() {
+        "unknown-cpu".into()
+    } else {
+        slug
+    }
 }
 
 /// UTC date and time as `YYYYMMDDHHMM`.

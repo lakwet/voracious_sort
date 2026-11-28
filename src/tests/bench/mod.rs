@@ -8,7 +8,6 @@ mod cold;
 // 128 KiB or more gets new pages from the system and returns them on free,
 // as in an isolated sort; the system allocator would recycle a sort's
 // buffer at some sizes only.
-#[path = "../../../examples/common/fresh_pages.rs"]
-mod fresh_pages;
+#[path = "../../../examples/common/fresh_pages.rs"] mod fresh_pages;
 #[global_allocator]
 static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;

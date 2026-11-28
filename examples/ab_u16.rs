@@ -13,8 +13,7 @@
 #[path = "../src/generators/mod.rs"]
 mod generators;
 
-#[path = "common/fresh_pages.rs"]
-mod fresh_pages;
+#[path = "common/fresh_pages.rs"] mod fresh_pages;
 #[global_allocator]
 static ALLOC: fresh_pages::Fresh = fresh_pages::Fresh;
 

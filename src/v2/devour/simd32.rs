@@ -254,9 +254,9 @@ mod avx2 {
         let mut r: [V; R] =
             std::array::from_fn(|i| unsafe { load(p.add(8 * i), n.saturating_sub(8 * i), f) });
         sort_regs::<R>(&mut r);
-        for i in 0..R {
+        for (i, &v) in r.iter().enumerate() {
             if 8 * i < n {
-                unsafe { store(p.add(8 * i), n - 8 * i, r[i], f) };
+                unsafe { store(p.add(8 * i), n - 8 * i, v, f) };
             }
         }
     }
@@ -264,14 +264,19 @@ mod avx2 {
     /// `sort_direct` with the range check of `sort_or_range`.
     #[target_feature(enable = "avx2")]
     #[inline]
-    unsafe fn direct_or_range<const R: usize>(p: *mut u32, n: usize, f: V, narrow: usize) -> Option<(u32, u32)> {
+    unsafe fn direct_or_range<const R: usize>(
+        p: *mut u32,
+        n: usize,
+        f: V,
+        narrow: usize,
+    ) -> Option<(u32, u32)> {
         let mut r: [V; R] =
             std::array::from_fn(|i| unsafe { load(p.add(8 * i), n.saturating_sub(8 * i), f) });
         let mut mn = r[0];
         let mut mx = _mm256_setzero_si256();
-        for i in 0..R {
+        for (i, &v) in r.iter().enumerate() {
             if 8 * i < n {
-                mn = _mm256_min_epu32(mn, r[i]);
+                mn = _mm256_min_epu32(mn, v);
                 // Padding lanes (the maximum) left out of the max: the
                 // lanes of a short last register read as its first key.
                 let v = if n - 8 * i >= 8 {
@@ -279,7 +284,11 @@ mod avx2 {
                 } else {
                     let lanes = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
                     let real = _mm256_cmpgt_epi32(_mm256_set1_epi32((n - 8 * i) as i32), lanes);
-                    _mm256_blendv_epi8(_mm256_permutevar8x32_epi32(r[i], _mm256_setzero_si256()), r[i], real)
+                    _mm256_blendv_epi8(
+                        _mm256_permutevar8x32_epi32(r[i], _mm256_setzero_si256()),
+                        r[i],
+                        real,
+                    )
                 };
                 mx = _mm256_max_epu32(mx, v);
             }
@@ -301,16 +310,20 @@ mod avx2 {
             return Some((lo, hi));
         }
         sort_regs::<R>(&mut r);
-        for i in 0..R {
+        for (i, &v) in r.iter().enumerate() {
             if 8 * i < n {
-                unsafe { store(p.add(8 * i), n - 8 * i, r[i], f) };
+                unsafe { store(p.add(8 * i), n - 8 * i, v, f) };
             }
         }
         None
     }
 
     #[target_feature(enable = "avx2")]
-    pub(super) unsafe fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
+    pub(super) unsafe fn sort_or_range(
+        bits: &mut [u32],
+        flip: u32,
+        narrow: usize,
+    ) -> Option<(u32, u32)> {
         let n = bits.len();
         let f = _mm256_set1_epi32(flip as i32);
         let p = bits.as_mut_ptr();
@@ -411,8 +424,8 @@ mod avx2 {
                         load(p.add(b + 8 * i), n.saturating_sub(b + 8 * i), f)
                     });
                     sort_regs::<8>(&mut r);
-                    for i in 0..8 {
-                        _mm256_storeu_si256(px.add(b + 8 * i) as *mut V, r[i]);
+                    for (i, &v) in r.iter().enumerate() {
+                        _mm256_storeu_si256(px.add(b + 8 * i) as *mut V, v);
                     }
                     b += 64;
                 } else {
@@ -420,8 +433,8 @@ mod avx2 {
                         load(p.add(b + 8 * i), n.saturating_sub(b + 8 * i), f)
                     });
                     sort_regs::<16>(&mut r);
-                    for i in 0..16 {
-                        _mm256_storeu_si256(px.add(b + 8 * i) as *mut V, r[i]);
+                    for (i, &v) in r.iter().enumerate() {
+                        _mm256_storeu_si256(px.add(b + 8 * i) as *mut V, v);
                     }
                     b += 128;
                 }
@@ -581,8 +594,8 @@ mod neon {
                 return veorq_u32(vld1q_u32(p), f);
             }
             let mut t = [u32::MAX; 4];
-            for i in 0..m {
-                t[i] = p.add(i).read() ^ vgetq_lane_u32(f, 0);
+            for (i, ti) in t.iter_mut().take(m).enumerate() {
+                *ti = p.add(i).read() ^ vgetq_lane_u32(f, 0);
             }
             vld1q_u32(t.as_ptr())
         }
@@ -609,23 +622,28 @@ mod neon {
         let mut r: [V; R] =
             std::array::from_fn(|i| unsafe { load(p.add(4 * i), n.saturating_sub(4 * i), f) });
         sort_regs::<R>(&mut r);
-        for i in 0..R {
+        for (i, &v) in r.iter().enumerate() {
             if 4 * i < n {
-                unsafe { store(p.add(4 * i), n - 4 * i, r[i], f) };
+                unsafe { store(p.add(4 * i), n - 4 * i, v, f) };
             }
         }
     }
 
     /// `sort_direct` with the range check of `sort_or_range`.
     #[inline(always)]
-    unsafe fn direct_or_range<const R: usize>(p: *mut u32, n: usize, f: V, narrow: usize) -> Option<(u32, u32)> {
+    unsafe fn direct_or_range<const R: usize>(
+        p: *mut u32,
+        n: usize,
+        f: V,
+        narrow: usize,
+    ) -> Option<(u32, u32)> {
         let mut r: [V; R] =
             std::array::from_fn(|i| unsafe { load(p.add(4 * i), n.saturating_sub(4 * i), f) });
         let (mut lo, mut hi) = (u32::MAX, 0u32);
         unsafe {
-            for i in 0..R {
+            for (i, &v) in r.iter().enumerate() {
                 if 4 * i < n {
-                    lo = lo.min(vminvq_u32(r[i]));
+                    lo = lo.min(vminvq_u32(v));
                     if n - 4 * i >= 4 {
                         hi = hi.max(vmaxvq_u32(r[i]));
                     } else {
@@ -640,15 +658,19 @@ mod neon {
             return Some((lo, hi));
         }
         sort_regs::<R>(&mut r);
-        for i in 0..R {
+        for (i, &v) in r.iter().enumerate() {
             if 4 * i < n {
-                unsafe { store(p.add(4 * i), n - 4 * i, r[i], f) };
+                unsafe { store(p.add(4 * i), n - 4 * i, v, f) };
             }
         }
         None
     }
 
-    pub(super) unsafe fn sort_or_range(bits: &mut [u32], flip: u32, narrow: usize) -> Option<(u32, u32)> {
+    pub(super) unsafe fn sort_or_range(
+        bits: &mut [u32],
+        flip: u32,
+        narrow: usize,
+    ) -> Option<(u32, u32)> {
         let n = bits.len();
         let f = unsafe { vdupq_n_u32(flip) };
         let p = bits.as_mut_ptr();
@@ -722,8 +744,8 @@ mod neon {
                         load(p.add(b + 4 * i), n.saturating_sub(b + 4 * i), f)
                     });
                     sort_regs::<16>(&mut r);
-                    for i in 0..16 {
-                        vst1q_u32(px.add(b + 4 * i), r[i]);
+                    for (i, &v) in r.iter().enumerate() {
+                        vst1q_u32(px.add(b + 4 * i), v);
                     }
                     b += 64;
                 } else {
@@ -731,8 +753,8 @@ mod neon {
                         load(p.add(b + 4 * i), n.saturating_sub(b + 4 * i), f)
                     });
                     sort_regs::<32>(&mut r);
-                    for i in 0..32 {
-                        vst1q_u32(px.add(b + 4 * i), r[i]);
+                    for (i, &v) in r.iter().enumerate() {
+                        vst1q_u32(px.add(b + 4 * i), v);
                     }
                     b += 128;
                 }

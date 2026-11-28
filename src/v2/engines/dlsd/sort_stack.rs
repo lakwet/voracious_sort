@@ -370,8 +370,8 @@ macro_rules! dlsd_sort_stack {
             let varying = &varying[..passes];
             let buf = scratch.slots(n);
             // The tables become their exclusive prefix sums (the bucket heads).
-            let check_alias = n >= $alias_min() / std::mem::size_of::<$uint>()
-                && n >= ALIAS_KEYS_MIN;
+            let check_alias =
+                n >= $alias_min() / std::mem::size_of::<$uint>() && n >= ALIAS_KEYS_MIN;
             let mut staged = [false; 64];
             for (i, &t) in varying.iter().enumerate() {
                 let table = &mut tables[t * buckets..(t + 1) * buckets];
@@ -483,12 +483,7 @@ macro_rules! dlsd_sort_stack {
 
         /// Groups of equal prefix finished one by one: insertion sort, or the
         /// DLSD again at the scale of the group (its own min and max).
-        fn finish_groups(
-            keys: &mut [$uint],
-            scratch: &mut Scratch,
-            min: $uint,
-            low: u32,
-        ) {
+        fn finish_groups(keys: &mut [$uint], scratch: &mut Scratch, min: $uint, low: u32) {
             let n = keys.len();
             let prefix = |k: $uint| k.wrapping_sub(min) >> low;
             let mut i = 0;

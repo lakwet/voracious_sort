@@ -127,9 +127,7 @@ pub fn ab_u32_lsd(keys: &mut [u32]) { v2::engines::lsd::wu32::lsd(keys) }
 /// Dev only (feature `ab`): the i32 LSD engine alone.
 #[cfg(feature = "ab")]
 #[doc(hidden)]
-pub fn ab_i32_lsd(keys: &mut [i32]) {
-    v2::engines::lsd::wi32::lsd(v2::devour::keys::bits_of(keys))
-}
+pub fn ab_i32_lsd(keys: &mut [i32]) { v2::engines::lsd::wi32::lsd(v2::devour::keys::bits_of(keys)) }
 
 #[cfg(feature = "ab")]
 thread_local! {

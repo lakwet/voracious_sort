@@ -38,7 +38,9 @@ mod os {
         fn VirtualAlloc(a: *mut u8, n: usize, t: u32, p: u32) -> *mut u8;
         fn VirtualFree(a: *mut u8, n: usize, t: u32) -> i32;
     }
-    pub unsafe fn get(n: usize) -> *mut u8 { unsafe { VirtualAlloc(std::ptr::null_mut(), n, 0x3000, 4) } }
+    pub unsafe fn get(n: usize) -> *mut u8 {
+        unsafe { VirtualAlloc(std::ptr::null_mut(), n, 0x3000, 4) }
+    }
     pub unsafe fn put(p: *mut u8, _n: usize) { unsafe { VirtualFree(p, 0, 0x8000) }; }
 }
 
@@ -54,21 +56,37 @@ mod os {
     const ANON: i32 = 0x1000;
     pub unsafe fn get(n: usize) -> *mut u8 {
         let p = unsafe { mmap(std::ptr::null_mut(), n, 3, 2 | ANON, -1, 0) };
-        if p as isize == -1 { std::ptr::null_mut() } else { p }
+        if p as isize == -1 {
+            std::ptr::null_mut()
+        } else {
+            p
+        }
     }
     pub unsafe fn put(p: *mut u8, n: usize) { unsafe { munmap(p, n) }; }
 }
 
 unsafe impl GlobalAlloc for Fresh {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
-        if big(&l) { unsafe { os::get(l.size()) } } else { unsafe { System.alloc(l) } }
+        if big(&l) {
+            unsafe { os::get(l.size()) }
+        } else {
+            unsafe { System.alloc(l) }
+        }
     }
     unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 {
         // New pages are already zero.
-        if big(&l) { unsafe { os::get(l.size()) } } else { unsafe { System.alloc_zeroed(l) } }
+        if big(&l) {
+            unsafe { os::get(l.size()) }
+        } else {
+            unsafe { System.alloc_zeroed(l) }
+        }
     }
     unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
-        if big(&l) { unsafe { os::put(p, l.size()) } } else { unsafe { System.dealloc(p, l) } }
+        if big(&l) {
+            unsafe { os::put(p, l.size()) }
+        } else {
+            unsafe { System.dealloc(p, l) }
+        }
     }
     unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
         let nl = unsafe { Layout::from_size_align_unchecked(n, l.align()) };
