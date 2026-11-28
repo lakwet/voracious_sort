@@ -7,11 +7,6 @@
 use crate::v2::cache::{budget, Budget};
 use crate::v2::devour::keys::Key;
 
-/// Counters held on the stack: tables of 32 768 to 65 536
-/// (128 to 256 KiB), new pages at each call on the heap (smaller ones come
-/// from the allocator's reused memory).
-const STACK_COUNTERS: usize = 1 << 16;
-
 /// Narrow-range counting in one pass over the keys, without a min / max
 /// pass: the keys are counted in a window around the sample range (twice
 /// its width, at least 256 and at most `limit` integers). A key outside the
@@ -53,19 +48,10 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
     let pad = (width as u64 - (hi - lo + 1)) / 2;
     let mut base = lo.saturating_sub(pad).min(U::MAX_U64 - (width as u64 - 1));
     let mut lanes = lanes_for(width, n);
-    let mut stack;
-    let mut heap: Vec<u32>;
-    let mut counts: &mut [u32] = if (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(width * lanes))
-    {
-        stack = [0u32; STACK_COUNTERS];
-        &mut stack[..width * lanes]
-    } else {
-        heap = vec![0u32; width * lanes];
-        &mut heap
-    };
+    let mut counts = vec![0u32; width * lanes];
     let mut pos = 0;
     loop {
-        let missed = count_window(&keys[pos..], encode, base, width, lanes, counts);
+        let missed = count_window(&keys[pos..], encode, base, width, lanes, &mut counts);
         // Lane 0 receives the sums of the lanes.
         if lanes == 4 {
             let (c0, rest) = counts.split_at_mut(width);
@@ -102,8 +88,7 @@ pub(crate) fn window_count_split<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + C
                 new_counts[(base + d as u64 - new_lo) as usize] = c;
             }
         }
-        heap = new_counts;
-        counts = &mut heap;
+        counts = new_counts;
         base = new_lo;
         width = new_width;
         lanes = new_lanes;
@@ -338,16 +323,8 @@ pub(crate) fn exact_count<U: Key, E: Fn(U) -> U + Copy, D: Fn(U) -> U + Copy>(
     let lanes = lanes_for(width, n);
     // Tables of a power of two: offsets masked, no bound check.
     let size = width.next_power_of_two();
-    let mut stack;
-    let mut heap: Vec<u32>;
-    let counts: &mut [u32] = if (STACK_COUNTERS / 2..=STACK_COUNTERS).contains(&(size * lanes)) {
-        stack = [0u32; STACK_COUNTERS];
-        &mut stack[..size * lanes]
-    } else {
-        heap = vec![0u32; size * lanes];
-        &mut heap
-    };
-    count_masked(keys, encode, base, size, lanes, counts);
+    let mut counts = vec![0u32; size * lanes];
+    count_masked(keys, encode, base, size, lanes, &mut counts);
     if lanes == 4 {
         let (c0, rest) = counts.split_at_mut(size);
         for l in 0..3 {

@@ -91,11 +91,10 @@ ones are sorted in place, but which path is taken depends on the data, so
 memory. A strictly in-place sort (no buffer at all) will be added later.
 
 The sort also uses some stack: up to 256 KiB for `u16` and `i16` arrays of
-131 072 keys or more (a table of counters over the whole 16-bit domain),
-as much when the integers of a narrow range are counted in a table of
-32 768 to 65 536 counters, and a few tens of KiB (buffers and counters) for
-`u32` and `i32` arrays below 4096 keys. On the heap these tables would get
-new pages, which fault at each call. The
+131 072 keys or more (a table of counters over the whole 16-bit domain,
+faster there than on the heap, whose new pages fault at each call), and a
+few tens of KiB (buffers and counters) for `u32` and `i32` arrays below 4096
+keys. The
 default stacks (1 MiB for the main thread on Windows, 2 MiB for the threads
 of Rust, rayon or tokio, 8 MiB on Linux and macOS) hold it; a thread
 created with a smaller stack may not.
