@@ -48,7 +48,7 @@ clean: ## remove the build files
 # ---------------------------------------------------------------------------
 # Benchmarks (src/tests/bench/bench_cpu.rs): voracious 2.0 against 1.x, std
 # and the best rivals of each type. Two files per run in
-# resultsbenchs/<machine>/: a report to read (.txt, also printed) and the
+# resultsbenchs/<cpu>/: a report to read (.txt, also printed) and the
 # raw data (.csv, for tools/bench_report.py).
 
 ifeq ($(OS),Windows_NT)
@@ -86,6 +86,7 @@ bench: ## every key type, 1k to 10M keys (several hours)
 
 bench-type: export RUSTFLAGS = $(BENCH_RUSTFLAGS) $(PLACE_FLAGS)
 bench-type: export BENCH_NAME = bench-type-$(T)$(if $(filter 1,$(NATIVE)),-native)$(PLACE_NAME)
+bench-type: export BENCH_FILE = bench-$(CPU_SLUG)-$(T)-$(BUILD_KIND)$(PLACE_NAME)-$(BENCH_STAMP)
 bench-type: export BENCH_PARTS = int,float,wide
 bench-type: export BENCH_TYPES = $(T)
 bench-type: export BENCH_SORTS = best
@@ -101,7 +102,7 @@ bench-type: ## one key type, 500 to 30M keys, cold, fresh pages (median of 11): 
 
 # The bench of one type over several code placements of the same source
 # (PLACEMENTS="align:units ...", as abench-align): one build and one file
-# per placement (bench-type-<T>[-native]-place-<align>-<units>-...); the
+# per placement (bench-<cpu>-<T>-<generic|native>-place-<align>-<units>-...); the
 # placement alone moves some cells by 5-35 %, tools/bench_placements.py
 # gives each cell's range and counts only what holds in every placement.
 bench-type-placed: ## bench-type over PLACEMENTS (6 builds by default): make bench-type-placed T=u16 [NATIVE=1]
@@ -122,6 +123,13 @@ else
 ABENCH_CPU := $(shell grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')
 endif
 
+# Bench file names: bench-<cpu>-<type>-<generic|native>-<YYYYMMDDHHMM>
+# (local time), <cpu> the processor's name in lower case, words joined by
+# dashes (intel-core-ultra-9-185h), in resultsbenchs/<cpu>/.
+CPU_SLUG := $(shell echo "$(ABENCH_CPU)" | sed -e 's/[(][A-Za-z]*[)]//g' -e 's/ CPU//; s/ Processor//; s/@.*//' | tr 'A-Z' 'a-z' | sed -e 's/[^a-z0-9]\{1,\}/-/g' -e 's/^-//; s/-$$//')
+BUILD_KIND = $(if $(filter 1,$(NATIVE)),native,generic)
+BENCH_STAMP := $(shell date +%Y%m%d%H%M)
+
 abench-u16: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 	@mkdir -p bench_work/$(ABENCH_HOST)
@@ -129,7 +137,7 @@ abench-u16: ## simulated u16 bench, cold, a few minutes (for the bench viewer)
 
 # The 16-bit family (u16 and i16): the full bench of each type (bench-type,
 # cold), generic build then native build (-C target-cpu=native), each in its
-# own files (bench-type-u16-..., bench-type-u16-native-...); two builds of
+# own files (bench-<cpu>-u16-generic-..., bench-<cpu>-u16-native-...); two builds of
 # the test binary (several minutes each).
 bench-16: ## u16 and i16, generic then native: 4 bench-type runs (long; one file each)
 	@$(MAKE) --no-print-directory bench-type T=u16 NATIVE=0

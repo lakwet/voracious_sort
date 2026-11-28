@@ -274,7 +274,7 @@ that CPU; the report lists the target features used.
 
 ### What you get
 
-Each run writes two files in `resultsbenchs/<machine>/`:
+Each run writes two files in `resultsbenchs/<cpu>/` (the processor's name, no machine name), named `bench-<cpu>-<type>-<generic|native>-<YYYYMMDDHHMM>`:
 
 - a **report** to read (`.txt`, also printed while it runs): the machine
   (CPU, caches, memory, OS, compiler, commit), how the report reads, then
@@ -352,7 +352,7 @@ and macOS.
 
 **You can also help without writing code: run a benchmark on your machine.**
 One key type is enough, for example `make bench-type T=u64` (or `T=u32`,
-`T=f64`..., or `make bench-16` for the 16-bit integers), and send the two files it writes in `resultsbenchs/<machine>/`
+`T=f64`..., or `make bench-16` for the 16-bit integers), and send the two files it writes in `resultsbenchs/<cpu>/`
 (`.txt` and `.csv`) to the email address in `Cargo.toml`. Each file records
 the characteristics of the machine (CPU, cores, caches, memory, operating
 system, compiler, commit), so results from many machines can be compared:

@@ -3,13 +3,16 @@
 //! `make bench-records`, `make bench-big`, `make bench-big-type T=u64`
 //! (see the Makefile and the README).
 //!
-//! Two files per run in `resultsbenchs/<machine>/` (`BENCH_OUT` to change
-//! it), written as it goes (a run stopped early still leaves its results):
-//! - `<bench>-<host>-<date>.txt`, the report for humans (also printed): how
+//! Two files per run in `resultsbenchs/<cpu>/` (`BENCH_OUT` to change it),
+//! written as it goes (a run stopped early still leaves its results), named
+//! `bench-<cpu>-<type>-<generic|native>-<YYYYMMDDHHMM>` by make bench-type
+//! (`BENCH_FILE`), else `<bench>-<cpu>-<UTC date>`; `<cpu>` the processor's
+//! name in lower case, words joined by dashes (no machine name):
+//! - `.txt`, the report for humans (also printed): how
 //!   it reads and how it is measured, the machine, then per type and size a
 //!   table of the duration of one sort, the ns per key and the ratio to v2
 //!   of every sort on every distribution;
-//! - `<bench>-<host>-<date>.csv`, the raw lines for `tools/bench_report.py`:
+//! - `.csv`, the raw lines for `tools/bench_report.py`:
 //!   the machine, `cols` / `row` lines (ns per key), `iter` lines (arrays
 //!   per measurement, measurements), `sum` lines (ratios other / v2);
 //! - every result is checked to be sorted in the first repetition
@@ -895,18 +898,36 @@ fn power_mode() -> String {
     "unknown".into()
 }
 
-fn host_name() -> String {
-    std::env::var("COMPUTERNAME")
-        .or_else(|_| std::env::var("HOSTNAME"))
-        .ok()
-        .or_else(|| command("hostname", &[]))
-        .unwrap_or_else(|| "machine".into())
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' })
-        .collect()
+/// The processor's name for file and folder names, as the Makefile's
+/// CPU_SLUG: `(R)`, `(TM)`, ` CPU`, ` Processor` and `@ ...` dropped, lower
+/// case, other characters runs turned to one dash (intel-core-ultra-9-185h).
+fn cpu_slug() -> String {
+    let mut name = cpu_name();
+    // `(word)` groups out: (R), (TM).
+    let mut from = 0;
+    while let Some(open) = name[from..].find('(').map(|i| i + from) {
+        match name[open + 1..].find(')') {
+            Some(len) if name[open + 1..open + 1 + len].chars().all(|c| c.is_ascii_alphabetic()) => {
+                name.replace_range(open..open + len + 2, "")
+            }
+            _ => from = open + 1,
+        }
+    }
+    let name = name.replacen(" CPU", "", 1).replacen(" Processor", "", 1);
+    let name = name.split('@').next().unwrap_or("").to_lowercase();
+    let mut slug = String::new();
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.is_empty() && !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    let slug = slug.trim_end_matches('-').to_string();
+    if slug.is_empty() { "unknown-cpu".into() } else { slug }
 }
 
-/// UTC date and time as `YYYY-MM-DD-HHMM`.
+/// UTC date and time as `YYYYMMDDHHMM`.
 fn utc_stamp() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -923,7 +944,7 @@ fn utc_stamp() -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = yoe + era * 400 + (month <= 2) as i64;
-    format!("{:04}-{:02}-{:02}-{:02}{:02}", year, month, day, rest / 3600, rest % 3600 / 60)
+    format!("{:04}{:02}{:02}{:02}{:02}", year, month, day, rest / 3600, rest % 3600 / 60)
 }
 
 /// L1d, L2, L3 as reported (smallest of each level).
@@ -1053,14 +1074,17 @@ macro_rules! ordered_by_key {
 fn bench_cpu() {
     let _ = rayon::ThreadPoolBuilder::new().num_threads(1).build_global();
     let cfg = Config::from_env();
-    // `BENCH_OUT`, else resultsbenchs/<host>/; `BENCH_NAME`: the bench
+    // `BENCH_OUT`, else resultsbenchs/<cpu>/; `BENCH_NAME`: the bench
     // (bench, bench-type-u32, bench-big...).
     let dir: std::path::PathBuf = std::env::var("BENCH_OUT").map(Into::into).unwrap_or_else(|_| {
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resultsbenchs").join(host_name())
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resultsbenchs").join(cpu_slug())
     });
     std::fs::create_dir_all(&dir).unwrap();
     let name = std::env::var("BENCH_NAME").unwrap_or_else(|_| "bench-cpu".into());
-    let stem = format!("{}-{}-{}", name, host_name(), utc_stamp());
+    // `BENCH_FILE`: the whole file name without extension (make bench-type:
+    // bench-<cpu>-<type>-<generic|native>-<YYYYMMDDHHMM>).
+    let stem = std::env::var("BENCH_FILE")
+        .unwrap_or_else(|_| format!("{}-{}-{}", name, cpu_slug(), utc_stamp()));
     let path = dir.join(format!("{}.csv", stem));
     let human = dir.join(format!("{}.txt", stem));
     let mut report = Report {
