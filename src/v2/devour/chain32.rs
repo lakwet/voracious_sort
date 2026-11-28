@@ -28,7 +28,7 @@ macro_rules! chain32 {
             use crate::v2::devour::keys::*;
             use crate::v2::devour::simd32 as simd;
             use crate::v2::devour::DevourSort;
-            use crate::v2::engines::counting::exact_count;
+            use crate::v2::engines::counting::exact_count_stack as exact_count;
             use crate::v2::engines::dlsd::$st;
             use crate::v2::engines::small::{merge_sort, network_sort, MERGE_MAX, NETWORK_MAX};
             use crate::v2::engines::{lsd::$ls, roller::$ro};
@@ -75,7 +75,7 @@ macro_rules! chain32 {
             fn roller_min() -> usize { budget(Budget::Roller32) }
 
             // The range, dense and few detectors of this type, in module `detectors`.
-            int_detectors!(detectors, $t, u32, $c, $c, super::roller_min);
+            int_detectors!(detectors, $t, u32, $c, $c, super::roller_min, stack);
 
             /// Sorts `arr`: a sorting network up to `NETWORK_MAX` keys, else the chain.
             pub(crate) fn sort(arr: &mut [$t]) {

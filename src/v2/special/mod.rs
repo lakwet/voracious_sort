@@ -67,6 +67,23 @@ macro_rules! int_detectors {
             int_few!($t, $uint, $encode, $decode);
         }
     };
+    // `stack`: the counting tables of 128-256 KiB on the stack (the u32 /
+    // i32 chain).
+    ($m:ident, $t:ty, $uint:ty, $encode:expr, $decode:expr, $roller_min:path, stack) => {
+        pub(crate) mod $m {
+            use super::*;
+            use crate::v2::cache::{budget, Budget};
+            use crate::v2::engines::counting::{
+                domain_count, exact_count_stack as exact_count,
+                window_count_split_stack as window_count_split, window_count_stack as window_count,
+            };
+            use crate::v2::special::*;
+
+            int_range!($t, $uint, $encode, $decode, $roller_min);
+            int_dense!($t, $uint, $encode, $decode);
+            int_few!($t, $uint, $encode, $decode);
+        }
+    };
     // `partial`: a chain that calls only some of them (the 16-bit chain:
     // `range` and `few_count`), the others left unused.
     ($m:ident, $t:ty, $uint:ty, $encode:expr, $decode:expr, $roller_min:path, partial) => {
