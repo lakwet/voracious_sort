@@ -30,9 +30,9 @@ pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::Atomic
 /// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
 /// to 256 keys (49, 57, 56), 54; both: count tables of 128-256 KiB on the
 /// stack (59), a global trend under local noise to the LSD (60), at most 4
-/// values counted by comparisons in short32 (62).
+/// values counted by comparisons in short32 (62), few4_early vectorized (61).
 pub(crate) const KEPT: u64 =
-    if cfg!(target_arch = "aarch64") { 6576042706286412288 } else { 6404923512632377856 };
+    if cfg!(target_arch = "aarch64") { 8881885715500106240 } else { 8710766521846071808 };
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
@@ -924,17 +924,44 @@ macro_rules! chain32_ab {
             }
             reps[..k].sort_unstable();
             let mut c = [0usize; 4];
-            for chunk in arr.chunks(64) {
-                let mut hit = 0;
-                for &x in chunk {
-                    for j in 0..4 {
-                        let m = (j < k && x == reps[j]) as usize;
-                        c[j] += m;
-                        hit += m;
+            if !on(1 << 61) {
+                // Trial (1 << 61, reused: the rejected 64-bit loads): the 4
+                // comparisons of a key without the `j < k` test (missing
+                // values padded with copies, their counts ignored), u32
+                // counters per block: vectorized (Few 4 at 300-600 keys 1.6-1.8x
+                // slower than blazing on the Surface).
+                let pad = reps[0];
+                for r in reps[k..].iter_mut() {
+                    *r = pad;
+                }
+                for chunk in arr.chunks(64) {
+                    let mut cc = [0u32; 4];
+                    for &x in chunk {
+                        for j in 0..4 {
+                            cc[j] += (x == reps[j]) as u32;
+                        }
+                    }
+                    let hit: u32 = cc[..k].iter().sum();
+                    if hit as usize != chunk.len() {
+                        return false;
+                    }
+                    for j in 0..k {
+                        c[j] += cc[j] as usize;
                     }
                 }
-                if hit != chunk.len() {
-                    return false;
+            } else {
+                for chunk in arr.chunks(64) {
+                    let mut hit = 0;
+                    for &x in chunk {
+                        for j in 0..4 {
+                            let m = (j < k && x == reps[j]) as usize;
+                            c[j] += m;
+                            hit += m;
+                        }
+                    }
+                    if hit != chunk.len() {
+                        return false;
+                    }
                 }
             }
             let mut at = 0;
