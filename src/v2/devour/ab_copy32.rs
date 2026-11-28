@@ -1501,6 +1501,13 @@ macro_rules! chain32_ab {
             {
                 trace!("lsd_trend");
                 $ls::lsd(bits);
+            } else if bits.len() < dlsd_max()
+                && !on(1 << 63)
+                && bits.len() >= 65536
+                && composite_like(bits)
+            {
+                trace!("lsd_composite");
+                $ls::lsd(bits);
             } else if bits.len() < dlsd_max() {
                 trace!("dlsd");
                 if dlsd_heap() {
@@ -1515,6 +1522,38 @@ macro_rules! chain32_ab {
                 trace!("lsd");
                 $ls::lsd(bits);
             }
+        }
+
+        /// Trial (1 << 63): composite keys (few high halves spread over
+        /// the domain, uniform low halves: a tenant and a value), on 256
+        /// spread keys: 8 to 64 distinct high halves spanning at least 16
+        /// times their count. The DLSD sizes its prefix for the tenants and
+        /// leaves whole tenants to its finish (Surface 5k-200k: LSD 1.1-1.25x
+        /// faster).
+        fn composite_like(bits: &[u32]) -> bool {
+            let step = bits.len() / 256;
+            let mut k = [0u32; 256];
+            for (i, x) in k.iter_mut().enumerate() {
+                *x = $c(bits[i * step]);
+            }
+            k.sort_unstable();
+            let (mut distinct, mut groups, mut wide) = (1, 0, 0);
+            let mut start = 0;
+            for i in 1..=256 {
+                if i == 256 || k[i] >> 16 != k[start] >> 16 {
+                    if i - start >= 2 {
+                        groups += 1;
+                        // Low halves spread over the group (uniform values).
+                        wide += ((k[i - 1] & 0xFFFF) - (k[start] & 0xFFFF) >= 1 << 14) as usize;
+                    }
+                    if i < 256 {
+                        distinct += 1;
+                        start = i;
+                    }
+                }
+            }
+            let span = ((k[255] >> 16) - (k[0] >> 16)) as usize;
+            (8..=64).contains(&distinct) && span >= 16 * distinct && groups >= 4 && wide * 4 >= groups * 3
         }
 
         /// The radix path (copy of `decide::path`); the first matching
