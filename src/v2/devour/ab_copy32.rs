@@ -28,8 +28,9 @@ pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::Atomic
 /// code, the rejected ones removed, at the refactor before the release). x86:
 /// 512, 42, 43, 44, 46, 47, SIMD networks up to 512 keys (49, 53), last run
 /// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
-/// to 128 keys (49, 57), 54.
-pub(crate) const KEPT: u64 = if cfg!(target_arch = "aarch64") { 162916836910825984 } else { 63855237294719488 };
+/// to 128 keys (49, 57), 54; both: count tables of 128-256 KiB on the
+/// stack (59).
+pub(crate) const KEPT: u64 = if cfg!(target_arch = "aarch64") { 739377589214249472 } else { 640315989598142976 };
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
@@ -1488,7 +1489,18 @@ macro_rules! chain32_ab {
             // The rollercoaster beyond the cache only on ordered keys (the MSD pass
             // then writes in few sequential streams; random keys go 15 to 45 %
             // faster through the LSD from 30M to 1G).
-            if bits.len() < dlsd_max() {
+            // Trial (1 << 60): a global trend under local noise (timestamps
+            // with jitter: spread keys in order, neighbours not) goes to the
+            // LSD (the DLSD 1.3-1.9x slower there, Surface 20k-200k).
+            if bits.len() < dlsd_max()
+                && !on(1 << 60)
+                && bits.len() >= 4096
+                && globally_ordered(bits)
+                && !locally_ordered(bits)
+            {
+                trace!("lsd_trend");
+                $ls::lsd(bits);
+            } else if bits.len() < dlsd_max() {
                 trace!("dlsd");
                 if dlsd_heap() {
                     $dl::dlsd(bits);
