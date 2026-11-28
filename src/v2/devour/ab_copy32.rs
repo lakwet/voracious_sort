@@ -29,9 +29,10 @@ pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::Atomic
 /// 512, 42, 43, 44, 46, 47, SIMD networks up to 512 keys (49, 53), last run
 /// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
 /// to 256 keys (49, 57, 56), 54; both: count tables of 128-256 KiB on the
-/// stack (59), a global trend under local noise to the LSD (60).
+/// stack (59), a global trend under local noise to the LSD (60), at most 4
+/// values counted by comparisons in short32 (62).
 pub(crate) const KEPT: u64 =
-    if cfg!(target_arch = "aarch64") { 1964356687859024384 } else { 1793237494204989952 };
+    if cfg!(target_arch = "aarch64") { 6576042706286412288 } else { 6404923512632377856 };
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
@@ -755,13 +756,29 @@ macro_rules! chain32_ab {
             let mut a = [0u32; 256];
             let mut b = [0u32; 256];
             let off = |k: u32| ($c(k).wrapping_sub(lo) & 255) as usize;
-            let (pairs, tail) = bits.as_chunks::<2>();
-            for p in pairs {
-                a[off(p[0])] += 1;
-                b[off(p[1])] += 1;
-            }
-            for &k in tail {
-                a[off(k)] += 1;
+            if !on(1 << 62) && width <= 4 {
+                // Trial (1 << 62, reused: the rejected 4-equal-keys shortcut):
+                // at most 4 values counted by comparisons (vectorized; two
+                // counters in memory would wait on their previous increment:
+                // Binary at 300-600 keys 2x slower than blazing on the
+                // Surface).
+                let mut c = [0u32; 4];
+                for &k in bits.iter() {
+                    let o = $c(k).wrapping_sub(lo);
+                    for (j, cj) in c.iter_mut().enumerate() {
+                        *cj += (o == j as u32) as u32;
+                    }
+                }
+                a[..4].copy_from_slice(&c);
+            } else {
+                let (pairs, tail) = bits.as_chunks::<2>();
+                for p in pairs {
+                    a[off(p[0])] += 1;
+                    b[off(p[1])] += 1;
+                }
+                for &k in tail {
+                    a[off(k)] += 1;
+                }
             }
             // Short runs by blocks of 16 (the extra copies overwritten by
             // the next runs), as `exact_count`.
