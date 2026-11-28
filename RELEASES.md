@@ -1,6 +1,27 @@
-# Version **2.1.2** (November 25<sup>th</sup> 2026)
+# Version **2.1.2** (November 28<sup>th</sup> 2026)
 
-Two fixes for `u16` and `i16`.
+A new sort for `u32` and `i32`, and two fixes for `u16` and `i16`.
+
+- `u32` and `i32` have a new decision chain, built as the 16-bit one was
+  (engines alone, then each question measured in front of the winner):
+  - up to 512 keys on x86 (80 to 256 on ARM), comparison networks in SIMD
+    registers (AVX2, detected at run time; NEON), the range of the keys
+    checked in the registers and a narrow one counted instead;
+  - up to 600 keys, a short sort with few questions: one pass gives the
+    descents and the bounds of the keys (sorted, reversed, narrow ranges
+    counted on the stack), 8 probes catch arrays of at most 4 values or one
+    dominant value;
+  - up to 8192 keys, a light chain: only the cheap questions (range, few
+    values, a dominant value, dense range), then the engine;
+  - the diverting LSD keeps its buffer on the stack below 4096 keys, and
+    sends to the plain LSD the keys whose order shows only from afar
+    (timestamps with jitter) and composite keys (a few groups of uniform
+    values) from 65 536 keys;
+  - the counting tables of 128 to 256 KiB are on the stack (new pages on
+    the heap fault at each call; see the README, Memory).
+  On our machines the new sort wins more inputs than 2.1 at every size,
+  most of all below 20 000 keys; the benchmark of `u32` / `i32` comes with
+  a later release.
 
 - From 131 072 keys the 16-bit sort counts the whole domain in a table of
   256 KiB. That table was allocated at each call, and an allocation of that

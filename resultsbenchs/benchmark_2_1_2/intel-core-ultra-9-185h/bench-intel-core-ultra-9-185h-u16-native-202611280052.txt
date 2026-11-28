@@ -1,0 +1,625 @@
+voracious_radix_sort 2.1.2: bench-type-u16-native
+
+How to read this report
+-----------------------
+For each key type and array size, one line per distribution of the keys
+and one column per sort. The title of each table gives the array size, how
+many arrays each sort sorts per measurement (several for small arrays, so
+that a measurement lasts long enough) and how many measurements are made
+(the median is kept). Each cell gives three numbers:
+  - duration: the time to sort one array of that size (ns, us, ms or s):
+              in each measurement, the time of all its arrays divided by
+              their number; then the median of the measurements;
+  - ns/key:   that duration divided by the number of keys;
+  - ratio:    the duration of that sort over the duration of voracious v2
+              (> 1: v2 is faster; < 1: the other sort is faster).
+The last lines of each table summarise each column: its geometric mean and
+median over the distributions, and the number of distributions where v2 is
+faster.
+
+The sorts: voracious v2 (this version), voracious v1 (1.2.2), the sort of
+the Rust standard library (stable or unstable, as the case) and the best
+rivals of each type: the two fastest other crates on that type, and a
+third one where it beats v2 on cases the two others do not (chosen on a
+previous full bench over three machines).
+
+How it is measured, to be close to real use:
+  - every sort sorts the same arrays, made new for each measurement;
+  - each sort is called once per array, as a program would (no buffer kept
+    from one call to the next: each sort pays its own memory, page faults
+    included; freed memory is given back to the system between sorts);
+  - the order of the sorts changes at each measurement;
+  - the crate is compiled as a user compiles it (release, no CPU-specific
+    flags; `NATIVE=1` compiles every sort for this CPU, see the target
+    features in the machine section) and pinned to one fast core, single
+    thread;
+  - every result is checked to be sorted.
+
+Machine
+-------
+  cpu              Intel(R) Core(TM) Ultra 9 185H
+  cpu details      GenuineIntel, Intel64 Family 6 Model 170 Stepping 4, 3.07 GHz, 16 physical cores
+  power            381b4222-f694-41f0-9685-ff5bb260df2e  (Utilisation normale)
+  arch             x86_64
+  os               windows (Microsoft Windows [version 10.0.26200.9974])
+  threads          22
+  ram              63.5 GiB
+  l2               2048 KiB used (reported: 2048 KiB)
+  caches           L1d 32 KiB, L2 2048 KiB, L3 24576 KiB
+  page             4096 B
+  target features  sse4.2 avx2 bmi2
+  rustc            rustc 1.100.0 (0ef1bc386 2026-11-09)
+  commit           v2.1.1-97-gb83475f
+  settings         sizes 0 to 100000000 reps 11 memory budget 32490 MiB parts int float wide, cold (fresh copies, inputs beyond the caches), fresh pages (every buffer of 128 KiB or more)
+  core             pinned to logical processor 10 (core 10, class 1), now on processor 12; 22 logical processors, 12 of the fastest class 1 (classes 0-1)
+
+u16, arrays of 500 keys: each sort timed on 24000 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |    887 ns    1.77   1.00 |   4.23 us    8.46   4.77 |   3.85 us    7.70   4.34 |    938 ns    1.88   1.06 |   3.81 us    7.63   4.30
+Small        |    436 ns    0.87   1.00 |   3.77 us    7.54   8.65 |   3.47 us    6.95   7.97 |    500 ns    1.00   1.15 |   3.38 us    6.76   7.75
+Asc Saw      |   20.1 ns    0.04   1.00 |    127 ns    0.25   6.29 |    127 ns    0.25   6.32 |   23.4 ns    0.05   1.16 |   20.7 ns    0.04   1.03
+Desc Saw     |   31.6 ns    0.06   1.00 |    135 ns    0.27   4.27 |    130 ns    0.26   4.10 |   25.5 ns    0.05   0.81 |   26.0 ns    0.05   0.82
+Equal        |   10.6 ns    0.02   1.00 |    120 ns    0.24  11.27 |    120 ns    0.24  11.26 |   10.7 ns    0.02   1.00 |   26.0 ns    0.05   2.45
+Zipf         |   1.33 us    2.66   1.00 |   2.81 us    5.63   2.12 |   2.81 us    5.61   2.11 |   1.27 us    2.53   0.95 |   2.80 us    5.60   2.10
+FakeZipf     |   1.45 us    2.90   1.00 |    916 ns    1.83   0.63 |    929 ns    1.86   0.64 |   1.45 us    2.91   1.00 |    925 ns    1.85   0.64
+Binary       |    182 ns    0.36   1.00 |    625 ns    1.25   3.43 |    635 ns    1.27   3.49 |    241 ns    0.48   1.32 |    648 ns    1.30   3.56
+Few 16       |   1.38 us    2.76   1.00 |   1.99 us    3.98   1.44 |   1.98 us    3.96   1.43 |    976 ns    1.95   0.71 |   1.98 us    3.96   1.43
+Spread 256   |   1.31 us    2.61   1.00 |   3.30 us    6.60   2.53 |   3.31 us    6.62   2.54 |   1.26 us    2.53   0.97 |   3.37 us    6.74   2.58
+Spread 4k    |   1.09 us    2.17   1.00 |   3.92 us    7.83   3.60 |   3.73 us    7.45   3.43 |    986 ns    1.97   0.91 |   3.92 us    7.84   3.61
+Normal 8     |   1.70 us    3.39   1.00 |   3.53 us    7.05   2.08 |   3.75 us    7.51   2.21 |   1.78 us    3.57   1.05 |   3.52 us    7.05   2.08
+Normal 13    |    968 ns    1.94   1.00 |   3.71 us    7.42   3.83 |   3.63 us    7.27   3.76 |   1.01 us    2.03   1.05 |   3.84 us    7.67   3.96
+RootDup      |    365 ns    0.73   1.00 |   2.31 us    4.63   6.34 |   2.25 us    4.50   6.17 |    550 ns    1.10   1.51 |   2.32 us    4.64   6.36
+Depth        |   1.16 us    2.33   1.00 |   3.57 us    7.15   3.07 |   3.55 us    7.10   3.05 |   1.73 us    3.47   1.49 |   3.39 us    6.78   2.91
+Few 4        |    383 ns    0.77   1.00 |    983 ns    1.97   2.57 |    924 ns    1.85   2.41 |    440 ns    0.88   1.15 |   1.06 us    2.12   2.76
+Heavy 4      |   1.10 us    2.20   1.00 |   2.14 us    4.27   1.94 |   2.05 us    4.10   1.86 |   1.13 us    2.27   1.03 |   2.15 us    4.29   1.95
+Clusters     |   1.17 us    2.34   1.00 |   3.55 us    7.11   3.03 |   3.78 us    7.56   3.23 |   1.15 us    2.30   0.98 |   3.85 us    7.70   3.28
+Range 16     |    443 ns    0.89   1.00 |   2.17 us    4.34   4.90 |   2.14 us    4.29   4.84 |    493 ns    0.99   1.11 |   2.36 us    4.72   5.33
+Sorted       |   39.1 ns    0.08   1.00 |    156 ns    0.31   3.98 |    135 ns    0.27   3.45 |   28.4 ns    0.06   0.73 |   41.6 ns    0.08   1.06
+Sorted desc  |   28.5 ns    0.06   1.00 |   2.49 us    4.98  87.26 |   2.48 us    4.96  86.97 |   37.6 ns    0.08   1.32 |   39.9 ns    0.08   1.40
+Near sorted  |    964 ns    1.93   1.00 |   2.78 us    5.55   2.88 |   2.87 us    5.74   2.98 |   1.28 us    2.55   1.33 |   2.70 us    5.41   2.81
+Sort rnd tl  |   1.38 us    2.76   1.00 |   3.74 us    7.47   2.70 |   3.63 us    7.26   2.63 |   1.01 us    2.02   0.73 |   3.73 us    7.45   2.70
+Runs 8       |    970 ns    1.94   1.00 |   3.72 us    7.43   3.83 |   3.68 us    7.35   3.79 |    944 ns    1.89   0.97 |   4.03 us    8.06   4.16
+Pipe organ   |    853 ns    1.71   1.00 |   3.69 us    7.38   4.32 |   3.71 us    7.43   4.35 |    858 ns    1.72   1.01 |   3.67 us    7.34   4.30
+Late outl.   |   1.46 us    2.92   1.00 |   2.22 us    4.45   1.52 |   2.34 us    4.68   1.60 |   2.23 us    4.47   1.53 |   2.26 us    4.53   1.55
+Sparse 90%   |   1.52 us    3.05   1.00 |    776 ns    1.55   0.51 |    758 ns    1.52   0.50 |   2.07 us    4.14   1.36 |    821 ns    1.64   0.54
+Bimodal      |    375 ns    0.75   1.00 |   3.28 us    6.55   8.73 |   3.06 us    6.12   8.16 |    811 ns    1.62   2.16 |   3.03 us    6.06   8.09
+Gaussian     |   1.11 us    2.23   1.00 |   3.88 us    7.76   3.48 |   3.59 us    7.19   3.22 |    961 ns    1.92   0.86 |   3.75 us    7.50   3.36
+Sensor 3/4   |   1.22 us    2.44   1.00 |   3.67 us    7.34   3.01 |   3.73 us    7.46   3.06 |    922 ns    1.84   0.76 |   3.82 us    7.63   3.13
+Aligned      |    487 ns    0.97   1.00 |   3.72 us    7.44   7.64 |   3.60 us    7.20   7.39 |    585 ns    1.17   1.20 |   3.64 us    7.27   7.47
+geo. mean    |    485 ns    0.97   1.00 |   1.76 us    3.52   3.62 |   1.73 us    3.45   3.56 |    521 ns    1.04   1.07 |   1.26 us    2.52   2.59
+median       |    968 ns    1.94   1.00 |   2.81 us    5.63   3.48 |   2.87 us    5.74   3.43 |    944 ns    1.89   1.05 |   2.80 us    5.60   2.81
+v2 faster    |                           |                   29 / 31 |                   29 / 31 |                   20 / 31 |                   28 / 31
+
+u16, arrays of 1 000 keys: each sort timed on 12000 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   1.77 us    1.77   1.00 |   8.26 us    8.26   4.67 |   8.17 us    8.17   4.62 |   1.59 us    1.59   0.90 |   2.02 us    2.02   1.14
+Small        |    618 ns    0.62   1.00 |   7.83 us    7.83  12.68 |   7.97 us    7.97  12.91 |    799 ns    0.80   1.29 |   1.24 us    1.24   2.00
+Asc Saw      |   41.6 ns    0.04   1.00 |    275 ns    0.28   6.63 |    336 ns    0.34   8.08 |   41.7 ns    0.04   1.00 |   44.2 ns    0.04   1.06
+Desc Saw     |   50.8 ns    0.05   1.00 |    265 ns    0.27   5.22 |    278 ns    0.28   5.48 |   66.0 ns    0.07   1.30 |   78.3 ns    0.08   1.54
+Equal        |   38.4 ns    0.04   1.00 |    275 ns    0.27   7.17 |    293 ns    0.29   7.64 |   16.0 ns    0.02   0.42 |   68.5 ns    0.07   1.79
+Zipf         |   2.73 us    2.73   1.00 |   6.70 us    6.70   2.45 |   6.42 us    6.42   2.35 |   2.62 us    2.62   0.96 |   2.53 us    2.53   0.93
+FakeZipf     |   2.76 us    2.76   1.00 |   1.87 us    1.87   0.68 |   2.00 us    2.00   0.72 |   2.87 us    2.87   1.04 |   3.87 us    3.87   1.40
+Binary       |    274 ns    0.27   1.00 |   1.31 us    1.31   4.79 |   1.30 us    1.30   4.74 |    408 ns    0.41   1.49 |   4.22 us    4.22  15.36
+Few 16       |   1.98 us    1.98   1.00 |   3.20 us    3.20   1.62 |   3.13 us    3.13   1.58 |   1.95 us    1.95   0.98 |   2.64 us    2.64   1.33
+Spread 256   |   2.90 us    2.90   1.00 |   8.05 us    8.05   2.78 |   7.90 us    7.90   2.73 |   2.84 us    2.84   0.98 |   2.04 us    2.04   0.71
+Spread 4k    |   2.26 us    2.26   1.00 |   7.83 us    7.83   3.47 |   8.40 us    8.40   3.72 |   2.19 us    2.19   0.97 |   1.66 us    1.66   0.74
+Normal 8     |   3.02 us    3.02   1.00 |   7.95 us    7.95   2.63 |   7.83 us    7.83   2.59 |   3.36 us    3.36   1.11 |   3.10 us    3.10   1.03
+Normal 13    |   2.00 us    2.00   1.00 |   8.39 us    8.39   4.20 |   7.75 us    7.75   3.87 |   1.52 us    1.52   0.76 |   1.63 us    1.63   0.82
+RootDup      |    536 ns    0.54   1.00 |   4.67 us    4.67   8.71 |   4.35 us    4.35   8.11 |    560 ns    0.56   1.04 |   1.18 us    1.18   2.21
+Depth        |   2.88 us    2.88   1.00 |   7.39 us    7.39   2.57 |   7.22 us    7.22   2.51 |   3.22 us    3.22   1.12 |   3.71 us    3.71   1.29
+Few 4        |    560 ns    0.56   1.00 |   1.85 us    1.85   3.30 |   1.83 us    1.83   3.26 |    675 ns    0.67   1.21 |   2.96 us    2.96   5.28
+Heavy 4      |   1.94 us    1.94   1.00 |   4.46 us    4.46   2.30 |   4.45 us    4.45   2.29 |   1.93 us    1.93   1.00 |   2.22 us    2.22   1.14
+Clusters     |   2.05 us    2.05   1.00 |   7.76 us    7.76   3.78 |   7.63 us    7.63   3.72 |   2.19 us    2.19   1.07 |   2.48 us    2.48   1.21
+Range 16     |    613 ns    0.61   1.00 |   3.43 us    3.43   5.59 |   3.29 us    3.29   5.36 |    730 ns    0.73   1.19 |   1.20 us    1.20   1.95
+Sorted       |   68.2 ns    0.07   1.00 |    291 ns    0.29   4.27 |    305 ns    0.31   4.47 |   41.1 ns    0.04   0.60 |   43.4 ns    0.04   0.64
+Sorted desc  |   50.0 ns    0.05   1.00 |   6.05 us    6.05 121.17 |   6.04 us    6.04 121.01 |   54.0 ns    0.05   1.08 |   78.5 ns    0.08   1.57
+Near sorted  |   1.66 us    1.66   1.00 |   6.34 us    6.34   3.83 |   6.07 us    6.07   3.66 |   2.35 us    2.35   1.42 |   2.29 us    2.29   1.38
+Sort rnd tl  |   2.33 us    2.33   1.00 |   7.86 us    7.86   3.38 |   8.08 us    8.08   3.47 |   1.53 us    1.53   0.66 |   1.82 us    1.82   0.78
+Runs 8       |   1.78 us    1.78   1.00 |   8.12 us    8.12   4.56 |   7.86 us    7.86   4.41 |   1.63 us    1.63   0.91 |   1.85 us    1.85   1.04
+Pipe organ   |   1.54 us    1.54   1.00 |   8.21 us    8.21   5.33 |   8.07 us    8.07   5.24 |   1.43 us    1.43   0.93 |   1.71 us    1.71   1.11
+Late outl.   |   2.68 us    2.68   1.00 |   3.69 us    3.69   1.38 |   3.16 us    3.16   1.18 |   3.95 us    3.95   1.48 |   4.51 us    4.51   1.68
+Sparse 90%   |   2.51 us    2.51   1.00 |   1.72 us    1.72   0.68 |   1.53 us    1.53   0.61 |   3.72 us    3.72   1.49 |   5.35 us    5.35   2.13
+Bimodal      |    552 ns    0.55   1.00 |   4.86 us    4.86   8.80 |   4.84 us    4.84   8.77 |    586 ns    0.59   1.06 |   3.16 us    3.16   5.72
+Gaussian     |   1.99 us    1.99   1.00 |   8.18 us    8.18   4.11 |   8.20 us    8.20   4.12 |   1.82 us    1.82   0.91 |   1.74 us    1.74   0.87
+Sensor 3/4   |   2.26 us    2.26   1.00 |   8.11 us    8.11   3.59 |   8.31 us    8.31   3.67 |   2.19 us    2.19   0.97 |   1.69 us    1.69   0.75
+Aligned      |    625 ns    0.63   1.00 |   7.88 us    7.88  12.61 |   7.59 us    7.59  12.13 |    887 ns    0.89   1.42 |   1.21 us    1.21   1.94
+geo. mean    |    865 ns    0.87   1.00 |   3.62 us    3.62   4.18 |   3.59 us    3.59   4.15 |    885 ns    0.88   1.02 |   1.26 us    1.26   1.45
+median       |   1.78 us    1.78   1.00 |   6.34 us    6.34   4.11 |   6.07 us    6.07   3.87 |   1.59 us    1.59   1.04 |   1.85 us    1.85   1.29
+v2 faster    |                           |                   29 / 31 |                   29 / 31 |                   17 / 31 |                   23 / 31
+
+u16, arrays of 5 000 keys: each sort timed on 2400 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   7.96 us    1.59   1.00 |   45.7 us    9.13   5.74 |   13.3 us    2.65   1.67 |   8.29 us    1.66   1.04 |   9.19 us    1.84   1.15
+Small        |   1.55 us    0.31   1.00 |   36.4 us    7.27  23.40 |   5.03 us    1.01   3.24 |   2.09 us    0.42   1.35 |   4.60 us    0.92   2.96
+Asc Saw      |    307 ns    0.06   1.00 |   1.44 us    0.29   4.68 |   1.97 us    0.39   6.42 |   96.0 ns    0.02   0.31 |    188 ns    0.04   0.61
+Desc Saw     |    356 ns    0.07   1.00 |   1.37 us    0.27   3.86 |   5.96 us    1.19  16.76 |    192 ns    0.04   0.54 |    221 ns    0.04   0.62
+Equal        |   89.4 ns    0.02   1.00 |   1.27 us    0.25  14.24 |   1.22 us    0.24  13.59 |   71.5 ns    0.01   0.80 |    154 ns    0.03   1.72
+Zipf         |   12.7 us    2.53   1.00 |   33.9 us    6.78   2.68 |   19.8 us    3.96   1.57 |   11.7 us    2.34   0.92 |   13.7 us    2.74   1.08
+FakeZipf     |   4.15 us    0.83   1.00 |   8.37 us    1.67   2.02 |   22.1 us    4.41   5.31 |   19.6 us    3.92   4.73 |   20.1 us    4.03   4.85
+Binary       |    622 ns    0.12   1.00 |   5.86 us    1.17   9.42 |   23.7 us    4.74  38.12 |   1.25 us    0.25   2.00 |   18.7 us    3.74  30.02
+Few 16       |   5.51 us    1.10   1.00 |   13.9 us    2.77   2.51 |   20.6 us    4.11   3.73 |   10.8 us    2.16   1.96 |   16.2 us    3.24   2.94
+Spread 256   |   11.7 us    2.34   1.00 |   35.8 us    7.16   3.06 |   15.7 us    3.15   1.34 |   12.4 us    2.49   1.06 |   9.18 us    1.84   0.78
+Spread 4k    |   10.1 us    2.02   1.00 |   46.2 us    9.24   4.57 |   14.6 us    2.91   1.44 |   9.39 us    1.88   0.93 |   9.09 us    1.82   0.90
+Normal 8     |   5.72 us    1.14   1.00 |   44.6 us    8.91   7.79 |   20.5 us    4.10   3.58 |   16.9 us    3.38   2.96 |   15.2 us    3.04   2.65
+Normal 13    |   9.11 us    1.82   1.00 |   47.2 us    9.44   5.18 |   12.9 us    2.57   1.41 |   9.89 us    1.98   1.09 |   7.98 us    1.60   0.88
+RootDup      |   1.44 us    0.29   1.00 |   20.7 us    4.15  14.40 |   2.69 us    0.54   1.87 |   2.03 us    0.41   1.41 |   4.32 us    0.86   3.00
+Depth        |   14.9 us    2.98   1.00 |   42.5 us    8.51   2.86 |   23.0 us    4.60   1.54 |   14.5 us    2.91   0.98 |   17.0 us    3.41   1.14
+Few 4        |    828 ns    0.17   1.00 |   9.21 us    1.84  11.12 |   22.1 us    4.43  26.72 |   2.46 us    0.49   2.97 |   16.0 us    3.20  19.30
+Heavy 4      |   12.0 us    2.39   1.00 |   24.3 us    4.87   2.04 |   18.8 us    3.76   1.57 |   10.6 us    2.11   0.88 |   12.9 us    2.58   1.08
+Clusters     |   10.3 us    2.06   1.00 |   25.5 us    5.10   2.48 |   17.6 us    3.52   1.71 |   11.2 us    2.25   1.09 |   14.9 us    2.97   1.44
+Range 16     |   1.81 us    0.36   1.00 |   13.8 us    2.77   7.65 |   15.7 us    3.14   8.68 |   2.10 us    0.42   1.16 |   5.63 us    1.13   3.12
+Sorted       |    252 ns    0.05   1.00 |   1.22 us    0.24   4.83 |   1.45 us    0.29   5.75 |    156 ns    0.03   0.62 |    122 ns    0.02   0.48
+Sorted desc  |    223 ns    0.04   1.00 |   40.4 us    8.08 180.88 |   7.70 us    1.54  34.46 |    287 ns    0.06   1.28 |    606 ns    0.12   2.71
+Near sorted  |   11.6 us    2.33   1.00 |   43.6 us    8.73   3.75 |   19.4 us    3.89   1.67 |   11.9 us    2.38   1.02 |   10.4 us    2.09   0.90
+Sort rnd tl  |   9.53 us    1.91   1.00 |   42.4 us    8.49   4.45 |   13.3 us    2.67   1.40 |   9.08 us    1.82   0.95 |   14.3 us    2.86   1.50
+Runs 8       |   8.24 us    1.65   1.00 |   46.3 us    9.25   5.61 |   63.0 us   12.60   7.64 |   8.55 us    1.71   1.04 |   9.45 us    1.89   1.15
+Pipe organ   |   7.50 us    1.50   1.00 |   49.7 us    9.95   6.63 |   24.2 us    4.85   3.23 |   8.15 us    1.63   1.09 |   12.2 us    2.44   1.63
+Late outl.   |   7.00 us    1.40   1.00 |   14.0 us    2.80   2.00 |   28.5 us    5.69   4.06 |   19.9 us    3.99   2.85 |   22.9 us    4.58   3.27
+Sparse 90%   |   3.81 us    0.76   1.00 |   8.06 us    1.61   2.11 |   30.1 us    6.02   7.89 |   17.5 us    3.49   4.58 |   26.2 us    5.25   6.88
+Bimodal      |   2.24 us    0.45   1.00 |   18.4 us    3.67   8.21 |   20.4 us    4.08   9.11 |   2.27 us    0.45   1.01 |   16.0 us    3.19   7.14
+Gaussian     |   10.1 us    2.03   1.00 |   45.6 us    9.12   4.50 |   14.5 us    2.89   1.43 |   9.74 us    1.95   0.96 |   9.20 us    1.84   0.91
+Sensor 3/4   |   10.7 us    2.15   1.00 |   46.6 us    9.31   4.34 |   14.1 us    2.83   1.32 |   10.6 us    2.13   0.99 |   7.91 us    1.58   0.74
+Aligned      |   1.81 us    0.36   1.00 |   37.8 us    7.56  20.91 |   14.1 us    2.82   7.79 |   2.16 us    0.43   1.19 |   7.17 us    1.43   3.97
+geo. mean    |   3.13 us    0.63   1.00 |   18.0 us    3.60   5.74 |   12.8 us    2.55   4.07 |   3.86 us    0.77   1.23 |   6.06 us    1.21   1.93
+median       |   5.72 us    1.14   1.00 |   33.9 us    6.78   4.68 |   15.7 us    3.15   3.58 |   9.08 us    1.82   1.06 |   9.45 us    1.89   1.50
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   20 / 31 |                   22 / 31
+
+u16, arrays of 10 000 keys: each sort timed on 1200 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   15.9 us    1.59   1.00 |   98.2 us    9.82   6.16 |   25.2 us    2.52   1.58 |   16.0 us    1.60   1.00 |   18.0 us    1.80   1.13
+Small        |   3.39 us    0.34   1.00 |   59.1 us    5.91  17.42 |   7.22 us    0.72   2.13 |   6.82 us    0.68   2.01 |   8.62 us    0.86   2.54
+Asc Saw      |    268 ns    0.03   1.00 |   2.82 us    0.28  10.51 |   3.32 us    0.33  12.39 |    310 ns    0.03   1.16 |    302 ns    0.03   1.13
+Desc Saw     |    388 ns    0.04   1.00 |   2.66 us    0.27   6.84 |   12.7 us    1.27  32.65 |    372 ns    0.04   0.96 |    404 ns    0.04   1.04
+Equal        |    174 ns    0.02   1.00 |   3.31 us    0.33  19.03 |   2.30 us    0.23  13.23 |   0.00 ns    0.00   0.00 |    344 ns    0.03   1.98
+Zipf         |   26.3 us    2.63   1.00 |   71.2 us    7.12   2.71 |   27.7 us    2.77   1.05 |   22.6 us    2.26   0.86 |   24.5 us    2.45   0.93
+FakeZipf     |   7.96 us    0.80   1.00 |   16.6 us    1.66   2.08 |   42.0 us    4.20   5.28 |   33.7 us    3.37   4.24 |   36.1 us    3.61   4.53
+Binary       |    883 ns    0.09   1.00 |   13.5 us    1.35  15.28 |   43.6 us    4.36  49.31 |   3.00 us    0.30   3.39 |   35.9 us    3.59  40.67
+Few 16       |   13.1 us    1.31   1.00 |   31.5 us    3.15   2.41 |   43.6 us    4.36   3.34 |   25.7 us    2.57   1.97 |   34.7 us    3.47   2.65
+Spread 256   |   23.3 us    2.33   1.00 |   56.4 us    5.64   2.42 |   29.3 us    2.93   1.26 |   23.0 us    2.30   0.99 |   19.5 us    1.95   0.84
+Spread 4k    |   20.3 us    2.03   1.00 |    118 us   11.81   5.82 |   25.4 us    2.54   1.25 |   21.9 us    2.19   1.08 |   17.8 us    1.78   0.88
+Normal 8     |   8.76 us    0.88   1.00 |   92.9 us    9.29  10.60 |   34.2 us    3.42   3.91 |   39.9 us    3.99   4.55 |   28.7 us    2.87   3.28
+Normal 13    |   18.9 us    1.89   1.00 |    111 us   11.09   5.88 |   27.1 us    2.71   1.43 |   20.7 us    2.07   1.10 |   18.1 us    1.81   0.96
+RootDup      |   2.83 us    0.28   1.00 |   48.7 us    4.87  17.23 |   4.74 us    0.47   1.68 |   5.52 us    0.55   1.95 |   11.4 us    1.14   4.03
+Depth        |   31.1 us    3.11   1.00 |   91.6 us    9.16   2.95 |   43.8 us    4.38   1.41 |   30.3 us    3.03   0.97 |   27.0 us    2.70   0.87
+Few 4        |   1.29 us    0.13   1.00 |   15.6 us    1.56  12.05 |   39.0 us    3.90  30.16 |   4.53 us    0.45   3.50 |   30.7 us    3.07  23.68
+Heavy 4      |   22.3 us    2.23   1.00 |   44.6 us    4.46   2.00 |   32.6 us    3.26   1.46 |   20.3 us    2.03   0.91 |   25.4 us    2.54   1.14
+Clusters     |   21.6 us    2.16   1.00 |   46.4 us    4.64   2.15 |   29.2 us    2.92   1.35 |   20.0 us    2.00   0.93 |   23.5 us    2.35   1.09
+Range 16     |   3.36 us    0.34   1.00 |   25.2 us    2.52   7.49 |   27.8 us    2.78   8.28 |   4.30 us    0.43   1.28 |   13.0 us    1.30   3.88
+Sorted       |    236 ns    0.02   1.00 |   2.59 us    0.26  10.98 |   2.75 us    0.27  11.67 |    337 ns    0.03   1.43 |    312 ns    0.03   1.32
+Sorted desc  |    541 ns    0.05   1.00 |   94.0 us    9.40 173.92 |   19.5 us    1.95  36.10 |    582 ns    0.06   1.08 |   1.87 us    0.19   3.45
+Near sorted  |   17.4 us    1.74   1.00 |   89.0 us    8.90   5.11 |   29.7 us    2.97   1.70 |   34.5 us    3.45   1.98 |   19.7 us    1.97   1.13
+Sort rnd tl  |   17.4 us    1.74   1.00 |   90.5 us    9.05   5.21 |   23.0 us    2.30   1.32 |   20.9 us    2.09   1.20 |   19.1 us    1.91   1.10
+Runs 8       |   17.1 us    1.71   1.00 |   98.6 us    9.86   5.77 |    121 us   12.08   7.07 |   15.7 us    1.57   0.92 |   17.7 us    1.77   1.04
+Pipe organ   |   15.7 us    1.57   1.00 |    108 us   10.80   6.87 |   50.0 us    5.00   3.19 |   13.3 us    1.33   0.84 |   20.6 us    2.06   1.31
+Late outl.   |   11.3 us    1.13   1.00 |   25.8 us    2.58   2.29 |   44.3 us    4.43   3.93 |   39.2 us    3.92   3.48 |   34.3 us    3.43   3.05
+Sparse 90%   |   9.03 us    0.90   1.00 |   18.8 us    1.88   2.08 |   53.3 us    5.33   5.91 |   34.0 us    3.40   3.77 |   41.6 us    4.16   4.61
+Bimodal      |   5.39 us    0.54   1.00 |   34.4 us    3.44   6.37 |   38.3 us    3.83   7.11 |   3.68 us    0.37   0.68 |   31.6 us    3.16   5.86
+Gaussian     |   19.4 us    1.94   1.00 |    101 us   10.09   5.19 |   27.2 us    2.72   1.40 |   19.5 us    1.95   1.00 |   17.1 us    1.71   0.88
+Sensor 3/4   |   13.5 us    1.35   1.00 |   99.4 us    9.94   7.39 |   27.1 us    2.71   2.01 |   21.5 us    2.15   1.60 |   18.8 us    1.88   1.39
+Aligned      |   4.07 us    0.41   1.00 |   60.0 us    6.00  14.73 |   28.1 us    2.81   6.91 |   6.99 us    0.70   1.72 |   10.1 us    1.01   2.49
+geo. mean    |   5.65 us    0.56   1.00 |   36.9 us    3.69   6.53 |   23.3 us    2.33   4.12 |   0.00 ns    0.00   0.00 |   11.6 us    1.16   2.06
+median       |   11.3 us    1.13   1.00 |   56.4 us    5.64   6.16 |   28.1 us    2.81   3.34 |   19.5 us    1.95   1.16 |   19.1 us    1.91   1.32
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   21 / 31 |                   25 / 31
+
+u16, arrays of 20 000 keys: each sort timed on 600 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   31.5 us    1.58   1.00 |    212 us   10.61   6.74 |   46.8 us    2.34   1.49 |   33.9 us    1.69   1.08 |   36.3 us    1.81   1.15
+Small        |   6.50 us    0.32   1.00 |    108 us    5.40  16.60 |   12.7 us    0.64   1.96 |   11.4 us    0.57   1.76 |   21.1 us    1.05   3.25
+Asc Saw      |   0.00 ns    0.00    NaN |   4.05 us    0.20    inf |   5.35 us    0.27    inf |   0.00 ns    0.00    NaN |    707 ns    0.04    inf
+Desc Saw     |    704 ns    0.04   1.00 |   4.80 us    0.24   6.81 |   25.8 us    1.29  36.66 |    776 ns    0.04   1.10 |    869 ns    0.04   1.23
+Equal        |    269 ns    0.01   1.00 |   5.07 us    0.25  18.86 |   5.54 us    0.28  20.61 |    587 ns    0.03   2.19 |    874 ns    0.04   3.25
+Zipf         |   47.5 us    2.38   1.00 |    151 us    7.57   3.18 |   58.0 us    2.90   1.22 |   49.3 us    2.47   1.04 |   43.0 us    2.15   0.90
+FakeZipf     |   16.2 us    0.81   1.00 |   34.9 us    1.75   2.15 |   79.9 us    4.00   4.93 |   63.8 us    3.19   3.94 |   67.1 us    3.36   4.14
+Binary       |   1.29 us    0.06   1.00 |   25.1 us    1.26  19.43 |   82.1 us    4.11  63.44 |   5.16 us    0.26   3.99 |   70.9 us    3.55  54.80
+Few 16       |   16.5 us    0.83   1.00 |   57.5 us    2.87   3.48 |   70.3 us    3.52   4.25 |   43.9 us    2.19   2.65 |   63.8 us    3.19   3.86
+Spread 256   |   49.2 us    2.46   1.00 |    108 us    5.42   2.20 |   58.0 us    2.90   1.18 |   47.5 us    2.37   0.96 |   43.9 us    2.20   0.89
+Spread 4k    |   40.4 us    2.02   1.00 |    205 us   10.25   5.07 |   50.7 us    2.54   1.25 |   40.9 us    2.04   1.01 |   38.4 us    1.92   0.95
+Normal 8     |   15.0 us    0.75   1.00 |    128 us    6.38   8.52 |   61.2 us    3.06   4.08 |   66.5 us    3.33   4.44 |   49.2 us    2.46   3.28
+Normal 13    |   33.5 us    1.67   1.00 |    201 us   10.04   6.00 |   43.5 us    2.17   1.30 |   33.3 us    1.67   1.00 |   33.2 us    1.66   0.99
+RootDup      |   5.68 us    0.28   1.00 |   92.1 us    4.61  16.22 |   8.04 us    0.40   1.42 |   8.57 us    0.43   1.51 |   35.5 us    1.78   6.26
+Depth        |   62.6 us    3.13   1.00 |    180 us    9.01   2.88 |   81.8 us    4.09   1.31 |   57.4 us    2.87   0.92 |   51.0 us    2.55   0.81
+Few 4        |   2.14 us    0.11   1.00 |   32.6 us    1.63  15.21 |   72.5 us    3.63  33.84 |   8.36 us    0.42   3.90 |   61.4 us    3.07  28.65
+Heavy 4      |   39.9 us    1.99   1.00 |   94.2 us    4.71   2.36 |   59.5 us    2.98   1.49 |   41.8 us    2.09   1.05 |   48.9 us    2.44   1.23
+Clusters     |   41.3 us    2.07   1.00 |   87.6 us    4.38   2.12 |   60.6 us    3.03   1.47 |   43.4 us    2.17   1.05 |   49.8 us    2.49   1.21
+Range 16     |   6.26 us    0.31   1.00 |   47.8 us    2.39   7.63 |   50.5 us    2.52   8.06 |   8.07 us    0.40   1.29 |   24.8 us    1.24   3.95
+Sorted       |    450 ns    0.02   1.00 |   4.20 us    0.21   9.34 |   5.12 us    0.26  11.37 |    597 ns    0.03   1.33 |    406 ns    0.02   0.90
+Sorted desc  |    682 ns    0.03   1.00 |    190 us    9.52 279.19 |   47.4 us    2.37  69.45 |    835 ns    0.04   1.22 |   5.99 us    0.30   8.79
+Near sorted  |   38.9 us    1.94   1.00 |    193 us    9.63   4.95 |   61.0 us    3.05   1.57 |   84.7 us    4.23   2.18 |   45.8 us    2.29   1.18
+Sort rnd tl  |   38.0 us    1.90   1.00 |    212 us   10.59   5.57 |   45.9 us    2.30   1.21 |   47.8 us    2.39   1.26 |   45.0 us    2.25   1.18
+Runs 8       |   38.8 us    1.94   1.00 |    193 us    9.66   4.99 |    245 us   12.23   6.31 |   37.9 us    1.89   0.98 |   35.1 us    1.76   0.91
+Pipe organ   |   32.1 us    1.60   1.00 |    237 us   11.86   7.40 |    104 us    5.22   3.25 |   28.4 us    1.42   0.89 |   46.0 us    2.30   1.43
+Late outl.   |   23.7 us    1.18   1.00 |   52.5 us    2.62   2.22 |   90.1 us    4.51   3.80 |   85.6 us    4.28   3.61 |   72.5 us    3.62   3.06
+Sparse 90%   |   15.5 us    0.78   1.00 |   36.8 us    1.84   2.37 |   99.0 us    4.95   6.38 |   63.5 us    3.17   4.09 |   88.5 us    4.43   5.70
+Bimodal      |   6.93 us    0.35   1.00 |   66.6 us    3.33   9.61 |   70.8 us    3.54  10.21 |   6.19 us    0.31   0.89 |   61.3 us    3.06   8.84
+Gaussian     |   40.6 us    2.03   1.00 |    210 us   10.52   5.19 |   47.4 us    2.37   1.17 |   40.8 us    2.04   1.01 |   33.4 us    1.67   0.82
+Sensor 3/4   |   23.2 us    1.16   1.00 |    205 us   10.23   8.81 |   51.8 us    2.59   2.23 |   43.0 us    2.15   1.85 |   34.3 us    1.71   1.48
+Aligned      |   7.30 us    0.36   1.00 |    105 us    5.24  14.36 |   52.4 us    2.62   7.18 |   12.0 us    0.60   1.64 |   21.0 us    1.05   2.88
+geo. mean    |   0.00 ns    0.00    NaN |   70.3 us    3.52    inf |   44.4 us    2.22    inf |   0.00 ns    0.00    NaN |   24.2 us    1.21    inf
+median       |   16.5 us    0.83   1.00 |    105 us    5.24   6.74 |   58.0 us    2.90   3.80 |   37.9 us    1.89   1.26 |   43.0 us    2.15   1.48
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   24 / 31 |                   23 / 31
+
+u16, arrays of 50 000 keys: each sort timed on 240 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   79.9 us    1.60   1.00 |    573 us   11.46   7.18 |    110 us    2.20   1.38 |   85.9 us    1.72   1.08 |   92.2 us    1.84   1.15
+Small        |   18.2 us    0.36   1.00 |    247 us    4.94  13.56 |   24.6 us    0.49   1.35 |   24.3 us    0.49   1.34 |   53.2 us    1.06   2.93
+Asc Saw      |   2.25 us    0.05   1.00 |   13.4 us    0.27   5.97 |   13.6 us    0.27   6.03 |   1.82 us    0.04   0.81 |   1.97 us    0.04   0.87
+Desc Saw     |   3.88 us    0.08   1.00 |   15.2 us    0.30   3.91 |   61.6 us    1.23  15.90 |   3.51 us    0.07   0.90 |   8.07 us    0.16   2.08
+Equal        |   1.34 us    0.03   1.00 |   14.5 us    0.29  10.78 |   13.6 us    0.27  10.14 |    916 ns    0.02   0.68 |   2.34 us    0.05   1.74
+Zipf         |    116 us    2.33   1.00 |    390 us    7.80   3.35 |    132 us    2.64   1.13 |    123 us    2.47   1.06 |    112 us    2.24   0.96
+FakeZipf     |   36.9 us    0.74   1.00 |   80.0 us    1.60   2.17 |    192 us    3.83   5.19 |    156 us    3.11   4.21 |    174 us    3.49   4.72
+Binary       |   3.67 us    0.07   1.00 |   68.7 us    1.37  18.74 |    203 us    4.05  55.20 |   13.4 us    0.27   3.64 |    167 us    3.34  45.53
+Few 16       |   42.3 us    0.85   1.00 |    126 us    2.53   2.99 |    182 us    3.64   4.30 |    101 us    2.02   2.39 |    153 us    3.05   3.61
+Spread 256   |    123 us    2.45   1.00 |    255 us    5.09   2.08 |    145 us    2.89   1.18 |    115 us    2.29   0.94 |    115 us    2.31   0.94
+Spread 4k    |   88.4 us    1.77   1.00 |    490 us    9.80   5.54 |    109 us    2.18   1.23 |    101 us    2.01   1.14 |   89.7 us    1.79   1.01
+Normal 8     |   34.9 us    0.70   1.00 |    292 us    5.84   8.37 |    152 us    3.04   4.35 |    181 us    3.63   5.19 |    131 us    2.63   3.76
+Normal 13    |   84.9 us    1.70   1.00 |    543 us   10.86   6.40 |    110 us    2.20   1.30 |   78.4 us    1.57   0.92 |   81.0 us    1.62   0.95
+RootDup      |   14.2 us    0.28   1.00 |    233 us    4.65  16.38 |   19.0 us    0.38   1.34 |   18.6 us    0.37   1.31 |   79.8 us    1.60   5.62
+Depth        |   47.1 us    0.94   1.00 |    469 us    9.39   9.97 |    182 us    3.64   3.87 |    148 us    2.96   3.14 |    135 us    2.70   2.87
+Few 4        |   5.20 us    0.10   1.00 |   72.8 us    1.46  14.00 |    165 us    3.30  31.70 |   21.6 us    0.43   4.16 |    138 us    2.75  26.47
+Heavy 4      |   90.9 us    1.82   1.00 |    246 us    4.93   2.71 |    147 us    2.94   1.62 |    101 us    2.02   1.11 |    130 us    2.61   1.43
+Clusters     |    104 us    2.09   1.00 |    209 us    4.17   2.00 |    157 us    3.14   1.50 |    106 us    2.13   1.02 |    129 us    2.57   1.23
+Range 16     |   20.4 us    0.41   1.00 |    132 us    2.63   6.45 |    137 us    2.73   6.69 |   19.7 us    0.39   0.97 |   67.6 us    1.35   3.31
+Sorted       |   1.73 us    0.03   1.00 |   11.1 us    0.22   6.40 |   12.7 us    0.25   7.34 |   1.61 us    0.03   0.93 |   1.84 us    0.04   1.06
+Sorted desc  |   3.26 us    0.07   1.00 |    531 us   10.62 162.73 |    187 us    3.75  57.42 |   3.42 us    0.07   1.05 |   52.7 us    1.05  16.14
+Near sorted  |   94.1 us    1.88   1.00 |    540 us   10.79   5.73 |    192 us    3.85   2.04 |    225 us    4.49   2.39 |    121 us    2.43   1.29
+Sort rnd tl  |   91.1 us    1.82   1.00 |    563 us   11.26   6.18 |    102 us    2.03   1.11 |    132 us    2.64   1.45 |    127 us    2.54   1.40
+Runs 8       |    106 us    2.12   1.00 |    531 us   10.62   5.01 |    620 us   12.41   5.85 |    108 us    2.15   1.01 |    113 us    2.26   1.07
+Pipe organ   |   79.1 us    1.58   1.00 |    625 us   12.50   7.91 |    281 us    5.62   3.55 |   80.7 us    1.61   1.02 |    132 us    2.65   1.67
+Late outl.   |   50.5 us    1.01   1.00 |    126 us    2.51   2.49 |    221 us    4.42   4.38 |    204 us    4.09   4.04 |    176 us    3.53   3.49
+Sparse 90%   |   39.4 us    0.79   1.00 |    104 us    2.07   2.63 |    245 us    4.91   6.22 |    167 us    3.34   4.24 |    204 us    4.08   5.18
+Bimodal      |   21.7 us    0.43   1.00 |    163 us    3.25   7.50 |    170 us    3.40   7.84 |   16.7 us    0.33   0.77 |    158 us    3.16   7.29
+Gaussian     |   72.1 us    1.44   1.00 |    551 us   11.01   7.63 |    136 us    2.71   1.88 |   99.1 us    1.98   1.37 |   92.4 us    1.85   1.28
+Sensor 3/4   |   43.2 us    0.86   1.00 |    524 us   10.49  12.15 |    132 us    2.63   3.05 |    108 us    2.16   2.50 |   95.0 us    1.90   2.20
+Aligned      |   23.5 us    0.47   1.00 |    257 us    5.14  10.90 |    130 us    2.59   5.51 |   26.2 us    0.52   1.11 |   59.2 us    1.18   2.52
+geo. mean    |   27.3 us    0.55   1.00 |    182 us    3.64   6.67 |    111 us    2.21   4.06 |   41.5 us    0.83   1.52 |   69.2 us    1.38   2.54
+median       |   42.3 us    0.85   1.00 |    247 us    4.94   6.40 |    145 us    2.89   4.30 |   99.1 us    1.98   1.11 |    113 us    2.26   2.08
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   23 / 31 |                   27 / 31
+
+u16, arrays of 80 000 keys: each sort timed on 150 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |    126 us    1.58   1.00 |    942 us   11.78   7.47 |    234 us    2.92   1.85 |    186 us    2.33   1.47 |    198 us    2.47   1.57
+Small        |   27.6 us    0.34   1.00 |    396 us    4.95  14.35 |   42.1 us    0.53   1.53 |   36.3 us    0.45   1.32 |    146 us    1.82   5.28
+Asc Saw      |   32.9 us    0.41   1.00 |    836 us   10.45  25.45 |   95.2 us    1.19   2.90 |   78.5 us    0.98   2.39 |    489 us    6.12  14.89
+Desc Saw     |   28.8 us    0.36   1.00 |    959 us   11.99  33.35 |    121 us    1.51   4.21 |   43.2 us    0.54   1.50 |    491 us    6.14  17.07
+Equal        |   0.00 ns    0.00    NaN |   16.3 us    0.20    inf |   10.1 us    0.13    inf |   0.00 ns    0.00    NaN |   1.91 us    0.02    inf
+Zipf         |    107 us    1.34   1.00 |    583 us    7.29   5.46 |    270 us    3.38   2.53 |    232 us    2.90   2.17 |    229 us    2.86   2.14
+FakeZipf     |   67.7 us    0.85   1.00 |    130 us    1.62   1.91 |    352 us    4.40   5.20 |    300 us    3.75   4.43 |    309 us    3.86   4.56
+Binary       |   5.73 us    0.07   1.00 |   96.8 us    1.21  16.90 |    356 us    4.45  62.08 |   21.7 us    0.27   3.79 |    301 us    3.76  52.46
+Few 16       |   56.4 us    0.70   1.00 |    187 us    2.34   3.32 |    319 us    3.99   5.67 |    153 us    1.91   2.71 |    262 us    3.28   4.66
+Spread 256   |   40.4 us    0.51   1.00 |    356 us    4.45   8.80 |    269 us    3.37   6.66 |    226 us    2.82   5.59 |    219 us    2.73   5.41
+Spread 4k    |    110 us    1.37   1.00 |    685 us    8.56   6.23 |    236 us    2.95   2.15 |    205 us    2.56   1.87 |    195 us    2.43   1.77
+Normal 8     |   47.1 us    0.59   1.00 |    419 us    5.24   8.90 |    283 us    3.54   6.01 |    315 us    3.94   6.69 |    239 us    2.98   5.07
+Normal 13    |    152 us    1.90   1.00 |    813 us   10.16   5.35 |    219 us    2.74   1.45 |    180 us    2.25   1.19 |    180 us    2.25   1.18
+RootDup      |   33.6 us    0.42   1.00 |    365 us    4.57  10.86 |    333 us    4.17   9.91 |    154 us    1.93   4.58 |    276 us    3.45   8.20
+Depth        |   64.8 us    0.81   1.00 |    722 us    9.02  11.15 |    346 us    4.33   5.34 |    261 us    3.27   4.03 |    254 us    3.18   3.93
+Few 4        |   8.18 us    0.10   1.00 |    123 us    1.54  15.10 |    333 us    4.16  40.73 |   36.8 us    0.46   4.50 |    270 us    3.37  32.98
+Heavy 4      |   91.5 us    1.14   1.00 |    414 us    5.18   4.53 |    289 us    3.61   3.16 |    194 us    2.43   2.12 |    236 us    2.95   2.58
+Clusters     |   76.6 us    0.96   1.00 |    315 us    3.93   4.11 |    284 us    3.55   3.71 |    210 us    2.63   2.74 |    241 us    3.01   3.14
+Range 16     |   31.2 us    0.39   1.00 |    191 us    2.38   6.11 |    258 us    3.22   8.27 |   31.5 us    0.39   1.01 |    153 us    1.91   4.89
+Sorted       |   2.04 us    0.03   1.00 |   18.5 us    0.23   9.06 |   20.4 us    0.26  10.03 |   0.00 ns    0.00   0.00 |   2.78 us    0.03   1.36
+Sorted desc  |   5.71 us    0.07   1.00 |    866 us   10.83 151.81 |    300 us    3.75  52.54 |   3.61 us    0.05   0.63 |    118 us    1.48  20.76
+Near sorted  |    151 us    1.89   1.00 |    821 us   10.26   5.43 |    337 us    4.21   2.22 |    405 us    5.06   2.68 |    252 us    3.14   1.66
+Sort rnd tl  |    136 us    1.70   1.00 |    844 us   10.55   6.21 |    162 us    2.02   1.19 |    272 us    3.40   2.00 |    239 us    2.99   1.76
+Runs 8       |   87.1 us    1.09   1.00 |    826 us   10.33   9.49 |    908 us   11.34  10.42 |    220 us    2.75   2.52 |    219 us    2.74   2.52
+Pipe organ   |    160 us    2.00   1.00 |    950 us   11.87   5.94 |    436 us    5.45   2.73 |    152 us    1.89   0.95 |    245 us    3.06   1.53
+Late outl.   |   64.8 us    0.81   1.00 |    195 us    2.44   3.01 |    383 us    4.79   5.91 |    327 us    4.09   5.05 |    312 us    3.90   4.81
+Sparse 90%   |   53.2 us    0.66   1.00 |    144 us    1.80   2.71 |    394 us    4.92   7.41 |    278 us    3.47   5.23 |    346 us    4.32   6.51
+Bimodal      |   29.5 us    0.37   1.00 |    232 us    2.90   7.87 |    314 us    3.93  10.64 |   25.3 us    0.32   0.86 |    275 us    3.43   9.30
+Gaussian     |   90.3 us    1.13   1.00 |    780 us    9.75   8.64 |    234 us    2.93   2.60 |    203 us    2.54   2.25 |    187 us    2.33   2.07
+Sensor 3/4   |   52.7 us    0.66   1.00 |    689 us    8.61  13.07 |    238 us    2.98   4.52 |    208 us    2.60   3.94 |    187 us    2.34   3.56
+Aligned      |   30.7 us    0.38   1.00 |    357 us    4.46  11.62 |    247 us    3.09   8.05 |   36.8 us    0.46   1.20 |    132 us    1.65   4.31
+geo. mean    |   0.00 ns    0.00    NaN |    345 us    4.32    inf |    219 us    2.73    inf |   0.00 ns    0.00    NaN |    175 us    2.18    inf
+median       |   53.2 us    0.66   1.00 |    414 us    5.18   8.64 |    283 us    3.54   5.34 |    186 us    2.33   2.25 |    239 us    2.98   4.56
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   26 / 31 |                   31 / 31
+
+u16, arrays of 100 000 keys: each sort timed on 120 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |    130 us    1.30   1.00 |   1.06 ms   10.61   8.14 |    643 us    6.43   4.94 |    216 us    2.16   1.66 |    226 us    2.26   1.73
+Small        |   32.5 us    0.33   1.00 |    436 us    4.36  13.42 |   41.3 us    0.41   1.27 |   41.0 us    0.41   1.26 |    165 us    1.65   5.06
+Asc Saw      |   91.4 us    0.91   1.00 |   1.03 ms   10.26  11.23 |    102 us    1.02   1.12 |   98.0 us    0.98   1.07 |    651 us    6.51   7.12
+Desc Saw     |   91.1 us    0.91   1.00 |   1.19 ms   11.90  13.06 |    165 us    1.65   1.81 |   82.2 us    0.82   0.90 |    649 us    6.49   7.12
+Equal        |   4.43 us    0.04   1.00 |   25.1 us    0.25   5.67 |   20.6 us    0.21   4.65 |   2.94 us    0.03   0.66 |   4.27 us    0.04   0.96
+Zipf         |    104 us    1.04   1.00 |    694 us    6.94   6.69 |    529 us    5.29   5.10 |    268 us    2.68   2.58 |    266 us    2.66   2.56
+FakeZipf     |   96.4 us    0.96   1.00 |    147 us    1.47   1.53 |    331 us    3.31   3.43 |    332 us    3.32   3.44 |    362 us    3.62   3.75
+Binary       |   4.98 us    0.05   1.00 |    117 us    1.17  23.41 |    311 us    3.11  62.42 |   24.1 us    0.24   4.84 |    366 us    3.66  73.38
+Few 16       |   71.8 us    0.72   1.00 |    235 us    2.35   3.28 |    290 us    2.90   4.03 |    182 us    1.82   2.53 |    327 us    3.27   4.55
+Spread 256   |   45.5 us    0.46   1.00 |    435 us    4.35   9.55 |    278 us    2.78   6.12 |    268 us    2.68   5.89 |    271 us    2.71   5.95
+Spread 4k    |    121 us    1.21   1.00 |    833 us    8.33   6.86 |    389 us    3.89   3.20 |    248 us    2.48   2.04 |    238 us    2.38   1.96
+Normal 8     |   53.8 us    0.54   1.00 |    515 us    5.15   9.56 |    268 us    2.68   4.97 |    386 us    3.86   7.18 |    295 us    2.95   5.48
+Normal 13    |    185 us    1.85   1.00 |   1.04 ms   10.37   5.61 |    446 us    4.46   2.42 |    223 us    2.23   1.21 |    229 us    2.29   1.24
+RootDup      |   42.1 us    0.42   1.00 |    455 us    4.55  10.80 |    256 us    2.56   6.07 |    191 us    1.91   4.54 |    321 us    3.21   7.63
+Depth        |   75.5 us    0.75   1.00 |    883 us    8.83  11.70 |    347 us    3.47   4.60 |    327 us    3.27   4.33 |    315 us    3.15   4.17
+Few 4        |   10.2 us    0.10   1.00 |    153 us    1.53  15.08 |    307 us    3.07  30.20 |   52.2 us    0.52   5.13 |    359 us    3.59  35.30
+Heavy 4      |   95.8 us    0.96   1.00 |    531 us    5.31   5.54 |    549 us    5.49   5.74 |    245 us    2.45   2.56 |    297 us    2.97   3.10
+Clusters     |   94.2 us    0.94   1.00 |    390 us    3.90   4.14 |    288 us    2.88   3.06 |    268 us    2.68   2.85 |    300 us    3.00   3.19
+Range 16     |   38.7 us    0.39   1.00 |    234 us    2.34   6.06 |    267 us    2.67   6.92 |   39.6 us    0.40   1.03 |    180 us    1.80   4.66
+Sorted       |   4.52 us    0.05   1.00 |   24.6 us    0.25   5.44 |   23.7 us    0.24   5.24 |   3.52 us    0.04   0.78 |   3.02 us    0.03   0.67
+Sorted desc  |   4.58 us    0.05   1.00 |   1.10 ms   11.00 240.26 |    380 us    3.80  83.09 |   3.21 us    0.03   0.70 |    195 us    1.95  42.70
+Near sorted  |    185 us    1.85   1.00 |   1.06 ms   10.55   5.71 |    612 us    6.12   3.31 |    551 us    5.51   2.98 |    310 us    3.10   1.68
+Sort rnd tl  |    173 us    1.73   1.00 |   1.08 ms   10.79   6.25 |    202 us    2.02   1.17 |    367 us    3.67   2.12 |    301 us    3.01   1.74
+Runs 8       |   97.0 us    0.97   1.00 |   1.09 ms   10.87  11.20 |   1.19 ms   11.90  12.26 |    289 us    2.89   2.98 |    293 us    2.93   3.01
+Pipe organ   |    194 us    1.94   1.00 |   1.23 ms   12.29   6.32 |    563 us    5.63   2.89 |    179 us    1.79   0.92 |    308 us    3.08   1.59
+Late outl.   |   78.5 us    0.79   1.00 |    239 us    2.39   3.04 |    277 us    2.77   3.53 |    413 us    4.13   5.26 |    380 us    3.80   4.84
+Sparse 90%   |   68.6 us    0.69   1.00 |    182 us    1.82   2.65 |    490 us    4.90   7.15 |    354 us    3.54   5.16 |    433 us    4.33   6.31
+Bimodal      |   40.4 us    0.40   1.00 |    284 us    2.84   7.02 |    272 us    2.72   6.73 |   30.9 us    0.31   0.77 |    344 us    3.44   8.52
+Gaussian     |    101 us    1.01   1.00 |    967 us    9.67   9.62 |    374 us    3.74   3.72 |    242 us    2.42   2.40 |    229 us    2.29   2.28
+Sensor 3/4   |   58.9 us    0.59   1.00 |    852 us    8.52  14.46 |    294 us    2.94   4.99 |    264 us    2.64   4.48 |    233 us    2.33   3.95
+Aligned      |   31.1 us    0.31   1.00 |    438 us    4.38  14.09 |    430 us    4.30  13.82 |   37.9 us    0.38   1.22 |    164 us    1.64   5.28
+geo. mean    |   52.2 us    0.52   1.00 |    430 us    4.30   8.24 |    272 us    2.72   5.21 |    114 us    1.14   2.18 |    221 us    2.21   4.24
+median       |   75.5 us    0.75   1.00 |    515 us    5.15   7.02 |    307 us    3.07   4.94 |    223 us    2.23   2.53 |    297 us    2.97   4.17
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   25 / 31 |                   29 / 31
+
+u16, arrays of 200 000 keys: each sort timed on 60 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |    241 us    1.21   1.00 |   2.20 ms   10.99   9.10 |    844 us    4.22   3.50 |    430 us    2.15   1.78 |    455 us    2.27   1.88
+Small        |   51.7 us    0.26   1.00 |    857 us    4.29  16.57 |    298 us    1.49   5.76 |   75.0 us    0.37   1.45 |    321 us    1.61   6.22
+Asc Saw      |    131 us    0.66   1.00 |   2.16 ms   10.78  16.42 |    308 us    1.54   2.35 |    597 us    2.98   4.54 |   1.18 ms    5.88   8.96
+Desc Saw     |    138 us    0.69   1.00 |   2.27 ms   11.34  16.48 |    341 us    1.71   2.48 |    631 us    3.15   4.58 |   1.17 ms    5.87   8.53
+Equal        |   5.16 us    0.03   1.00 |   45.1 us    0.23   8.74 |    561 us    2.81 108.69 |    753 ns    0.00   0.15 |   7.38 us    0.04   1.43
+Zipf         |    154 us    0.77   1.00 |   1.37 ms    6.84   8.90 |    680 us    3.40   4.42 |    510 us    2.55   3.31 |    530 us    2.65   3.45
+FakeZipf     |    160 us    0.80   1.00 |    303 us    1.52   1.90 |    414 us    2.07   2.59 |    658 us    3.29   4.12 |    706 us    3.53   4.42
+Binary       |   13.5 us    0.07   1.00 |    232 us    1.16  17.24 |    396 us    1.98  29.40 |   47.7 us    0.24   3.54 |    753 us    3.76  55.84
+Few 16       |   64.6 us    0.32   1.00 |    476 us    2.38   7.38 |    328 us    1.64   5.09 |    372 us    1.86   5.76 |    654 us    3.27  10.12
+Spread 256   |   75.2 us    0.38   1.00 |    870 us    4.35  11.57 |    309 us    1.54   4.11 |    542 us    2.71   7.20 |    539 us    2.69   7.16
+Spread 4k    |    179 us    0.89   1.00 |   1.41 ms    7.04   7.87 |    457 us    2.29   2.55 |    497 us    2.49   2.78 |    489 us    2.45   2.73
+Normal 8     |   76.6 us    0.38   1.00 |   1.00 ms    5.01  13.09 |    294 us    1.47   3.84 |    778 us    3.89  10.16 |    616 us    3.08   8.04
+Normal 13    |    140 us    0.70   1.00 |   2.00 ms   10.02  14.32 |    509 us    2.54   3.64 |    451 us    2.26   3.23 |    454 us    2.27   3.24
+RootDup      |   54.3 us    0.27   1.00 |    951 us    4.75  17.52 |    283 us    1.42   5.21 |    414 us    2.07   7.62 |    569 us    2.85  10.49
+Depth        |    110 us    0.55   1.00 |   1.63 ms    8.14  14.76 |    413 us    2.07   3.75 |    644 us    3.22   5.84 |    625 us    3.13   5.67
+Few 4        |   19.0 us    0.09   1.00 |    294 us    1.47  15.47 |    352 us    1.76  18.54 |   86.4 us    0.43   4.55 |    667 us    3.33  35.14
+Heavy 4      |    130 us    0.65   1.00 |   1.08 ms    5.42   8.31 |    653 us    3.27   5.01 |    473 us    2.36   3.63 |    587 us    2.94   4.50
+Clusters     |   66.2 us    0.33   1.00 |    755 us    3.77  11.40 |    324 us    1.62   4.89 |    511 us    2.55   7.71 |    592 us    2.96   8.94
+Range 16     |   77.6 us    0.39   1.00 |    469 us    2.34   6.05 |    309 us    1.55   3.99 |   73.9 us    0.37   0.95 |    371 us    1.86   4.79
+Sorted       |   2.72 us    0.01   1.00 |   40.5 us    0.20  14.86 |    728 us    3.64 267.33 |    100 ns    0.00   0.04 |   1.19 us    0.01   0.44
+Sorted desc  |   12.7 us    0.06   1.00 |   2.27 ms   11.33 178.35 |    742 us    3.71  58.39 |   10.3 us    0.05   0.81 |    594 us    2.97  46.71
+Near sorted  |    150 us    0.75   1.00 |   2.20 ms   11.00  14.71 |    777 us    3.88   5.20 |   1.08 ms    5.40   7.22 |    639 us    3.20   4.27
+Sort rnd tl  |    167 us    0.84   1.00 |   2.23 ms   11.17  13.34 |    729 us    3.65   4.35 |    765 us    3.82   4.57 |    613 us    3.06   3.66
+Runs 8       |    170 us    0.85   1.00 |   2.22 ms   11.08  13.04 |    733 us    3.67   4.32 |    610 us    3.05   3.59 |    602 us    3.01   3.55
+Pipe organ   |    147 us    0.73   1.00 |   2.63 ms   13.16  17.95 |    720 us    3.60   4.91 |    357 us    1.79   2.44 |    634 us    3.17   4.33
+Late outl.   |   72.8 us    0.36   1.00 |    486 us    2.43   6.68 |    316 us    1.58   4.34 |    803 us    4.01  11.02 |    779 us    3.89  10.69
+Sparse 90%   |    218 us    1.09   1.00 |    373 us    1.87   1.71 |    696 us    3.48   3.19 |    677 us    3.39   3.10 |    852 us    4.26   3.90
+Bimodal      |   80.2 us    0.40   1.00 |    579 us    2.90   7.22 |    324 us    1.62   4.03 |   60.4 us    0.30   0.75 |    667 us    3.33   8.31
+Gaussian     |   98.3 us    0.49   1.00 |   1.74 ms    8.71  17.71 |    422 us    2.11   4.29 |    474 us    2.37   4.82 |    463 us    2.32   4.71
+Sensor 3/4   |   71.9 us    0.36   1.00 |   1.38 ms    6.92  19.25 |    330 us    1.65   4.59 |    519 us    2.60   7.22 |    463 us    2.32   6.45
+Aligned      |   58.9 us    0.29   1.00 |    855 us    4.28  14.52 |    613 us    3.07  10.41 |   71.8 us    0.36   1.22 |    319 us    1.60   5.43
+geo. mean    |   71.6 us    0.36   1.00 |    841 us    4.20  11.75 |    458 us    2.29   6.40 |    200 us    1.00   2.80 |    419 us    2.10   5.86
+median       |   80.2 us    0.40   1.00 |   1.00 ms    5.01  13.34 |    414 us    2.07   4.35 |    474 us    2.37   3.63 |    594 us    2.97   5.43
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   26 / 31 |                   30 / 31
+
+u16, arrays of 500 000 keys: each sort timed on 24 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |    471 us    0.94   1.00 |   5.73 ms   11.45  12.15 |   1.16 ms    2.33   2.47 |    520 us    1.04   1.10 |   1.18 ms    2.36   2.50
+Small        |    155 us    0.31   1.00 |   2.14 ms    4.28  13.81 |    394 us    0.79   2.54 |    199 us    0.40   1.29 |    830 us    1.66   5.36
+Asc Saw      |    194 us    0.39   1.00 |   5.34 ms   10.67  27.55 |    443 us    0.89   2.29 |    259 us    0.52   1.34 |   3.46 ms    6.91  17.84
+Desc Saw     |    202 us    0.40   1.00 |   5.58 ms   11.16  27.58 |    436 us    0.87   2.16 |    251 us    0.50   1.24 |   3.45 ms    6.91  17.06
+Equal        |   15.1 us    0.03   1.00 |    127 us    0.25   8.39 |   1.08 ms    2.15  71.06 |   1.36 us    0.00   0.09 |   30.3 us    0.06   2.00
+Zipf         |    315 us    0.63   1.00 |   3.34 ms    6.67  10.59 |    987 us    1.97   3.13 |    524 us    1.05   1.66 |   1.35 ms    2.69   4.27
+FakeZipf     |    411 us    0.82   1.00 |    748 us    1.50   1.82 |    666 us    1.33   1.62 |    495 us    0.99   1.20 |   1.77 ms    3.53   4.30
+Binary       |   37.2 us    0.07   1.00 |    592 us    1.18  15.90 |    664 us    1.33  17.82 |    115 us    0.23   3.09 |   1.96 ms    3.92  52.59
+Few 16       |    151 us    0.30   1.00 |   1.19 ms    2.38   7.89 |    449 us    0.90   2.98 |    709 us    1.42   4.71 |   1.66 ms    3.33  11.04
+Spread 256   |    168 us    0.34   1.00 |   2.15 ms    4.30  12.79 |    407 us    0.81   2.42 |    250 us    0.50   1.49 |   1.42 ms    2.84   8.43
+Spread 4k    |    379 us    0.76   1.00 |   3.27 ms    6.54   8.62 |    624 us    1.25   1.64 |    430 us    0.86   1.13 |   1.21 ms    2.42   3.20
+Normal 8     |    168 us    0.34   1.00 |   2.46 ms    4.92  14.63 |    404 us    0.81   2.41 |    255 us    0.51   1.52 |   1.52 ms    3.03   9.02
+Normal 13    |    247 us    0.49   1.00 |   4.40 ms    8.80  17.79 |    668 us    1.34   2.70 |    309 us    0.62   1.25 |   1.19 ms    2.39   4.82
+RootDup      |    125 us    0.25   1.00 |   2.54 ms    5.08  20.28 |    356 us    0.71   2.85 |    198 us    0.40   1.59 |   1.32 ms    2.64  10.55
+Depth        |    239 us    0.48   1.00 |   3.49 ms    6.99  14.62 |    561 us    1.12   2.35 |    307 us    0.61   1.29 |   1.60 ms    3.20   6.70
+Few 4        |   49.9 us    0.10   1.00 |    764 us    1.53  15.32 |    475 us    0.95   9.52 |    206 us    0.41   4.14 |   1.68 ms    3.36  33.63
+Heavy 4      |    282 us    0.56   1.00 |   2.85 ms    5.69  10.09 |    912 us    1.82   3.23 |    366 us    0.73   1.30 |   1.43 ms    2.87   5.09
+Clusters     |    149 us    0.30   1.00 |   1.94 ms    3.88  13.03 |    439 us    0.88   2.94 |    237 us    0.47   1.59 |   1.50 ms    3.01  10.08
+Range 16     |    194 us    0.39   1.00 |   1.18 ms    2.37   6.11 |    431 us    0.86   2.23 |    201 us    0.40   1.04 |    866 us    1.73   4.47
+Sorted       |   19.1 us    0.04   1.00 |    113 us    0.23   5.91 |   1.01 ms    2.03  53.12 |   8.75 us    0.02   0.46 |   17.5 us    0.03   0.92
+Sorted desc  |   50.7 us    0.10   1.00 |   5.83 ms   11.66 114.98 |   1.01 ms    2.03  20.00 |   26.2 us    0.05   0.52 |   1.74 ms    3.48  34.30
+Near sorted  |    495 us    0.99   1.00 |   5.78 ms   11.55  11.67 |   1.06 ms    2.12   2.14 |   1.06 ms    2.12   2.14 |   1.62 ms    3.24   3.27
+Sort rnd tl  |    463 us    0.93   1.00 |   5.86 ms   11.72  12.66 |    987 us    1.97   2.13 |    391 us    0.78   0.84 |   1.54 ms    3.08   3.33
+Runs 8       |    212 us    0.42   1.00 |   5.67 ms   11.33  26.76 |    930 us    1.86   4.39 |    293 us    0.59   1.38 |   1.65 ms    3.30   7.79
+Pipe organ   |    236 us    0.47   1.00 |   6.79 ms   13.58  28.83 |    979 us    1.96   4.15 |    912 us    1.82   3.87 |   1.62 ms    3.25   6.89
+Late outl.   |    160 us    0.32   1.00 |   1.21 ms    2.43   7.57 |    451 us    0.90   2.81 |   2.14 ms    4.29  13.37 |   1.94 ms    3.88  12.08
+Sparse 90%   |    475 us    0.95   1.00 |    982 us    1.96   2.06 |   1.21 ms    2.41   2.54 |   1.46 ms    2.92   3.07 |   2.09 ms    4.17   4.39
+Bimodal      |    194 us    0.39   1.00 |   1.41 ms    2.82   7.26 |    413 us    0.83   2.13 |    143 us    0.29   0.73 |   1.70 ms    3.40   8.74
+Gaussian     |    183 us    0.37   1.00 |   3.78 ms    7.57  20.71 |    542 us    1.08   2.97 |    251 us    0.50   1.37 |   1.17 ms    2.33   6.39
+Sensor 3/4   |    172 us    0.34   1.00 |   3.26 ms    6.53  18.97 |    414 us    0.83   2.40 |    218 us    0.44   1.27 |   1.17 ms    2.34   6.81
+Aligned      |    173 us    0.35   1.00 |   2.17 ms    4.34  12.58 |   1.20 ms    2.40   6.94 |    189 us    0.38   1.09 |    814 us    1.63   4.72
+geo. mean    |    168 us    0.34   1.00 |   2.11 ms    4.21  12.56 |    645 us    1.29   3.85 |    237 us    0.47   1.41 |   1.16 ms    2.31   6.89
+median       |    194 us    0.39   1.00 |   2.54 ms    5.08  12.79 |    624 us    1.25   2.70 |    255 us    0.51   1.30 |   1.52 ms    3.03   6.70
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   26 / 31 |                   30 / 31
+
+u16, arrays of 1 000 000 keys: each sort timed on 12 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |    905 us    0.90   1.00 |   11.1 ms   11.12  12.29 |   1.76 ms    1.76   1.94 |    977 us    0.98   1.08 |   2.44 ms    2.44   2.70
+Small        |    428 us    0.43   1.00 |   4.40 ms    4.40  10.29 |    662 us    0.66   1.55 |    512 us    0.51   1.20 |   1.77 ms    1.77   4.14
+Asc Saw      |    340 us    0.34   1.00 |   10.9 ms   10.89  32.07 |    650 us    0.65   1.91 |    436 us    0.44   1.28 |   6.04 ms    6.04  17.77
+Desc Saw     |    425 us    0.42   1.00 |   11.3 ms   11.26  26.53 |    684 us    0.68   1.61 |    439 us    0.44   1.03 |   6.16 ms    6.16  14.51
+Equal        |   91.6 us    0.09   1.00 |    337 us    0.34   3.68 |   2.00 ms    2.00  21.87 |   86.4 us    0.09   0.94 |   91.3 us    0.09   1.00
+Zipf         |    580 us    0.58   1.00 |   6.50 ms    6.50  11.22 |   1.37 ms    1.37   2.37 |    809 us    0.81   1.40 |   2.78 ms    2.78   4.79
+FakeZipf     |    828 us    0.83   1.00 |   1.52 ms    1.52   1.84 |   1.17 ms    1.17   1.41 |    940 us    0.94   1.14 |   3.54 ms    3.54   4.28
+Binary       |    164 us    0.16   1.00 |   1.23 ms    1.23   7.49 |   1.14 ms    1.14   6.94 |    526 us    0.53   3.21 |   3.92 ms    3.92  23.89
+Few 16       |    418 us    0.42   1.00 |   2.44 ms    2.44   5.83 |    782 us    0.78   1.87 |   1.52 ms    1.52   3.62 |   3.54 ms    3.54   8.46
+Spread 256   |    443 us    0.44   1.00 |   4.31 ms    4.31   9.74 |    742 us    0.74   1.68 |    527 us    0.53   1.19 |   2.90 ms    2.90   6.55
+Spread 4k    |    696 us    0.70   1.00 |   6.42 ms    6.42   9.21 |   1.00 ms    1.00   1.44 |    800 us    0.80   1.15 |   2.48 ms    2.48   3.57
+Normal 8     |    478 us    0.48   1.00 |   4.92 ms    4.92  10.28 |    743 us    0.74   1.55 |    511 us    0.51   1.07 |   3.06 ms    3.06   6.40
+Normal 13    |    435 us    0.44   1.00 |   8.16 ms    8.16  18.75 |    933 us    0.93   2.14 |    509 us    0.51   1.17 |   2.46 ms    2.46   5.65
+RootDup      |    397 us    0.40   1.00 |   5.39 ms    5.39  13.57 |    689 us    0.69   1.74 |    459 us    0.46   1.15 |   2.83 ms    2.83   7.12
+Depth        |    521 us    0.52   1.00 |   6.80 ms    6.80  13.07 |    932 us    0.93   1.79 |    599 us    0.60   1.15 |   3.25 ms    3.25   6.24
+Few 4        |    155 us    0.15   1.00 |   1.60 ms    1.60  10.32 |    799 us    0.80   5.16 |    540 us    0.54   3.49 |   3.37 ms    3.37  21.74
+Heavy 4      |    475 us    0.48   1.00 |   5.92 ms    5.92  12.46 |   1.27 ms    1.27   2.66 |    619 us    0.62   1.30 |   3.01 ms    3.01   6.33
+Clusters     |    419 us    0.42   1.00 |   3.88 ms    3.88   9.28 |    753 us    0.75   1.80 |    501 us    0.50   1.20 |   3.06 ms    3.06   7.30
+Range 16     |    537 us    0.54   1.00 |   2.45 ms    2.45   4.57 |    778 us    0.78   1.45 |    505 us    0.51   0.94 |   1.89 ms    1.89   3.52
+Sorted       |   92.2 us    0.09   1.00 |    309 us    0.31   3.35 |   1.48 ms    1.48  16.06 |    109 us    0.11   1.18 |   90.6 us    0.09   0.98
+Sorted desc  |    114 us    0.11   1.00 |   11.3 ms   11.28  98.97 |   1.46 ms    1.46  12.83 |    156 us    0.16   1.37 |   3.61 ms    3.61  31.63
+Near sorted  |    724 us    0.72   1.00 |   11.6 ms   11.59  16.01 |   1.54 ms    1.54   2.12 |   1.72 ms    1.72   2.38 |   3.55 ms    3.55   4.90
+Sort rnd tl  |    788 us    0.79   1.00 |   11.6 ms   11.65  14.79 |   1.47 ms    1.47   1.86 |    748 us    0.75   0.95 |   3.52 ms    3.52   4.46
+Runs 8       |    454 us    0.45   1.00 |   11.0 ms   10.99  24.19 |   1.33 ms    1.33   2.93 |    623 us    0.62   1.37 |   3.43 ms    3.43   7.56
+Pipe organ   |   1.05 ms    1.05   1.00 |   14.0 ms   14.04  13.34 |   1.42 ms    1.42   1.34 |   1.86 ms    1.86   1.77 |   3.55 ms    3.55   3.38
+Late outl.   |    421 us    0.42   1.00 |   2.49 ms    2.49   5.93 |    758 us    0.76   1.80 |   4.31 ms    4.31  10.24 |   3.99 ms    3.99   9.49
+Sparse 90%   |   1.01 ms    1.01   1.00 |   2.09 ms    2.09   2.06 |   2.08 ms    2.08   2.05 |   1.89 ms    1.89   1.86 |   4.24 ms    4.24   4.18
+Bimodal      |    508 us    0.51   1.00 |   2.88 ms    2.88   5.66 |    717 us    0.72   1.41 |    425 us    0.43   0.84 |   3.52 ms    3.52   6.93
+Gaussian     |    400 us    0.40   1.00 |   7.23 ms    7.23  18.06 |    803 us    0.80   2.01 |    468 us    0.47   1.17 |   2.42 ms    2.42   6.05
+Sensor 3/4   |    441 us    0.44   1.00 |   6.44 ms    6.44  14.60 |    682 us    0.68   1.55 |    513 us    0.51   1.16 |   2.45 ms    2.45   5.55
+Aligned      |    439 us    0.44   1.00 |   4.36 ms    4.36   9.95 |   2.22 ms    2.22   5.05 |    482 us    0.48   1.10 |   1.76 ms    1.76   4.01
+geo. mean    |    418 us    0.42   1.00 |   4.32 ms    4.32  10.33 |   1.04 ms    1.04   2.50 |    600 us    0.60   1.44 |   2.48 ms    2.48   5.95
+median       |    441 us    0.44   1.00 |   5.39 ms    5.39  10.32 |    933 us    0.93   1.87 |    526 us    0.53   1.18 |   3.06 ms    3.06   6.05
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   27 / 31 |                   29 / 31
+
+u16, arrays of 2 000 000 keys: each sort timed on 6 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   1.82 ms    0.91   1.00 |   20.2 ms   10.12  11.11 |   2.63 ms    1.31   1.44 |   1.95 ms    0.98   1.07 |   5.03 ms    2.51   2.76
+Small        |    950 us    0.47   1.00 |   8.81 ms    4.41   9.28 |   1.21 ms    0.61   1.28 |   1.06 ms    0.53   1.12 |   3.64 ms    1.82   3.83
+Asc Saw      |    653 us    0.33   1.00 |   20.7 ms   10.33  31.67 |   1.14 ms    0.57   1.75 |    765 us    0.38   1.17 |   11.8 ms    5.89  18.05
+Desc Saw     |    723 us    0.36   1.00 |   20.3 ms   10.16  28.11 |   1.18 ms    0.59   1.63 |    821 us    0.41   1.14 |   11.9 ms    5.95  16.48
+Equal        |    168 us    0.08   1.00 |    670 us    0.34   3.99 |   3.79 ms    1.89  22.55 |    231 us    0.12   1.37 |    179 us    0.09   1.06
+Zipf         |   1.14 ms    0.57   1.00 |   12.7 ms    6.35  11.14 |   1.98 ms    0.99   1.73 |   1.35 ms    0.68   1.19 |   5.62 ms    2.81   4.93
+FakeZipf     |   1.76 ms    0.88   1.00 |   3.30 ms    1.65   1.87 |   2.10 ms    1.05   1.19 |   1.85 ms    0.92   1.05 |   7.07 ms    3.53   4.01
+Binary       |    393 us    0.20   1.00 |   2.57 ms    1.28   6.54 |   2.08 ms    1.04   5.31 |   1.05 ms    0.53   2.68 |   7.92 ms    3.96  20.16
+Few 16       |    963 us    0.48   1.00 |   4.91 ms    2.46   5.10 |   1.38 ms    0.69   1.43 |   2.34 ms    1.17   2.43 |   6.78 ms    3.39   7.04
+Spread 256   |   1.07 ms    0.54   1.00 |   8.79 ms    4.39   8.20 |   1.32 ms    0.66   1.24 |   1.04 ms    0.52   0.97 |   5.95 ms    2.98   5.56
+Spread 4k    |   1.37 ms    0.69   1.00 |   12.7 ms    6.36   9.28 |   1.68 ms    0.84   1.23 |   1.57 ms    0.79   1.15 |   5.15 ms    2.58   3.76
+Normal 8     |    951 us    0.48   1.00 |   9.78 ms    4.89  10.29 |   1.12 ms    0.56   1.18 |    996 us    0.50   1.05 |   6.11 ms    3.06   6.43
+Normal 13    |    888 us    0.44   1.00 |   15.5 ms    7.74  17.45 |   1.43 ms    0.72   1.61 |   1.00 ms    0.50   1.13 |   4.98 ms    2.49   5.61
+RootDup      |    968 us    0.48   1.00 |   11.2 ms    5.58  11.52 |   1.19 ms    0.59   1.23 |    892 us    0.45   0.92 |   5.42 ms    2.71   5.60
+Depth        |   1.13 ms    0.57   1.00 |   13.3 ms    6.65  11.74 |   1.54 ms    0.77   1.36 |   1.11 ms    0.56   0.98 |   6.47 ms    3.23   5.71
+Few 4        |    384 us    0.19   1.00 |   3.24 ms    1.62   8.44 |   1.52 ms    0.76   3.96 |   1.18 ms    0.59   3.06 |   6.95 ms    3.47  18.09
+Heavy 4      |    935 us    0.47   1.00 |   11.8 ms    5.92  12.66 |   1.86 ms    0.93   1.99 |   1.11 ms    0.56   1.19 |   6.12 ms    3.06   6.54
+Clusters     |   1.00 ms    0.50   1.00 |   7.69 ms    3.85   7.67 |   1.32 ms    0.66   1.31 |   1.03 ms    0.52   1.03 |   6.37 ms    3.18   6.35
+Range 16     |   1.05 ms    0.53   1.00 |   4.99 ms    2.49   4.74 |   1.36 ms    0.68   1.29 |   1.07 ms    0.53   1.01 |   4.05 ms    2.02   3.84
+Sorted       |    232 us    0.12   1.00 |    664 us    0.33   2.86 |   2.55 ms    1.27  10.96 |    215 us    0.11   0.93 |    191 us    0.10   0.82
+Sorted desc  |    225 us    0.11   1.00 |   21.5 ms   10.74  95.35 |   2.57 ms    1.28  11.40 |    348 us    0.17   1.54 |   7.58 ms    3.79  33.62
+Near sorted  |   1.29 ms    0.65   1.00 |   22.1 ms   11.06  17.14 |   2.57 ms    1.29   1.99 |   2.83 ms    1.42   2.19 |   7.20 ms    3.60   5.58
+Sort rnd tl  |   1.32 ms    0.66   1.00 |   21.8 ms   10.92  16.51 |   2.49 ms    1.25   1.88 |   1.67 ms    0.83   1.26 |   7.41 ms    3.70   5.60
+Runs 8       |   1.22 ms    0.61   1.00 |   20.6 ms   10.30  16.84 |   2.03 ms    1.02   1.66 |   1.37 ms    0.69   1.12 |   6.91 ms    3.45   5.65
+Pipe organ   |   1.44 ms    0.72   1.00 |   26.5 ms   13.24  18.36 |   2.28 ms    1.14   1.58 |   3.13 ms    1.57   2.17 |   7.52 ms    3.76   5.21
+Late outl.   |   1.06 ms    0.53   1.00 |   5.06 ms    2.53   4.76 |   1.34 ms    0.67   1.26 |   8.90 ms    4.45   8.37 |   8.64 ms    4.32   8.12
+Sparse 90%   |   2.14 ms    1.07   1.00 |   4.42 ms    2.21   2.07 |   3.59 ms    1.80   1.68 |   3.83 ms    1.92   1.79 |   8.25 ms    4.13   3.86
+Bimodal      |   1.13 ms    0.56   1.00 |   6.76 ms    3.38   5.99 |   1.27 ms    0.63   1.12 |   1.05 ms    0.53   0.93 |   7.65 ms    3.83   6.78
+Gaussian     |    930 us    0.46   1.00 |   16.0 ms    8.02  17.25 |   1.24 ms    0.62   1.34 |    927 us    0.46   1.00 |   5.35 ms    2.68   5.76
+Sensor 3/4   |   1.07 ms    0.54   1.00 |   15.8 ms    7.90  14.74 |   1.26 ms    0.63   1.17 |   1.03 ms    0.51   0.96 |   5.85 ms    2.93   5.46
+Aligned      |   1.04 ms    0.52   1.00 |   10.8 ms    5.41  10.43 |   5.33 ms    2.66   5.14 |   1.51 ms    0.75   1.45 |   5.60 ms    2.80   5.40
+geo. mean    |    885 us    0.44   1.00 |   8.74 ms    4.37   9.88 |   1.78 ms    0.89   2.02 |   1.21 ms    0.60   1.36 |   5.17 ms    2.59   5.85
+median       |   1.04 ms    0.52   1.00 |   11.2 ms    5.58  10.43 |   1.54 ms    0.77   1.58 |   1.07 ms    0.53   1.14 |   6.37 ms    3.18   5.60
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   24 / 31 |                   30 / 31
+
+u16, arrays of 5 000 000 keys: each sort timed on 2 arrays per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   5.23 ms    1.05   1.00 |   53.7 ms   10.74  10.27 |   7.47 ms    1.49   1.43 |   7.31 ms    1.46   1.40 |   19.6 ms    3.93   3.76
+Small        |   2.96 ms    0.59   1.00 |   29.9 ms    5.99  10.11 |   2.91 ms    0.58   0.98 |   3.24 ms    0.65   1.09 |   11.5 ms    2.29   3.88
+Asc Saw      |   2.45 ms    0.49   1.00 |   66.7 ms   13.35  27.24 |   3.16 ms    0.63   1.29 |   2.85 ms    0.57   1.16 |   33.5 ms    6.70  13.67
+Desc Saw     |   2.11 ms    0.42   1.00 |   49.5 ms    9.89  23.42 |   2.60 ms    0.52   1.23 |   1.80 ms    0.36   0.85 |   26.3 ms    5.26  12.46
+Equal        |    453 us    0.09   1.00 |   1.72 ms    0.34   3.81 |   10.5 ms    2.10  23.20 |    511 us    0.10   1.13 |    536 us    0.11   1.18
+Zipf         |   3.01 ms    0.60   1.00 |   31.6 ms    6.32  10.48 |   3.69 ms    0.74   1.22 |   3.00 ms    0.60   1.00 |   14.4 ms    2.89   4.79
+FakeZipf     |   4.34 ms    0.87   1.00 |   10.1 ms    2.02   2.32 |   4.94 ms    0.99   1.14 |   4.41 ms    0.88   1.02 |   16.7 ms    3.33   3.84
+Binary       |    974 us    0.19   1.00 |   6.24 ms    1.25   6.41 |   4.88 ms    0.98   5.01 |   2.57 ms    0.51   2.64 |   18.6 ms    3.72  19.08
+Few 16       |   2.56 ms    0.51   1.00 |   13.8 ms    2.75   5.37 |   3.32 ms    0.66   1.30 |   10.1 ms    2.01   3.93 |   20.7 ms    4.13   8.06
+Spread 256   |   2.76 ms    0.55   1.00 |   24.2 ms    4.85   8.79 |   3.98 ms    0.80   1.44 |   2.65 ms    0.53   0.96 |   18.3 ms    3.67   6.65
+Spread 4k    |   3.62 ms    0.72   1.00 |   35.5 ms    7.10   9.79 |   4.28 ms    0.86   1.18 |   3.54 ms    0.71   0.98 |   14.2 ms    2.83   3.91
+Normal 8     |   2.59 ms    0.52   1.00 |   28.0 ms    5.61  10.81 |   2.70 ms    0.54   1.04 |   2.47 ms    0.49   0.95 |   17.3 ms    3.46   6.66
+Normal 13    |   2.25 ms    0.45   1.00 |   44.2 ms    8.84  19.61 |   2.71 ms    0.54   1.20 |   2.36 ms    0.47   1.05 |   14.1 ms    2.83   6.27
+RootDup      |   2.29 ms    0.46   1.00 |   29.6 ms    5.92  12.94 |   2.66 ms    0.53   1.16 |   2.35 ms    0.47   1.03 |   15.0 ms    3.01   6.58
+Depth        |   2.94 ms    0.59   1.00 |   32.9 ms    6.59  11.20 |   3.51 ms    0.70   1.19 |   2.72 ms    0.54   0.93 |   16.2 ms    3.25   5.52
+Few 4        |    994 us    0.20   1.00 |   8.70 ms    1.74   8.75 |   3.36 ms    0.67   3.38 |   2.92 ms    0.58   2.93 |   17.3 ms    3.46  17.42
+Heavy 4      |   2.14 ms    0.43   1.00 |   29.8 ms    5.96  13.94 |   3.61 ms    0.72   1.69 |   3.14 ms    0.63   1.47 |   18.6 ms    3.72   8.69
+Clusters     |   2.45 ms    0.49   1.00 |   21.3 ms    4.27   8.71 |   3.22 ms    0.64   1.32 |   2.48 ms    0.50   1.01 |   18.5 ms    3.70   7.55
+Range 16     |   2.64 ms    0.53   1.00 |   14.8 ms    2.95   5.60 |   3.05 ms    0.61   1.16 |   2.98 ms    0.60   1.13 |   9.22 ms    1.84   3.50
+Sorted       |    445 us    0.09   1.00 |   1.70 ms    0.34   3.83 |   6.43 ms    1.29  14.44 |    473 us    0.09   1.06 |    438 us    0.09   0.98
+Sorted desc  |    782 us    0.16   1.00 |   48.5 ms    9.69  61.94 |   6.00 ms    1.20   7.67 |    894 us    0.18   1.14 |   22.1 ms    4.42  28.27
+Near sorted  |   3.25 ms    0.65   1.00 |   55.2 ms   11.05  17.00 |   6.75 ms    1.35   2.08 |   8.57 ms    1.71   2.64 |   22.2 ms    4.43   6.82
+Sort rnd tl  |   3.09 ms    0.62   1.00 |   56.0 ms   11.19  18.10 |   7.16 ms    1.43   2.32 |   5.29 ms    1.06   1.71 |   22.5 ms    4.50   7.29
+Runs 8       |   5.56 ms    1.11   1.00 |   49.2 ms    9.83   8.84 |   3.89 ms    0.78   0.70 |   4.38 ms    0.88   0.79 |   22.2 ms    4.43   3.99
+Pipe organ   |   2.52 ms    0.50   1.00 |   68.0 ms   13.59  26.92 |   6.39 ms    1.28   2.53 |   6.51 ms    1.30   2.58 |   23.5 ms    4.70   9.31
+Late outl.   |   2.57 ms    0.51   1.00 |   14.2 ms    2.84   5.53 |   3.41 ms    0.68   1.33 |   20.8 ms    4.17   8.11 |   22.9 ms    4.57   8.90
+Sparse 90%   |   4.87 ms    0.97   1.00 |   10.6 ms    2.12   2.17 |   9.27 ms    1.85   1.90 |   9.41 ms    1.88   1.93 |   23.9 ms    4.79   4.91
+Bimodal      |   2.86 ms    0.57   1.00 |   16.9 ms    3.39   5.92 |   2.91 ms    0.58   1.02 |   2.58 ms    0.52   0.90 |   21.9 ms    4.38   7.65
+Gaussian     |   2.29 ms    0.46   1.00 |   39.2 ms    7.85  17.16 |   2.82 ms    0.56   1.23 |   2.28 ms    0.46   1.00 |   14.4 ms    2.89   6.31
+Sensor 3/4   |   2.54 ms    0.51   1.00 |   36.0 ms    7.21  14.17 |   2.73 ms    0.55   1.07 |   2.44 ms    0.49   0.96 |   15.3 ms    3.06   6.02
+Aligned      |   2.81 ms    0.56   1.00 |   22.7 ms    4.55   8.08 |   12.3 ms    2.46   4.38 |   2.72 ms    0.54   0.97 |   10.8 ms    2.16   3.84
+geo. mean    |   2.31 ms    0.46   1.00 |   22.9 ms    4.59   9.93 |   4.25 ms    0.85   1.84 |   3.12 ms    0.62   1.35 |   14.3 ms    2.85   6.18
+median       |   2.57 ms    0.51   1.00 |   29.8 ms    5.96  10.11 |   3.61 ms    0.72   1.30 |   2.85 ms    0.57   1.06 |   18.3 ms    3.67   6.58
+v2 faster    |                           |                   31 / 31 |                   29 / 31 |                   20 / 31 |                   30 / 31
+
+u16, arrays of 10 000 000 keys: each sort timed on 1 array per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   9.13 ms    0.91   1.00 |   94.0 ms    9.40  10.29 |   9.08 ms    0.91   0.99 |   8.50 ms    0.85   0.93 |   36.1 ms    3.61   3.95
+Small        |   5.32 ms    0.53   1.00 |   54.2 ms    5.42  10.19 |   5.93 ms    0.59   1.12 |   6.32 ms    0.63   1.19 |   25.7 ms    2.57   4.83
+Asc Saw      |   3.49 ms    0.35   1.00 |    103 ms   10.31  29.53 |   4.91 ms    0.49   1.41 |   3.61 ms    0.36   1.04 |   52.6 ms    5.26  15.07
+Desc Saw     |   4.88 ms    0.49   1.00 |    113 ms   11.26  23.05 |   5.11 ms    0.51   1.05 |   4.21 ms    0.42   0.86 |   57.1 ms    5.71  11.69
+Equal        |    972 us    0.10   1.00 |   4.11 ms    0.41   4.22 |   23.9 ms    2.39  24.56 |   1.08 ms    0.11   1.11 |   1.08 ms    0.11   1.12
+Zipf         |   5.82 ms    0.58   1.00 |   71.4 ms    7.14  12.28 |   6.57 ms    0.66   1.13 |   5.94 ms    0.59   1.02 |   35.5 ms    3.55   6.10
+FakeZipf     |   11.3 ms    1.13   1.00 |   22.3 ms    2.23   1.97 |   12.8 ms    1.28   1.13 |   11.4 ms    1.14   1.01 |   41.5 ms    4.15   3.68
+Binary       |   2.16 ms    0.22   1.00 |   12.0 ms    1.20   5.53 |   9.27 ms    0.93   4.28 |   5.38 ms    0.54   2.49 |   42.3 ms    4.23  19.55
+Few 16       |   5.04 ms    0.50   1.00 |   24.0 ms    2.40   4.76 |   5.87 ms    0.59   1.17 |   17.8 ms    1.78   3.54 |   29.9 ms    2.99   5.93
+Spread 256   |   5.00 ms    0.50   1.00 |   42.8 ms    4.28   8.57 |   5.42 ms    0.54   1.08 |   4.94 ms    0.49   0.99 |   28.4 ms    2.84   5.68
+Spread 4k    |   7.15 ms    0.71   1.00 |   61.4 ms    6.14   8.59 |   7.40 ms    0.74   1.04 |   7.00 ms    0.70   0.98 |   26.2 ms    2.62   3.66
+Normal 8     |   5.06 ms    0.51   1.00 |   47.7 ms    4.77   9.42 |   5.32 ms    0.53   1.05 |   4.87 ms    0.49   0.96 |   31.3 ms    3.13   6.17
+Normal 13    |   4.69 ms    0.47   1.00 |   72.0 ms    7.20  15.33 |   5.07 ms    0.51   1.08 |   4.63 ms    0.46   0.99 |   25.9 ms    2.59   5.51
+RootDup      |   4.67 ms    0.47   1.00 |   60.2 ms    6.02  12.90 |   5.14 ms    0.51   1.10 |   4.32 ms    0.43   0.93 |   28.0 ms    2.80   5.99
+Depth        |   5.71 ms    0.57   1.00 |   62.7 ms    6.27  10.98 |   6.62 ms    0.66   1.16 |   5.27 ms    0.53   0.92 |   32.4 ms    3.24   5.68
+Few 4        |   2.08 ms    0.21   1.00 |   16.0 ms    1.60   7.70 |   6.38 ms    0.64   3.07 |   8.92 ms    0.89   4.29 |   31.1 ms    3.11  14.93
+Heavy 4      |   4.74 ms    0.47   1.00 |   47.2 ms    4.72   9.96 |   5.99 ms    0.60   1.26 |   5.08 ms    0.51   1.07 |   29.3 ms    2.93   6.17
+Clusters     |   4.65 ms    0.47   1.00 |   37.9 ms    3.79   8.15 |   5.58 ms    0.56   1.20 |   4.65 ms    0.46   1.00 |   29.0 ms    2.90   6.24
+Range 16     |   5.33 ms    0.53   1.00 |   24.6 ms    2.46   4.62 |   5.79 ms    0.58   1.09 |   5.52 ms    0.55   1.03 |   16.2 ms    1.62   3.05
+Sorted       |    892 us    0.09   1.00 |   3.44 ms    0.34   3.85 |   13.8 ms    1.38  15.43 |   1.02 ms    0.10   1.15 |    976 us    0.10   1.09
+Sorted desc  |   1.72 ms    0.17   1.00 |   90.1 ms    9.01  52.53 |   13.5 ms    1.35   7.84 |   1.63 ms    0.16   0.95 |   47.9 ms    4.79  27.92
+Near sorted  |   5.24 ms    0.52   1.00 |   93.2 ms    9.32  17.79 |   13.5 ms    1.35   2.58 |   15.4 ms    1.54   2.94 |   51.6 ms    5.16   9.85
+Sort rnd tl  |   5.91 ms    0.59   1.00 |   92.3 ms    9.23  15.60 |   12.6 ms    1.26   2.13 |   11.5 ms    1.15   1.95 |   49.8 ms    4.98   8.42
+Runs 8       |   5.97 ms    0.60   1.00 |   83.6 ms    8.36  14.00 |   7.59 ms    0.76   1.27 |   7.51 ms    0.75   1.26 |   54.3 ms    5.43   9.09
+Pipe organ   |   5.03 ms    0.50   1.00 |    115 ms   11.46  22.81 |   10.6 ms    1.06   2.11 |   8.94 ms    0.89   1.78 |   52.8 ms    5.28  10.51
+Late outl.   |   4.94 ms    0.49   1.00 |   24.0 ms    2.40   4.87 |   5.56 ms    0.56   1.13 |   44.9 ms    4.49   9.09 |   42.6 ms    4.26   8.64
+Sparse 90%   |   9.11 ms    0.91   1.00 |   20.3 ms    2.03   2.23 |   14.8 ms    1.48   1.62 |   14.2 ms    1.42   1.56 |   40.3 ms    4.03   4.42
+Bimodal      |   5.25 ms    0.53   1.00 |   28.7 ms    2.87   5.47 |   5.57 ms    0.56   1.06 |   5.45 ms    0.54   1.04 |   37.3 ms    3.73   7.10
+Gaussian     |   4.68 ms    0.47   1.00 |   67.0 ms    6.70  14.33 |   4.95 ms    0.49   1.06 |   4.36 ms    0.44   0.93 |   29.1 ms    2.91   6.22
+Sensor 3/4   |   4.83 ms    0.48   1.00 |   61.1 ms    6.11  12.64 |   5.28 ms    0.53   1.09 |   4.60 ms    0.46   0.95 |   25.4 ms    2.54   5.26
+Aligned      |   5.04 ms    0.50   1.00 |   42.3 ms    4.23   8.40 |   19.2 ms    1.92   3.81 |   5.32 ms    0.53   1.05 |   19.5 ms    1.95   3.87
+geo. mean    |   4.45 ms    0.44   1.00 |   41.7 ms    4.17   9.38 |   7.77 ms    0.78   1.75 |   5.92 ms    0.59   1.33 |   27.5 ms    2.75   6.19
+median       |   5.03 ms    0.50   1.00 |   54.2 ms    5.42   9.96 |   6.38 ms    0.64   1.16 |   5.38 ms    0.54   1.04 |   31.3 ms    3.13   6.10
+v2 faster    |                           |                   31 / 31 |                   30 / 31 |                   19 / 31 |                   31 / 31
+
+u16, arrays of 30 000 000 keys: each sort timed on 1 array per measurement, 11 measurements, median kept
+distribution | v2                        | std                       | v1                        | blazing                   | turbosort                
+             |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio |  duration  ns/key  ratio
+Unif         |   22.8 ms    0.76   1.00 |    246 ms    8.19  10.76 |   25.6 ms    0.85   1.12 |   25.6 ms    0.85   1.12 |   89.1 ms    2.97   3.90
+Small        |   13.0 ms    0.43   1.00 |    129 ms    4.31   9.96 |   15.8 ms    0.53   1.22 |   16.9 ms    0.56   1.30 |   63.6 ms    2.12   4.90
+Asc Saw      |   8.61 ms    0.29   1.00 |    246 ms    8.18  28.52 |   13.6 ms    0.45   1.58 |   10.8 ms    0.36   1.26 |    124 ms    4.12  14.37
+Desc Saw     |   11.3 ms    0.38   1.00 |    246 ms    8.19  21.83 |   13.7 ms    0.46   1.22 |   11.1 ms    0.37   0.99 |    124 ms    4.14  11.02
+Equal        |   2.94 ms    0.10   1.00 |   9.98 ms    0.33   3.40 |   51.3 ms    1.71  17.45 |   2.45 ms    0.08   0.83 |   2.97 ms    0.10   1.01
+Zipf         |   14.6 ms    0.49   1.00 |    170 ms    5.68  11.70 |   18.0 ms    0.60   1.24 |   17.4 ms    0.58   1.19 |   78.9 ms    2.63   5.42
+FakeZipf     |   23.2 ms    0.77   1.00 |   45.2 ms    1.51   1.95 |   28.4 ms    0.95   1.23 |   29.9 ms    1.00   1.29 |   99.6 ms    3.32   4.30
+Binary       |   7.32 ms    0.24   1.00 |   35.7 ms    1.19   4.88 |   27.3 ms    0.91   3.73 |   16.5 ms    0.55   2.26 |    125 ms    4.16  17.05
+Few 16       |   12.2 ms    0.41   1.00 |   73.3 ms    2.44   5.99 |   17.6 ms    0.59   1.44 |   55.2 ms    1.84   4.51 |   90.4 ms    3.01   7.39
+Spread 256   |   13.0 ms    0.43   1.00 |    132 ms    4.39  10.12 |   16.7 ms    0.56   1.29 |   15.5 ms    0.52   1.19 |   81.3 ms    2.71   6.26
+Spread 4k    |   18.9 ms    0.63   1.00 |    186 ms    6.21   9.85 |   22.3 ms    0.74   1.18 |   22.0 ms    0.73   1.16 |   72.4 ms    2.41   3.83
+Normal 8     |   12.8 ms    0.43   1.00 |    145 ms    4.85  11.35 |   16.1 ms    0.54   1.26 |   14.9 ms    0.50   1.16 |   88.2 ms    2.94   6.88
+Normal 13    |   11.4 ms    0.38   1.00 |    217 ms    7.24  19.00 |   15.1 ms    0.50   1.32 |   15.0 ms    0.50   1.31 |   70.9 ms    2.36   6.20
+RootDup      |   11.7 ms    0.39   1.00 |    193 ms    6.43  16.45 |   15.5 ms    0.52   1.32 |   13.7 ms    0.46   1.17 |   78.1 ms    2.60   6.67
+Depth        |   14.4 ms    0.48   1.00 |    189 ms    6.29  13.12 |   19.9 ms    0.66   1.38 |   16.7 ms    0.56   1.16 |   92.7 ms    3.09   6.44
+Few 4        |   7.40 ms    0.25   1.00 |   50.7 ms    1.69   6.85 |   19.2 ms    0.64   2.59 |   17.9 ms    0.60   2.42 |   91.9 ms    3.06  12.41
+Heavy 4      |   11.9 ms    0.40   1.00 |    138 ms    4.61  11.62 |   17.0 ms    0.57   1.43 |   15.5 ms    0.52   1.30 |   87.2 ms    2.91   7.33
+Clusters     |   12.8 ms    0.43   1.00 |    116 ms    3.87   9.06 |   16.7 ms    0.56   1.31 |   14.9 ms    0.50   1.17 |   87.4 ms    2.91   6.82
+Range 16     |   10.3 ms    0.34   1.00 |   73.2 ms    2.44   7.13 |   17.2 ms    0.57   1.67 |   17.4 ms    0.58   1.69 |   48.4 ms    1.61   4.71
+Sorted       |   3.02 ms    0.10   1.00 |   10.2 ms    0.34   3.38 |   46.1 ms    1.54  15.25 |   2.76 ms    0.09   0.91 |   2.78 ms    0.09   0.92
+Sorted desc  |   5.20 ms    0.17   1.00 |    270 ms    8.98  51.79 |   48.4 ms    1.61   9.30 |   5.51 ms    0.18   1.06 |    125 ms    4.18  24.10
+Near sorted  |   14.8 ms    0.49   1.00 |    275 ms    9.17  18.62 |   45.0 ms    1.50   3.05 |   55.5 ms    1.85   3.76 |    137 ms    4.58   9.29
+Sort rnd tl  |   16.7 ms    0.56   1.00 |    301 ms   10.03  18.06 |   46.9 ms    1.56   2.82 |   43.9 ms    1.46   2.63 |    137 ms    4.58   8.24
+Runs 8       |   11.7 ms    0.39   1.00 |    250 ms    8.33  21.30 |   29.9 ms    1.00   2.55 |   27.9 ms    0.93   2.38 |    153 ms    5.11  13.08
+Pipe organ   |   14.3 ms    0.48   1.00 |    342 ms   11.39  23.89 |   44.2 ms    1.47   3.09 |   23.7 ms    0.79   1.66 |    135 ms    4.51   9.46
+Late outl.   |   10.9 ms    0.36   1.00 |   74.6 ms    2.49   6.84 |   17.3 ms    0.58   1.58 |    133 ms    4.43  12.19 |    129 ms    4.32  11.87
+Sparse 90%   |   24.6 ms    0.82   1.00 |   56.1 ms    1.87   2.28 |   43.9 ms    1.46   1.78 |   58.4 ms    1.95   2.37 |    121 ms    4.02   4.90
+Bimodal      |   14.0 ms    0.47   1.00 |   89.1 ms    2.97   6.38 |   17.0 ms    0.57   1.22 |   18.3 ms    0.61   1.31 |    114 ms    3.81   8.18
+Gaussian     |   11.3 ms    0.38   1.00 |    201 ms    6.71  17.78 |   14.5 ms    0.48   1.28 |   13.7 ms    0.46   1.21 |   81.9 ms    2.73   7.23
+Sensor 3/4   |   12.4 ms    0.41   1.00 |    188 ms    6.26  15.19 |   15.5 ms    0.52   1.25 |   14.7 ms    0.49   1.19 |   81.6 ms    2.72   6.60
+Aligned      |   16.0 ms    0.53   1.00 |    130 ms    4.33   8.15 |   58.9 ms    1.96   3.69 |   17.4 ms    0.58   1.09 |   65.7 ms    2.19   4.12
+geo. mean    |   11.6 ms    0.39   1.00 |    119 ms    3.97  10.28 |   23.4 ms    0.78   2.02 |   18.1 ms    0.60   1.56 |   76.2 ms    2.54   6.58
+median       |   12.4 ms    0.41   1.00 |    145 ms    4.85  10.76 |   18.0 ms    0.60   1.43 |   16.9 ms    0.56   1.26 |   89.1 ms    2.97   6.82
+v2 faster    |                           |                   31 / 31 |                   31 / 31 |                   28 / 31 |                   30 / 31
+
