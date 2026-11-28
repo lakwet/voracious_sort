@@ -1,0 +1,4 @@
+# Line endings: LF only (development rule), whatever the platform.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

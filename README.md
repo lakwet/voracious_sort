@@ -348,7 +348,8 @@ the tools below, before it is kept.
 
 Pull requests are welcome. The CI checks that the code is formatted
 (`cargo +nightly fmt`) and that the correctness tests pass on Linux, Windows
-and macOS.
+and macOS. Line endings are LF only, never CRLF, on every platform
+(`.gitattributes` enforces it; on Windows, set your editor to LF).
 
 **You can also help without writing code: run a benchmark on your machine.**
 One key type is enough, for example `make bench-type T=u64` (or `T=u32`,
