@@ -47,6 +47,38 @@ macro_rules! dlsd_sort_stack_ab {
             let mut stack = [MaybeUninit::<$uint>::uninit(); STACK_KEYS];
             let n = bits.len().min(STACK_KEYS);
             let mut scratch = Scratch { stack: &mut stack[..n], heap: Vec::new() };
+            // Trial: x86, the switch to the LSD (an exact prefix over nearly
+            // the whole key) decided on the sorted sample, before the min /
+            // max pass (Clusters paid that pass and the sample for nothing);
+            // the sample is then handed to the DLSD.
+            let n = bits.len();
+            if cfg!(not(target_arch = "aarch64")) && n > small_limit() {
+                let mut sst = [0 as $uint; STACK_SAMPLE];
+                let mut sheap: Vec<$uint> = Vec::new();
+                let sample = sample_slots(&mut sst, &mut sheap, sample_size(n));
+                for (i, slot) in sample.iter_mut().enumerate() {
+                    *slot = w::encode_key(bits[spread_position(i, n)]);
+                }
+                sample.sort_unstable();
+                let (smin, smax) = (sample[0], sample[sample.len() - 1]);
+                if smax > smin {
+                    let top = <$uint>::BITS - (smax - smin).leading_zeros();
+                    let mut rel = [0 as $uint; STACK_SAMPLE];
+                    let mut rheap: Vec<$uint> = Vec::new();
+                    let rel = sample_slots(&mut rel, &mut rheap, sample.len());
+                    for (r, &k) in rel.iter_mut().zip(sample.iter()) {
+                        *r = k - smin;
+                    }
+                    let l = Layout::new(prefix_from_sample(rel, n, top), top, n);
+                    if l.exact && l.digits >= 3 && top + 4 >= <$uint>::BITS {
+                        trace!("dlsd_to_lsd");
+                        w::lsd(bits);
+                        return;
+                    }
+                }
+                dlsd_rec::<true>(bits, &mut scratch, Some(sample), None);
+                return;
+            }
             dlsd_rec::<true>(bits, &mut scratch, None, None);
         }
 
