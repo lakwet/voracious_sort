@@ -30,9 +30,10 @@ pub(crate) static SKIP: std::sync::atomic::AtomicU64 = std::sync::atomic::Atomic
 /// cut (55), short32 bounds (54); ARM: 512, 42, 43, 46, 47, networks from 80
 /// to 256 keys (49, 57, 56), 54; both: count tables of 128-256 KiB on the
 /// stack (59), a global trend under local noise to the LSD (60), at most 4
-/// values counted by comparisons in short32 (62), few4_early vectorized (61).
+/// values counted by comparisons in short32 (62), few4_early vectorized (61),
+/// composite keys to the LSD from 65 536 keys (63).
 pub(crate) const KEPT: u64 =
-    if cfg!(target_arch = "aarch64") { 8881885715500106240 } else { 8710766521846071808 };
+    if cfg!(target_arch = "aarch64") { 18105257752354882048 } else { 17934138558700847616 };
 
 /// The light chain up to this many keys (env `AB_LIGHT_MAX`, default 8192).
 fn light_max() -> usize {
