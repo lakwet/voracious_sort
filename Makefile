@@ -48,7 +48,7 @@ clean: ## remove the build files
 # ---------------------------------------------------------------------------
 # Benchmarks (src/tests/bench/bench_cpu.rs): voracious 2.0 against 1.x, std
 # and the best rivals of each type. Two files per run in
-# resultsbenchs/<machine>/: a report to read (.txt, also printed) and the
+# resultsbenchs/<cpu>/: a report to read (.txt, also printed) and the
 # raw data (.csv, for tools/bench_report.py).
 
 ifeq ($(OS),Windows_NT)
@@ -209,7 +209,7 @@ gros-intel: ## the Core Ultra's night (~7 h): bench-16 (u16, i16, generic then n
 	@$(MAKE) --no-print-directory bench-16
 	@$(MAKE) --no-print-directory abench-32
 	@$(MAKE) --no-print-directory abench-32 NATIVE=1
-	@echo "done: send resultsbenchs/$(ABENCH_HOST)/bench-*.csv and .txt, bench_work/$(ABENCH_HOST)/bench-*.csv"
+	@echo "done: send resultsbenchs/$(CPU_SLUG)/bench-*.csv and .txt, bench_work/$(ABENCH_HOST)/bench-*.csv"
 
 bench-records: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
 bench-records: export BENCH_NAME = bench-records$(if $(T),-$(T))
