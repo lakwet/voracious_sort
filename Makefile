@@ -195,6 +195,17 @@ abench-32: ## cold A/B (fresh pages for every buffer) of the 32-bit chain and it
 	cargo build -q --release --example ab_u32 --features "bench ab"
 	@d=$$(date +%Y%m%d%H%M); for t in u32 i32; do 	  FRESH=1 COLD=1 TOTAL=12000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 example, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/abench-$(CPU_SLUG)-$$t-$(BUILD_KIND)-$$d.csv 	  DOM_SIZES=$(ABENCH32_SIZES) SORTS=v2,copy,std,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/abench-cold-$$t.txt || exit 1; done
 
+abench-oracle: export RUSTFLAGS = $(BENCH_RUSTFLAGS)
+abench-oracle: ## cold oracle of the 32-bit engines: the chain, its copy, the LSD, the stack DLSD and the rollercoaster alone, against blazing, turbosort, glidesort (u32, i32; NATIVE=1)
+	@mkdir -p bench_work/$(ABENCH_HOST)
+	cargo build -q --release --example ab_u32 --features "bench ab"
+	@d=$$(date +%Y%m%d%H%M); for t in u32 i32; do 	  CHECK=1 FRESH=1 COLD=1 TOTAL=8000000 REPS=7 T=$$t CPU="$(ABENCH_CPU) (ab_u32 oracle, cold, fresh pages$(if $(filter 1,$(NATIVE)), native))" 	  CSV=bench_work/$(ABENCH_HOST)/oracle-$(CPU_SLUG)-$$t-$(BUILD_KIND)-$$d.csv 	  DOM_SIZES=1000,5000,20000,100000,200000,1000000 SORTS=v2,copy,lsd,dlsds,roller,blz,turbo,glide 	  ./target/release/examples/ab_u32 > bench_work/$(ABENCH_HOST)/oracle-$$t-$(BUILD_KIND).txt || exit 1; done
+
+gros-intel-oracle: ## the Core Ultra: abench-oracle generic then native (~1 h 30)
+	@$(MAKE) --no-print-directory abench-oracle
+	@$(MAKE) --no-print-directory abench-oracle NATIVE=1
+	@echo "done: send bench_work/$(ABENCH_HOST)/oracle-*.csv"
+
 gros-intel: ## the Core Ultra's night (~7 h): bench-16 (u16, i16, generic then native), then abench-32 generic and native
 	@$(MAKE) --no-print-directory bench-16
 	@$(MAKE) --no-print-directory abench-32
