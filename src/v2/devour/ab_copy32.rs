@@ -805,5 +805,5 @@ macro_rules! chain32_ab {
     };
 }
 
-chain32_ab!(cu32, u32, id32, wu32, su32, ru32);
-chain32_ab!(ci32, i32, flip32, wi32, si32, ri32);
+chain32_ab!(cu32, u32, id32, wu32, su32x, ru32);
+chain32_ab!(ci32, i32, flip32, wi32, si32x, ri32);

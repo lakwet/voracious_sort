@@ -13,6 +13,9 @@
 mod kernels;
 #[macro_use]
 mod sort_stack;
+#[cfg(feature = "ab")]
+#[macro_use]
+mod sort_stack_ab;
 #[macro_use]
 mod prefix;
 #[macro_use]
@@ -168,3 +171,29 @@ macro_rules! dlsd_width_stack {
 
 dlsd_width_stack!(u32, wu32, su32, alias_min_bytes_int, 16);
 dlsd_width_stack!(u32, wi32, si32, alias_min_bytes_int, 16);
+
+/// Dev only (feature `ab`): the A/B copy of the stack DLSD (`sort_stack_ab.rs`).
+#[cfg(feature = "ab")]
+macro_rules! dlsd_width_stack_ab {
+    ($uint:ty, $w:ident, $m:ident, $alias_min:path, $smin:expr) => {
+        pub(crate) mod $m {
+            use super::super::lsd::$w as w;
+            use super::*;
+
+            /// Smallest sample for the prefix length (shadows the engine's).
+            const SAMPLE_MIN: usize = $smin;
+
+            /// Keys per staging slot (one 64-byte cache line).
+            const WB: usize = 64 / std::mem::size_of::<$uint>();
+
+            dlsd_sort_stack_ab!($uint, $alias_min);
+            dlsd_prefix!($uint);
+            dlsd_kernels!($uint);
+        }
+    };
+}
+
+#[cfg(feature = "ab")]
+dlsd_width_stack_ab!(u32, wu32, su32x, alias_min_bytes_int, 16);
+#[cfg(feature = "ab")]
+dlsd_width_stack_ab!(u32, wi32, si32x, alias_min_bytes_int, 16);
